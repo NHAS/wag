@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>MFA Details</title>
+  <meta name="description" content="MFA Secret Details">
+  <meta name="author" content="Jordan Smith">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="static/css/normalize.css">
+  <link rel="stylesheet" href="static/css/skeleton.css">
+
+  <!-- Favicon
+–––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="static/images/favicon.png">
+
+</head>
+
+<body>
+
+  <!-- Primary Page Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container">
+    <div class="row">
+      <div class="one-half column offset-by-three" style="margin-top: 5%">
+        <h4>Configure mobile app</h4>
+        <ol>
+          <li>Install Google Authenticator.</li>
+          <li>In the app, tap the + symbol and choose "Scan a QR code".</li>
+          <li>Scan the image below.</li>
+          <li>Enter Code and hit submit</li>
+        </ol>
+
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="one-half column offset-by-three" style="text-align: center;">
+        <img src="{{.ImageData}}" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="one-half column offset-by-three" style="margin-top: 2.5%">
+        <p>
+          If you are unable to scan this image, select "Enter a setup key" and enter the following information.
+        </p>
+        <p style="margin-bottom: 0;">Account name: {{.AccountName}}</p>
+        <p style="margin-bottom: 0;">Your key: {{.Key}}</p>
+        <p style="margin-bottom: 0;">Type of key: Time based</p>
+      </div>
+    </div>
+
+    {{if .ValidationFailed }}
+    <div class="one-half column offset-by-three" style="margin-top: 1%">
+      <p class="alert alert-error">Validation Failed</p>
+    </div>
+    {{end}}
+
+    <form method="POST" action="/authorise/" autocomplete="off">
+      <div class="row" style="margin-top: 1%">
+        <div class="one-half column offset-by-three">
+          <label for="mfaCode">MFA Code</label>
+          <input name="code" class="u-full-width" type="text" max="6" min="6" placeholder="000000" id="mfaCode">
+        </div>
+
+        <div class="one-half column offset-by-three">
+          <input class="button-primary u-pull-right" type="submit" value="Submit">
+        </div>
+      </div>
+    </form>
+
+  </div>
+
+  <!-- End Document
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+</body>
+
+</html>

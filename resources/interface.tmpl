@@ -1,0 +1,11 @@
+{{if .ClientPrivateKey}}
+[Interface]
+PrivateKey = {{.ClientPrivateKey}}
+{{end}}
+Address = {{- .ClientAddress}}
+
+[Peer]
+Endpoint =  {{.ServerAddress}}
+PublicKey = {{.ServerPublicKey}}
+AllowedIPs = {{StringsJoin .CapturedAddresses ", "}}
+PersistentKeepAlive = 10
