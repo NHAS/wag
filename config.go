@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 )
 
 var Config struct {
@@ -16,8 +17,7 @@ var Config struct {
 	}
 	DatabaseLocation string
 	Issuer           string
-	InternalRange    string
-	StartingAddress  string `json:"-"`
+	VPNRange         *net.IPNet `json:"-"`
 	MFAAddresses     []string
 	CapturedAddreses []string
 }

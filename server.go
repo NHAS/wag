@@ -85,7 +85,10 @@ func (g *server) Init(args []string) error {
 
 	g.address = GetIP(addresses[0].String())
 
-	Config.StartingAddress = GetIP(addresses[0].String())
+	_, Config.VPNRange, err = net.ParseCIDR(addresses[0].String())
+	if err != nil {
+		return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
+	}
 	//Add the servers tunnel address to the captured addresses, otherwise clients cant connect to /authorise
 	Config.CapturedAddreses = append(Config.CapturedAddreses, GetIP(addresses[0].String())+"/32")
 

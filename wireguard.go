@@ -62,7 +62,9 @@ func AddDevice(public wgtypes.Key) (string, error) {
 	}
 
 	//Poor selection algorithm
-	newAddress := Config.StartingAddress
+
+	//If we dont have any peers take the server tun address and increment that
+	newAddress := Config.VPNRange.IP.String()
 	if len(dev.Peers) > 0 {
 		addresses := []string{}
 		for _, peer := range dev.Peers {
@@ -72,7 +74,7 @@ func AddDevice(public wgtypes.Key) (string, error) {
 		newAddress = addresses[len(addresses)-1]
 	}
 
-	newAddress, err = incrementIP(newAddress, Config.InternalRange)
+	newAddress, err = incrementIP(newAddress, Config.VPNRange.String())
 	if err != nil {
 		return "", err
 	}
