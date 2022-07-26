@@ -1,10 +1,12 @@
-package main
+package commands
 
 import (
 	"errors"
 	"flag"
 	"fmt"
 	"strings"
+	"wag/config"
+	"wag/database"
 )
 
 type registration struct {
@@ -12,19 +14,20 @@ type registration struct {
 
 	token    string
 	username string
-	config   string
 	action   string
 }
 
-func RegistrationSubCommand() *registration {
+func Registration() *registration {
 	gc := &registration{
 		fs: flag.NewFlagSet("registration", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.action, "action", "add", "add, del or list registration tokens")
 	gc.fs.StringVar(&gc.token, "token", "", "Manually set registration token (Optional)")
 	gc.fs.StringVar(&gc.username, "username", "", "Username of device")
-	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
+
+	gc.fs.Bool("add", false, "Create a new enrolment token")
+	gc.fs.Bool("del", false, "Delete existing enrolment token")
+	gc.fs.Bool("list", false, "List tokens")
 
 	return gc
 }
@@ -38,18 +41,18 @@ func (g *registration) PrintUsage() {
 	g.fs.Usage()
 }
 
-func (g *registration) Init(args []string) error {
+func (g *registration) Init(args []string, config config.Config) error {
 	err := g.fs.Parse(args)
 	if err != nil {
 		return err
 	}
 
-	err = LoadConfig(g.config)
-	if err != nil {
-		return err
-	}
-
-	g.action = strings.ToLower(g.action)
+	g.fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "add", "del", "list":
+			g.action = strings.ToLower(f.Name)
+		}
+	})
 
 	switch g.action {
 	case "add":
@@ -63,10 +66,10 @@ func (g *registration) Init(args []string) error {
 		}
 	case "list":
 	default:
-		return errors.New("Invalid action choice")
+		return errors.New("Invalid action choice: " + g.action)
 	}
 
-	err = LoadDb(Config.DatabaseLocation)
+	err = database.Load(config.DatabaseLocation, config.Issuer, config.Lockout)
 	if err != nil {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}
@@ -79,7 +82,7 @@ func (g *registration) Run() error {
 	switch g.action {
 	case "add":
 		if g.token != "" {
-			err := AddRegistrationToken(g.token, g.username)
+			err := database.AddRegistrationToken(g.token, g.username)
 			if err != nil {
 				return err
 			}
@@ -89,7 +92,7 @@ func (g *registration) Run() error {
 			return nil
 		}
 
-		token, err := GenerateToken(g.username)
+		token, err := database.GenerateToken(g.username)
 		if err != nil {
 			return err
 		}
@@ -97,12 +100,12 @@ func (g *registration) Run() error {
 		fmt.Println("OK ", token, g.username)
 	case "del":
 
-		err := DeleteRegistrationToken(g.token)
+		err := database.DeleteRegistrationToken(g.token)
 		if err != nil {
 			return errors.New("Could not delete token: " + err.Error())
 		}
 	case "list":
-		result, err := GetRegistrationTokens()
+		result, err := database.GetRegistrationTokens()
 		if err != nil {
 			return err
 		}

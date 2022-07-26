@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"crypto/rand"
@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-func check(msg string, err error) {
+func Check(msg string, err error) {
 	if err != nil {
 		log.Fatalf("%s: %v", msg, err)
 	}
@@ -22,7 +22,7 @@ func GetIP(addr string) string {
 	return addr
 }
 
-func generateRandomBytes(n uint32) ([]byte, error) {
+func GenerateRandomBytes(n uint32) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -32,7 +32,7 @@ func generateRandomBytes(n uint32) ([]byte, error) {
 	return b, nil
 }
 
-func incrementIP(origIP, cidr string) (string, error) {
+func IncrementIP(origIP, cidr string) (string, error) {
 	ip := net.ParseIP(origIP)
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {

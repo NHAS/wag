@@ -1,47 +1,79 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"wag/commands"
+	"wag/config"
 )
 
-type Runner interface {
-	Init([]string) error
-	Run() error
-	PrintUsage()
-	Name() string
+var cmds = []commands.Command{
+	commands.Start(),
+
+	commands.Registration(),
+	commands.Devices(),
 }
 
-var cmds = []Runner{
-	RegistrationSubCommand(),
-	ServerSubCommand(),
-	DevicesSubCommand(),
-}
+func help(full bool) {
+	fmt.Println("\t\t\tWag")
 
-func help() {
-	fmt.Println("Wag")
-	fmt.Println("Management of wireguard enrollments, and 2fa")
-
-	for _, r := range cmds {
-		r.PrintUsage()
+	if full {
+		fmt.Println("Adds 2fa and device enrolment to wireguard deployments.")
 		fmt.Print("\n")
+	}
+
+	fmt.Print("Supported submodules: ")
+	for i, r := range cmds {
+		fmt.Print(r.Name())
+		if i != len(cmds)-1 {
+			fmt.Print(", ")
+		}
+	}
+	fmt.Print("\n")
+
+	if full {
+		fmt.Println("All submodules require:")
+		fmt.Println("  -config string")
+		fmt.Println("    Configuration file location (default \"./config.json\")")
+
+		for _, r := range cmds {
+			r.PrintUsage()
+			fmt.Print("\n")
+		}
 	}
 }
 
 func root(args []string) error {
 	if len(args) < 1 {
-		help()
-		return errors.New("No subcommand specified")
+		help(false)
+		fmt.Println("No submodule specified (do you need (-h)elp?)")
+		return nil
 	}
 
 	subcommand := os.Args[1]
 
 	for _, cmd := range cmds {
 		if cmd.Name() == subcommand {
-			err := cmd.Init(os.Args[2:])
+
+			var configLocation string
+
+			configfs := flag.NewFlagSet("config", flag.ContinueOnError)
+			configfs.Usage = func() {}
+			configfs.SetOutput(io.Discard)
+
+			configfs.StringVar(&configLocation, "config", "./config.json", "Configuration file location")
+
+			configfs.Parse(os.Args[2:])
+
+			config, err := config.New(configLocation)
+			if err != nil {
+				return err
+			}
+
+			err = cmd.Init(os.Args[2:], config)
 			if err != nil {
 				if err != flag.ErrHelp {
 					fmt.Println("Error: ", err.Error())
@@ -53,11 +85,14 @@ func root(args []string) error {
 		}
 	}
 
-	help()
-	if subcommand == "-h" || subcommand == "--help" || subcommand == "-help" {
-		return nil
+	needsHelp := subcommand == "-h" || subcommand == "--help" || subcommand == "-help"
+
+	help(needsHelp)
+	if !needsHelp {
+		fmt.Printf("Unknown subcommand: %s\n", subcommand)
 	}
-	return fmt.Errorf("Unknown subcommand: %s", subcommand)
+
+	return nil
 }
 
 func main() {
