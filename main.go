@@ -25,7 +25,7 @@ func help(full bool) {
 		fmt.Print("\n")
 	}
 
-	fmt.Print("Supported submodules: ")
+	fmt.Print("Supported commands: ")
 	for i, r := range cmds {
 		fmt.Print(r.Name())
 		if i != len(cmds)-1 {
@@ -35,9 +35,10 @@ func help(full bool) {
 	fmt.Print("\n")
 
 	if full {
-		fmt.Println("All submodules require:")
+		fmt.Println("All commands require:")
 		fmt.Println("  -config string")
 		fmt.Println("    Configuration file location (default \"./config.json\")")
+		fmt.Print("\n")
 
 		for _, r := range cmds {
 			r.PrintUsage()

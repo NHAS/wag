@@ -40,8 +40,6 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 
 	capturedAddresses = append(config.Routes.Public, config.Routes.AuthRequired...)
 
-	log.Println("Started listening: ")
-
 	tunnel := http.NewServeMux()
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
@@ -49,7 +47,6 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	tunnel.HandleFunc("/", index)
 
 	go func() {
-		log.Println("\tTunnel Listener: ", config.Listen.Tunnel)
 		err <- fmt.Errorf("Webserver tunnel listener failed: %v", http.ListenAndServe(config.Listen.Tunnel, tunnel))
 	}()
 
@@ -57,10 +54,13 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	public.HandleFunc("/register_device", registerDevice)
 
 	go func() {
-		log.Println("\tPublic Listener: ", config.Listen.Public)
 		err <- fmt.Errorf("Webserver public listener failed: %v", http.ListenAndServe(config.Listen.Public, public))
 	}()
 
+	//Group the print statement so that multithreading wont disorder them
+	log.Println("Started listening:\n",
+		"\t\t\tTunnel Listener: ", config.Listen.Tunnel, "\n",
+		"\t\t\tPublic Listener: ", config.Listen.Public)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {

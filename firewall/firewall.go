@@ -88,6 +88,12 @@ func Setup(tunnelWebserverPort, devName string, unauthedAddrs, authedAddrs []str
 		return err
 	}
 
+	log.Println("Started firewall management: \n",
+		"\t\t\tSetting filter FORWARD policy to DROP\n",
+		"\t\t\tCreated WAG_INPUT chain\n",
+		"\t\t\tCreated WAG_FORWARD chain\n",
+		"\t\t\tSet public forwards")
+
 	return nil
 }
 
