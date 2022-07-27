@@ -1,0 +1,17 @@
+{
+    "WgDevName": "wg0",
+    "Lockout": 5,
+    "SessionTimeoutMinutes": 10,
+    "ExternalAddress": "192.168.56.3",
+    "DatabaseLocation": "devices.db",
+    "Issuer": "192.168.56.3",
+    "Routes": {
+        "AuthRequired": [
+            "10.234.0.1/32",
+            "10.14.0.2/24"
+        ],
+        "Public": [
+            "10.0.1.1/32"
+        ]
+    }
+}
