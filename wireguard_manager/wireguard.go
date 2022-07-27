@@ -21,43 +21,41 @@ func StartEndpointWatcher(deviceName string, vpnnet *net.IPNet, Ctrl *wgctrl.Cli
 	wgDevName = deviceName
 	vpnRange = vpnnet
 
-	go func() {
-		var endpoints = map[wgtypes.Key]*net.UDPAddr{}
+	var endpoints = map[wgtypes.Key]*net.UDPAddr{}
 
-		startup := true
+	startup := true
 
-		for {
-			dev, err := ctrl.Device(wgDevName)
-			if err != nil {
-				errChan <- fmt.Errorf("Wireguard endpoint watcher failed: %v", err)
-				return
-			}
-
-			for _, p := range dev.Peers {
-				previousAddress := endpoints[p.PublicKey]
-
-				if len(p.AllowedIPs) != 1 {
-					log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
-					continue
-				}
-
-				if previousAddress.String() != p.Endpoint.String() {
-
-					endpoints[p.PublicKey] = p.Endpoint
-
-					//Dont try and remove rules, if we've just started
-					if !startup {
-						endpointChanges <- p.AllowedIPs[0].IP
-					}
-				}
-
-			}
-
-			startup = false
-
-			time.Sleep(100 * time.Millisecond)
+	for {
+		dev, err := ctrl.Device(wgDevName)
+		if err != nil {
+			errChan <- fmt.Errorf("Wireguard endpoint watcher failed: %v", err)
+			return
 		}
-	}()
+
+		for _, p := range dev.Peers {
+			previousAddress := endpoints[p.PublicKey]
+
+			if len(p.AllowedIPs) != 1 {
+				log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
+				continue
+			}
+
+			if previousAddress.String() != p.Endpoint.String() {
+
+				endpoints[p.PublicKey] = p.Endpoint
+
+				//Dont try and remove rules, if we've just started
+				if !startup {
+					endpointChanges <- p.AllowedIPs[0].IP
+				}
+			}
+
+		}
+
+		startup = false
+
+		time.Sleep(100 * time.Millisecond)
+	}
 
 }
 
