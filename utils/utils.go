@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net"
+	"net/http"
+	"strings"
 )
 
 func Check(msg string, err error) {
@@ -20,6 +22,17 @@ func GetIP(addr string) string {
 		}
 	}
 	return addr
+}
+
+func GetIPFromRequest(r *http.Request) string {
+	ips := r.Header.Get("X-Forwarded-For")
+
+	addresses := strings.Split(ips, ",")
+	if ips != "" && len(addresses) > 0 && net.ParseIP(addresses[0]) != nil {
+		return addresses[0]
+	}
+
+	return GetIP(r.RemoteAddr)
 }
 
 func GenerateRandomBytes(n uint32) ([]byte, error) {

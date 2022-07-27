@@ -14,12 +14,10 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 # Requirements
 
 The wireguard device must be running before wag is started.  
-Wag must not be run behind a reverse proxy just yet. It doesnt support `X-Forward-For` and reads the clients real IP address.  
   
 Iptables must be installed. 
 Wag must be run as root, to manage `iptables` and the `wireguard` device itself.  
    
-
 Forwarding must be enabled in `sysctl`.
 
 ```
@@ -52,6 +50,8 @@ cp example_config config.json
 
 sudo ./wag
 ```
+
+If running behind a reverse proxy, `X-Forwarded-For` must be set.
 
 # Management
 
@@ -180,5 +180,4 @@ Full config example
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- Doesnt support X-Forward-For, or X-Real-IP
 - No TLS (yet)
