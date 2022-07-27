@@ -98,7 +98,7 @@ func ArmMFAFirstUse(address, publickey, username string) error {
 
 func Authenticate(address, code string) (err error) {
 
-	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ?`, address)
+	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, lockoutPolicy)
 	if err != nil {
 		return
 	}
