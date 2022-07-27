@@ -12,7 +12,6 @@ import (
 	"wag/config"
 	"wag/database"
 	"wag/firewall"
-	"wag/utils"
 	"wag/webserver/resources"
 	"wag/wireguard_manager"
 
@@ -28,6 +27,8 @@ var (
 	externalAddress string
 
 	capturedAddresses []string
+
+	isProxied bool
 )
 
 func Start(config config.Config, publickey string, wgport int, err chan<- error) {
@@ -37,6 +38,8 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 
 	wgPort = wgport
 	wgPublicKey = publickey
+
+	isProxied = config.Proxied
 
 	capturedAddresses = append(config.Routes.Public, config.Routes.AuthRequired...)
 
@@ -67,15 +70,15 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	mfaFailed := r.URL.Query().Get("success") == "0"
 
-	actualIP := utils.GetIP(r.RemoteAddr)
+	clientTunnelIp := getIPFromRequest(r)
 
-	if firewall.GetAllowedEndpoint(actualIP) != "" {
+	if firewall.GetAllowedEndpoint(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
 	}
 
-	if database.IsEnforcingMFA(utils.GetIP(actualIP)) {
+	if database.IsEnforcingMFA(clientTunnelIp) {
 		data := resources.MfaPrompt{
 			ValidationFailed: mfaFailed,
 		}
@@ -89,18 +92,18 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(utils.GetIP(r.RemoteAddr), " first use, showing MFA details")
+	log.Println(clientTunnelIp, " first use, showing MFA details")
 
-	key, err := database.ShowSecret(actualIP)
+	key, err := database.ShowSecret(clientTunnelIp)
 	if err != nil {
-		log.Println(actualIP, "showing secrete failed:", err)
+		log.Println(clientTunnelIp, "showing secrete failed:", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
 
 	image, err := key.Image(200, 200)
 	if err != nil {
-		log.Println(actualIP, "generating image failed:", err)
+		log.Println(clientTunnelIp, "generating image failed:", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
@@ -108,7 +111,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	var buff bytes.Buffer
 	err = png.Encode(&buff, image)
 	if err != nil {
-		log.Println(actualIP, "encoding mfa secret as png failed", err)
+		log.Println(clientTunnelIp, "encoding mfa secret as png failed", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
@@ -135,17 +138,17 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actualIP := utils.GetIP(r.RemoteAddr)
+	clientTunnelIp := getIPFromRequest(r)
 
 	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
 	//their totp code
-	_, endpointAddr, err := wireguard_manager.GetDevice(actualIP)
+	_, endpointAddr, err := wireguard_manager.GetDevice(clientTunnelIp)
 	if err != nil {
-		log.Println(actualIP, "unable to find associated device: ", err)
+		log.Println(clientTunnelIp, "unable to find associated device: ", err)
 		return
 	}
 
-	if firewall.GetAllowedEndpoint(actualIP) != "" {
+	if firewall.GetAllowedEndpoint(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -153,7 +156,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	err = r.ParseForm()
 	if err != nil {
-		log.Println(actualIP, "client sent a weird form: ", err)
+		log.Println(clientTunnelIp, "client sent a weird form: ", err)
 
 		http.Error(w, "Bad request", 400)
 		return
@@ -161,39 +164,39 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 
-	err = database.Authenticate(actualIP, code)
+	err = database.Authenticate(clientTunnelIp, code)
 	if err != nil {
-		log.Println(actualIP, " failed to authorise: ", err.Error())
+		log.Println(clientTunnelIp, " failed to authorise: ", err.Error())
 		http.Redirect(w, r, "/?success=0", http.StatusTemporaryRedirect)
 		return
 	}
 
-	err = database.SetAttemptsLeft(actualIP, 0)
+	err = database.SetAttemptsLeft(clientTunnelIp, 0)
 	if err != nil {
-		log.Println(actualIP, "unable to reset number of mfa attempts: ", err)
+		log.Println(clientTunnelIp, "unable to reset number of mfa attempts: ", err)
 
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	if !database.IsEnforcingMFA(actualIP) {
-		err := database.SetMFAEnforcing(actualIP)
+	if !database.IsEnforcingMFA(clientTunnelIp) {
+		err := database.SetMFAEnforcing(clientTunnelIp)
 		if err != nil {
-			log.Println(actualIP, "failed to set MFA to enforcing", err)
+			log.Println(clientTunnelIp, "failed to set MFA to enforcing", err)
 			http.Error(w, "Server error", 500)
 			return
 		}
 	}
 
-	err = firewall.Allow(actualIP, endpointAddr, time.Duration(sessionTimeoutMinutes)*time.Minute)
+	err = firewall.Allow(clientTunnelIp, endpointAddr, time.Duration(sessionTimeoutMinutes)*time.Minute)
 	if err != nil {
-		log.Println(actualIP, "unable to allow device", err)
+		log.Println(clientTunnelIp, "unable to allow device", err)
 
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	log.Println(actualIP, "authorised")
+	log.Println(clientTunnelIp, "authorised")
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(resources.MfaSuccess))

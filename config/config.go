@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	Proxied               bool
 	WgDevName             string
 	Lockout               int
 	ExternalAddress       string
