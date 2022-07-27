@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"wag/config"
+	"wag/control"
 	"wag/database"
 )
 
@@ -14,6 +15,8 @@ type devices struct {
 
 	device string
 	action string
+
+	config config.Config
 }
 
 func Devices() *devices {

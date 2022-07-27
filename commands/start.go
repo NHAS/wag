@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"wag/config"
+	"wag/control"
 	"wag/database"
 	"wag/firewall"
 	"wag/utils"
