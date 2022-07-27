@@ -48,7 +48,8 @@ func (g *start) Name() string {
 
 func (g *start) PrintUsage() {
 	fmt.Println("Usage of start:")
-	fmt.Println("  -config")
+	fmt.Println("  -config string")
+	fmt.Println("    Configuration file location (default \"./config.json\")")
 }
 
 func (g *start) Init(args []string, c config.Config) error {
@@ -150,8 +151,14 @@ func (g *start) Run() error {
 
 	webserver.Start(g.config, g.dev.PublicKey.String(), g.dev.ListenPort, error)
 
-	wireguard_manager.StartEndpointWatcher(g.config.WgDevName, g.config.VPNRange, g.ctrl, endpointChanges, error)
+	go wireguard_manager.StartEndpointWatcher(g.config.WgDevName, g.config.VPNRange, g.ctrl, endpointChanges, error)
 	go firewall.BlockDeviceOnEndpointChange(endpointChanges)
+
+	err = control.StartControlSocket()
+	if err != nil {
+		return fmt.Errorf("Unable to create control socket: %v", err)
+	}
+	defer control.TearDown()
 
 	go func() {
 		cancel := make(chan os.Signal, 1)

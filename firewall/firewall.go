@@ -13,7 +13,7 @@ import (
 
 var (
 	l        sync.RWMutex
-	sessions = map[string]bool{}
+	sessions = map[string]string{}
 
 	//List of addresses that a client is able to hit through the tunnel at all times
 	public []string
@@ -35,7 +35,6 @@ func Setup(tunnelWebserverPort, devName string, unauthedAddrs, authedAddrs []str
 	authed = authedAddrs
 	wgDevName = devName
 
-	log.Println("Setting filter FORWARD policy to DROP")
 	err = ipt.ChangePolicy("filter", "FORWARD", "DROP")
 	if err != nil {
 		return err
@@ -120,32 +119,49 @@ func Allow(address string, expire time.Duration) error {
 
 	l.Lock()
 	// Removed in block
-	sessions[address] = true
+	sessions[address] = endpoint
+
 	l.Unlock()
 
 	//Start a timer to remove entry
-	go func(address string) {
+	go func(address, realendpoint string) {
 		select {
 		case <-time.After(expire):
-			//This is currently buggy, if their endpoint changes, and then they revalidate
-			// They would have two timers waiting to kill them, one pointentionally way shorter
-			log.Println(address, " expiring session because of timeout")
 
+			l.RLock()
+			currentendpoint := sessions[address]
+			l.RUnlock()
+
+			if currentendpoint != realendpoint {
+				return
+			}
+
+			log.Println(address, "expiring session because of timeout")
 			if err := Block(address); err != nil {
 				log.Println("Unable to remove forwards for device: ", err)
 			}
 			return
 		}
-	}(address)
+	}(address, endpoint)
 
 	return nil
 }
 
-func GetSession(address string) bool {
+func GetAllAllowed() map[string]string {
 	l.RLock()
-	_, ok := sessions[address]
+	defer l.RUnlock()
+	output := map[string]string{}
+	for device, endpoint := range sessions {
+		output[device] = endpoint
+	}
+	return output
+}
+
+func GetAllowedEndpoint(address string) string {
+	l.RLock()
+	output := sessions[address]
 	l.RUnlock()
-	return ok
+	return output
 }
 
 func Block(address string) error {

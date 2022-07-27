@@ -113,17 +113,17 @@ func AddDevice(public wgtypes.Key) (string, error) {
 	return network.IP.String(), ctrl.ConfigureDevice(wgDevName, c)
 }
 
-func GetDevice(address string) (wgtypes.Key, error) {
+func GetDevice(address string) (wgtypes.Key, string, error) {
 	dev, err := ctrl.Device(wgDevName)
 	if err != nil {
-		return wgtypes.Key{}, err
+		return wgtypes.Key{}, "", err
 	}
 
 	for _, peer := range dev.Peers {
 		if len(peer.AllowedIPs) == 1 && peer.AllowedIPs[0].IP.String() == address {
-			return peer.PublicKey, nil
+			return peer.PublicKey, peer.Endpoint.String(), nil
 		}
 	}
 
-	return wgtypes.Key{}, errors.New("Not found")
+	return wgtypes.Key{}, "", errors.New("Not found")
 }

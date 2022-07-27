@@ -97,21 +97,24 @@ func (g *registration) Run() error {
 			return err
 		}
 
-		fmt.Println("OK ", token, g.username)
+		fmt.Printf("token,username\n")
+		fmt.Printf("%s,%s\n", token, g.username)
 	case "del":
 
 		err := database.DeleteRegistrationToken(g.token)
 		if err != nil {
 			return errors.New("Could not delete token: " + err.Error())
 		}
+		fmt.Println("OK")
 	case "list":
 		result, err := database.GetRegistrationTokens()
 		if err != nil {
 			return err
 		}
 
+		fmt.Println("token,username")
 		for token, username := range result {
-			fmt.Println(token, " ", username)
+			fmt.Printf("%s,%s\n", token, username)
 		}
 	}
 

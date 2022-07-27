@@ -24,13 +24,14 @@ func Devices() *devices {
 		fs: flag.NewFlagSet("devices", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.action, "action", "list", "del, list, reset devices")
-
 	gc.fs.StringVar(&gc.device, "device", "", "Device address")
 
-	gc.fs.Bool("del", false, "Delete device, this disallows any 2fa attempts")
-	gc.fs.Bool("list", false, "List devices devices with 2fa entries")
+	gc.fs.Bool("del", false, "Completely remove device blocks wireguard access")
+	gc.fs.Bool("list", false, "List devices with 2fa entries")
+	gc.fs.Bool("sessions", false, "Get list of currently active authorised sessions")
+
 	gc.fs.Bool("reset", false, "Reset locked account/device")
+	gc.fs.Bool("lock", false, "Locked account/device access to mfa routes")
 
 	return gc
 }
@@ -50,9 +51,11 @@ func (g *devices) Init(args []string, config config.Config) error {
 		return err
 	}
 
+	g.config = config
+
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "reset", "del", "list":
+		case "reset", "del", "list", "lock", "sessions":
 			g.action = strings.ToLower(f.Name)
 		}
 	})
@@ -60,11 +63,11 @@ func (g *devices) Init(args []string, config config.Config) error {
 	g.action = strings.ToLower(g.action)
 
 	switch g.action {
-	case "del", "reset":
+	case "del", "reset", "lock":
 		if g.device == "" {
 			return errors.New("Device must be supplied")
 		}
-	case "list":
+	case "list", "sessions":
 	default:
 		return errors.New("Invalid action choice")
 	}
@@ -86,20 +89,50 @@ func (g *devices) Run() error {
 		if err != nil {
 			return errors.New("Could not delete token: " + err.Error())
 		}
+
+		err = control.Block(g.device)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("OK")
 	case "list":
 		result, err := database.GetDevices()
 		if err != nil {
 			return err
 		}
 
+		fmt.Println("username,address,publickey,enforcingmfa,authattempts")
 		for address, properties := range result {
-			fmt.Printf(address, "%+v\n", properties)
+			fmt.Printf("%s,%s,%s,%t,%d\n", properties.Username, address, properties.Publickey, properties.Enforcing, properties.Attempts)
 		}
+	case "sessions":
+		sessions, err := control.Sessions()
+		if err != nil {
+			return err
+		}
+		fmt.Println("vpn_address,actual_endpoint")
+		fmt.Println(sessions)
+	case "lock":
+
+		err := database.SetAttemptsLeft(g.device, g.config.Lockout+1)
+		if err != nil {
+			return errors.New("Could not lock device: " + err.Error())
+		}
+
+		err = control.Block(g.device)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("OK")
+
 	case "reset":
 		err := database.SetAttemptsLeft(g.device, 0)
 		if err != nil {
 			return errors.New("Could not reset device authentication attempts: " + err.Error())
 		}
+		fmt.Println("OK")
 	}
 
 	return nil
