@@ -1,6 +1,6 @@
 # Wag
 
-Wag adds much needed 2fa to wireguard.    
+Wag adds 2fa to wireguard.    
 It allows you to restrict routes based on 2fa, while allowing other routes to remain public as long as a client has a valid public key.  
 
 # Requirements
@@ -45,5 +45,6 @@ sudo ./wag
 ```
 
 # Limitations
-Wag only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
-Wag currently only supported IPv4.
+- Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
+- IPv4 only.
+- Linux only
