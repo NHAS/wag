@@ -69,7 +69,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	actualIP := utils.GetIP(r.RemoteAddr)
 
-	if firewall.GetSession(actualIP) {
+	if firewall.GetAllowedEndpoint(actualIP) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -137,13 +137,21 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	actualIP := utils.GetIP(r.RemoteAddr)
 
-	if firewall.GetSession(actualIP) {
+	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
+	//their totp code
+	_, endpointAddr, err := wireguard_manager.GetDevice(actualIP)
+	if err != nil {
+		log.Println(actualIP, "unable to find associated device: ", err)
+		return
+	}
+
+	if firewall.GetAllowedEndpoint(actualIP) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
 	}
 
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		log.Println(actualIP, "client sent a weird form: ", err)
 
@@ -173,10 +181,11 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(actualIP, "failed to set MFA to enforcing", err)
 			http.Error(w, "Server error", 500)
+			return
 		}
 	}
 
-	err = firewall.Allow(actualIP, time.Duration(sessionTimeoutMinutes)*time.Minute)
+	err = firewall.Allow(actualIP, endpointAddr, time.Duration(sessionTimeoutMinutes)*time.Minute)
 	if err != nil {
 		log.Println(actualIP, "unable to allow device", err)
 

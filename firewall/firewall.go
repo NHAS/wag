@@ -107,7 +107,7 @@ func BlockDeviceOnEndpointChange(changedClient <-chan net.IP) {
 	}
 }
 
-func Allow(address string, expire time.Duration) error {
+func Allow(address, endpoint string, expire time.Duration) error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
