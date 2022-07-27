@@ -86,6 +86,11 @@ func (g *start) Init(args []string, c config.Config) error {
 
 	g.address = utils.GetIP(addresses[0].String())
 
+	g.config.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+	if err != nil {
+		return errors.New("Unable to find server address from tunnel interface")
+	}
+
 	_, g.config.VPNRange, err = net.ParseCIDR(addresses[0].String())
 	if err != nil {
 		return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
@@ -155,7 +160,7 @@ func (g *start) Run() error {
 
 	webserver.Start(g.config, g.dev.PublicKey.String(), g.dev.ListenPort, error)
 
-	go wireguard_manager.StartEndpointWatcher(g.config.WgDevName, g.config.VPNRange, g.ctrl, endpointChanges, error)
+	go wireguard_manager.StartEndpointWatcher(g.config.WgDevName, g.config.VPNServerAddress, g.config.VPNRange, g.ctrl, endpointChanges, error)
 	go firewall.BlockDeviceOnEndpointChange(endpointChanges)
 
 	err = control.StartControlSocket()

@@ -25,7 +25,7 @@ func GetAuthenticationAttemptsLeft(address string) (int, error) {
 	return attempts, nil
 }
 
-func SetAttemptsLeft(address string, attempts int) error {
+func SetAttempts(address string, attempts int) error {
 	_, err := database.Exec(`
 	UPDATE 
 		Totp
@@ -101,12 +101,25 @@ func Authenticate(address, code string) (err error) {
 	var url string
 	var attempts int
 
-	err = database.QueryRow(`
-		SELECT url, attempts FROM Totp
-		WHERE
-			address = ?
-	`, address).Scan(&url, &attempts)
+	tx, err := database.Begin()
+	if err != nil {
+		tx.Rollback()
+		return
+	}
 
+	err = tx.QueryRow(`SELECT url, attempts FROM Totp WHERE address = ?`, address).Scan(&url, &attempts)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ?`, address)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return
 	}
@@ -119,14 +132,8 @@ func Authenticate(address, code string) (err error) {
 	if attempts > lockoutPolicy {
 		return errors.New("Account is locked")
 	}
+
 	if !totp.Validate(code, key.Secret()) {
-
-		attempts++
-
-		err = SetAttemptsLeft(address, attempts)
-		if err != nil {
-			return errors.New("Code does not match expected: " + err.Error())
-		}
 		return errors.New("Code does not match expected")
 	}
 

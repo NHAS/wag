@@ -12,14 +12,18 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var ctrl *wgctrl.Client
-var wgDevName string
-var vpnRange *net.IPNet
+var (
+	ctrl             *wgctrl.Client
+	wgDevName        string
+	vpnRange         *net.IPNet
+	vpnServerAddress net.IP
+)
 
-func StartEndpointWatcher(deviceName string, vpnnet *net.IPNet, Ctrl *wgctrl.Client, endpointChanges chan<- net.IP, errChan chan<- error) {
+func StartEndpointWatcher(deviceName string, vpnTunnelServerAddress net.IP, vpnnet *net.IPNet, Ctrl *wgctrl.Client, endpointChanges chan<- net.IP, errChan chan<- error) {
 	ctrl = Ctrl
 	wgDevName = deviceName
 	vpnRange = vpnnet
+	vpnServerAddress = vpnTunnelServerAddress
 
 	var endpoints = map[wgtypes.Key]*net.UDPAddr{}
 
@@ -81,7 +85,7 @@ func AddDevice(public wgtypes.Key) (string, error) {
 	//Poor selection algorithm
 
 	//If we dont have any peers take the server tun address and increment that
-	newAddress := vpnRange.IP.String()
+	newAddress := vpnServerAddress.String()
 	if len(dev.Peers) > 0 {
 		addresses := []string{}
 		for _, peer := range dev.Peers {

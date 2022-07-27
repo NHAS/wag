@@ -115,7 +115,7 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := database.SetAttemptsLeft(g.device, g.config.Lockout+1)
+		err := database.SetAttempts(g.device, g.config.Lockout+1)
 		if err != nil {
 			return errors.New("Could not lock device: " + err.Error())
 		}
@@ -128,7 +128,7 @@ func (g *devices) Run() error {
 		fmt.Println("OK")
 
 	case "reset":
-		err := database.SetAttemptsLeft(g.device, 0)
+		err := database.SetAttempts(g.device, 0)
 		if err != nil {
 			return errors.New("Could not reset device authentication attempts: " + err.Error())
 		}

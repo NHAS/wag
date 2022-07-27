@@ -248,7 +248,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = database.SetAttemptsLeft(clientTunnelIp, 0)
+	err = database.SetAttempts(clientTunnelIp, 0)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to reset number of mfa attempts: ", err)
 

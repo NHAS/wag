@@ -31,6 +31,7 @@ type Config struct {
 	DatabaseLocation string
 	Issuer           string
 	VPNRange         *net.IPNet `json:"-"`
+	VPNServerAddress net.IP     `json:"-"`
 	Routes           struct {
 		AuthRequired []string
 		Public       []string
