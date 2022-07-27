@@ -98,28 +98,15 @@ func ArmMFAFirstUse(address, publickey, username string) error {
 
 func Authenticate(address, code string) (err error) {
 
+	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ?`, address)
+	if err != nil {
+		return
+	}
+
 	var url string
 	var attempts int
 
-	tx, err := database.Begin()
-	if err != nil {
-		tx.Rollback()
-		return
-	}
-
-	err = tx.QueryRow(`SELECT url, attempts FROM Totp WHERE address = ?`, address).Scan(&url, &attempts)
-	if err != nil {
-		tx.Rollback()
-		return
-	}
-
-	_, err = tx.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ?`, address)
-	if err != nil {
-		tx.Rollback()
-		return
-	}
-
-	err = tx.Commit()
+	err = database.QueryRow(`SELECT url, attempts FROM Totp WHERE address = ?`, address).Scan(&url, &attempts)
 	if err != nil {
 		return
 	}
