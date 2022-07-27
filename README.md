@@ -4,6 +4,10 @@ Wag adds 2fa and device enrolment to wireguard.
 
 It allows you to restrict routes based on 2fa, while allowing other routes to remain public as long as a client has a valid public key.  
 
+# Sponsorship 
+
+This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Aura Information Security</a>. 
+
 # Requirements
 
 The wireguard device must be running before wag is started.  
