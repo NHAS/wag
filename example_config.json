@@ -1,6 +1,7 @@
 {
     "WgDevName": "wg0",
     "Lockout": 5,
+    "HelpMail": "help@example.com",
     "SessionTimeoutMinutes": 10,
     "ExternalAddress": "192.168.56.3",
     "DatabaseLocation": "devices.db",

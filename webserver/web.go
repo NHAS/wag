@@ -30,6 +30,8 @@ var (
 	capturedAddresses []string
 
 	isProxied bool
+
+	helpMailAddress string
 )
 
 func Start(config config.Config, publickey string, wgport int, err chan<- error) {
@@ -41,6 +43,8 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	wgPublicKey = publickey
 
 	isProxied = config.Proxied
+
+	helpMailAddress = config.HelpMail
 
 	capturedAddresses = append(config.Routes.Public, config.Routes.AuthRequired...)
 
@@ -153,6 +157,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	if database.IsEnforcingMFA(clientTunnelIp) {
 		data := resources.MfaPrompt{
 			ValidationFailed: mfaFailed,
+			HelpMail:         helpMailAddress,
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")

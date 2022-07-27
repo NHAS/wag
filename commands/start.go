@@ -132,6 +132,10 @@ func (g *start) Init(args []string, c config.Config) error {
 		return fmt.Errorf("At least 1 route must be supplied")
 	}
 
+	if g.config.HelpMail == "" {
+		return fmt.Errorf("No help email address specified")
+	}
+
 	return nil
 
 }

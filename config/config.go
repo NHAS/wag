@@ -20,6 +20,7 @@ func (wb *webserverDetails) SupportsTLS() bool {
 type Config struct {
 	Proxied               bool
 	WgDevName             string
+	HelpMail              string
 	Lockout               int
 	ExternalAddress       string
 	SessionTimeoutMinutes int

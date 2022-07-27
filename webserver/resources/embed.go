@@ -37,6 +37,7 @@ var mfaPromptTmplt string
 
 type MfaPrompt struct {
 	ValidationFailed bool
+	HelpMail         string
 }
 
 var PromptTmpl *template.Template = template.Must(template.New("").Parse(mfaPromptTmplt))

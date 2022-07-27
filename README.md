@@ -142,6 +142,7 @@ The configuration file specifies how long a session can live for, before expirin
 
 # Configuration file reference
 `Proxied`: Respect the `X-Forward-For` directive, must ensure that you are securing the X-Forward-For directive in your reverse proxy  
+`HelpMail`: The email address that is shown on the prompt page
 `WgDevName`: The wireguard tunnel device name that wag will manage  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
@@ -158,6 +159,7 @@ Full config example
 ```
 {
     "Proxied": false,
+    "HelpMail": "help@example.com",
     "WgDevName": "wg0",
     "Lockout": 5,
     "Webserver": {
