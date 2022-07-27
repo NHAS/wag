@@ -8,6 +8,9 @@ It allows you to restrict routes based on 2fa, while allowing other routes to re
 
 This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Aura Information Security</a>. 
 
+![image](https://user-images.githubusercontent.com/6820641/181147262-c7baa5a5-36b2-4153-b01f-5064226ec56e.png)
+
+
 # Requirements
 
 The wireguard device must be running before wag is started.  
