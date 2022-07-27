@@ -7,15 +7,25 @@ import (
 	"net"
 )
 
+type webserverDetails struct {
+	ListenAddress string
+	CertPath      string
+	KeyPath       string
+}
+
+func (wb *webserverDetails) SupportsTLS() bool {
+	return len(wb.CertPath) > 0 && len(wb.KeyPath) > 0
+}
+
 type Config struct {
 	Proxied               bool
 	WgDevName             string
 	Lockout               int
 	ExternalAddress       string
 	SessionTimeoutMinutes int
-	Listen                struct {
-		Public string
-		Tunnel string
+	Webserver             struct {
+		Public webserverDetails
+		Tunnel webserverDetails
 	}
 	DatabaseLocation string
 	Issuer           string
@@ -31,7 +41,6 @@ func New(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
-
 	var c Config
 	err = json.Unmarshal(configBytes, &c)
 	if err != nil {

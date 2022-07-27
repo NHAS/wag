@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"image/png"
@@ -43,27 +44,98 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 
 	capturedAddresses = append(config.Routes.Public, config.Routes.AuthRequired...)
 
+	//https://blog.cloudflare.com/exposing-go-on-the-internet/
+	tlsConfig := &tls.Config{
+		// Causes servers to use Go's default ciphersuite preferences,
+		// which are tuned to avoid attacks. Does nothing on clients.
+		PreferServerCipherSuites: true,
+		// Only use curves which have assembly implementations
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+			tls.X25519, // Go 1.8 only
+		},
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		},
+	}
+
+	public := http.NewServeMux()
+	public.HandleFunc("/register_device", registerDevice)
+
+	if config.Webserver.Public.SupportsTLS() {
+
+		go func() {
+
+			srv := &http.Server{
+				Addr:         config.Webserver.Public.ListenAddress,
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				IdleTimeout:  120 * time.Second,
+				TLSConfig:    tlsConfig,
+				Handler:      setSecurityHeaders(public),
+			}
+
+			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Webserver.Public.CertPath, config.Webserver.Public.KeyPath))
+		}()
+	} else {
+		go func() {
+			srv := &http.Server{
+				Addr:         config.Webserver.Public.ListenAddress,
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				IdleTimeout:  120 * time.Second,
+				Handler:      setSecurityHeaders(public),
+			}
+
+			err <- fmt.Errorf("Webserver tunnel listener failed: %v", srv.ListenAndServe())
+		}()
+	}
+
 	tunnel := http.NewServeMux()
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/", index)
 
-	go func() {
-		err <- fmt.Errorf("Webserver tunnel listener failed: %v", http.ListenAndServe(config.Listen.Tunnel, setSecurityHeaders(tunnel)))
-	}()
+	if config.Webserver.Tunnel.SupportsTLS() {
 
-	public := http.NewServeMux()
-	public.HandleFunc("/register_device", registerDevice)
+		go func() {
 
-	go func() {
-		err <- fmt.Errorf("Webserver public listener failed: %v", http.ListenAndServe(config.Listen.Public, setSecurityHeaders(public)))
-	}()
+			srv := &http.Server{
+				Addr:         config.Webserver.Tunnel.ListenAddress,
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				IdleTimeout:  120 * time.Second,
+				TLSConfig:    tlsConfig,
+				Handler:      setSecurityHeaders(tunnel),
+			}
+
+			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Webserver.Tunnel.CertPath, config.Webserver.Tunnel.KeyPath))
+		}()
+	} else {
+		go func() {
+			srv := &http.Server{
+				Addr:         config.Webserver.Tunnel.ListenAddress,
+				ReadTimeout:  5 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				IdleTimeout:  120 * time.Second,
+				Handler:      setSecurityHeaders(tunnel),
+			}
+
+			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServe())
+		}()
+	}
 
 	//Group the print statement so that multithreading wont disorder them
 	log.Println("Started listening:\n",
-		"\t\t\tTunnel Listener: ", config.Listen.Tunnel, "\n",
-		"\t\t\tPublic Listener: ", config.Listen.Public)
+		"\t\t\tTunnel Listener: ", config.Webserver.Tunnel.ListenAddress, "\n",
+		"\t\t\tPublic Listener: ", config.Webserver.Public.ListenAddress)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {

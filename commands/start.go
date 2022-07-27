@@ -115,15 +115,15 @@ func (g *start) Init(args []string, c config.Config) error {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}
 
-	if g.config.Listen.Tunnel == "" {
-		g.config.Listen.Tunnel = g.address + ":8080"
+	if g.config.Webserver.Tunnel.ListenAddress == "" {
+		g.config.Webserver.Tunnel.ListenAddress = g.address + ":8080"
 	}
 
-	if g.config.Listen.Public == "" {
-		g.config.Listen.Public = "0.0.0.0:8082"
+	if g.config.Webserver.Public.ListenAddress == "" {
+		g.config.Webserver.Public.ListenAddress = "0.0.0.0:8082"
 	}
 
-	_, g.tunnelPort, err = net.SplitHostPort(g.config.Listen.Tunnel)
+	_, g.tunnelPort, err = net.SplitHostPort(g.config.Webserver.Tunnel.ListenAddress)
 	if err != nil {
 		return fmt.Errorf("unable to split host port: %v", err)
 	}
