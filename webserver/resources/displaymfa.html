@@ -22,6 +22,7 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <link rel="stylesheet" href="/static/css/normalize.css">
   <link rel="stylesheet" href="/static/css/skeleton.css">
+  <link rel="stylesheet" href="/static/css/custom.css">
 
   <!-- Favicon
 –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -35,7 +36,7 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <div class="container">
     <div class="row">
-      <div class="one-half column offset-by-three" style="margin-top: 5%">
+      <div class="medium-space one-half column offset-by-three">
         <h4>Configure mobile app</h4>
         <ol>
           <li>Install Google Authenticator.</li>
@@ -48,31 +49,32 @@
     </div>
 
     <div class="row">
-      <div class="one-half column offset-by-three" style="text-align: center;">
+      <div class="one-half column offset-by-three center">
         <img src="{{.ImageData}}" />
       </div>
     </div>
 
     <div class="row">
-      <div class="one-half column offset-by-three" style="margin-top: 2.5%">
+      <div class="quarter-space one-half column offset-by-three">
         <p>
           If you are unable to scan this image, select "Enter a setup key" and enter the following information.
         </p>
-        <p style="margin-bottom: 0;">Account name: {{.AccountName}}</p>
-        <p style="margin-bottom: 0;">Your key: {{.Key}}</p>
-        <p style="margin-bottom: 0;">Type of key: Time based</p>
+
+        <div>Account name: {{.AccountName}}</div>
+        <div>Your key: {{.Key}}</div>
+        <div>Type of key: Time based</div>
       </div>
     </div>
 
     {{if .ValidationFailed }}
-    <div class="one-half column offset-by-three" style="margin-top: 1%">
+    <div class="small-space one-half column offset-by-three">
       <p class="alert alert-error">Validation Failed</p>
     </div>
     {{end}}
 
     <form method="POST" action="/authorise/" autocomplete="off">
-      <div class="row" style="margin-top: 1%">
-        <div class="one-half column offset-by-three">
+      <div class="row">
+        <div class="small-space one-half column offset-by-three">
           <label for="mfaCode">MFA Code</label>
           <input name="code" class="u-full-width" type="text" maxlength="10" placeholder="000000" id="mfaCode">
         </div>

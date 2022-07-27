@@ -47,14 +47,14 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	tunnel.HandleFunc("/", index)
 
 	go func() {
-		err <- fmt.Errorf("Webserver tunnel listener failed: %v", http.ListenAndServe(config.Listen.Tunnel, tunnel))
+		err <- fmt.Errorf("Webserver tunnel listener failed: %v", http.ListenAndServe(config.Listen.Tunnel, setSecurityHeaders(tunnel)))
 	}()
 
 	public := http.NewServeMux()
 	public.HandleFunc("/register_device", registerDevice)
 
 	go func() {
-		err <- fmt.Errorf("Webserver public listener failed: %v", http.ListenAndServe(config.Listen.Public, public))
+		err <- fmt.Errorf("Webserver public listener failed: %v", http.ListenAndServe(config.Listen.Public, setSecurityHeaders(public)))
 	}()
 
 	//Group the print statement so that multithreading wont disorder them

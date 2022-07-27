@@ -22,6 +22,7 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <link rel="stylesheet" href="/static/css/normalize.css">
   <link rel="stylesheet" href="/static/css/skeleton.css">
+  <link rel="stylesheet" href="/static/css/custom.css">
 
   <!-- Favicon
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
@@ -35,7 +36,7 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <div class="container">
     <div class="row">
-      <div class="one-half column offset-by-three" style="margin-top: 25%">
+      <div class="one-half column offset-by-three medium-space">
         <h4 class="">Enter MFA Code</h4>
         <p>
           In order to access restricted resources you must verify your identity. Please enter your MFA code below.
@@ -46,13 +47,13 @@
       </div>
 
       {{if .ValidationFailed }}
-      <div class="one-half column offset-by-three" style="margin-top: 1%">
+      <div class="one-half column offset-by-three small-space">
         <p class="alert alert-error">Validation Failed</p>
       </div>
       {{end}}
 
       <form method="POST" action="/authorise/" autocomplete="off">
-        <div class="row" style="margin-top: 5%">
+        <div class="row medium-space">
           <div class="one-half column offset-by-three">
             <label for="mfaCode">MFA Code</label>
             <input name="code" class="u-full-width" type="text" maxlength="6" placeholder="000000" id="mfaCode">

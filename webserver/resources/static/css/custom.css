@@ -155,3 +155,23 @@
         opacity: 1;
     }
 }
+
+.medium-space {
+    margin-top: 5%
+}
+
+.quarter-space {
+    margin-top: 2.5%
+}
+
+.small-space {
+    margin-top: 1%
+}
+
+.center {
+    text-align: center;
+}
+
+.no-bottom-space {
+    margin-bottom: 0;
+}
