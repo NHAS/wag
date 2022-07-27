@@ -146,7 +146,10 @@ The configuration file specifies how long a session can live for, before expirin
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
 `SessionTimeoutMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes  
-`Listen`: Object that contains the public and tunnel listening addresses of the webserver  
+`Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
+`WebServer.<endpoint>.ListenAddress`: Listen address for endpoint
+`WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint
+`WebServer.<endpoint>.KeyPath`: TLS key for endpoint
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `Routes`: Object that contains the `AuthRequired` and `Public` routes list.    
@@ -157,9 +160,15 @@ Full config example
     "Proxied": false,
     "WgDevName": "wg0",
     "Lockout": 5,
-    "Listen: {
-        "Public": ":8080",
-        "Tunnel": "10.0.0.1:80"
+    "Webserver": {
+        "Public": {
+              "ListenAddress":":8080",
+              "CertPath": "/somepath/cert.pem",
+              "KeyPath": "/somepath/key.pem"
+         },
+        "Tunnel": {
+               "ListenAddress":"10.0.0.1:80"
+         }
     },
     "SessionTimeoutMinutes": 10,
     "ExternalAddress": "192.168.56.3",
@@ -181,4 +190,4 @@ Full config example
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- No TLS (yet)
+
