@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"syscall"
 	"wag/commands"
 	"wag/config"
 )
@@ -97,6 +98,8 @@ func root(args []string) error {
 }
 
 func main() {
+
+	syscall.Umask(077)
 
 	if err := root(os.Args[1:]); err != nil {
 		log.Println(err)
