@@ -48,7 +48,7 @@ go build
 
 cp example_config config.json
 
-sudo ./wag
+sudo ./wag start
 ```
 
 If running behind a reverse proxy, `X-Forwarded-For` must be set.
