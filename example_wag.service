@@ -1,0 +1,20 @@
+[Unit]
+Description=Wireguard Manager
+After=wg-quick@wg0
+
+[Service]
+User=root
+
+WorkingDirectory=/opt/wag
+ExecStart=/opt/wag/wag start
+
+# If any of the ExecStart tasks fail, then ExecStopPost will run
+ExecStopPost=/opt/wag/wag cleanup
+
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+
+
+[Install]
+WantedBy=multi-user.target

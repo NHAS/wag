@@ -15,7 +15,7 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 The wireguard device must be running before wag is started.  
   
-Iptables must be installed. 
+`iptables` and `wg-quick` must be installed. 
 Wag must be run as root, to manage `iptables` and the `wireguard` device itself.  
    
 Forwarding must be enabled in `sysctl`.
@@ -64,6 +64,8 @@ wag subcommand [-options]
 All commands need to be able to load the config file. And thus support `-config`  
   
 `start`: starts the wag server  
+
+`cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
   
 `registration`:  Deals with creating, deleting and listing the registration tokens
 ```

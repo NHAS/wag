@@ -13,6 +13,7 @@ import (
 
 var cmds = []commands.Command{
 	commands.Start(),
+	commands.Cleanup(),
 
 	commands.Registration(),
 	commands.Devices(),
