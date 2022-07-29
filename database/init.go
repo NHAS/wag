@@ -26,12 +26,12 @@ func Load(path, issuer string, lockout int) error {
 
 	database = db
 
-	_, err = database.Exec("CREATE TABLE IF NOT EXISTS RegistrationTokens ( token string primary key, username string not null );")
+	_, err = database.Exec("CREATE TABLE IF NOT EXISTS RegistrationTokens ( token string primary key, username string not null unique );")
 	if err != nil {
 		return err
 	}
 
-	_, err = database.Exec("CREATE TABLE IF NOT EXISTS Totp ( address string primary key, publickey string, username string, url string not null, enforcing string, attempts integer not null );")
+	_, err = database.Exec("CREATE TABLE IF NOT EXISTS Totp ( address string primary key, publickey string not null unique, username string not null unique, url string not null unique, enforcing string, attempts integer not null );")
 	if err != nil {
 		return err
 	}
