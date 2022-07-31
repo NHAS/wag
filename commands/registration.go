@@ -41,7 +41,7 @@ func (g *registration) PrintUsage() {
 	g.fs.Usage()
 }
 
-func (g *registration) Init(args []string, config config.Config) error {
+func (g *registration) Init(args []string) error {
 	err := g.fs.Parse(args)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func (g *registration) Init(args []string, config config.Config) error {
 		return errors.New("Invalid action choice: " + g.action)
 	}
 
-	err = database.Load(config.DatabaseLocation, config.Issuer, config.Lockout)
+	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}

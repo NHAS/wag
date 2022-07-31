@@ -15,8 +15,6 @@ type devices struct {
 
 	device string
 	action string
-
-	config config.Config
 }
 
 func Devices() *devices {
@@ -45,13 +43,11 @@ func (g *devices) PrintUsage() {
 	g.fs.Usage()
 }
 
-func (g *devices) Init(args []string, config config.Config) error {
+func (g *devices) Init(args []string) error {
 	err := g.fs.Parse(args)
 	if err != nil {
 		return err
 	}
-
-	g.config = config
 
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -72,7 +68,7 @@ func (g *devices) Init(args []string, config config.Config) error {
 		return errors.New("Invalid action choice")
 	}
 
-	err = database.Load(config.DatabaseLocation, config.Issuer, config.Lockout)
+	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}
@@ -103,8 +99,8 @@ func (g *devices) Run() error {
 		}
 
 		fmt.Println("username,address,publickey,enforcingmfa,authattempts")
-		for address, properties := range result {
-			fmt.Printf("%s,%s,%s,%t,%d\n", properties.Username, address, properties.Publickey, properties.Enforcing, properties.Attempts)
+		for _, device := range result {
+			fmt.Printf("%s,%s,%s,%t,%d\n", device.Username, device.Address, device.Publickey, device.Enforcing, device.Attempts)
 		}
 	case "sessions":
 		sessions, err := control.Sessions()
@@ -115,7 +111,7 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := database.SetAttempts(g.device, g.config.Lockout+1)
+		err := database.SetAttempts(g.device, config.Values().Lockout+1)
 		if err != nil {
 			return errors.New("Could not lock device: " + err.Error())
 		}

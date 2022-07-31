@@ -71,12 +71,12 @@ func root(args []string) error {
 
 			configfs.Parse(os.Args[2:])
 
-			config, err := config.New(configLocation)
+			err := config.Load(configLocation)
 			if err != nil {
 				return err
 			}
 
-			err = cmd.Init(os.Args[2:], config)
+			err = cmd.Init(os.Args[2:])
 			if err != nil {
 				if err != flag.ErrHelp {
 					fmt.Println("Error: ", err.Error())

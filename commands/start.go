@@ -27,7 +27,6 @@ type start struct {
 
 	address    string
 	tunnelPort string
-	config     config.Config
 
 	ctrl *wgctrl.Client
 	dev  *wgtypes.Device
@@ -52,32 +51,30 @@ func (g *start) PrintUsage() {
 	fmt.Println("    Configuration file location (default \"./config.json\")")
 }
 
-func (g *start) Init(args []string, c config.Config) error {
+func (g *start) Init(args []string) error {
 	err := g.fs.Parse(args)
 	if err != nil {
 		return err
 	}
-
-	g.config = c
 
 	g.ctrl, err = wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("Cannot start wireguard control %v", err)
 	}
 
-	g.dev, err = g.ctrl.Device(g.config.WgDevName)
+	g.dev, err = g.ctrl.Device(config.Values().WgDevName)
 	if err != nil {
-		return fmt.Errorf("Unable to start wireguard-ctrl on device with name %s: %v", g.config.WgDevName, err)
+		return fmt.Errorf("Unable to start wireguard-ctrl on device with name %s: %v", config.Values().WgDevName, err)
 	}
 
-	i, err := net.InterfaceByName(g.config.WgDevName)
+	i, err := net.InterfaceByName(config.Values().WgDevName)
 	if err != nil {
-		return fmt.Errorf("Unable to get interface with name %s: %v", g.config.WgDevName, err)
+		return fmt.Errorf("Unable to get interface with name %s: %v", config.Values().WgDevName, err)
 	}
 
 	addresses, err := i.Addrs()
 	if err != nil {
-		return fmt.Errorf("Unable to get address for interface %s: %v", g.config.WgDevName, err)
+		return fmt.Errorf("Unable to get address for interface %s: %v", config.Values().WgDevName, err)
 	}
 
 	if len(addresses) < 1 {
@@ -86,58 +83,54 @@ func (g *start) Init(args []string, c config.Config) error {
 
 	g.address = utils.GetIP(addresses[0].String())
 
-	g.config.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
-	if err != nil {
+	vpnServerAddress := net.ParseIP(utils.GetIP(addresses[0].String()))
+	if err == nil {
 		return errors.New("Unable to find server address from tunnel interface")
 	}
+	config.SetVpnServerAddress(vpnServerAddress)
 
-	_, g.config.VPNRange, err = net.ParseCIDR(addresses[0].String())
+	_, VPNRange, err := net.ParseCIDR(addresses[0].String())
 	if err != nil {
 		return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 	}
-	//Add the servers tunnel address to the captured addresses, otherwise clients cant connect to /authorise
-	g.config.Routes.Public = append(g.config.Routes.Public, utils.GetIP(addresses[0].String())+"/32")
+	config.SetVpnRange(VPNRange)
 
-	if len(g.config.Issuer) == 0 {
+	if len(config.Values().Issuer) == 0 {
 		return errors.New("No issuer specified")
 	}
 
-	if len(g.config.ExternalAddress) == 0 || net.ParseIP(g.config.ExternalAddress) == nil {
-		return errors.New("Invalid ExternalAddress: " + g.config.ExternalAddress + " unable to parse as IP")
+	if len(config.Values().ExternalAddress) == 0 || net.ParseIP(config.Values().ExternalAddress) == nil {
+		return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to parse as IP")
 
 	}
 
-	if g.config.Lockout == 0 {
+	if config.Values().Lockout == 0 {
 		return errors.New("Lockout policy unconfigured")
 	}
 
-	if g.config.SessionTimeoutMinutes == 0 {
+	if config.Values().SessionTimeoutMinutes == 0 {
 		return errors.New("Session timeout policy is not set")
 	}
 
-	err = database.Load(g.config.DatabaseLocation, g.config.Issuer, g.config.Lockout)
+	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}
 
-	if g.config.Webserver.Tunnel.ListenAddress == "" {
-		g.config.Webserver.Tunnel.ListenAddress = g.address + ":8080"
+	if config.Values().Webserver.Tunnel.ListenAddress == "" {
+		return fmt.Errorf("Tunnel listen address is not set (Tunnel.ListenAddress)")
 	}
 
-	if g.config.Webserver.Public.ListenAddress == "" {
-		g.config.Webserver.Public.ListenAddress = "0.0.0.0:8082"
+	if config.Values().Webserver.Public.ListenAddress == "" {
+		return fmt.Errorf("The public listen address is not set (Public.ListenAddress)")
 	}
 
-	_, g.tunnelPort, err = net.SplitHostPort(g.config.Webserver.Tunnel.ListenAddress)
+	_, g.tunnelPort, err = net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
 	if err != nil {
 		return fmt.Errorf("unable to split host port: %v", err)
 	}
 
-	if len(g.config.Routes.Public) == 0 && len(g.config.Routes.AuthRequired) == 0 {
-		return fmt.Errorf("At least 1 route must be supplied")
-	}
-
-	if g.config.HelpMail == "" {
+	if config.Values().HelpMail == "" {
 		return fmt.Errorf("No help email address specified")
 	}
 
@@ -148,7 +141,7 @@ func (g *start) Init(args []string, c config.Config) error {
 func (g *start) Run() error {
 	defer g.ctrl.Close()
 
-	err := firewall.Setup(g.tunnelPort, g.config.WgDevName, g.config.Routes.Public, g.config.Routes.AuthRequired)
+	err := firewall.Setup(g.tunnelPort)
 	if err != nil {
 		return fmt.Errorf("Unable to initialise firewall: %v", err)
 	}
@@ -158,9 +151,9 @@ func (g *start) Run() error {
 
 	error := make(chan error)
 
-	webserver.Start(g.config, g.dev.PublicKey.String(), g.dev.ListenPort, error)
+	webserver.Start(g.dev.PublicKey.String(), g.dev.ListenPort, error)
 
-	go wireguard_manager.StartEndpointWatcher(g.config.WgDevName, g.config.VPNServerAddress, g.config.VPNRange, g.ctrl, endpointChanges, error)
+	go wireguard_manager.StartEndpointWatcher(config.Values().WgDevName, config.Values().VPNServerAddress, config.Values().VPNRange, g.ctrl, endpointChanges, error)
 	go firewall.BlockDeviceOnEndpointChange(endpointChanges)
 
 	err = control.StartControlSocket()

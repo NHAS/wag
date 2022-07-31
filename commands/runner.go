@@ -2,11 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"wag/config"
 )
 
 type Command interface {
-	Init([]string, config.Config) error
+	Init([]string) error
 	Run() error
 	PrintUsage()
 	Name() string

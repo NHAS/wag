@@ -1,12 +1,15 @@
 package firewall
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"strings"
 	"sync"
 	"time"
+	"wag/config"
+	"wag/database"
 
 	"github.com/coreos/go-iptables/iptables"
 )
@@ -14,38 +17,21 @@ import (
 var (
 	l        sync.RWMutex
 	sessions = map[string]string{}
-
-	//List of addresses that a client is able to hit through the tunnel at all times
-	public []string
-
-	//Routes that require the client to be authed
-	authed []string
-
-	wgDevName string
 )
 
-func Setup(tunnelWebserverPort, devName string, unauthedAddrs, authedAddrs []string) error {
+func Setup(tunnelWebserverPort string) error {
 
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
 	}
 
-	public = unauthedAddrs
-	authed = authedAddrs
-	wgDevName = devName
-
 	err = ipt.ChangePolicy("filter", "FORWARD", "DROP")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("nat", "POSTROUTING", "-d", strings.Join(append(public, authed...), ","), "-j", "MASQUERADE")
-	if err != nil {
-		return err
-	}
-
-	//Make our custom chain so we can delete it when we finish up
+	//Make our custom chains so we can delete it when we finish up
 	err = ipt.NewChain("filter", "WAG_FORWARD")
 	if err != nil {
 		return err
@@ -56,23 +42,23 @@ func Setup(tunnelWebserverPort, devName string, unauthedAddrs, authedAddrs []str
 		return err
 	}
 
-	err = ipt.Append("filter", "FORWARD", "-i", wgDevName, "-j", "WAG_FORWARD")
+	err = ipt.NewChain("nat", "WAG_POSTROUTING")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "INPUT", "-i", wgDevName, "-j", "WAG_INPUT")
+	//Setup the links to the new chains
+	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "WAG_FORWARD")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "WAG_FORWARD", "-d", strings.Join(public, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	err = ipt.Append("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "WAG_INPUT")
 	if err != nil {
 		return err
 	}
 
-	//Allow access to any addresses that are not MFA by default
-	err = ipt.Append("filter", "WAG_FORWARD", "-d", strings.Join(public, ","), "-j", "ACCEPT")
+	err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "WAG_POSTROUTING")
 	if err != nil {
 		return err
 	}
@@ -88,11 +74,88 @@ func Setup(tunnelWebserverPort, devName string, unauthedAddrs, authedAddrs []str
 		return err
 	}
 
+	err = RefreshPublicRoutes()
+	if err != nil {
+		return err
+	}
+
 	log.Println("Started firewall management: \n",
 		"\t\t\tSetting filter FORWARD policy to DROP\n",
 		"\t\t\tCreated WAG_INPUT chain\n",
 		"\t\t\tCreated WAG_FORWARD chain\n",
+		"\t\t\tCreated WAG_POSTROUTING chain\n",
 		"\t\t\tSet public forwards")
+
+	return nil
+}
+
+func RefreshPublicRoutes() error {
+	ipt, err := iptables.New()
+	if err != nil {
+		return err
+	}
+
+	allRoutes := []string{}
+
+	devices, err := database.GetDevices()
+	if err != nil {
+		return err
+	}
+
+	for _, device := range devices {
+
+		acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
+		if !ok {
+			log.Println("Warning, no acl defined for", device.Username)
+			continue
+		}
+
+		err = ipt.ClearChain("filter", "WAG_FORWARD")
+		if err != nil {
+			return err
+		}
+
+		//Add public routes
+		err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Allow, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+		if err != nil {
+			return err
+		}
+
+		err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Allow, ","), "-j", "ACCEPT")
+		if err != nil {
+			return err
+		}
+
+		l.RLock()
+
+		if _, ok := sessions[device.Address]; ok {
+			//Add mfa routes, if there is still an active session
+			err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+			if err != nil {
+				return err
+			}
+
+			err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
+			if err != nil {
+				return err
+			}
+		}
+
+		l.RUnlock()
+
+		allRoutes = append(allRoutes, acl.Allow...)
+		allRoutes = append(allRoutes, acl.Mfa...)
+	}
+
+	err = ipt.ClearChain("nat", "WAG_POSTROUTING")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Append("nat", "WAG_POSTROUTING", "-d", strings.Join(allRoutes, ","), "-j", "MASQUERADE")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -103,7 +166,6 @@ func BlockDeviceOnEndpointChange(changedClient <-chan net.IP) {
 		if err := Block(ip.String()); err != nil {
 			log.Println("Unable to remove forwards for device: ", err)
 		}
-
 	}
 }
 
@@ -113,12 +175,23 @@ func Allow(address, endpoint string, expire time.Duration) error {
 		return err
 	}
 
-	err = ipt.Append("filter", "WAG_FORWARD", "-s", address, "-d", strings.Join(authed, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("User not found")
+	}
+
+	acls, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
+	if !ok {
+		return errors.New("No acl defined for user: " + device.Username)
+	}
+
+	//Add mfa routes
+	err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acls.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "WAG_FORWARD", "-s", address, "-d", strings.Join(authed, ","), "-j", "ACCEPT")
+	err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acls.Mfa, ","), "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
@@ -163,7 +236,7 @@ func GetAllAllowed() map[string]string {
 	return output
 }
 
-func GetAllowedEndpoint(address string) string {
+func IsAlreadyAuthed(address string) string {
 	l.RLock()
 	output := sessions[address]
 	l.RUnlock()
@@ -176,19 +249,37 @@ func Block(address string) error {
 		return err
 	}
 
-	l.Lock()
+	device, err := database.GetDeviceByUsername(address)
+	if err != nil {
+		return errors.New("User not found")
+	}
 
-	delete(sessions, address)
+	acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
+	if !ok {
+		return errors.New("No acl defined for user: " + device.Username)
+	}
 
-	l.Unlock()
+	//Add mfa routes
+	err1 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
 
-	err1 := ipt.Delete("filter", "WAG_FORWARD", "-s", address, "-d", strings.Join(authed, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	err2 := ipt.Delete("filter", "WAG_FORWARD", "-s", address, "-d", strings.Join(authed, ","), "-j", "ACCEPT")
+	err2 := ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
 
 	//Make sure we try to do both opertations
 	if err1 != nil || err2 != nil {
 		return fmt.Errorf("%v:%v", err1, err2)
 	}
+
+	l.Lock()
+
+	delete(sessions, address)
+
+	l.Unlock()
 
 	return nil
 }
@@ -202,19 +293,24 @@ func TearDown() {
 		return
 	}
 
-	err = ipt.Delete("nat", "POSTROUTING", "-d", strings.Join(append(public, authed...), ","), "-j", "MASQUERADE")
+	err = ipt.Delete("nat", "POSTROUTING", "-j", "WAG_POSTROUTING")
 	if err != nil {
-		log.Println("Unable to clean up nat POSTROUTING rule: ", err)
+		log.Println("Unable to clean up postrouting WAG_POSTROUTING rule: ", err)
 	}
 
-	err = ipt.Delete("filter", "FORWARD", "-i", wgDevName, "-j", "WAG_FORWARD")
+	err = ipt.Delete("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "WAG_FORWARD")
 	if err != nil {
 		log.Println("Unable to clean up forward WAG_FORWARD rule: ", err)
 	}
 
-	err = ipt.Delete("filter", "INPUT", "-i", wgDevName, "-j", "WAG_INPUT")
+	err = ipt.Delete("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "WAG_INPUT")
 	if err != nil {
 		log.Println("Unable to clean up input WAG_INPUT rule: ", err)
+	}
+
+	err = ipt.ClearAndDeleteChain("nat", "WAG_POSTROUTING")
+	if err != nil {
+		log.Println("Unable to clean up WAG_FORWARD chain: ", err)
 	}
 
 	err = ipt.ClearAndDeleteChain("filter", "WAG_FORWARD")
@@ -226,5 +322,4 @@ func TearDown() {
 	if err != nil {
 		log.Println("Unable to clean up WAG_INPUT chain: ", err)
 	}
-
 }

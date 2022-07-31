@@ -10,13 +10,13 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
-func GetAuthenticationAttemptsLeft(address string) (int, error) {
+func GetAuthenticationAttemptsLeft(username string) (int, error) {
 	var attempts int
 	err := database.QueryRow(`
 		SELECT attempts FROM Totp
 		WHERE
-			address = ?
-	`, address).Scan(&attempts)
+			username = ?
+	`, username).Scan(&attempts)
 
 	if err != nil {
 		return 0, err
@@ -25,15 +25,15 @@ func GetAuthenticationAttemptsLeft(address string) (int, error) {
 	return attempts, nil
 }
 
-func SetAttempts(address string, attempts int) error {
+func SetAttempts(username string, attempts int) error {
 	_, err := database.Exec(`
 	UPDATE 
 		Totp
 	SET
 		attempts = ?
 	WHERE
-		address = ?
-	`, attempts, address)
+		username = ?
+	`, attempts, username)
 
 	if err != nil {
 		return errors.New("Unable to set number of account attempts: " + err.Error())
@@ -42,13 +42,13 @@ func SetAttempts(address string, attempts int) error {
 	return nil
 }
 
-func IsEnforcingMFA(address string) bool {
+func IsEnforcingMFA(username string) bool {
 	var enforcing sql.NullString
 	err := database.QueryRow(`
 	SELECT enforcing FROM Totp
 	WHERE
-		address = ?
-`, address).Scan(&enforcing)
+		username = ?
+`, username).Scan(&enforcing)
 
 	// Fail closed
 	if err != nil {
@@ -58,20 +58,20 @@ func IsEnforcingMFA(address string) bool {
 	return enforcing.Valid
 }
 
-func SetMFAEnforcing(address string) error {
+func SetMFAEnforcing(username string) error {
 	_, err := database.Exec(`
 	UPDATE 
 		Totp
 	SET
 		enforcing = ?
 	WHERE
-		address = ?
-	`, time.Now().Format(time.RFC3339), address)
+		username = ?
+	`, time.Now().Format(time.RFC3339), username)
 
 	return err
 }
 
-func ArmMFAFirstUse(address, publickey, username string) error {
+func CreateMFAEntry(address, publickey, username string) error {
 
 	if net.ParseIP(address) == nil {
 		return errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
@@ -96,7 +96,7 @@ func ArmMFAFirstUse(address, publickey, username string) error {
 	return err
 }
 
-func Authenticate(address, code string) (err error) {
+func Authenticate(address, code string) (username string, err error) {
 
 	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, lockoutPolicy)
 	if err != nil {
@@ -106,7 +106,7 @@ func Authenticate(address, code string) (err error) {
 	var url string
 	var attempts int
 
-	err = database.QueryRow(`SELECT url, attempts FROM Totp WHERE address = ?`, address).Scan(&url, &attempts)
+	err = database.QueryRow(`SELECT url, attempts, username FROM Totp WHERE address = ?`, address).Scan(&url, &attempts, &username)
 	if err != nil {
 		return
 	}
@@ -117,24 +117,24 @@ func Authenticate(address, code string) (err error) {
 	}
 
 	if attempts > lockoutPolicy {
-		return errors.New("Account is locked")
+		return "", errors.New("Account is locked")
 	}
 
 	if !totp.Validate(code, key.Secret()) {
-		return errors.New("Code does not match expected")
+		return "", errors.New("Code does not match expected")
 	}
 
 	return
 }
 
-func ShowSecret(address string) (*otp.Key, error) {
+func ShowSecret(username string) (*otp.Key, error) {
 	var url string
 	var enforcing sql.NullString
 	err := database.QueryRow(`
 		SELECT url, enforcing FROM Totp
 		WHERE
-			address = ?
-	`, address).Scan(&url, &enforcing)
+			username = ?
+	`, username).Scan(&url, &enforcing)
 	if err != nil {
 		return nil, err
 	}

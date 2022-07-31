@@ -4,13 +4,14 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"wag/config"
 	"wag/utils"
 )
 
 func getIPFromRequest(r *http.Request) string {
 
 	//Do not respect the X-Forwarded-For header until we are explictly told we are being proxied.
-	if isProxied {
+	if config.Values().Proxied {
 		ips := r.Header.Get("X-Forwarded-For")
 
 		addresses := strings.Split(ips, ",")

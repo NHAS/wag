@@ -20,33 +20,14 @@ import (
 )
 
 var (
-	sessionTimeoutMinutes int
-
 	wgPort      int
 	wgPublicKey string
-
-	externalAddress string
-
-	capturedAddresses []string
-
-	isProxied bool
-
-	helpMailAddress string
 )
 
-func Start(config config.Config, publickey string, wgport int, err chan<- error) {
-
-	sessionTimeoutMinutes = config.SessionTimeoutMinutes
-	externalAddress = config.ExternalAddress
+func Start(publickey string, wgport int, err chan<- error) {
 
 	wgPort = wgport
 	wgPublicKey = publickey
-
-	isProxied = config.Proxied
-
-	helpMailAddress = config.HelpMail
-
-	capturedAddresses = append(config.Routes.Public, config.Routes.AuthRequired...)
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -72,12 +53,12 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	public := http.NewServeMux()
 	public.HandleFunc("/register_device", registerDevice)
 
-	if config.Webserver.Public.SupportsTLS() {
+	if config.Values().Webserver.Public.SupportsTLS() {
 
 		go func() {
 
 			srv := &http.Server{
-				Addr:         config.Webserver.Public.ListenAddress,
+				Addr:         config.Values().Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -85,12 +66,12 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Webserver.Public.CertPath, config.Webserver.Public.KeyPath))
+			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
 	} else {
 		go func() {
 			srv := &http.Server{
-				Addr:         config.Webserver.Public.ListenAddress,
+				Addr:         config.Values().Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -107,12 +88,12 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/", index)
 
-	if config.Webserver.Tunnel.SupportsTLS() {
+	if config.Values().Webserver.Tunnel.SupportsTLS() {
 
 		go func() {
 
 			srv := &http.Server{
-				Addr:         config.Webserver.Tunnel.ListenAddress,
+				Addr:         config.Values().Webserver.Tunnel.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -120,12 +101,12 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Webserver.Tunnel.CertPath, config.Webserver.Tunnel.KeyPath))
+			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 	} else {
 		go func() {
 			srv := &http.Server{
-				Addr:         config.Webserver.Tunnel.ListenAddress,
+				Addr:         config.Values().Webserver.Tunnel.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -138,8 +119,8 @@ func Start(config config.Config, publickey string, wgport int, err chan<- error)
 
 	//Group the print statement so that multithreading wont disorder them
 	log.Println("Started listening:\n",
-		"\t\t\tTunnel Listener: ", config.Webserver.Tunnel.ListenAddress, "\n",
-		"\t\t\tPublic Listener: ", config.Webserver.Public.ListenAddress)
+		"\t\t\tTunnel Listener: ", config.Values().Webserver.Tunnel.ListenAddress, "\n",
+		"\t\t\tPublic Listener: ", config.Values().Webserver.Public.ListenAddress)
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +129,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if firewall.GetAllowedEndpoint(clientTunnelIp) != "" {
+	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -157,7 +138,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	if database.IsEnforcingMFA(clientTunnelIp) {
 		data := resources.MfaPrompt{
 			ValidationFailed: mfaFailed,
-			HelpMail:         helpMailAddress,
+			HelpMail:         config.Values().HelpMail,
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -225,7 +206,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if firewall.GetAllowedEndpoint(clientTunnelIp) != "" {
+	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -241,14 +222,14 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 
-	err = database.Authenticate(clientTunnelIp, code)
+	username, err := database.Authenticate(clientTunnelIp, code)
 	if err != nil {
 		log.Println(clientTunnelIp, " failed to authorise: ", err.Error())
 		http.Redirect(w, r, "/?success=0", http.StatusTemporaryRedirect)
 		return
 	}
 
-	err = database.SetAttempts(clientTunnelIp, 0)
+	err = database.SetAttempts(username, 0)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to reset number of mfa attempts: ", err)
 
@@ -256,24 +237,24 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !database.IsEnforcingMFA(clientTunnelIp) {
-		err := database.SetMFAEnforcing(clientTunnelIp)
+	if !database.IsEnforcingMFA(username) {
+		err := database.SetMFAEnforcing(username)
 		if err != nil {
-			log.Println(clientTunnelIp, "failed to set MFA to enforcing", err)
+			log.Println(username, "failed to set MFA to enforcing", err)
 			http.Error(w, "Server error", 500)
 			return
 		}
 	}
 
-	err = firewall.Allow(clientTunnelIp, endpointAddr, time.Duration(sessionTimeoutMinutes)*time.Minute)
+	err = firewall.Allow(username, endpointAddr, time.Duration(config.Values().SessionTimeoutMinutes)*time.Minute)
 	if err != nil {
-		log.Println(clientTunnelIp, "unable to allow device", err)
+		log.Println(username, "unable to allow device", err)
 
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	log.Println(clientTunnelIp, "authorised")
+	log.Println(username, "authorised")
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(resources.MfaSuccess))
@@ -337,7 +318,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	}()
 
-	err = database.ArmMFAFirstUse(address, publickey.String(), username)
+	err = database.CreateMFAEntry(address, publickey.String(), username)
 	if err != nil {
 		log.Println(r.RemoteAddr, "unable to setup for first use mfa: ", err)
 		http.Error(w, "Server Error", 500)
@@ -346,12 +327,22 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
+	acl, ok := config.Values().Acls.GetEffectiveAcl(username)
+	if !ok {
+		log.Println(r.RemoteAddr, "No acl defined for user: ", username)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
+	//Clients must be able to talk to the server, otherwise you cant mfa
+	acl.Allow = append(acl.Allow, config.Values().VPNServerAddress.String())
+
 	i := resources.Interface{
 		ClientPrivateKey:  strings.TrimSpace(privatekey.String()),
 		ClientAddress:     address,
-		ServerAddress:     fmt.Sprintf("%s:%d", externalAddress, wgPort),
+		ServerAddress:     fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:   wgPublicKey,
-		CapturedAddresses: capturedAddresses,
+		CapturedAddresses: append(acl.Allow, acl.Mfa...),
 	}
 
 	err = resources.InterfaceTemplate.Execute(w, &i)

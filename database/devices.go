@@ -3,37 +3,62 @@ package database
 import "database/sql"
 
 type Device struct {
-	Publickey, Username string
-	Enforcing           bool
-	Attempts            int
+	Address   string
+	Publickey string
+	Username  string
+	Enforcing bool
+	Attempts  int
 }
 
-func GetDevices() (map[string]Device, error) {
+func GetDevices() ([]Device, error) {
 
 	rows, err := database.Query("SELECT address, publickey, username, enforcing, attempts FROM Totp ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]Device)
+	result := []Device{}
 	for rows.Next() {
-		var address string
-		var enforcing sql.NullString
 
+		var enforcing sql.NullString
 		var d Device
 
-		err = rows.Scan(&address, &d.Publickey, &d.Username, &enforcing, &d.Attempts)
+		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &enforcing, &d.Attempts)
 		if err != nil {
 			return nil, err
 		}
 
 		d.Enforcing = enforcing.Valid
 
-		result[address] = d
+		result = append(result, d)
 	}
 
 	return result, nil
 
+}
+
+func GetDeviceByIP(address string) (d Device, err error) {
+	var enforcing sql.NullString
+	err = database.QueryRow("SELECT address, publickey, username, enforcing, attempts FROM Totp WHERE address = ?", address).Scan(&d.Address, &d.Publickey, &d.Username, &enforcing, &d.Attempts)
+	if err != nil {
+		return Device{}, err
+	}
+
+	d.Enforcing = enforcing.Valid
+
+	return
+}
+
+func GetDeviceByUsername(username string) (d Device, err error) {
+	var enforcing sql.NullString
+	err = database.QueryRow("SELECT address, publickey, username, enforcing, attempts FROM Totp WHERE username = ?", username).Scan(&d.Address, &d.Publickey, &d.Username, &enforcing, &d.Attempts)
+	if err != nil {
+		return Device{}, err
+	}
+
+	d.Enforcing = enforcing.Valid
+
+	return
 }
 
 func DeleteDevice(address string) error {

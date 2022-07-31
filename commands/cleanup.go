@@ -31,7 +31,7 @@ func (g *cleanup) PrintUsage() {
 	fmt.Println("    Configuration file location (default \"./config.json\")")
 }
 
-func (g *cleanup) Init(args []string, config config.Config) error {
+func (g *cleanup) Init(args []string) error {
 	err := g.fs.Parse(args)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (g *cleanup) Init(args []string, config config.Config) error {
 
 	firewall.TearDown()
 
-	cmd := exec.Command("/usr/bin/wg-quick", "stop", config.WgDevName)
+	cmd := exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName)
 
 	return cmd.Run()
 
