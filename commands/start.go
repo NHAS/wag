@@ -25,7 +25,6 @@ import (
 type start struct {
 	fs *flag.FlagSet
 
-	address    string
 	tunnelPort string
 
 	ctrl *wgctrl.Client
@@ -81,11 +80,9 @@ func (g *start) Init(args []string) error {
 		return errors.New("Wireguard interface does not have an ip address")
 	}
 
-	g.address = utils.GetIP(addresses[0].String())
-
 	vpnServerAddress := net.ParseIP(utils.GetIP(addresses[0].String()))
-	if err == nil {
-		return errors.New("Unable to find server address from tunnel interface")
+	if vpnServerAddress == nil {
+		return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
 	}
 	config.SetVpnServerAddress(vpnServerAddress)
 
