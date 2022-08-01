@@ -14,7 +14,6 @@ import (
 	"wag/control"
 	"wag/database"
 	"wag/firewall"
-	"wag/utils"
 	"wag/webserver"
 	"wag/wireguard_manager"
 
@@ -65,32 +64,6 @@ func (g *start) Init(args []string) error {
 	if err != nil {
 		return fmt.Errorf("Unable to start wireguard-ctrl on device with name %s: %v", config.Values().WgDevName, err)
 	}
-
-	i, err := net.InterfaceByName(config.Values().WgDevName)
-	if err != nil {
-		return fmt.Errorf("Unable to get interface with name %s: %v", config.Values().WgDevName, err)
-	}
-
-	addresses, err := i.Addrs()
-	if err != nil {
-		return fmt.Errorf("Unable to get address for interface %s: %v", config.Values().WgDevName, err)
-	}
-
-	if len(addresses) < 1 {
-		return errors.New("Wireguard interface does not have an ip address")
-	}
-
-	vpnServerAddress := net.ParseIP(utils.GetIP(addresses[0].String()))
-	if vpnServerAddress == nil {
-		return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
-	}
-	config.SetVpnServerAddress(vpnServerAddress)
-
-	_, VPNRange, err := net.ParseCIDR(addresses[0].String())
-	if err != nil {
-		return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
-	}
-	config.SetVpnRange(VPNRange)
 
 	if len(config.Values().Issuer) == 0 {
 		return errors.New("No issuer specified")

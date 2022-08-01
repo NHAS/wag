@@ -13,8 +13,8 @@ import (
 type devices struct {
 	fs *flag.FlagSet
 
-	device string
-	action string
+	address string
+	action  string
 }
 
 func Devices() *devices {
@@ -22,7 +22,7 @@ func Devices() *devices {
 		fs: flag.NewFlagSet("devices", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.device, "device", "", "Device address")
+	gc.fs.StringVar(&gc.address, "device", "", "Device address")
 
 	gc.fs.Bool("del", false, "Completely remove device blocks wireguard access")
 	gc.fs.Bool("list", false, "List devices with 2fa entries")
@@ -60,7 +60,7 @@ func (g *devices) Init(args []string) error {
 
 	switch g.action {
 	case "del", "reset", "lock":
-		if g.device == "" {
+		if g.address == "" {
 			return errors.New("Device must be supplied")
 		}
 	case "list", "sessions":
@@ -81,12 +81,12 @@ func (g *devices) Run() error {
 	switch g.action {
 	case "del":
 
-		err := database.DeleteDevice(g.device)
+		err := database.DeleteDevice(g.address)
 		if err != nil {
 			return errors.New("Could not delete token: " + err.Error())
 		}
 
-		err = control.Block(g.device)
+		err = control.Block(g.address)
 		if err != nil {
 			return err
 		}
@@ -111,12 +111,12 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := database.SetAttempts(g.device, config.Values().Lockout+1)
+		err := database.SetAttempts(g.address, config.Values().Lockout+1)
 		if err != nil {
 			return errors.New("Could not lock device: " + err.Error())
 		}
 
-		err = control.Block(g.device)
+		err = control.Block(g.address)
 		if err != nil {
 			return err
 		}
@@ -124,7 +124,7 @@ func (g *devices) Run() error {
 		fmt.Println("OK")
 
 	case "reset":
-		err := database.SetAttempts(g.device, 0)
+		err := database.SetAttempts(g.address, 0)
 		if err != nil {
 			return errors.New("Could not reset device authentication attempts: " + err.Error())
 		}

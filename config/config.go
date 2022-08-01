@@ -2,12 +2,14 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"strings"
 	"sync"
+	"wag/utils"
 )
 
 type webserverDetails struct {
@@ -73,21 +75,6 @@ func Values() config {
 	return v
 }
 
-//Yes, if clients hold on to the vpnRange or ip value, they could mutate the underlying state. But seriously fuck it.
-func SetVpnRange(vpnRange *net.IPNet) {
-	valuesLock.RLock()
-	defer valuesLock.RUnlock()
-
-	values.VPNRange = vpnRange
-}
-
-func SetVpnServerAddress(ip net.IP) {
-	valuesLock.RLock()
-	defer valuesLock.RUnlock()
-
-	values.VPNServerAddress = ip
-}
-
 func addPolicy(username string, acls *Acl) {
 
 	if _, ok := values.Acls.Policies[username]; !ok {
@@ -138,6 +125,7 @@ func Load(path string) error {
 	}
 
 	globalAcl := values.Acls.Policies["*"]
+	delete(values.Acls.Policies, "*")
 
 	for owner, acl := range values.Acls.Policies {
 
@@ -161,6 +149,29 @@ func Load(path string) error {
 					return fmt.Errorf("Unable to parse address as ipv4: %s", addr)
 				}
 			}
+		}
+	}
+
+	i, err := net.InterfaceByName(values.WgDevName)
+	if err == nil {
+
+		addresses, err := i.Addrs()
+		if err != nil {
+			return fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
+		}
+
+		if len(addresses) < 1 {
+			return errors.New("Wireguard interface does not have an ip address")
+		}
+
+		values.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+		if values.VPNServerAddress == nil {
+			return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
+		}
+
+		_, values.VPNRange, err = net.ParseCIDR(addresses[0].String())
+		if err != nil {
+			return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 	}
 

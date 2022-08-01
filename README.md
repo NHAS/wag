@@ -143,6 +143,7 @@ The configuration file specifies how long a session can live for, before expirin
 
 
 # Configuration file reference
+  
 `Proxied`: Respect the `X-Forward-For` directive, must ensure that you are securing the X-Forward-For directive in your reverse proxy  
 `HelpMail`: The email address that is shown on the prompt page  
 `WgDevName`: The wireguard tunnel device name that wag will manage  
@@ -155,37 +156,52 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
-`Routes`: Object that contains the `AuthRequired` and `Public` routes list.    
+`Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
 Full config example
-```
+```json
 {
-    "Proxied": false,
-    "HelpMail": "help@example.com",
     "WgDevName": "wg0",
     "Lockout": 5,
+    "HelpMail": "help@example.com",
+    "SessionTimeoutMinutes": 10,
+    "ExternalAddress": "192.168.121.61",
+    "DatabaseLocation": "devices.db",
+    "Issuer": "192.168.121.61",
     "Webserver": {
         "Public": {
-              "ListenAddress":":8080",
-              "CertPath": "/somepath/cert.pem",
-              "KeyPath": "/somepath/key.pem"
-         },
+            "ListenAddress": "192.168.121.61:8080"
+        },
         "Tunnel": {
-               "ListenAddress":"10.0.0.1:80"
-         }
+            "ListenAddress": "192.168.1.1:8080"
+        }
     },
-    "SessionTimeoutMinutes": 10,
-    "ExternalAddress": "192.168.56.3",
-    "DatabaseLocation": "devices.db",
-    "Issuer": "192.168.56.3",
-    "Routes": {
-        "AuthRequired": [
-            "10.234.0.1/32",
-            "10.14.0.2/24"
-        ],
-        "Public": [
-            "10.0.1.1/32"
-        ]
+    "Acls": {
+        "Groups": {
+            "group:nerds": [
+                "toaster",
+                "tester",
+                "abc"
+            ],
+        },
+        "Policies": {
+            "*": {
+                "Allow": [
+                    "10.7.7.7"
+                ]
+            },
+            "username": {
+                  "Allow":[ "10.0.0.1/32"]
+            },
+            "group:nerds": {
+                "Mfa": [
+                    "192.168.3.4/32"
+                ],
+                "Allow": [
+                    "192.168.3.5/32"
+                ]
+            }
+        }
     }
 }
 

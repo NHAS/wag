@@ -229,7 +229,16 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = database.SetAttempts(username, 0)
+	if !database.IsEnforcingMFA(clientTunnelIp) {
+		err := database.SetMFAEnforcing(clientTunnelIp)
+		if err != nil {
+			log.Println(clientTunnelIp, "failed to set MFA to enforcing", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+	}
+
+	err = database.SetAttempts(clientTunnelIp, 0)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to reset number of mfa attempts: ", err)
 
@@ -237,24 +246,15 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !database.IsEnforcingMFA(username) {
-		err := database.SetMFAEnforcing(username)
-		if err != nil {
-			log.Println(username, "failed to set MFA to enforcing", err)
-			http.Error(w, "Server error", 500)
-			return
-		}
-	}
-
-	err = firewall.Allow(username, endpointAddr, time.Duration(config.Values().SessionTimeoutMinutes)*time.Minute)
+	err = firewall.Allow(clientTunnelIp, endpointAddr, time.Duration(config.Values().SessionTimeoutMinutes)*time.Minute)
 	if err != nil {
-		log.Println(username, "unable to allow device", err)
+		log.Println(username, "(", clientTunnelIp, ") unable to allow device", err)
 
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	log.Println(username, "authorised")
+	log.Println(username, "(", clientTunnelIp, ") authorised")
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(resources.MfaSuccess))

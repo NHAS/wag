@@ -3,16 +3,62 @@
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "SessionTimeoutMinutes": 10,
-    "ExternalAddress": "192.168.56.3",
+    "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
-    "Issuer": "192.168.56.3",
-    "Routes": {
-        "AuthRequired": [
-            "10.234.0.1/32",
-            "10.14.0.2/24"
-        ],
-        "Public": [
-            "10.0.1.1/32"
-        ]
+    "Issuer": "192.168.121.61",
+    "Webserver": {
+        "Public": {
+            "ListenAddress": "192.168.121.61:8080"
+        },
+        "Tunnel": {
+            "ListenAddress": "192.168.1.1:8080"
+        }
+    },
+    "Acls": {
+        "Groups": {
+            "group:nerds": [
+                "toaster",
+                "tester",
+                "abc"
+            ],
+            "group:administrators": [
+                "toaster",
+                "tester"
+            ]
+        },
+        "Policies": {
+            "*": {
+                "Allow": [
+                    "7.7.7.7"
+                ]
+            },
+            "group:nerds": {
+                "Mfa": [
+                    "192.168.3.4/32"
+                ],
+                "Allow": [
+                    "192.168.3.5/32"
+                ]
+            },
+            "tester": {
+                "Mfa": [
+                    "192.168.3.0/24",
+                    "192.168.5.0/24"
+                ],
+                "Allow": [
+                    "4.3.3.3/32"
+                ]
+            },
+            "group:administrators": {
+                "Mfa": [
+                    "8.8.8.8"
+                ]
+            },
+            "toaster": {
+                "Allow": [
+                    "1.1.1.1/32"
+                ]
+            }
+        }
     }
 }

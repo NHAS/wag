@@ -10,30 +10,39 @@ import (
 	"github.com/pquerna/otp/totp"
 )
 
-func GetAuthenticationAttemptsLeft(username string) (int, error) {
-	var attempts int
+func ShowSecret(address string) (*otp.Key, error) {
+	var url string
+	var enforcing sql.NullString
 	err := database.QueryRow(`
-		SELECT attempts FROM Totp
+		SELECT url, enforcing FROM Totp
 		WHERE
-			username = ?
-	`, username).Scan(&attempts)
-
+		address = ?
+	`, address).Scan(&url, &enforcing)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return attempts, nil
+	if enforcing.Valid {
+		return nil, errors.New("MFA is set to enforcing, cannot reveal secret.")
+	}
+
+	key, err := otp.NewKeyFromURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
 
-func SetAttempts(username string, attempts int) error {
+func SetAttempts(address string, attempts int) error {
 	_, err := database.Exec(`
 	UPDATE 
 		Totp
 	SET
 		attempts = ?
 	WHERE
-		username = ?
-	`, attempts, username)
+		address = ?
+	`, attempts, address)
 
 	if err != nil {
 		return errors.New("Unable to set number of account attempts: " + err.Error())
@@ -42,13 +51,13 @@ func SetAttempts(username string, attempts int) error {
 	return nil
 }
 
-func IsEnforcingMFA(username string) bool {
+func IsEnforcingMFA(address string) bool {
 	var enforcing sql.NullString
 	err := database.QueryRow(`
 	SELECT enforcing FROM Totp
 	WHERE
-		username = ?
-`, username).Scan(&enforcing)
+		address = ?
+`, address).Scan(&enforcing)
 
 	// Fail closed
 	if err != nil {
@@ -58,15 +67,15 @@ func IsEnforcingMFA(username string) bool {
 	return enforcing.Valid
 }
 
-func SetMFAEnforcing(username string) error {
+func SetMFAEnforcing(address string) error {
 	_, err := database.Exec(`
 	UPDATE 
 		Totp
 	SET
 		enforcing = ?
 	WHERE
-		username = ?
-	`, time.Now().Format(time.RFC3339), username)
+		address = ?
+	`, time.Now().Format(time.RFC3339), address)
 
 	return err
 }
@@ -125,28 +134,4 @@ func Authenticate(address, code string) (username string, err error) {
 	}
 
 	return
-}
-
-func ShowSecret(username string) (*otp.Key, error) {
-	var url string
-	var enforcing sql.NullString
-	err := database.QueryRow(`
-		SELECT url, enforcing FROM Totp
-		WHERE
-			username = ?
-	`, username).Scan(&url, &enforcing)
-	if err != nil {
-		return nil, err
-	}
-
-	if enforcing.Valid {
-		return nil, errors.New("MFA is set to enforcing, cannot reveal secret.")
-	}
-
-	key, err := otp.NewKeyFromURL(url)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
 }

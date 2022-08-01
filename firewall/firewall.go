@@ -95,9 +95,12 @@ func RefreshPublicRoutes() error {
 		return err
 	}
 
-	allRoutes := []string{}
-
 	devices, err := database.GetDevices()
+	if err != nil {
+		return err
+	}
+
+	err = ipt.ClearChain("nat", "WAG_POSTROUTING")
 	if err != nil {
 		return err
 	}
@@ -108,6 +111,11 @@ func RefreshPublicRoutes() error {
 		if !ok {
 			log.Println("Warning, no acl defined for", device.Username)
 			continue
+		}
+
+		err = ipt.Append("nat", "WAG_POSTROUTING", "-d", strings.Join(append(acl.Mfa, acl.Allow...), ","), "-j", "MASQUERADE")
+		if err != nil {
+			return err
 		}
 
 		err = ipt.ClearChain("filter", "WAG_FORWARD")
@@ -143,18 +151,6 @@ func RefreshPublicRoutes() error {
 
 		l.RUnlock()
 
-		allRoutes = append(allRoutes, acl.Allow...)
-		allRoutes = append(allRoutes, acl.Mfa...)
-	}
-
-	err = ipt.ClearChain("nat", "WAG_POSTROUTING")
-	if err != nil {
-		return err
-	}
-
-	err = ipt.Append("nat", "WAG_POSTROUTING", "-d", strings.Join(allRoutes, ","), "-j", "MASQUERADE")
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -249,7 +245,7 @@ func Block(address string) error {
 		return err
 	}
 
-	device, err := database.GetDeviceByUsername(address)
+	device, err := database.GetDeviceByIP(address)
 	if err != nil {
 		return errors.New("User not found")
 	}
@@ -265,7 +261,7 @@ func Block(address string) error {
 		return err
 	}
 
-	err2 := ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
+	err2 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
@@ -293,7 +289,8 @@ func TearDown() {
 		return
 	}
 
-	err = ipt.Delete("nat", "POSTROUTING", "-j", "WAG_POSTROUTING")
+	//Remove link to custom chains
+	err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "WAG_POSTROUTING")
 	if err != nil {
 		log.Println("Unable to clean up postrouting WAG_POSTROUTING rule: ", err)
 	}
@@ -308,9 +305,10 @@ func TearDown() {
 		log.Println("Unable to clean up input WAG_INPUT rule: ", err)
 	}
 
+	// Delete the chains themselves
 	err = ipt.ClearAndDeleteChain("nat", "WAG_POSTROUTING")
 	if err != nil {
-		log.Println("Unable to clean up WAG_FORWARD chain: ", err)
+		log.Println("Unable to clean up WAG_POSTROUTING chain: ", err)
 	}
 
 	err = ipt.ClearAndDeleteChain("filter", "WAG_FORWARD")
