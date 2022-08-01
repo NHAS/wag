@@ -257,14 +257,7 @@ func Block(address string) error {
 
 	//Add mfa routes
 	err1 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	if err != nil {
-		return err
-	}
-
 	err2 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
-	if err != nil {
-		return err
-	}
 
 	//Make sure we try to do both opertations
 	if err1 != nil || err2 != nil {
