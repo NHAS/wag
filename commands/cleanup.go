@@ -37,15 +37,15 @@ func (g *cleanup) Init(args []string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (g *cleanup) Run() error {
+
 	firewall.TearDown()
 
 	cmd := exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName)
 
 	return cmd.Run()
 
-}
-
-func (g *cleanup) Run() error {
-
-	return nil
 }
