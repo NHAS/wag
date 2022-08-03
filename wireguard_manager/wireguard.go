@@ -32,7 +32,7 @@ func StartEndpointWatcher(deviceName string, vpnTunnelServerAddress net.IP, vpnn
 	for {
 		dev, err := ctrl.Device(wgDevName)
 		if err != nil {
-			errChan <- fmt.Errorf("Wireguard endpoint watcher failed: %v", err)
+			errChan <- fmt.Errorf("wireguard endpoint watcher failed: %v", err)
 			return
 		}
 
@@ -74,8 +74,8 @@ func RemoveDevice(public wgtypes.Key) error {
 	return ctrl.ConfigureDevice(wgDevName, c)
 }
 
-// Add the device to wireguard
-func AddDevice(public wgtypes.Key) (string, error) {
+// AddNewDevice the device to wireguard
+func AddNewDevice(public wgtypes.Key) (string, error) {
 
 	dev, err := ctrl.Device(wgDevName)
 	if err != nil {
@@ -115,7 +115,7 @@ func AddDevice(public wgtypes.Key) (string, error) {
 	return network.IP.String(), ctrl.ConfigureDevice(wgDevName, c)
 }
 
-func GetDevice(address string) (wgtypes.Key, string, error) {
+func GetDeviceFromIP(address string) (wgtypes.Key, string, error) {
 	dev, err := ctrl.Device(wgDevName)
 	if err != nil {
 		return wgtypes.Key{}, "", err
@@ -127,5 +127,5 @@ func GetDevice(address string) (wgtypes.Key, string, error) {
 		}
 	}
 
-	return wgtypes.Key{}, "", errors.New("Not found")
+	return wgtypes.Key{}, "", errors.New("not found")
 }

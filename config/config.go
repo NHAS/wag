@@ -99,6 +99,30 @@ func Load(path string) error {
 		return fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
 
+	i, err := net.InterfaceByName(values.WgDevName)
+	if err == nil {
+
+		addresses, err := i.Addrs()
+		if err != nil {
+			return fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
+		}
+
+		if len(addresses) < 1 {
+			return errors.New("Wireguard interface does not have an ip address")
+		}
+
+		values.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+		if values.VPNServerAddress == nil {
+			return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
+		}
+
+		_, values.VPNRange, err = net.ParseCIDR(addresses[0].String())
+		if err != nil {
+			return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
+		}
+
+	}
+
 	for group, members := range values.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
 			return fmt.Errorf("Group does not have 'group:' prefix: %s", group)
@@ -125,6 +149,10 @@ func Load(path string) error {
 	}
 
 	globalAcl := values.Acls.Policies["*"]
+	if values.VPNServerAddress != nil {
+		globalAcl.Allow = append(globalAcl.Allow, values.VPNServerAddress.String()+"/32")
+	}
+
 	delete(values.Acls.Policies, "*")
 
 	for owner, acl := range values.Acls.Policies {
@@ -135,7 +163,7 @@ func Load(path string) error {
 			if net.ParseIP(addr) == nil {
 				_, _, err := net.ParseCIDR(addr)
 				if err != nil {
-					return fmt.Errorf("Unable to parse address as ipv4: %s", addr)
+					return fmt.Errorf("unable to parse address as ipv4: %s", addr)
 				}
 			}
 		}
@@ -146,32 +174,9 @@ func Load(path string) error {
 			if net.ParseIP(addr) == nil {
 				_, _, err := net.ParseCIDR(addr)
 				if err != nil {
-					return fmt.Errorf("Unable to parse address as ipv4: %s", addr)
+					return fmt.Errorf("unable to parse address as ipv4: %s", addr)
 				}
 			}
-		}
-	}
-
-	i, err := net.InterfaceByName(values.WgDevName)
-	if err == nil {
-
-		addresses, err := i.Addrs()
-		if err != nil {
-			return fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
-		}
-
-		if len(addresses) < 1 {
-			return errors.New("Wireguard interface does not have an ip address")
-		}
-
-		values.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
-		if values.VPNServerAddress == nil {
-			return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
-		}
-
-		_, values.VPNRange, err = net.ParseCIDR(addresses[0].String())
-		if err != nil {
-			return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 	}
 

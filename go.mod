@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
+	github.com/cilium/ebpf v0.9.1 // indirect
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/josharian/native v1.0.0 // indirect

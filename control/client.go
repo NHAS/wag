@@ -1,62 +1,103 @@
 package control
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
-	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
-func message(m msg) (result, error) {
-	con, err := net.Dial("unix", controlSocket)
-	r := result{}
-	if err != nil {
-		return r, err
+var (
+	client = http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", controlSocket)
+			},
+		},
 	}
+)
 
-	results, err := json.Marshal(&m)
+func Delete(address string) error {
+
+	form := url.Values{}
+	form.Add("address", address)
+
+	response, err := client.Post("http://unix/device/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
-		return r, err
+		return err
 	}
+	defer response.Body.Close()
 
-	_, err = con.Write(results)
-	if err != nil {
-		return r, err
-	}
-
-	err = json.NewDecoder(con).Decode(&r)
-
-	return r, err
-}
-
-func Block(address string) error {
-
-	r, err := message(msg{
-		Type: "block",
-		Arg:  address,
-	})
+	result, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
 
-	if r.Type != "OK" {
-		return fmt.Errorf("Unable to block device: %s", r.Text)
+	if string(result) != "OK!" {
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func Block(address string) error {
+
+	form := url.Values{}
+	form.Add("address", address)
+
+	response, err := client.Post("http://unix/device/block", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	if string(result) != "OK!" {
+		return errors.New(string(result))
 	}
 
 	return nil
 }
 
 func Sessions() (string, error) {
-	r, err := message(msg{
-		Type: "sessions",
-	})
+
+	response, err := client.Get("http://unix/device/sessions")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
 	if err != nil {
 		return "", err
 	}
 
-	if r.Type != "OK" {
-		return "", errors.New(r.Text)
+	return string(result), nil
+}
+
+func FirewallRules() error {
+
+	response, err := client.Get("http://unix/firewall/list")
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
 	}
 
-	return r.Text, nil
+	if string(result) != "OK!" {
+		return errors.New(string(result))
+	}
+
+	return nil
 }

@@ -66,7 +66,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
+			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -78,7 +78,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("Webserver tunnel listener failed: %v", srv.ListenAndServe())
+			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 
@@ -101,7 +101,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
+			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -113,7 +113,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("Webserver public listener failed: %v", srv.ListenAndServe())
+			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 
@@ -200,7 +200,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
 	//their totp code
-	_, endpointAddr, err := wireguard_manager.GetDevice(clientTunnelIp)
+	_, endpointAddr, err := wireguard_manager.GetDeviceFromIP(clientTunnelIp)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to find associated device: ", err)
 		return
@@ -246,9 +246,9 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = firewall.Allow(clientTunnelIp, endpointAddr, time.Duration(config.Values().SessionTimeoutMinutes)*time.Minute)
+	err = firewall.AddAuthorizedRoutes(clientTunnelIp, endpointAddr)
 	if err != nil {
-		log.Println(username, "(", clientTunnelIp, ") unable to allow device", err)
+		log.Println(username, "(", clientTunnelIp, ") unable to add mfa routes", err)
 
 		http.Error(w, "Server error", 500)
 		return
@@ -266,14 +266,14 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, ok := r.URL.Query()["key"]
-	if !ok || len(key[0]) < 1 || len(key) > 1 {
+	key := r.URL.Query().Get("key")
+	if len(key) == 0 {
 		log.Println("No registration key specified, ignoring")
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	username, err := database.GetRegistrationToken(key[0])
+	username, err := database.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(r.RemoteAddr, "failed to get registration key:", err)
 		http.Error(w, "Server error", 500)
@@ -281,9 +281,9 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var publickey, privatekey wgtypes.Key
-	pubkeyParam, ok := r.URL.Query()["pubkey"]
-	if len(pubkeyParam) == 1 {
-		publickey, err = wgtypes.NewKey([]byte(pubkeyParam[0]))
+	pubkeyParam := r.URL.Query().Get("pubkey")
+	if len(pubkeyParam) != 0 {
+		publickey, err = wgtypes.NewKey([]byte(pubkeyParam))
 		if err != nil {
 			log.Println(r.RemoteAddr, "failed to unmarshal wireguard public key:", err)
 			http.Error(w, "Server error", 500)
@@ -299,7 +299,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey = privatekey.PublicKey()
 	}
 
-	address, err := wireguard_manager.AddDevice(publickey)
+	address, err := wireguard_manager.AddNewDevice(publickey)
 	if err != nil {
 		log.Println(r.RemoteAddr, "unable to add device: ", err)
 
@@ -334,9 +334,6 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Clients must be able to talk to the server, otherwise you cant mfa
-	acl.Allow = append(acl.Allow, config.Values().VPNServerAddress.String())
-
 	i := resources.Interface{
 		ClientPrivateKey:  strings.TrimSpace(privatekey.String()),
 		ClientAddress:     address,
@@ -352,7 +349,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Finish registration process
-	err = database.DeleteRegistrationToken(key[0])
+	err = database.DeleteRegistrationToken(key)
 	if err != nil {
 		log.Println(r.RemoteAddr, "expiring registration token failed:", err)
 

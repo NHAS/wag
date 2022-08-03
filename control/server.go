@@ -2,90 +2,91 @@ package control
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
-	"strings"
 	"wag/firewall"
 )
 
 const controlSocket = "/tmp/wag.sock"
 
-type msg struct {
-	Type string
-	Arg  string
-}
-
-type result struct {
-	Type string
-	Text string
-}
-
-func handler(con net.Conn) {
-	dec := json.NewDecoder(con)
-	defer con.Close()
-	for {
-		var currentMessage msg
-		err := dec.Decode(&currentMessage)
-		if err != nil {
-			return
-		}
-
-		switch currentMessage.Type {
-		case "block":
-			err := block(con, currentMessage.Arg)
-			if err != nil {
-				return
-			}
-		case "sessions":
-			m := firewall.GetAllAllowed()
-			r := result{Type: "OK"}
-
-			for dev, endpoint := range m {
-				r.Text += fmt.Sprintf("%s,%s\n", dev, endpoint)
-			}
-
-			result, _ := json.Marshal(&r)
-
-			_, err := con.Write([]byte(result))
-			if err != nil {
-				return
-			}
-		}
-	}
-}
-
-func block(con net.Conn, address string) error {
-	r := result{}
-	err := firewall.Block(address)
-	//If iptables cannot find the rule, it reports badrule, which is fine. Means its not forwarding the devices traffic anyway
-	if err != nil && !strings.Contains("Bad rule", err.Error()) {
-		r.Type = "FAIL"
-		r.Text = err.Error()
-		result, _ := json.Marshal(&r)
-		_, err := con.Write(result)
-		if err != nil {
-			return err
-		}
+func block(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
 	}
 
-	r.Type = "OK"
-	r.Text = address
-
-	result, _ := json.Marshal(&r)
-
-	_, err = con.Write(result)
+	err := r.ParseForm()
 	if err != nil {
-		return err
+		http.Error(w, err.Error(), 500)
+		return
 	}
-	return nil
+
+	err = firewall.RemoveAuthorizedRoutes(r.FormValue("address"))
+	if err != nil {
+		http.Error(w, "not found: "+err.Error(), 404)
+		return
+	}
+
+	w.Write([]byte("OK"))
+}
+
+func sessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	result, _ := json.Marshal(firewall.GetAllAllowed())
+
+	w.Write(result)
+}
+
+func delete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = firewall.RemoveAllRoutes(r.FormValue("address"))
+	if err != nil {
+		http.Error(w, "not found: "+err.Error(), 404)
+		return
+	}
+
+	w.Write([]byte("OK"))
+}
+
+func firewallRules(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	rules, err := firewall.GetRules()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	result, _ := json.Marshal(rules)
+
+	w.Write(result)
 }
 
 func StartControlSocket() error {
 	l, err := net.Listen("unix", controlSocket)
 	if err != nil {
-
 		return err
 	}
 
@@ -95,19 +96,13 @@ func StartControlSocket() error {
 
 	log.Println("Started control socket: \n\t\t\t", controlSocket)
 
-	go func() {
-		defer l.Close()
+	http.HandleFunc("/device/block", block)
+	http.HandleFunc("/device/sessions", sessions)
+	http.HandleFunc("/device/delete", delete)
 
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				log.Println("accept error:", err)
-				continue
-			}
+	http.HandleFunc("/firewall/list", firewallRules)
 
-			go handler(conn)
-		}
-	}()
+	go http.Serve(l, nil)
 
 	return nil
 }

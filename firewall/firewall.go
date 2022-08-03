@@ -2,10 +2,8 @@ package firewall
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 	"wag/config"
@@ -15,82 +13,52 @@ import (
 )
 
 var (
-	l        sync.RWMutex
-	sessions = map[string]string{}
+	l          sync.RWMutex
+	sessions   = map[string]string{}
+	tunnelPort string
 )
 
 func Setup(tunnelWebserverPort string) error {
+
+	tunnelPort = tunnelWebserverPort
 
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
 	}
+
+	//So. This to the average person will look like we say "Hey server forward anything and everything from the wireguard interface"
+	//And without the xdp ebpf program it would be, however if you look at xdp.c you can see that we can manipluate maps of addresses for each user
+	//This then controls whether the packet is dropped, but we still need iptables to do the higher level routing stuffs
 
 	err = ipt.ChangePolicy("filter", "FORWARD", "DROP")
 	if err != nil {
 		return err
 	}
 
-	//Make our custom chains so we can delete it when we finish up
-	err = ipt.NewChain("filter", "WAG_FORWARD")
-	if err != nil {
-		return err
-	}
-
-	err = ipt.NewChain("filter", "WAG_INPUT")
-	if err != nil {
-		return err
-	}
-
-	err = ipt.NewChain("nat", "WAG_POSTROUTING")
-	if err != nil {
-		return err
-	}
-
 	//Setup the links to the new chains
-	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "WAG_FORWARD")
+	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "WAG_INPUT")
-	if err != nil {
-		return err
-	}
-
-	err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "WAG_POSTROUTING")
+	err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "MASQUERADE")
 	if err != nil {
 		return err
 	}
 
 	//Allow input to authorize web server on the tunnel
-	err = ipt.Append("filter", "WAG_INPUT", "-m", "tcp", "-p", "tcp", "--dport", tunnelWebserverPort, "-j", "ACCEPT")
+	err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().WgDevName, "--dport", tunnelWebserverPort, "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "WAG_INPUT", "-j", "DROP")
+	err = ipt.Append("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "DROP")
 	if err != nil {
 		return err
 	}
 
-	err = RefreshPublicRoutes()
-	if err != nil {
-		return err
-	}
-
-	log.Println("Started firewall management: \n",
-		"\t\t\tSetting filter FORWARD policy to DROP\n",
-		"\t\t\tCreated WAG_INPUT chain\n",
-		"\t\t\tCreated WAG_FORWARD chain\n",
-		"\t\t\tCreated WAG_POSTROUTING chain\n",
-		"\t\t\tSet public forwards")
-
-	return nil
-}
-
-func RefreshPublicRoutes() error {
-	ipt, err := iptables.New()
+	err = setupXDP()
 	if err != nil {
 		return err
 	}
@@ -100,80 +68,37 @@ func RefreshPublicRoutes() error {
 		return err
 	}
 
-	err = ipt.ClearChain("nat", "WAG_POSTROUTING")
-	if err != nil {
-		return err
-	}
-
 	for _, device := range devices {
-
-		acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
-		if !ok {
-			log.Println("Warning, no acl defined for", device.Username)
-			continue
-		}
-
-		err = ipt.Append("nat", "WAG_POSTROUTING", "-d", strings.Join(append(acl.Mfa, acl.Allow...), ","), "-j", "MASQUERADE")
+		err := AddPublicRoutes(device.Address)
 		if err != nil {
 			return err
 		}
-
-		err = ipt.ClearChain("filter", "WAG_FORWARD")
-		if err != nil {
-			return err
-		}
-
-		//Add public routes
-		err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Allow, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-		if err != nil {
-			return err
-		}
-
-		err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Allow, ","), "-j", "ACCEPT")
-		if err != nil {
-			return err
-		}
-
-		l.RLock()
-
-		if _, ok := sessions[device.Address]; ok {
-			//Add mfa routes, if there is still an active session
-			err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-			if err != nil {
-				return err
-			}
-
-			err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
-			if err != nil {
-				return err
-			}
-		}
-
-		l.RUnlock()
-
 	}
+
+	log.Println("Started firewall management: \n",
+		"\t\t\tSetting filter FORWARD policy to DROP\n",
+		"\t\t\tAllowed input on tunnel port\n",
+		"\t\t\tSet MASQUERADE\n",
+		"\t\t\tXDP eBPF program managing firewall\n",
+		"\t\t\tSet public forwards")
 
 	return nil
 }
 
-func BlockDeviceOnEndpointChange(changedClient <-chan net.IP) {
+func DeauthenticateOnEndpointChange(changedClient <-chan net.IP) {
 	for ip := range changedClient {
 		log.Println("Endpoint change, removing invalidating 2fa for: ", ip)
-		if err := Block(ip.String()); err != nil {
+		if err := RemoveAuthorizedRoutes(ip.String()); err != nil {
 			log.Println("Unable to remove forwards for device: ", err)
 		}
 	}
 }
 
-func Allow(address, endpoint string, expire time.Duration) error {
-	ipt, err := iptables.New()
-	if err != nil {
-		return err
-	}
+func AddPublicRoutes(address string) error {
 
 	device, err := database.GetDeviceByIP(address)
 	if err != nil {
-		return errors.New("User not found")
+		return errors.New("user not found")
 	}
 
 	acls, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
@@ -181,43 +106,101 @@ func Allow(address, endpoint string, expire time.Duration) error {
 		return errors.New("No acl defined for user: " + device.Username)
 	}
 
-	//Add mfa routes
-	err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acls.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	if err != nil {
-		return err
+	for _, publicAddress := range acls.Allow {
+
+		k, err := ParseIP(publicAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAdd(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = ipt.Append("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acls.Mfa, ","), "-j", "ACCEPT")
-	if err != nil {
-		return err
-	}
+	return nil
+}
 
+func AddAuthorizedRoutes(address, endpoint string) error {
 	l.Lock()
-	// Removed in block
-	sessions[address] = endpoint
+	defer l.Unlock()
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("user not found")
+	}
 
-	l.Unlock()
+	acls, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
+	if !ok {
+		return errors.New("No acl defined for user: " + device.Username)
+	}
+
+	for _, route := range acls.Mfa {
+
+		k, err := ParseIP(route)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAdd(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
+	}
+
+	sessions[address] = endpoint
 
 	//Start a timer to remove entry
 	go func(address, realendpoint string) {
-		select {
-		case <-time.After(expire):
 
-			l.RLock()
-			currentendpoint := sessions[address]
-			l.RUnlock()
+		time.Sleep(time.Duration(config.Values().SessionTimeoutMinutes) * time.Minute)
 
-			if currentendpoint != realendpoint {
-				return
-			}
+		l.RLock()
+		currentendpoint := sessions[address]
+		l.RUnlock()
 
-			log.Println(address, "expiring session because of timeout")
-			if err := Block(address); err != nil {
-				log.Println("Unable to remove forwards for device: ", err)
-			}
+		if currentendpoint != realendpoint {
 			return
 		}
+
+		log.Println(address, "expiring session because of timeout")
+		if err := RemoveAuthorizedRoutes(address); err != nil {
+			log.Println("Unable to remove forwards for device: ", err)
+		}
+
 	}(address, endpoint)
+
+	return nil
+}
+
+func RemoveAuthorizedRoutes(address string) error {
+	l.Lock()
+	defer l.Unlock()
+
+	delete(sessions, address)
+
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
+	if !ok {
+		return errors.New("no acl defined for user: " + device.Username)
+	}
+
+	for _, publicAddress := range acl.Mfa {
+
+		k, err := ParseIP(publicAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpRemoveEntry(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -225,52 +208,21 @@ func Allow(address, endpoint string, expire time.Duration) error {
 func GetAllAllowed() map[string]string {
 	l.RLock()
 	defer l.RUnlock()
-	output := map[string]string{}
-	for device, endpoint := range sessions {
-		output[device] = endpoint
+
+	out := map[string]string{}
+	for k, v := range sessions {
+		out[k] = v
 	}
-	return output
+
+	return out
 }
 
 func IsAlreadyAuthed(address string) string {
 	l.RLock()
+	defer l.RUnlock()
 	output := sessions[address]
-	l.RUnlock()
+
 	return output
-}
-
-func Block(address string) error {
-	ipt, err := iptables.New()
-	if err != nil {
-		return err
-	}
-
-	device, err := database.GetDeviceByIP(address)
-	if err != nil {
-		return errors.New("User not found")
-	}
-
-	acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
-	if !ok {
-		return errors.New("No acl defined for user: " + device.Username)
-	}
-
-	//Add mfa routes
-	err1 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	err2 := ipt.Delete("filter", "WAG_FORWARD", "-s", device.Address, "-d", strings.Join(acl.Mfa, ","), "-j", "ACCEPT")
-
-	//Make sure we try to do both opertations
-	if err1 != nil || err2 != nil {
-		return fmt.Errorf("%v:%v", err1, err2)
-	}
-
-	l.Lock()
-
-	delete(sessions, address)
-
-	l.Unlock()
-
-	return nil
 }
 
 func TearDown() {
@@ -282,35 +234,27 @@ func TearDown() {
 		return
 	}
 
-	//Remove link to custom chains
-	err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "WAG_POSTROUTING")
+	//Setup the links to the new chains
+	err = ipt.Delete("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "ACCEPT")
 	if err != nil {
-		log.Println("Unable to clean up postrouting WAG_POSTROUTING rule: ", err)
+		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	err = ipt.Delete("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "WAG_FORWARD")
+	err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "MASQUERADE")
 	if err != nil {
-		log.Println("Unable to clean up forward WAG_FORWARD rule: ", err)
+		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	err = ipt.Delete("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "WAG_INPUT")
+	//Allow input to authorize web server on the tunnel
+	err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().WgDevName, "--dport", tunnelPort, "-j", "ACCEPT")
 	if err != nil {
-		log.Println("Unable to clean up input WAG_INPUT rule: ", err)
+		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	// Delete the chains themselves
-	err = ipt.ClearAndDeleteChain("nat", "WAG_POSTROUTING")
+	err = ipt.Delete("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "DROP")
 	if err != nil {
-		log.Println("Unable to clean up WAG_POSTROUTING chain: ", err)
+		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	err = ipt.ClearAndDeleteChain("filter", "WAG_FORWARD")
-	if err != nil {
-		log.Println("Unable to clean up WAG_FORWARD chain: ", err)
-	}
-
-	err = ipt.ClearAndDeleteChain("filter", "WAG_INPUT")
-	if err != nil {
-		log.Println("Unable to clean up WAG_INPUT chain: ", err)
-	}
+	xdpTearDown()
 }

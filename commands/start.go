@@ -124,7 +124,7 @@ func (g *start) Run() error {
 	webserver.Start(g.dev.PublicKey.String(), g.dev.ListenPort, error)
 
 	go wireguard_manager.StartEndpointWatcher(config.Values().WgDevName, config.Values().VPNServerAddress, config.Values().VPNRange, g.ctrl, endpointChanges, error)
-	go firewall.BlockDeviceOnEndpointChange(endpointChanges)
+	go firewall.DeauthenticateOnEndpointChange(endpointChanges)
 
 	err = control.StartControlSocket()
 	if err != nil {
