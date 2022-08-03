@@ -101,7 +101,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
+			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -113,7 +113,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
+			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 

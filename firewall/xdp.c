@@ -32,22 +32,17 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, __u32 *ip_s
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
 
-    // First, parse the ethernet header.
-    struct ethhdr *eth = data;
-    if ((void *)(eth + 1) > data_end)
-    {
-        return 0;
-    }
-
-    if (eth->h_proto != bpf_htons(ETH_P_IP))
-    {
-        // The protocol is not IPv4, so we can't parse an IPv4 source address.
-        return 0;
-    }
+    // As this is being attached to a wireguard interface (tun device), we dont get layer 2 frames
+    // Just happy little ip packets
 
     // Then parse the IP header.
-    struct iphdr *ip = (void *)(eth + 1);
+    struct iphdr *ip = data;
     if ((void *)(ip + 1) > data_end)
+    {
+        return 0;
+    }
+
+    if (ip->version != 4)
     {
         return 0;
     }
@@ -75,14 +70,16 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 SEC("xdp")
 int xdp_prog_func(struct xdp_md *ctx)
 {
+
     __u32 src_ip, dst_ip;
     if (!parse_ip_src_dst_addr(ctx, &src_ip, &dst_ip))
     {
-        return XDP_PASS;
+        return XDP_DROP;
     }
 
     if (conntrack(&src_ip, &dst_ip) || conntrack(&dst_ip, &src_ip))
     {
+
         return XDP_PASS;
     }
 

@@ -36,7 +36,16 @@ func Setup(tunnelWebserverPort string) error {
 		return err
 	}
 
-	//Setup the links to the new chains
+	err = ipt.Append("filter", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
 	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "ACCEPT")
 	if err != nil {
 		return err
@@ -232,6 +241,11 @@ func TearDown() {
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 		return
+	}
+
+	err = ipt.Delete("filter", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	if err != nil {
+		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
 	//Setup the links to the new chains
