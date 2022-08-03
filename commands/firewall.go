@@ -19,7 +19,7 @@ func Firewall() *firewallCmd {
 		fs: flag.NewFlagSet("firewall", flag.ContinueOnError),
 	}
 
-	gc.fs.Bool("list", false, "List firewall rules, ")
+	gc.fs.Bool("list", false, "List firewall rules")
 
 	return gc
 }

@@ -60,13 +60,23 @@ The root user is able to manage the wag server with the following command:
 ```
 wag subcommand [-options]
 ```
-  
+
+Supported commands: start, cleanup, registration, devices, firewall
+
+
 All commands need to be able to load the config file. And thus support `-config`  
   
 `start`: starts the wag server  
 
 `cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
-  
+
+`firewall`: Get firewall rules
+```
+Usage of firewall:
+  -list
+        List firewall rules
+``` 
+
 `registration`:  Deals with creating, deleting and listing the registration tokens
 ```
 Usage of registration:
@@ -85,18 +95,18 @@ Usage of registration:
 `devices`: Manages MFA and device access  
 ```
 Usage of devices:
+  -address string
+        Device address
   -del
         Completely remove device blocks wireguard access
-  -device string
-        Device address
   -list
         List devices with 2fa entries
   -lock
         Locked account/device access to mfa routes
+  -mfa_sessions
+        Get list of deivces with active authorised sessions
   -reset
         Reset locked account/device
-  -sessions
-        Get list of currently active authorised sessions
 ```
 
 # User guide
@@ -210,4 +220,5 @@ Full config example
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
+- Modern kernel 4.10+ at least (needs ebpf and xdp)
 
