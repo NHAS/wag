@@ -115,7 +115,7 @@ func AddNewDevice(public wgtypes.Key) (string, error) {
 	return network.IP.String(), ctrl.ConfigureDevice(wgDevName, c)
 }
 
-func GetDeviceFromIP(address string) (wgtypes.Key, string, error) {
+func GetDeviceEndpoint(address string) (wgtypes.Key, string, error) {
 	dev, err := ctrl.Device(wgDevName)
 	if err != nil {
 		return wgtypes.Key{}, "", err

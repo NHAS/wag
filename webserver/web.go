@@ -86,6 +86,7 @@ func Start(publickey string, wgport int, err chan<- error) {
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
 	tunnel.HandleFunc("/authorise/", authorise)
+	tunnel.HandleFunc("/acls/", acls)
 	tunnel.HandleFunc("/", index)
 
 	if config.Values().Webserver.Tunnel.SupportsTLS() {
@@ -200,7 +201,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
 	//their totp code
-	_, endpointAddr, err := wireguard_manager.GetDeviceFromIP(clientTunnelIp)
+	_, endpointAddr, err := wireguard_manager.GetDeviceEndpoint(clientTunnelIp)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to find associated device: ", err)
 		return
@@ -361,4 +362,33 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println(r.RemoteAddr, "successfully registered as", address, ":", publickey.String())
+}
+
+func acls(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	clientTunnelIp := getIPFromRequest(r)
+
+	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	device, err := database.GetDeviceByIP(clientTunnelIp)
+	if err != nil {
+		log.Println("Could not find device: ", err)
+		http.Error(w, "could not find associated device", 500)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename=acl")
+	w.Header().Set("Content-Type", "text/plain")
+
+	acl := config.Values().Acls.GetEffectiveAcl(device.Username)
+
+	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
+
 }
