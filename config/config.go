@@ -158,9 +158,11 @@ func Load(path string) error {
 		globalAcl.Allow = append(globalAcl.Allow, values.VPNServerAddress.String()+"/32")
 	}
 
-	delete(values.Acls.Policies, "*")
-
 	for owner, acl := range values.Acls.Policies {
+
+		if owner == "*" {
+			continue
+		}
 
 		values.Acls.Policies[owner].Allow = append(values.Acls.Policies[owner].Allow, globalAcl.Allow...)
 
