@@ -28,7 +28,7 @@ It is a good idea to have `SaveConfig` set to `true` in the server configuration
 
 ```
 [Interface]
-Address = 10.27.0.2/24
+Address = 192.168.1.1/24
 SaveConfig = true
 ListenPort = 51820
 PrivateKey = <omitted>
@@ -128,19 +128,19 @@ e83253fd9962c68f73aa5088604f3f425d58a963bfb5c0889cca54d63a34b2e3,tester
 
 Then curl said token.  
 ```
-curl http://public.server.address:8082/register_device?key=e83253fd9962c68f73aa5088604f3f425d58a963bfb5c0889cca54d63a34b2e3
+curl http://public.server.address:8080/register_device?key=e83253fd9962c68f73aa5088604f3f425d58a963bfb5c0889cca54d63a34b2e3
 ```
 
 The service will return a fully templated response:
 ```
 [Interface]
 PrivateKey = <omitted>
-Address = 10.27.0.7
+Address = 192.168.1.1
 
 [Peer]
 Endpoint =  public.server.address:51820
 PublicKey = pnvl40WiRt++0NucEGexlpfwWA8QzBYg2+8ZWZJvejA=
-AllowedIPs = 10.0.1.1/32, 10.27.0.1/32, 10.234.0.1/32, 10.14.0.2/24
+AllowedIPs = 10.7.7.7/32, 192.168.1.1/32, 192.168.3.4/32, 192.168.3.5/32
 PersistentKeepAlive = 10
 ```
 
@@ -148,7 +148,7 @@ Which can then be written to a config file.
 
 ## Entering MFA  
   
-To authenticate the user should browse to the servers vpn address, in this case `10.27.0.1:8082`, where they will be prompted for their 2fa code.  
+To authenticate the user should browse to the servers vpn address, in this case `192.168.1.1:8080`, where they will be prompted for their 2fa code.  
 The configuration file specifies how long a session can live for, before expiring.  
 
 
