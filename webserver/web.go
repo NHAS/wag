@@ -343,6 +343,14 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = firewall.AddPublicRoutes(address)
+	if err != nil {
+		log.Println(r.RemoteAddr, "adding public routes for new device failed:", err)
+
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
 	//Finish registration process
 	err = database.DeleteRegistrationToken(key)
 	if err != nil {

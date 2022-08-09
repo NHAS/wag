@@ -46,11 +46,6 @@ func Setup(tunnelWebserverPort string) error {
 		return err
 	}
 
-	err = ipt.Append("filter", "FORWARD", "-i", config.Values().WgDevName, "-j", "ACCEPT")
-	if err != nil {
-		return err
-	}
-
 	err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().VPNRange.String(), "-j", "MASQUERADE")
 	if err != nil {
 		return err
@@ -72,12 +67,12 @@ func Setup(tunnelWebserverPort string) error {
 		return err
 	}
 
-	devices, err := database.GetDevices()
+	knownDevices, err := database.GetDevices()
 	if err != nil {
 		return err
 	}
 
-	for _, device := range devices {
+	for _, device := range knownDevices {
 		err := AddPublicRoutes(device.Address)
 		if err != nil {
 			return err
