@@ -327,12 +327,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
-	acl, ok := config.Values().Acls.GetEffectiveAcl(username)
-	if !ok {
-		log.Println(r.RemoteAddr, "No acl defined for user: ", username)
-		http.Error(w, "Server Error", 500)
-		return
-	}
+	acl := config.Values().Acls.GetEffectiveAcl(username)
 
 	i := resources.Interface{
 		ClientPrivateKey:  strings.TrimSpace(privatekey.String()),

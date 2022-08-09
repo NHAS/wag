@@ -32,14 +32,16 @@ type Acls struct {
 	Policies map[string]*Acl
 }
 
-func (a Acls) GetEffectiveAcl(username string) (Acl, bool) {
+func (a Acls) GetEffectiveAcl(username string) Acl {
+
+	var dereferencedAcl Acl = *a.Policies["*"]
+
 	if acl, ok := a.Policies[username]; ok {
-		return *acl, true
+		dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
+		dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
 	}
 
-	globalAcl, ok := a.Policies["*"]
-
-	return *globalAcl, ok
+	return dereferencedAcl
 }
 
 type config struct {
@@ -150,6 +152,7 @@ func Load(path string) error {
 
 	globalAcl, ok := values.Acls.Policies["*"]
 	if !ok {
+		//If there is no default policy default make an empy one so we can add the vpn server address
 		values.Acls.Policies["*"] = &Acl{}
 		globalAcl = values.Acls.Policies["*"]
 	}
@@ -158,13 +161,7 @@ func Load(path string) error {
 		globalAcl.Allow = append(globalAcl.Allow, values.VPNServerAddress.String()+"/32")
 	}
 
-	for owner, acl := range values.Acls.Policies {
-
-		if owner == "*" {
-			continue
-		}
-
-		values.Acls.Policies[owner].Allow = append(values.Acls.Policies[owner].Allow, globalAcl.Allow...)
+	for _, acl := range values.Acls.Policies {
 
 		for _, addr := range acl.Allow {
 			if net.ParseIP(addr) == nil {
@@ -174,8 +171,6 @@ func Load(path string) error {
 				}
 			}
 		}
-
-		values.Acls.Policies[owner].Mfa = append(values.Acls.Policies[owner].Mfa, globalAcl.Mfa...)
 
 		for _, addr := range acl.Mfa {
 			if net.ParseIP(addr) == nil {

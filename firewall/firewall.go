@@ -104,16 +104,15 @@ func DeauthenticateOnEndpointChange(changedClient <-chan net.IP) {
 }
 
 func AddPublicRoutes(address string) error {
+	l.Lock()
+	defer l.Unlock()
 
 	device, err := database.GetDeviceByIP(address)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	acls, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
-	if !ok {
-		return errors.New("No acl defined for user: " + device.Username)
-	}
+	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
 
 	for _, publicAddress := range acls.Allow {
 
@@ -139,10 +138,7 @@ func AddAuthorizedRoutes(address, endpoint string) error {
 		return errors.New("user not found")
 	}
 
-	acls, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
-	if !ok {
-		return errors.New("No acl defined for user: " + device.Username)
-	}
+	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
 
 	for _, route := range acls.Mfa {
 
@@ -193,10 +189,7 @@ func RemoveAuthorizedRoutes(address string) error {
 		return errors.New("user not found")
 	}
 
-	acl, ok := config.Values().Acls.GetEffectiveAcl(device.Username)
-	if !ok {
-		return errors.New("no acl defined for user: " + device.Username)
-	}
+	acl := config.Values().Acls.GetEffectiveAcl(device.Username)
 
 	for _, publicAddress := range acl.Mfa {
 
