@@ -12,22 +12,13 @@ import (
 	"time"
 	"wag/config"
 	"wag/database"
-	"wag/firewall"
+	"wag/router"
 	"wag/webserver/resources"
-	"wag/wireguard_manager"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var (
-	wgPort      int
-	wgPublicKey string
-)
-
-func Start(publickey string, wgport int, err chan<- error) {
-
-	wgPort = wgport
-	wgPublicKey = publickey
+func Start(err chan<- error) {
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -130,7 +121,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
+	if router.IsAlreadyAuthed(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -201,13 +192,13 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
 	//their totp code
-	endpointAddr, err := wireguard_manager.GetDeviceEndpoint(clientTunnelIp)
+	endpointAddr, err := router.GetPeerRealIp(clientTunnelIp)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to find associated device: ", err)
 		return
 	}
 
-	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
+	if router.IsAlreadyAuthed(clientTunnelIp) != "" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -247,7 +238,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = firewall.AddAuthorizedRoutes(clientTunnelIp, endpointAddr)
+	err = router.AddAuthorizedRoutes(clientTunnelIp, endpointAddr)
 	if err != nil {
 		log.Println(username, "(", clientTunnelIp, ") unable to add mfa routes", err)
 
@@ -300,7 +291,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey = privatekey.PublicKey()
 	}
 
-	address, err := wireguard_manager.AddNewDevice(publickey)
+	address, err := router.AddPeer(publickey)
 	if err != nil {
 		log.Println(r.RemoteAddr, "unable to add device: ", err)
 
@@ -311,7 +302,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err != nil {
 			log.Println(r.RemoteAddr, "removing device (due to registration failure)")
-			err := wireguard_manager.RemoveDevice(publickey)
+			err := router.RemovePeer(publickey)
 			if err != nil {
 				log.Println(r.RemoteAddr, "unable to remove wg device: ", err)
 			}
@@ -330,11 +321,18 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	acl := config.Values().Acls.GetEffectiveAcl(username)
 
+	wgPublicKey, wgPort, err := router.ServerDetails()
+	if err != nil {
+		log.Println(r.RemoteAddr, "unable access wireguard device: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
 	i := resources.Interface{
 		ClientPrivateKey:  strings.TrimSpace(privatekey.String()),
 		ClientAddress:     address,
 		ServerAddress:     fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
-		ServerPublicKey:   wgPublicKey,
+		ServerPublicKey:   wgPublicKey.String(),
 		CapturedAddresses: append(acl.Allow, acl.Mfa...),
 	}
 
@@ -344,7 +342,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = firewall.AddPublicRoutes(address)
+	err = router.AddPublicRoutes(address)
 	if err != nil {
 		log.Println(r.RemoteAddr, "adding public routes for new device failed:", err)
 
@@ -372,7 +370,7 @@ func acls(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if firewall.IsAlreadyAuthed(clientTunnelIp) == "" {
+	if router.IsAlreadyAuthed(clientTunnelIp) == "" {
 		http.NotFound(w, r)
 		return
 	}

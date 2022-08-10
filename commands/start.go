@@ -13,21 +13,14 @@ import (
 	"wag/config"
 	"wag/control"
 	"wag/database"
-	"wag/firewall"
+	"wag/router"
 	"wag/webserver"
-	"wag/wireguard_manager"
-
-	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type start struct {
 	fs *flag.FlagSet
 
 	tunnelPort string
-
-	ctrl *wgctrl.Client
-	dev  *wgtypes.Device
 }
 
 func Start() *start {
@@ -55,18 +48,14 @@ func (g *start) Init(args []string) error {
 		return err
 	}
 
-	g.ctrl, err = wgctrl.New()
-	if err != nil {
-		return fmt.Errorf("Cannot start wireguard control %v", err)
-	}
+	//Checks that the contents of the configuration file match reality and are sane
 
-	g.dev, err = g.ctrl.Device(config.Values().WgDevName)
-	if err != nil {
-		return fmt.Errorf("Unable to start wireguard-ctrl on device with name %s: %v", config.Values().WgDevName, err)
+	if _, _, err := router.ServerDetails(); err != nil {
+		return err
 	}
 
 	if len(config.Values().Issuer) == 0 {
-		return errors.New("No issuer specified")
+		return errors.New("no issuer specified")
 	}
 
 	if len(config.Values().ExternalAddress) == 0 || net.ParseIP(config.Values().ExternalAddress) == nil {
@@ -75,33 +64,28 @@ func (g *start) Init(args []string) error {
 	}
 
 	if config.Values().Lockout == 0 {
-		return errors.New("Lockout policy unconfigured")
+		return errors.New("lockout policy unconfigured")
 	}
 
 	if config.Values().SessionTimeoutMinutes == 0 {
-		return errors.New("Session timeout policy is not set")
+		return errors.New("session timeout policy is not set")
 	}
 
 	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
-		return fmt.Errorf("Cannot load database: %v", err)
+		return fmt.Errorf("cannot load database: %v", err)
 	}
 
 	if config.Values().Webserver.Tunnel.ListenAddress == "" {
-		return fmt.Errorf("Tunnel listen address is not set (Tunnel.ListenAddress)")
+		return fmt.Errorf("tunnel listen address is not set (Tunnel.ListenAddress)")
 	}
 
 	if config.Values().Webserver.Public.ListenAddress == "" {
-		return fmt.Errorf("The public listen address is not set (Public.ListenAddress)")
-	}
-
-	_, g.tunnelPort, err = net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
-	if err != nil {
-		return fmt.Errorf("unable to split host port: %v", err)
+		return fmt.Errorf("public listen address is not set (Public.ListenAddress)")
 	}
 
 	if config.Values().HelpMail == "" {
-		return fmt.Errorf("No help email address specified")
+		return fmt.Errorf("no help email address specified")
 	}
 
 	return nil
@@ -109,26 +93,20 @@ func (g *start) Init(args []string) error {
 }
 
 func (g *start) Run() error {
-	defer g.ctrl.Close()
-
-	err := firewall.Setup(g.tunnelPort)
-	if err != nil {
-		return fmt.Errorf("Unable to initialise firewall: %v", err)
-	}
-	defer firewall.TearDown()
-
-	endpointChanges := make(chan net.IP)
 
 	error := make(chan error)
 
-	webserver.Start(g.dev.PublicKey.String(), g.dev.ListenPort, error)
+	webserver.Start(error)
 
-	go wireguard_manager.StartEndpointWatcher(config.Values().WgDevName, config.Values().VPNServerAddress, config.Values().VPNRange, g.ctrl, endpointChanges, error)
-	go firewall.DeauthenticateOnEndpointChange(endpointChanges)
+	err := router.Setup(error)
+	if err != nil {
+		return fmt.Errorf("unable to start router: %v", err)
+	}
+	defer control.TearDown()
 
 	err = control.StartControlSocket()
 	if err != nil {
-		return fmt.Errorf("Unable to create control socket: %v", err)
+		return fmt.Errorf("unable to create control socket: %v", err)
 	}
 	defer control.TearDown()
 

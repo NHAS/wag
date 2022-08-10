@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"wag/config"
-	"wag/firewall"
+	"wag/router"
 )
 
 type cleanup struct {
@@ -42,7 +42,7 @@ func (g *cleanup) Init(args []string) error {
 
 func (g *cleanup) Run() error {
 
-	firewall.TearDown()
+	router.TearDown()
 
 	cmd := exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName)
 

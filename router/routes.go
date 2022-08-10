@@ -1,12 +1,15 @@
-package firewall
+package router
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
+	"time"
 	"wag/config"
+	"wag/database"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -141,6 +144,81 @@ func xdpAdd(bucket net.IP, key Key) error {
 	return nil
 }
 
+func AddPublicRoutes(address string) error {
+	l.Lock()
+	defer l.Unlock()
+
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
+
+	for _, publicAddress := range acls.Allow {
+
+		k, err := parseIP(publicAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAdd(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func AddAuthorizedRoutes(address, endpoint string) error {
+	l.Lock()
+	defer l.Unlock()
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
+
+	for _, route := range acls.Mfa {
+
+		k, err := parseIP(route)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAdd(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
+	}
+
+	sessions[address] = endpoint
+
+	//Start a timer to remove entry
+	go func(address, realendpoint string) {
+
+		time.Sleep(time.Duration(config.Values().SessionTimeoutMinutes) * time.Minute)
+
+		l.RLock()
+		currentendpoint := sessions[address]
+		l.RUnlock()
+
+		if currentendpoint != realendpoint {
+			return
+		}
+
+		log.Println(address, "expiring session because of timeout")
+		if err := RemoveAuthorizedRoutes(address); err != nil {
+			log.Println("Unable to remove forwards for device: ", err)
+		}
+
+	}(address, endpoint)
+
+	return nil
+}
+
 func xdpRemoveEntry(bucket net.IP, key Key) error {
 
 	var innerMapID ebpf.MapID
@@ -164,6 +242,35 @@ func xdpRemoveEntry(bucket net.IP, key Key) error {
 	}
 
 	inner.Close()
+
+	return nil
+}
+
+func RemoveAuthorizedRoutes(address string) error {
+	l.Lock()
+	defer l.Unlock()
+
+	delete(sessions, address)
+
+	device, err := database.GetDeviceByIP(address)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	acl := config.Values().Acls.GetEffectiveAcl(device.Username)
+
+	for _, publicAddress := range acl.Mfa {
+
+		k, err := parseIP(publicAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpRemoveEntry(net.ParseIP(device.Address), k)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

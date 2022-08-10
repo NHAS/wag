@@ -6,7 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"wag/firewall"
+	"wag/router"
 )
 
 const controlSocket = "/tmp/wag.sock"
@@ -23,7 +23,7 @@ func block(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = firewall.RemoveAuthorizedRoutes(r.FormValue("address"))
+	err = router.RemoveAuthorizedRoutes(r.FormValue("address"))
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -40,7 +40,7 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	result, _ := json.Marshal(firewall.GetAllAllowed())
+	result, _ := json.Marshal(router.GetAllAllowed())
 
 	w.Write(result)
 }
@@ -57,7 +57,7 @@ func delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = firewall.RemoveAllRoutes(r.FormValue("address"))
+	err = router.RemoveAllRoutes(r.FormValue("address"))
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -72,7 +72,7 @@ func firewallRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rules, err := firewall.GetRules()
+	rules, err := router.GetRules()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
