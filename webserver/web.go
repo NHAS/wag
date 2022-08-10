@@ -201,7 +201,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
 	//their totp code
-	_, endpointAddr, err := wireguard_manager.GetDeviceEndpoint(clientTunnelIp)
+	endpointAddr, err := wireguard_manager.GetDeviceEndpoint(clientTunnelIp)
 	if err != nil {
 		log.Println(clientTunnelIp, "unable to find associated device: ", err)
 		return
@@ -372,7 +372,7 @@ func acls(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if firewall.IsAlreadyAuthed(clientTunnelIp) != "" {
+	if firewall.IsAlreadyAuthed(clientTunnelIp) == "" {
 		http.NotFound(w, r)
 		return
 	}

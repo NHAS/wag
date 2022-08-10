@@ -217,6 +217,7 @@ func GetAllAllowed() map[string]string {
 func IsAlreadyAuthed(address string) string {
 	l.RLock()
 	defer l.RUnlock()
+
 	output := sessions[address]
 
 	return output
