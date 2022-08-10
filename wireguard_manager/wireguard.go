@@ -95,7 +95,7 @@ func AddNewDevice(public wgtypes.Key) (string, error) {
 		newAddress = addresses[len(addresses)-1]
 	}
 
-	newAddress, err = utils.IncrementIP(newAddress, vpnRange.String())
+	newAddress, err = incrementIP(newAddress, vpnRange.String())
 	if err != nil {
 		return "", err
 	}
@@ -128,4 +128,22 @@ func GetDeviceEndpoint(address string) (string, error) {
 	}
 
 	return "", errors.New("not found")
+}
+
+func incrementIP(origIP, cidr string) (string, error) {
+	ip := net.ParseIP(origIP)
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return origIP, err
+	}
+	for i := len(ip) - 1; i >= 0; i-- {
+		ip[i]++
+		if ip[i] != 0 {
+			break
+		}
+	}
+	if !ipNet.Contains(ip) {
+		return origIP, errors.New("overflowed CIDR while incrementing IP")
+	}
+	return ip.String(), nil
 }

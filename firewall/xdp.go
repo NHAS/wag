@@ -47,6 +47,7 @@ func (l Key) String() string {
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
 
 var (
+	//Keep reference to xdpLink, otherwise it may be garbage collected
 	xdpLink      link.Link
 	xdpObjects   bpfObjects
 	innerMapSpec *ebpf.MapSpec
@@ -213,12 +214,7 @@ func GetRules() (map[string][]string, error) {
 	return result, iter.Err()
 }
 
-func xdpTearDown() {
-	xdpObjects.Close()
-	xdpLink.Close()
-}
-
-func ParseIP(address string) (Key, error) {
+func parseIP(address string) (Key, error) {
 	address = strings.TrimSpace(address)
 
 	ip, netmask, err := net.ParseCIDR(address)

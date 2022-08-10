@@ -111,7 +111,7 @@ func AddPublicRoutes(address string) error {
 
 	for _, publicAddress := range acls.Allow {
 
-		k, err := ParseIP(publicAddress)
+		k, err := parseIP(publicAddress)
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func AddAuthorizedRoutes(address, endpoint string) error {
 
 	for _, route := range acls.Mfa {
 
-		k, err := ParseIP(route)
+		k, err := parseIP(route)
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ func RemoveAuthorizedRoutes(address string) error {
 
 	for _, publicAddress := range acl.Mfa {
 
-		k, err := ParseIP(publicAddress)
+		k, err := parseIP(publicAddress)
 		if err != nil {
 			return err
 		}
@@ -259,5 +259,4 @@ func TearDown() {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	xdpTearDown()
 }

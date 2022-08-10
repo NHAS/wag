@@ -1,10 +1,10 @@
 package database
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"wag/utils"
 )
 
 func GetRegistrationToken(token string) (username string, err error) {
@@ -49,7 +49,7 @@ func DeleteRegistrationToken(token string) error {
 }
 
 func GenerateToken(username string) (token string, err error) {
-	tokenBytes, err := utils.GenerateRandomBytes(32)
+	tokenBytes, err := generateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
@@ -90,4 +90,14 @@ func AddRegistrationToken(token, username string) error {
 	`, token, username)
 
 	return err
+}
+
+func generateRandomBytes(n uint32) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
