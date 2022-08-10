@@ -2,10 +2,13 @@ package control
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"wag/config"
+	"wag/database"
 	"wag/router"
 )
 
@@ -26,6 +29,12 @@ func block(w http.ResponseWriter, r *http.Request) {
 	err = router.RemoveAuthorizedRoutes(r.FormValue("address"))
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
+		return
+	}
+
+	err = database.SetAttempts(r.FormValue("address"), config.Values().Lockout+1)
+	if err != nil {
+		http.Error(w, "could not lock device in db: "+err.Error(), 404)
 		return
 	}
 
@@ -57,9 +66,15 @@ func delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.RemoveAllRoutes(r.FormValue("address"))
+	err = router.RemovePeer(r.FormValue("address"))
 	if err != nil {
-		http.Error(w, "not found: "+err.Error(), 404)
+		http.Error(w, err.Error(), 404)
+		return
+	}
+
+	err = database.DeleteDevice(r.FormValue("address"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("could not delete device from database: %s", err.Error()), 404)
 		return
 	}
 

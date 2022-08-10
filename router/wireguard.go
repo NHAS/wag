@@ -30,15 +30,46 @@ func ServerDetails() (key wgtypes.Key, port int, err error) {
 	return dev.PublicKey, dev.ListenPort, nil
 }
 
-func RemovePeer(public wgtypes.Key) error {
+func RemovePeer(internalAddress string) error {
+
+	dev, err := ctrl.Device(config.Values().WgDevName)
+	if err != nil {
+		return err
+	}
+
+	var pubkey wgtypes.Key
+	found := false
+	for _, peer := range dev.Peers {
+		if len(peer.AllowedIPs) == 1 && peer.AllowedIPs[0].IP.String() == internalAddress {
+			pubkey = peer.PublicKey
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return errors.New("not found")
+	}
 
 	var c wgtypes.Config
 	c.Peers = append(c.Peers, wgtypes.PeerConfig{
-		PublicKey: public,
+		PublicKey: pubkey,
 		Remove:    true,
 	})
 
-	return ctrl.ConfigureDevice(config.Values().WgDevName, c)
+	// Try both
+	err1 := ctrl.ConfigureDevice(config.Values().WgDevName, c)
+	err2 := RemoveAllRoutes(internalAddress)
+
+	if err1 != nil {
+		return err1
+	}
+
+	if err2 != nil {
+		return err1
+	}
+
+	return nil
 }
 
 // AddPeer the device to wireguard

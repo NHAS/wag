@@ -276,6 +276,11 @@ func RemoveAuthorizedRoutes(address string) error {
 }
 
 func RemoveAllRoutes(address string) error {
+	l.Lock()
+	defer l.Unlock()
+
+	delete(sessions, address)
+
 	bucket := net.ParseIP(address)
 	if bucket == nil {
 		return errors.New("could not parse ip address: " + address)

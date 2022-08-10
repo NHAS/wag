@@ -80,12 +80,7 @@ func (g *devices) Run() error {
 	switch g.action {
 	case "del":
 
-		err := database.DeleteDevice(g.address)
-		if err != nil {
-			return errors.New("could not delete token: " + err.Error())
-		}
-
-		err = control.Delete(g.address)
+		err := control.Delete(g.address)
 		if err != nil {
 			return err
 		}
@@ -109,12 +104,7 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := database.SetAttempts(g.address, config.Values().Lockout+1)
-		if err != nil {
-			return errors.New("Could not lock device: " + err.Error())
-		}
-
-		err = control.Block(g.address)
+		err := control.Block(g.address)
 		if err != nil {
 			return err
 		}

@@ -302,7 +302,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err != nil {
 			log.Println(r.RemoteAddr, "removing device (due to registration failure)")
-			err := router.RemovePeer(publickey)
+			err := router.RemovePeer(address)
 			if err != nil {
 				log.Println(r.RemoteAddr, "unable to remove wg device: ", err)
 			}
