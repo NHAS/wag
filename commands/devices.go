@@ -13,8 +13,8 @@ import (
 type devices struct {
 	fs *flag.FlagSet
 
-	address string
-	action  string
+	username string
+	action   string
 }
 
 func Devices() *devices {
@@ -22,7 +22,7 @@ func Devices() *devices {
 		fs: flag.NewFlagSet("devices", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.address, "address", "", "Device address")
+	gc.fs.StringVar(&gc.username, "username", "", "Username for device")
 
 	gc.fs.Bool("del", false, "Completely remove device blocks wireguard access")
 	gc.fs.Bool("list", false, "List devices with 2fa entries")
@@ -59,8 +59,8 @@ func (g *devices) Init(args []string) error {
 
 	switch g.action {
 	case "del", "reset", "lock":
-		if g.address == "" {
-			return errors.New("address must be supplied")
+		if g.username == "" {
+			return errors.New("username must be supplied")
 		}
 	case "list", "mfa_sessions":
 	default:
@@ -80,7 +80,7 @@ func (g *devices) Run() error {
 	switch g.action {
 	case "del":
 
-		err := control.Delete(g.address)
+		err := control.Delete(g.username)
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := control.Block(g.address)
+		err := control.Block(g.username)
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,13 @@ func (g *devices) Run() error {
 		fmt.Println("OK")
 
 	case "reset":
-		err := database.SetAttempts(g.address, 0)
+
+		d, err := database.GetDeviceByUsername(g.username)
+		if err != nil {
+			return errors.New("could not find username: " + err.Error())
+		}
+
+		err = database.SetAttempts(d.Address, 0)
 		if err != nil {
 			return errors.New("Could not reset device authentication attempts: " + err.Error())
 		}

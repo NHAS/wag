@@ -49,6 +49,18 @@ func GetDeviceByIP(address string) (d Device, err error) {
 	return
 }
 
+func GetDeviceByUsername(username string) (d Device, err error) {
+	var enforcing sql.NullString
+	err = database.QueryRow("SELECT address, publickey, username, enforcing, attempts FROM Totp WHERE username = ?", username).Scan(&d.Address, &d.Publickey, &d.Username, &enforcing, &d.Attempts)
+	if err != nil {
+		return Device{}, err
+	}
+
+	d.Enforcing = enforcing.Valid
+
+	return
+}
+
 func DeleteDevice(address string) error {
 	_, err := database.Exec(`
 		DELETE FROM

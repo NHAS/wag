@@ -26,13 +26,19 @@ func block(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.RemoveAuthorizedRoutes(r.FormValue("address"))
+	d, err := database.GetDeviceByUsername(r.FormValue("username"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = router.RemoveAuthorizedRoutes(d.Address)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
 	}
 
-	err = database.SetAttempts(r.FormValue("address"), config.Values().Lockout+1)
+	err = database.SetAttempts(d.Address, config.Values().Lockout+1)
 	if err != nil {
 		http.Error(w, "could not lock device in db: "+err.Error(), 404)
 		return
@@ -66,13 +72,19 @@ func delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.RemovePeer(r.FormValue("address"))
+	d, err := database.GetDeviceByUsername(r.FormValue("username"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = router.RemovePeer(d.Address)
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 		return
 	}
 
-	err = database.DeleteDevice(r.FormValue("address"))
+	err = database.DeleteDevice(d.Address)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("could not delete device from database: %s", err.Error()), 404)
 		return

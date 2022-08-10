@@ -20,10 +20,10 @@ var (
 	}
 )
 
-func Delete(address string) error {
+func Delete(username string) error {
 
 	form := url.Values{}
-	form.Add("address", address)
+	form.Add("username", username)
 
 	response, err := client.Post("http://unix/device/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -43,10 +43,10 @@ func Delete(address string) error {
 	return nil
 }
 
-func Block(address string) error {
+func Block(username string) error {
 
 	form := url.Values{}
-	form.Add("address", address)
+	form.Add("username", username)
 
 	response, err := client.Post("http://unix/device/block", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
