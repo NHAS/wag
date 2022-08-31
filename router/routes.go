@@ -122,7 +122,7 @@ func setupXDP() error {
 	return nil
 }
 
-func GetAllAuthorised() map[string]uint64 {
+func GetAllAuthorised() (map[string]uint64, error) {
 	result := make(map[string]uint64)
 
 	var ipBytes []byte
@@ -138,7 +138,7 @@ func GetAllAuthorised() map[string]uint64 {
 			result[ip.String()] = timestamp - currentTimestamp
 		}
 	}
-	return result
+	return result, sessionsIter.Err()
 }
 
 func IsAlreadyAuthed(address string) bool {

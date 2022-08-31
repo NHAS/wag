@@ -55,7 +55,13 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	result, _ := json.Marshal(router.GetAllAuthorised())
+	sessions, err := router.GetAllAuthorised()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	result, _ := json.Marshal(sessions)
 
 	w.Write(result)
 }
