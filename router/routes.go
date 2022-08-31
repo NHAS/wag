@@ -362,7 +362,12 @@ func GetRules() (map[string]description, error) {
 
 	result := make(map[string]description)
 
-	for ip, timestamp := range GetAllAuthorised() {
+	m, err := GetAllAuthorised()
+	if err != nil {
+		return result, err
+	}
+
+	for ip, timestamp := range m {
 		d := result[ip]
 
 		d.IsAuthorized = true
