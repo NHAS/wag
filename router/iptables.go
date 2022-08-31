@@ -1,23 +1,23 @@
 package router
 
 import (
+	"fmt"
 	"log"
-	"sync"
+	"net"
 	"wag/config"
 
 	"github.com/coreos/go-iptables/iptables"
-)
-
-var (
-	l          sync.RWMutex
-	sessions   = map[string]string{}
-	tunnelPort string
 )
 
 func setupIptables() error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
+	}
+
+	_, tunnelPort, err := net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
+	if err != nil {
+		return fmt.Errorf("unable to split host port: %v", err)
 	}
 
 	//So. This to the average person will look like we say "Hey server forward anything and everything from the wireguard interface"
@@ -58,28 +58,9 @@ func setupIptables() error {
 	return nil
 }
 
-func GetAllAllowed() map[string]string {
-	l.RLock()
-	defer l.RUnlock()
-
-	out := map[string]string{}
-	for k, v := range sessions {
-		out[k] = v
-	}
-
-	return out
-}
-
-func IsAlreadyAuthed(address string) string {
-	l.RLock()
-	defer l.RUnlock()
-
-	output := sessions[address]
-
-	return output
-}
-
 func TearDown() {
+	_, tunnelPort, _ := net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
+
 	log.Println("Removing Firewall rules...")
 
 	ipt, err := iptables.New()

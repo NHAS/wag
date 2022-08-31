@@ -102,7 +102,7 @@ func (g *start) Run() error {
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
 	}
-	defer control.TearDown()
+	defer router.TearDown()
 
 	err = control.StartControlSocket()
 	if err != nil {

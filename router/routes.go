@@ -4,10 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
-	"time"
 	"wag/config"
 	"wag/database"
 
@@ -15,6 +13,17 @@ import (
 	"github.com/cilium/ebpf/link"
 	"golang.org/x/sys/unix"
 )
+
+/*
+#include <time.h>
+static unsigned long long GetTimeStamp(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_BOOTTIME, &ts);
+    return (unsigned long long)ts.tv_sec * 1000000000UL + ts.tv_nsec;
+}
+*/
+import "C"
 
 type Key struct {
 
@@ -71,8 +80,7 @@ func setupXDP() error {
 		Name:      "inner_map",
 		Type:      ebpf.LPMTrie,
 		KeySize:   8, // 4 bytes for prefix, 4 bytes for u32 (ipv4)
-		ValueSize: 1, // 1 byte for u8, quasi bool
-
+		ValueSize: 1, // quasi bool
 		// This flag is required for dynamically sized inner maps.
 		// Added in linux 5.10.
 		Flags: unix.BPF_F_NO_PREALLOC,
@@ -82,7 +90,8 @@ func setupXDP() error {
 		MaxEntries: 2000,
 	}
 
-	spec.Maps["allowance_table"].InnerMap = innerMapSpec
+	spec.Maps["public_table"].InnerMap = innerMapSpec
+	spec.Maps["mfa_table"].InnerMap = innerMapSpec
 
 	// Load pre-compiled programs into the kernel.
 	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
@@ -98,218 +107,283 @@ func setupXDP() error {
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}
 
+	knownDevices, err := database.GetDevices()
+	if err != nil {
+		return err
+	}
+
+	for _, device := range knownDevices {
+		err := xdpAddDevice(device)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func xdpAdd(bucket net.IP, key Key) error {
+func GetAllAuthorised() map[string]uint64 {
+	result := make(map[string]uint64)
+
+	var ipBytes []byte
+	var timestamp uint64
+
+	sessionsIter := xdpObjects.Sessions.Iterate()
+	for sessionsIter.Next(&ipBytes, &timestamp) {
+		ip := net.IP(ipBytes)
+
+		currentTimestamp := uint64(C.GetTimeStamp())
+
+		if timestamp > currentTimestamp {
+			result[ip.String()] = timestamp - currentTimestamp
+		}
+	}
+	return result
+}
+
+func IsAlreadyAuthed(address string) bool {
+
+	ip := net.ParseIP(address)
+	//Wasnt able to parse any IP address
+	if ip == nil {
+		return false
+	}
+
+	ip = ip.To4()
+	//Unable to get a ipv4 address
+	if ip == nil {
+		return false
+	}
+
+	var timestamp uint64
+	if xdpObjects.Sessions.Lookup([]byte(ip), &timestamp) != nil {
+		return false
+	}
+	return timestamp < uint64(C.GetTimeStamp())
+}
+
+func xdpRemoveDevice(address string) error {
+	ip := net.ParseIP(address)
+	if ip == nil {
+		return errors.New("Address " + address + " is not parsable as an IP address")
+	}
+
+	msg := "remove device failed: "
+	var finalError error = errors.New(msg)
+
+	sessionErr := xdpObjects.Sessions.Delete(ip.To4())
+	if sessionErr != nil && !strings.Contains(sessionErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from session table failed: " + sessionErr.Error() + " ")
+	}
+
+	publicErr := xdpObjects.PublicTable.Delete(ip.To4())
+	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from public table failed: " + sessionErr.Error() + " ")
+	}
+
+	mfaErr := xdpObjects.MfaTable.Delete(ip.To4())
+	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + sessionErr.Error() + " ")
+	}
+
+	if finalError.Error() == msg {
+		finalError = nil
+	}
+
+	return finalError
+}
+
+func xdpAddDevice(device database.Device) error {
+
+	ip := net.ParseIP(device.Address)
+	if ip == nil {
+		return errors.New("Device " + device.Username + " does not have an internal IP address assigned to it, this is a big bug")
+	}
+
+	var timestamp uint64
+	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
+	if err == nil {
+		return errors.New("attempted to add a device with address that already exists")
+	}
+
+	defer func() {
+		//On error of any of the following operations, remove any bits that previous operations were able to add
+		if err != nil {
+			xdpRemoveDevice(device.Address)
+		}
+	}()
+
+	var k Key
+	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
+
+	// Create inner tables for the public and mfa routes based on the current ACLs
+	publicTableId, err := xdpCreateRoute(ip, xdpObjects.PublicTable)
+	if err != nil {
+		return err
+	}
+
+	for _, publicAddress := range acls.Allow {
+
+		k, err = parseIP(publicAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAddEntry(k, publicTableId)
+		if err != nil {
+			return err
+		}
+	}
+
+	mfaTableId, err := xdpCreateRoute(ip, xdpObjects.MfaTable)
+	if err != nil {
+		return err
+	}
+
+	for _, restrictAddress := range acls.Mfa {
+
+		k, err = parseIP(restrictAddress)
+		if err != nil {
+			return err
+		}
+
+		err = xdpAddEntry(k, mfaTableId)
+		if err != nil {
+			return err
+		}
+	}
+
+	//Defaultly add device that is not authenticated
+	return xdpObjects.Sessions.Put(ip.To4(), uint64(0))
+}
+
+func xdpCreateRoute(src net.IP, table *ebpf.Map) (ebpf.MapID, error) {
+
+	if src == nil {
+		return 0, errors.New("IP address was nil")
+	}
+
+	if src.To4() == nil {
+		return 0, errors.New("unable to get ipv4 address from supplied ip")
+	}
 
 	var innerMapID ebpf.MapID
-	err := xdpObjects.AllowanceTable.Lookup([]byte(bucket.To4()), &innerMapID)
+	err := table.Lookup([]byte(src.To4()), &innerMapID)
 	if err != nil {
 		if strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
 			inner, err := ebpf.NewMap(innerMapSpec)
 			if err != nil {
-				return fmt.Errorf("create new map: %s", err)
+				return 0, fmt.Errorf("create new map: %s", err)
 			}
 			defer inner.Close()
 
-			err = xdpObjects.AllowanceTable.Put([]byte(bucket.To4()), uint32(inner.FD()))
+			err = table.Put([]byte(src.To4()), uint32(inner.FD()))
 			if err != nil {
-				return fmt.Errorf("put outer: %s", err)
+				return 0, fmt.Errorf("put outer: %s", err)
 			}
 
-			//Little bit clumbsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
-			err = xdpObjects.AllowanceTable.Lookup([]byte(bucket.To4()), &innerMapID)
+			//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
+			err = table.Lookup([]byte(src.To4()), &innerMapID)
 			if err != nil {
-				return fmt.Errorf("lookup inner: %s", err)
+				return 0, fmt.Errorf("lookup inner: %s", err)
 			}
 
 		} else {
-			return fmt.Errorf("lookup outer: %s", err)
+			return 0, fmt.Errorf("lookup outer: %s", err)
 		}
 	}
 
+	return innerMapID, nil
+}
+
+func xdpAddEntry(dest Key, innerMapID ebpf.MapID) error {
 	innerMap, err := ebpf.NewMapFromID(innerMapID)
 	if err != nil {
 		return fmt.Errorf("inner map: %s", err)
 	}
+	defer innerMap.Close()
 
-	err = innerMap.Put(key.Bytes(), uint8(1))
+	err = innerMap.Put(dest.Bytes(), uint8(1))
 	if err != nil {
 		return fmt.Errorf("inner map: %s", err)
 	}
 
-	innerMap.Close()
-
 	return nil
+
 }
 
-func AddPublicRoutes(address string) error {
-	l.Lock()
-	defer l.Unlock()
+func SetAuthorized(internalAddress string) error {
+	ip := net.ParseIP(internalAddress)
+	if ip == nil {
+		return errors.New("Unable to get IP address from: " + internalAddress)
+	}
 
-	device, err := database.GetDeviceByIP(address)
+	if ip.To4() == nil {
+		return errors.New("IP address was not ipv4")
+	}
+
+	var timestamp uint64
+	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
 	if err != nil {
-		return errors.New("user not found")
+		return err
 	}
 
-	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
-
-	for _, publicAddress := range acls.Allow {
-
-		k, err := parseIP(publicAddress)
-		if err != nil {
-			return err
-		}
-
-		err = xdpAdd(net.ParseIP(device.Address), k)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return xdpObjects.Sessions.Put(ip.To4(), uint64(C.GetTimeStamp())+uint64(config.Values().SessionTimeoutMinutes)*60000000000)
 }
 
-func AddAuthorizedRoutes(address, endpoint string) error {
-	l.Lock()
-	defer l.Unlock()
-	device, err := database.GetDeviceByIP(address)
+func Deauthenticate(address string) error {
+
+	ip := net.ParseIP(address)
+	if ip == nil {
+		return errors.New("Unable to get IP address from: " + address)
+	}
+
+	if ip.To4() == nil {
+		return errors.New("IP address was not ipv4")
+	}
+
+	var timestamp uint64
+	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
 	if err != nil {
-		return errors.New("user not found")
+		return err
 	}
 
-	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
-
-	for _, route := range acls.Mfa {
-
-		k, err := parseIP(route)
-		if err != nil {
-			return err
-		}
-
-		err = xdpAdd(net.ParseIP(device.Address), k)
-		if err != nil {
-			return err
-		}
-	}
-
-	sessions[address] = endpoint
-
-	//Start a timer to remove entry
-	go func(address, realendpoint string) {
-
-		time.Sleep(time.Duration(config.Values().SessionTimeoutMinutes) * time.Minute)
-
-		l.RLock()
-		currentendpoint := sessions[address]
-		l.RUnlock()
-
-		if currentendpoint != realendpoint {
-			return
-		}
-
-		log.Println(address, "expiring session because of timeout")
-		if err := RemoveAuthorizedRoutes(address); err != nil {
-			log.Println("Unable to remove forwards for device: ", err)
-		}
-
-	}(address, endpoint)
-
-	return nil
+	return xdpObjects.Sessions.Put(ip.To4(), uint64(0))
 }
 
-func xdpRemoveEntry(bucket net.IP, key Key) error {
+type description struct {
+	IsAuthorized bool
+	Expires      uint64
+	MFA          []string
+	Public       []string
+}
+
+func GetRules() (map[string]description, error) {
+
+	result := make(map[string]description)
+
+	for ip, timestamp := range GetAllAuthorised() {
+		d := result[ip]
+
+		d.IsAuthorized = true
+		d.Expires = timestamp
+
+		result[ip] = d
+	}
 
 	var innerMapID ebpf.MapID
-	err := xdpObjects.AllowanceTable.Lookup([]byte(bucket.To4()), &innerMapID)
-	if err != nil {
-		if strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
-			return fmt.Errorf("lookup inner: %s", err)
-		}
-	}
+	var ipBytes []byte
 
-	inner, err := ebpf.NewMapFromID(innerMapID)
-	if err != nil {
-		return fmt.Errorf("create new map: %s", err)
-	}
-
-	err = inner.Delete(key.Bytes())
-	if err != nil {
-		inner.Close()
-
-		return fmt.Errorf("inner delete: %s", err)
-	}
-
-	inner.Close()
-
-	return nil
-}
-
-func RemoveAuthorizedRoutes(address string) error {
-	l.Lock()
-	defer l.Unlock()
-
-	delete(sessions, address)
-
-	device, err := database.GetDeviceByIP(address)
-	if err != nil {
-		return errors.New("user not found")
-	}
-
-	acl := config.Values().Acls.GetEffectiveAcl(device.Username)
-
-	for _, publicAddress := range acl.Mfa {
-
-		k, err := parseIP(publicAddress)
-		if err != nil {
-			return err
-		}
-
-		err = xdpRemoveEntry(net.ParseIP(device.Address), k)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func RemoveAllRoutes(address string) error {
-	l.Lock()
-	defer l.Unlock()
-
-	delete(sessions, address)
-
-	bucket := net.ParseIP(address)
-	if bucket == nil {
-		return errors.New("could not parse ip address: " + address)
-	}
-
-	err := xdpObjects.AllowanceTable.Delete([]byte(bucket.To4()))
-	if err != nil {
-		return fmt.Errorf("outer delete: %s", err)
-	}
-
-	return nil
-}
-
-func GetRules() (map[string][]string, error) {
-	var (
-		key        []byte
-		innerMapID ebpf.MapID
-	)
-
-	result := make(map[string][]string)
-
-	iter := xdpObjects.AllowanceTable.Iterate()
-	for iter.Next(&key, &innerMapID) {
-		sourceIP := net.IP(key) // IPv4 source address in network byte order.
+	publicRoutesIter := xdpObjects.PublicTable.Iterate()
+	for publicRoutesIter.Next(&ipBytes, &innerMapID) {
+		ip := net.IP(ipBytes)
 
 		innerMap, err := ebpf.NewMapFromID(innerMapID)
 		if err != nil {
 			return nil, fmt.Errorf("map from id: %s", err)
 		}
+
+		d := result[ip.String()]
 
 		var innerKey []byte
 		var val uint8
@@ -318,12 +392,44 @@ func GetRules() (map[string][]string, error) {
 		for innerIter.Next(&innerKey, &val) {
 			kv.Unpack(innerKey)
 
-			result[sourceIP.String()] = append(result[sourceIP.String()], kv.String())
+			d.Public = append(d.Public, kv.String())
 		}
 		innerMap.Close()
 
+		result[ip.String()] = d
 	}
-	return result, iter.Err()
+
+	if publicRoutesIter.Err() != nil {
+		return nil, publicRoutesIter.Err()
+	}
+
+	mfaRoutesIter := xdpObjects.MfaTable.Iterate()
+	for mfaRoutesIter.Next(&ipBytes, &innerMapID) {
+
+		ip := net.IP(ipBytes)
+
+		innerMap, err := ebpf.NewMapFromID(innerMapID)
+		if err != nil {
+			return nil, fmt.Errorf("map from id: %s", err)
+		}
+
+		d := result[ip.String()]
+
+		var innerKey []byte
+		var val uint8
+		innerIter := innerMap.Iterate()
+		kv := Key{}
+		for innerIter.Next(&innerKey, &val) {
+			kv.Unpack(innerKey)
+
+			d.MFA = append(d.MFA, kv.String())
+		}
+		innerMap.Close()
+
+		result[ip.String()] = d
+	}
+
+	return result, mfaRoutesIter.Err()
 }
 
 func parseIP(address string) (Key, error) {

@@ -6,23 +6,21 @@ import (
 	"net"
 	"time"
 	"wag/config"
-	"wag/database"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func Setup(error chan<- error) (err error) {
-
-	_, tunnelPort, err = net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
-	if err != nil {
-		return fmt.Errorf("unable to split host port: %v", err)
-	}
-
 	err = setupIptables()
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			TearDown()
+		}
+	}()
 
 	err = setupXDP()
 	if err != nil {
@@ -34,24 +32,12 @@ func Setup(error chan<- error) (err error) {
 		return fmt.Errorf("cannot start wireguard control %v", err)
 	}
 
-	knownDevices, err := database.GetDevices()
-	if err != nil {
-		return err
-	}
-
-	for _, device := range knownDevices {
-		err := AddPublicRoutes(device.Address)
-		if err != nil {
-			return err
-		}
-	}
-
 	endpointChanges := make(chan net.IP)
 
 	go func() {
 		for ip := range endpointChanges {
 			log.Println("Endpoint change, removing invalidating 2fa for: ", ip)
-			if err := RemoveAuthorizedRoutes(ip.String()); err != nil {
+			if err := Deauthenticate(ip.String()); err != nil {
 				log.Println("Unable to remove forwards for device: ", err)
 			}
 		}

@@ -32,7 +32,7 @@ func block(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.RemoveAuthorizedRoutes(d.Address)
+	err = router.Deauthenticate(d.Address)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -55,7 +55,7 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	result, _ := json.Marshal(router.GetAllAllowed())
+	result, _ := json.Marshal(router.GetAllAuthorised())
 
 	w.Write(result)
 }

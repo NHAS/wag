@@ -80,10 +80,10 @@ func SetMFAEnforcing(address string) error {
 	return err
 }
 
-func CreateMFAEntry(address, publickey, username string) error {
+func CreateMFAEntry(address, publickey, username string) (Device, error) {
 
 	if net.ParseIP(address) == nil {
-		return errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
+		return Device{}, errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
 	}
 
 	key, err := totp.Generate(totp.GenerateOpts{
@@ -91,7 +91,7 @@ func CreateMFAEntry(address, publickey, username string) error {
 		AccountName: username,
 	})
 	if err != nil {
-		return err
+		return Device{}, err
 	}
 
 	//Leaves enforcing null
@@ -102,7 +102,13 @@ func CreateMFAEntry(address, publickey, username string) error {
 		(?, ?, ?, ?, ?)
 `, address, publickey, username, key.URL(), 0)
 
-	return err
+	return Device{
+		Address:   address,
+		Publickey: publickey,
+		Username:  username,
+		Enforcing: false,
+	}, err
+
 }
 
 func Authenticate(address, code string) (username string, err error) {

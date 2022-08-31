@@ -43,6 +43,7 @@ func Start(err chan<- error) {
 
 	public := http.NewServeMux()
 	public.HandleFunc("/register_device", registerDevice)
+	public.HandleFunc("/reachability", reachability)
 
 	if config.Values().Webserver.Public.SupportsTLS() {
 
@@ -121,7 +122,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if router.IsAlreadyAuthed(clientTunnelIp) != "" {
+	if !router.IsAlreadyAuthed(clientTunnelIp) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -190,21 +191,13 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	//This must happen before authentication occurs to stop any racy effects, such as the endpoint changing just after a valid client has entered
-	//their totp code
-	endpointAddr, err := router.GetPeerRealIp(clientTunnelIp)
-	if err != nil {
-		log.Println(clientTunnelIp, "unable to find associated device: ", err)
-		return
-	}
-
-	if router.IsAlreadyAuthed(clientTunnelIp) != "" {
+	if !router.IsAlreadyAuthed(clientTunnelIp) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
 	}
 
-	err = r.ParseForm()
+	err := r.ParseForm()
 	if err != nil {
 		log.Println(clientTunnelIp, "client sent a weird form: ", err)
 
@@ -238,7 +231,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.AddAuthorizedRoutes(clientTunnelIp, endpointAddr)
+	err = router.SetAuthorized(clientTunnelIp)
 	if err != nil {
 		log.Println(username, "(", clientTunnelIp, ") unable to add mfa routes", err)
 
@@ -250,6 +243,12 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(resources.MfaSuccess))
+}
+
+func reachability(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "text/plain")
+	w.Write([]byte("OK"))
 }
 
 func registerDevice(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +290,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey = privatekey.PublicKey()
 	}
 
-	address, err := router.AddPeer(publickey)
+	address, err := router.AddPeer(publickey, username)
 	if err != nil {
 		log.Println(r.RemoteAddr, "unable to add device: ", err)
 
@@ -309,13 +308,6 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}()
-
-	err = database.CreateMFAEntry(address, publickey.String(), username)
-	if err != nil {
-		log.Println(r.RemoteAddr, "unable to setup for first use mfa: ", err)
-		http.Error(w, "Server Error", 500)
-		return
-	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
@@ -342,14 +334,6 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.AddPublicRoutes(address)
-	if err != nil {
-		log.Println(r.RemoteAddr, "adding public routes for new device failed:", err)
-
-		http.Error(w, "Server Error", 500)
-		return
-	}
-
 	//Finish registration process
 	err = database.DeleteRegistrationToken(key)
 	if err != nil {
@@ -370,7 +354,7 @@ func acls(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if router.IsAlreadyAuthed(clientTunnelIp) == "" {
+	if !router.IsAlreadyAuthed(clientTunnelIp) {
 		http.NotFound(w, r)
 		return
 	}

@@ -61,7 +61,9 @@ type bpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
-	AllowanceTable *ebpf.MapSpec `ebpf:"allowance_table"`
+	MfaTable    *ebpf.MapSpec `ebpf:"mfa_table"`
+	PublicTable *ebpf.MapSpec `ebpf:"public_table"`
+	Sessions    *ebpf.MapSpec `ebpf:"sessions"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -83,12 +85,16 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
-	AllowanceTable *ebpf.Map `ebpf:"allowance_table"`
+	MfaTable    *ebpf.Map `ebpf:"mfa_table"`
+	PublicTable *ebpf.Map `ebpf:"public_table"`
+	Sessions    *ebpf.Map `ebpf:"sessions"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
-		m.AllowanceTable,
+		m.MfaTable,
+		m.PublicTable,
+		m.Sessions,
 	)
 }
 

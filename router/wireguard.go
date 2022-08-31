@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"wag/config"
+	"wag/database"
 	"wag/utils"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -59,7 +60,7 @@ func RemovePeer(internalAddress string) error {
 
 	// Try both
 	err1 := ctrl.ConfigureDevice(config.Values().WgDevName, c)
-	err2 := RemoveAllRoutes(internalAddress)
+	err2 := xdpRemoveDevice(internalAddress)
 
 	if err1 != nil {
 		return err1
@@ -73,7 +74,7 @@ func RemovePeer(internalAddress string) error {
 }
 
 // AddPeer the device to wireguard
-func AddPeer(public wgtypes.Key) (string, error) {
+func AddPeer(public wgtypes.Key, username string) (string, error) {
 
 	dev, err := ctrl.Device(config.Values().WgDevName)
 	if err != nil {
@@ -109,6 +110,20 @@ func AddPeer(public wgtypes.Key) (string, error) {
 		ReplaceAllowedIPs: true,
 		AllowedIPs:        []net.IPNet{*network},
 	})
+
+	newDevice, err := database.CreateMFAEntry(newAddress, public.String(), username)
+	if err != nil {
+		return "", errors.New("unable to setup for first use mfa: " + err.Error())
+	}
+
+	err = xdpAddDevice(newDevice)
+	if err != nil {
+
+		//make sure we attempt to clean up the db if the xdp add fails
+		database.DeleteDevice(newAddress)
+
+		return "", err
+	}
 
 	return network.IP.String(), ctrl.ConfigureDevice(config.Values().WgDevName, c)
 }
