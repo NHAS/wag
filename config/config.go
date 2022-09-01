@@ -105,52 +105,52 @@ func load(path string) (c config, err error) {
 	}
 	c.path = path
 
-	i, err := net.InterfaceByName(values.WgDevName)
+	i, err := net.InterfaceByName(c.WgDevName)
 	if err == nil {
 
 		addresses, err := i.Addrs()
 		if err != nil {
-			return c, fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
+			return c, fmt.Errorf("Unable to get address for interface %s: %v", c.WgDevName, err)
 		}
 
 		if len(addresses) < 1 {
 			return c, errors.New("Wireguard interface does not have an ip address")
 		}
 
-		values.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
-		if values.VPNServerAddress == nil {
+		c.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+		if c.VPNServerAddress == nil {
 			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
 		}
 
-		_, values.VPNRange, err = net.ParseCIDR(addresses[0].String())
+		_, c.VPNRange, err = net.ParseCIDR(addresses[0].String())
 		if err != nil {
 			return c, errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 
 	}
 
-	for group, members := range values.Acls.Groups {
+	for group, members := range c.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
 			return c, fmt.Errorf("Group does not have 'group:' prefix: %s", group)
 		}
 
 		for _, user := range members {
-			values.Acls.rGroupLookup[user] = append(values.Acls.rGroupLookup[user], group)
+			c.Acls.rGroupLookup[user] = append(c.Acls.rGroupLookup[user], group)
 		}
 	}
 
-	globalAcl, ok := values.Acls.Policies["*"]
+	globalAcl, ok := c.Acls.Policies["*"]
 	if !ok {
 		//If there is no default policy default make an empy one so we can add the vpn server address
-		values.Acls.Policies["*"] = &Acl{}
-		globalAcl = values.Acls.Policies["*"]
+		c.Acls.Policies["*"] = &Acl{}
+		globalAcl = c.Acls.Policies["*"]
 	}
 
-	if values.VPNServerAddress != nil {
-		globalAcl.Allow = append(globalAcl.Allow, values.VPNServerAddress.String()+"/32")
+	if c.VPNServerAddress != nil {
+		globalAcl.Allow = append(globalAcl.Allow, c.VPNServerAddress.String()+"/32")
 	}
 
-	for _, acl := range values.Acls.Policies {
+	for _, acl := range c.Acls.Policies {
 
 		for _, addr := range acl.Allow {
 			if net.ParseIP(addr) == nil {
