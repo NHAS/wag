@@ -78,7 +78,7 @@ func Start(err chan<- error) {
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
 	tunnel.HandleFunc("/authorise/", authorise)
-	tunnel.HandleFunc("/acls/", acls)
+	tunnel.HandleFunc("/routes/", routes)
 	tunnel.HandleFunc("/", index)
 
 	if config.Values().Webserver.Tunnel.SupportsTLS() {
@@ -346,7 +346,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.RemoteAddr, "successfully registered as", address, ":", publickey.String())
 }
 
-func acls(w http.ResponseWriter, r *http.Request) {
+func routes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
 		return
