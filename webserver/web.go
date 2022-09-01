@@ -311,7 +311,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
-	acl := config.Values().Acls.GetEffectiveAcl(username)
+	acl := config.GetEffectiveAcl(username)
 
 	wgPublicKey, wgPort, err := router.ServerDetails()
 	if err != nil {
@@ -369,7 +369,7 @@ func acls(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "text/plain")
 
-	acl := config.Values().Acls.GetEffectiveAcl(device.Username)
+	acl := config.GetEffectiveAcl(device.Username)
 
 	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
 
