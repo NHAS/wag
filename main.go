@@ -14,6 +14,7 @@ import (
 var cmds = []commands.Command{
 	commands.Start(),
 	commands.Cleanup(),
+	commands.Reload(),
 
 	commands.Registration(),
 	commands.Devices(),

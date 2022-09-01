@@ -27,8 +27,7 @@ func (g *cleanup) Name() string {
 
 func (g *cleanup) PrintUsage() {
 	fmt.Println("Usage of cleanup:")
-	fmt.Println("  -config string")
-	fmt.Println("    Configuration file location (default \"./config.json\")")
+	fmt.Println("  Attempt to clear all iptables rules that wag creates, and bring down wireguard interface")
 }
 
 func (g *cleanup) Init(args []string) error {

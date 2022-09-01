@@ -70,6 +70,8 @@ All commands need to be able to load the config file. And thus support `-config`
 
 `cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
 
+`reload`: Reloads ACLs from configuration
+
 `firewall`: Get firewall rules
 ```
 Usage of firewall:

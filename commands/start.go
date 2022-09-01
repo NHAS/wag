@@ -38,8 +38,7 @@ func (g *start) Name() string {
 
 func (g *start) PrintUsage() {
 	fmt.Println("Usage of start:")
-	fmt.Println("  -config string")
-	fmt.Println("    Configuration file location (default \"./config.json\")")
+	fmt.Println("  Run the wag server on the settings found in config.json")
 }
 
 func (g *start) Init(args []string) error {
