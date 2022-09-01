@@ -33,6 +33,7 @@ type Acls struct {
 }
 
 type config struct {
+	path                  string
 	Proxied               bool
 	WgDevName             string
 	HelpMail              string
@@ -92,47 +93,45 @@ func GetEffectiveAcl(username string) Acl {
 	return dereferencedAcl
 }
 
-func Load(path string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
+func load(path string) (c config, err error) {
 	configBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
+		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
 
-	err = json.Unmarshal(configBytes, &values)
+	err = json.Unmarshal(configBytes, &c)
 	if err != nil {
-		return fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
+		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
+	c.path = path
 
 	i, err := net.InterfaceByName(values.WgDevName)
 	if err == nil {
 
 		addresses, err := i.Addrs()
 		if err != nil {
-			return fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
+			return c, fmt.Errorf("Unable to get address for interface %s: %v", values.WgDevName, err)
 		}
 
 		if len(addresses) < 1 {
-			return errors.New("Wireguard interface does not have an ip address")
+			return c, errors.New("Wireguard interface does not have an ip address")
 		}
 
 		values.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
 		if values.VPNServerAddress == nil {
-			return fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
+			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
 		}
 
 		_, values.VPNRange, err = net.ParseCIDR(addresses[0].String())
 		if err != nil {
-			return errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
+			return c, errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 
 	}
 
 	for group, members := range values.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
-			return fmt.Errorf("Group does not have 'group:' prefix: %s", group)
+			return c, fmt.Errorf("Group does not have 'group:' prefix: %s", group)
 		}
 
 		for _, user := range members {
@@ -157,7 +156,7 @@ func Load(path string) error {
 			if net.ParseIP(addr) == nil {
 				_, _, err := net.ParseCIDR(addr)
 				if err != nil {
-					return fmt.Errorf("unable to parse address as ipv4: %s", addr)
+					return c, fmt.Errorf("unable to parse address as ipv4: %s", addr)
 				}
 			}
 		}
@@ -166,11 +165,43 @@ func Load(path string) error {
 			if net.ParseIP(addr) == nil {
 				_, _, err := net.ParseCIDR(addr)
 				if err != nil {
-					return fmt.Errorf("unable to parse address as ipv4: %s", addr)
+					return c, fmt.Errorf("unable to parse address as ipv4: %s", addr)
 				}
 			}
 		}
 	}
+
+	return c, nil
+}
+
+func Load(path string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	if values.path != "" {
+		return errors.New("Configuration has already been loaded, please use 'Reload' instead")
+	}
+
+	newConfig, err := load(path)
+	if err != nil {
+		return err
+	}
+
+	values = newConfig
+
+	return nil
+}
+
+func Reload() error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	newConfig, err := load(values.path)
+	if err != nil {
+		return errors.New("Failed to reload configuration file: " + err.Error())
+	}
+
+	values = newConfig
 
 	return nil
 }

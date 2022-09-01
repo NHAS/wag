@@ -213,58 +213,31 @@ func xdpAddDevice(device database.Device) error {
 		}
 	}()
 
-	var k Key
 	acls := config.GetEffectiveAcl(device.Username)
 
 	// Create inner tables for the public and mfa routes based on the current ACLs
-	publicTableId, err := xdpCreateRoute(ip, xdpObjects.PublicTable)
+	err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
 	if err != nil {
 		return err
 	}
 
-	for _, publicAddress := range acls.Allow {
-
-		k, err = parseIP(publicAddress)
-		if err != nil {
-			return err
-		}
-
-		err = xdpAddEntry(k, publicTableId)
-		if err != nil {
-			return err
-		}
-	}
-
-	mfaTableId, err := xdpCreateRoute(ip, xdpObjects.MfaTable)
+	err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
 	if err != nil {
 		return err
-	}
-
-	for _, restrictAddress := range acls.Mfa {
-
-		k, err = parseIP(restrictAddress)
-		if err != nil {
-			return err
-		}
-
-		err = xdpAddEntry(k, mfaTableId)
-		if err != nil {
-			return err
-		}
 	}
 
 	//Defaultly add device that is not authenticated
 	return xdpObjects.Sessions.Put(ip.To4(), uint64(0))
 }
 
-func xdpCreateRoute(src net.IP, table *ebpf.Map) (ebpf.MapID, error) {
+func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 
 	if src == nil {
-		return 0, errors.New("IP address was nil")
+		return errors.New("IP address was nil")
 	}
 
 	if src.To4() == nil {
-		return 0, errors.New("unable to get ipv4 address from supplied ip")
+		return errors.New("unable to get ipv4 address from supplied ip")
 	}
 
 	var innerMapID ebpf.MapID
@@ -273,43 +246,95 @@ func xdpCreateRoute(src net.IP, table *ebpf.Map) (ebpf.MapID, error) {
 		if strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
 			inner, err := ebpf.NewMap(innerMapSpec)
 			if err != nil {
-				return 0, fmt.Errorf("create new map: %s", err)
+				return fmt.Errorf("create new map: %s", err)
 			}
 			defer inner.Close()
 
 			err = table.Put([]byte(src.To4()), uint32(inner.FD()))
 			if err != nil {
-				return 0, fmt.Errorf("put outer: %s", err)
+				return fmt.Errorf("put outer: %s", err)
 			}
 
 			//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
 			err = table.Lookup([]byte(src.To4()), &innerMapID)
 			if err != nil {
-				return 0, fmt.Errorf("lookup inner: %s", err)
+				return fmt.Errorf("lookup inner: %s", err)
 			}
 
 		} else {
-			return 0, fmt.Errorf("lookup outer: %s", err)
+			return fmt.Errorf("lookup outer: %s", err)
 		}
 	}
 
-	return innerMapID, nil
-}
+	for _, destination := range destinations {
 
-func xdpAddEntry(dest Key, innerMapID ebpf.MapID) error {
-	innerMap, err := ebpf.NewMapFromID(innerMapID)
-	if err != nil {
-		return fmt.Errorf("inner map: %s", err)
-	}
-	defer innerMap.Close()
+		k, err := parseIP(destination)
+		if err != nil {
+			return err
+		}
 
-	err = innerMap.Put(dest.Bytes(), uint8(1))
-	if err != nil {
-		return fmt.Errorf("inner map: %s", err)
+		innerMap, err := ebpf.NewMapFromID(innerMapID)
+		if err != nil {
+			return fmt.Errorf("inner map: %s", err)
+		}
+		defer innerMap.Close()
+
+		err = innerMap.Put(k.Bytes(), uint8(1))
+		if err != nil {
+			return fmt.Errorf("inner map: %s", err)
+		}
+
 	}
 
 	return nil
+}
 
+func RefreshAcls() []error {
+
+	devices, err := database.GetDevices()
+	if err != nil {
+		return []error{err}
+	}
+
+	var errors []error
+
+	for _, device := range devices {
+		ip := net.ParseIP(device.Address)
+		if ip == nil || ip.To4() == nil {
+			errors = append(errors, fmt.Errorf("acl refresh failed: cant parse ip from %s for user %s", device.Address, device.Username))
+			continue
+		}
+
+		acls := config.GetEffectiveAcl(device.Username)
+
+		err := xdpObjects.PublicTable.Delete(ip.To4())
+		if err != nil {
+			errors = append(errors, fmt.Errorf("acl refresh failed: delete public table for %s: %s", device.Username, err.Error()))
+			continue
+		}
+
+		// Create inner tables for the public and mfa routes based on the current ACLs
+		err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", device.Username, err.Error()))
+			continue
+		}
+
+		err = xdpObjects.MfaTable.Delete(ip.To4())
+		if err != nil {
+			errors = append(errors, fmt.Errorf("acl refresh failed: delete mfa table for %s: %s", device.Username, err.Error()))
+			continue
+		}
+
+		err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", device.Username, err.Error()))
+			continue
+		}
+
+	}
+
+	return errors
 }
 
 func SetAuthorized(internalAddress string) error {

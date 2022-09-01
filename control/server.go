@@ -117,6 +117,33 @@ func firewallRules(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
+func configReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := config.Reload()
+	if err != nil {
+		w.WriteHeader(500)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	errs := router.RefreshAcls()
+	if len(errs) > 0 {
+		w.WriteHeader(500)
+		w.Header().Set("Content-Type", "text/plain")
+		for _, err := range errs {
+			w.Write([]byte(err.Error() + "\n"))
+		}
+		return
+	}
+
+	w.Write([]byte("OK!"))
+}
+
 func StartControlSocket() error {
 	l, err := net.Listen("unix", controlSocket)
 	if err != nil {
@@ -134,6 +161,8 @@ func StartControlSocket() error {
 	http.HandleFunc("/device/delete", delete)
 
 	http.HandleFunc("/firewall/list", firewallRules)
+
+	http.HandleFunc("/config/reload", configReload)
 
 	go http.Serve(l, nil)
 

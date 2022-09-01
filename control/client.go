@@ -101,3 +101,23 @@ func FirewallRules() error {
 
 	return nil
 }
+
+func ConfigReload() error {
+
+	response, err := client.Post("http://unix/config/reload", "text/plain", nil)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	if string(result) != "OK!" {
+		return errors.New(string(result))
+	}
+
+	return nil
+}
