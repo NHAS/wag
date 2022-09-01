@@ -141,6 +141,8 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("Config reloaded")
+
 	w.Write([]byte("OK!"))
 }
 

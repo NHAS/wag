@@ -209,7 +209,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	username, err := database.Authenticate(clientTunnelIp, code)
 	if err != nil {
-		log.Println(clientTunnelIp, " failed to authorise: ", err.Error())
+		log.Println(username, "(", clientTunnelIp, ") failed to authorise: ", err.Error())
 		http.Redirect(w, r, "/?success=0", http.StatusTemporaryRedirect)
 		return
 	}
@@ -352,14 +352,7 @@ func acls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientTunnelIp := getIPFromRequest(r)
-
-	if !router.IsAlreadyAuthed(clientTunnelIp) {
-		http.NotFound(w, r)
-		return
-	}
-
-	device, err := database.GetDeviceByIP(clientTunnelIp)
+	device, err := database.GetDeviceByIP(getIPFromRequest(r))
 	if err != nil {
 		log.Println("Could not find device: ", err)
 		http.Error(w, "could not find associated device", 500)
