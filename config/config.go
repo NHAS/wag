@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"strings"
 	"sync"
@@ -28,20 +27,9 @@ type Acl struct {
 }
 
 type Acls struct {
-	Groups   map[string][]string
-	Policies map[string]*Acl
-}
-
-func (a Acls) GetEffectiveAcl(username string) Acl {
-
-	var dereferencedAcl Acl = *a.Policies["*"]
-
-	if acl, ok := a.Policies[username]; ok {
-		dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
-		dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
-	}
-
-	return dereferencedAcl
+	Groups       map[string][]string
+	rGroupLookup map[string][]string
+	Policies     map[string]*Acl
 }
 
 type config struct {
@@ -77,14 +65,31 @@ func Values() config {
 	return v
 }
 
-func addPolicy(username string, acls *Acl) {
+func GetEffectiveAcl(username string) Acl {
+	valuesLock.RLock()
+	defer valuesLock.RUnlock()
 
-	if _, ok := values.Acls.Policies[username]; !ok {
-		values.Acls.Policies[username] = &Acl{}
+	var dereferencedAcl Acl
+	if ptrAcl, ok := values.Acls.Policies["*"]; ok {
+		dereferencedAcl = *ptrAcl
 	}
 
-	values.Acls.Policies[username].Allow = append(values.Acls.Policies[username].Allow, acls.Allow...)
-	values.Acls.Policies[username].Mfa = append(values.Acls.Policies[username].Mfa, acls.Mfa...)
+	//If the user has any user specific rules, add those
+	if acl, ok := values.Acls.Policies[username]; ok {
+		dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
+		dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
+	}
+
+	//This may get expensive if the user belongs to a large number of
+	for _, groups := range values.Acls.rGroupLookup[username] {
+		//If the user belongs to a series of groups, grab those, and add their rules
+		if acl, ok := values.Acls.Policies[groups]; ok {
+			dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
+			dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
+		}
+	}
+
+	return dereferencedAcl
 }
 
 func Load(path string) error {
@@ -130,24 +135,9 @@ func Load(path string) error {
 			return fmt.Errorf("Group does not have 'group:' prefix: %s", group)
 		}
 
-		if len(members) == 0 {
-			log.Println("Warning, empty group: ", group)
-			continue
+		for _, user := range members {
+			values.Acls.rGroupLookup[user] = append(values.Acls.rGroupLookup[user], group)
 		}
-
-		acls, ok := values.Acls.Policies[group]
-		if !ok {
-			return fmt.Errorf("group defined, but not used: %s", group)
-		}
-
-		//Flatten the groups out so each user has fully descriptive acls
-		for _, memberName := range members {
-			addPolicy(memberName, acls)
-		}
-
-		//Remove the group from the policies after we've resolved what each users actual acls are
-		delete(values.Acls.Policies, group)
-
 	}
 
 	globalAcl, ok := values.Acls.Policies["*"]

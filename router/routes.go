@@ -214,7 +214,7 @@ func xdpAddDevice(device database.Device) error {
 	}()
 
 	var k Key
-	acls := config.Values().Acls.GetEffectiveAcl(device.Username)
+	acls := config.GetEffectiveAcl(device.Username)
 
 	// Create inner tables for the public and mfa routes based on the current ACLs
 	publicTableId, err := xdpCreateRoute(ip, xdpObjects.PublicTable)
