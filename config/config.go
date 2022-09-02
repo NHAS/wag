@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -103,7 +104,6 @@ func load(path string) (c config, err error) {
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
-	c.path = path
 
 	i, err := net.InterfaceByName(c.WgDevName)
 	if err == nil {
@@ -168,18 +168,21 @@ func load(path string) (c config, err error) {
 					}
 
 					addedSomething := false
-					for _, addr := range addresses {
-						if addr.To4() != nil {
+					for ii := range addresses {
+						if addresses[ii].To4() != nil {
 							addedSomething = true
-							acl.Allow = append(acl.Allow, addr.String())
+
+							if ii == 0 {
+								acl.Allow[i] = addresses[ii].String() // Replace the domain with an address
+								continue
+							}
+
+							acl.Allow = append(acl.Allow, addresses[ii].String())
 						}
 					}
-
 					if !addedSomething {
 						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Allow[i])
 					}
-
-					acl.Allow = append(acl.Allow[:i], acl.Allow[i+1:]...)
 				}
 			}
 		}
@@ -200,18 +203,23 @@ func load(path string) (c config, err error) {
 					}
 
 					addedSomething := false
-					for _, addr := range addresses {
-						if addr.To4() != nil {
+					for ii := range addresses {
+						if addresses[ii].To4() != nil {
 							addedSomething = true
-							acl.Mfa = append(acl.Mfa, addr.String())
+
+							if ii == 0 {
+								acl.Mfa[i] = addresses[ii].String() // Replace the domain with an address
+								continue
+							}
+
+							acl.Mfa = append(acl.Mfa, addresses[ii].String())
 						}
 					}
 
 					if !addedSomething {
-						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Allow[i])
+						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Mfa[i])
 					}
 
-					acl.Mfa = append(acl.Mfa[:i], acl.Mfa[i+1:]...)
 				}
 			}
 		}
@@ -234,6 +242,7 @@ func Load(path string) error {
 	}
 
 	values = newConfig
+	values.path = path
 
 	return nil
 }
@@ -244,9 +253,10 @@ func Reload() error {
 
 	newConfig, err := load(values.path)
 	if err != nil {
+		log.Println("Unable to reload config: ", err)
 		return errors.New("Failed to reload configuration file: " + err.Error())
 	}
-
+	log.Println("able to reload config")
 	values = newConfig
 
 	return nil
