@@ -152,20 +152,66 @@ func load(path string) (c config, err error) {
 
 	for _, acl := range c.Acls.Policies {
 
-		for _, addr := range acl.Allow {
-			if net.ParseIP(addr) == nil {
-				_, _, err := net.ParseCIDR(addr)
+		for i := 0; i < len(acl.Allow); i++ {
+			if net.ParseIP(acl.Allow[i]) == nil {
+
+				_, _, err := net.ParseCIDR(acl.Allow[i])
 				if err != nil {
-					return c, fmt.Errorf("unable to parse address as ipv4: %s", addr)
+
+					addresses, err := net.LookupIP(acl.Allow[i])
+					if err != nil {
+						return c, fmt.Errorf("unable to resolve address from: %s", acl.Allow[i])
+					}
+
+					if len(addresses) == 0 {
+						return c, fmt.Errorf("no addresses for %s", acl.Allow[i])
+					}
+
+					addedSomething := false
+					for _, addr := range addresses {
+						if addr.To4() != nil {
+							addedSomething = true
+							acl.Allow = append(acl.Allow, addr.String())
+						}
+					}
+
+					if !addedSomething {
+						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Allow[i])
+					}
+
+					acl.Allow = append(acl.Allow[:i], acl.Allow[i+1:]...)
 				}
 			}
 		}
 
-		for _, addr := range acl.Mfa {
-			if net.ParseIP(addr) == nil {
-				_, _, err := net.ParseCIDR(addr)
+		for i := 0; i < len(acl.Mfa); i++ {
+			if net.ParseIP(acl.Mfa[i]) == nil {
+
+				_, _, err := net.ParseCIDR(acl.Mfa[i])
 				if err != nil {
-					return c, fmt.Errorf("unable to parse address as ipv4: %s", addr)
+
+					addresses, err := net.LookupIP(acl.Mfa[i])
+					if err != nil {
+						return c, fmt.Errorf("unable to resolve address from: %s", acl.Mfa[i])
+					}
+
+					if len(addresses) == 0 {
+						return c, fmt.Errorf("no addresses for %s", acl.Mfa[i])
+					}
+
+					addedSomething := false
+					for _, addr := range addresses {
+						if addr.To4() != nil {
+							addedSomething = true
+							acl.Mfa = append(acl.Mfa, addr.String())
+						}
+					}
+
+					if !addedSomething {
+						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Allow[i])
+					}
+
+					acl.Mfa = append(acl.Mfa[:i], acl.Mfa[i+1:]...)
 				}
 			}
 		}
