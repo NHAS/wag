@@ -199,7 +199,8 @@ Full config example
         "Policies": {
             "*": {
                 "Allow": [
-                    "10.7.7.7"
+                    "10.7.7.7",
+                    "google.com"
                 ]
             },
             "username": {
