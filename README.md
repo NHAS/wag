@@ -13,6 +13,8 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 # Requirements
 
+glibc 2.34 or higher
+
 The wireguard device must be running before wag is started.  
   
 `iptables` and `wg-quick` must be installed. 
