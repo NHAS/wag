@@ -129,6 +129,8 @@ func load(path string) (c config, err error) {
 
 	}
 
+	c.Acls.rGroupLookup = map[string][]string{}
+
 	for group, members := range c.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
 			return c, fmt.Errorf("Group does not have 'group:' prefix: %s", group)
