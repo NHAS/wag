@@ -50,6 +50,16 @@ func setupIptables() error {
 		return err
 	}
 
+	err = ipt.Append("filter", "INPUT", "-p", "icmp", "--icmp-type", "8", "-i", config.Values().WgDevName, "-m", "state", "--state", "NEW,ESTABLISHED,RELATED", "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().WgDevName, "--dport", tunnelPort, "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
 	err = ipt.Append("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "DROP")
 	if err != nil {
 		return err
@@ -87,6 +97,11 @@ func TearDown() {
 
 	//Allow input to authorize web server on the tunnel
 	err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().WgDevName, "--dport", tunnelPort, "-j", "ACCEPT")
+	if err != nil {
+		log.Println("Unable to clean up firewall rules: ", err)
+	}
+
+	err = ipt.Delete("filter", "INPUT", "-p", "icmp", "--icmp-type", "8", "-i", config.Values().WgDevName, "-m", "state", "--state", "NEW,ESTABLISHED,RELATED", "-j", "ACCEPT")
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
