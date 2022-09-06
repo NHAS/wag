@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"wag/config"
@@ -257,22 +258,32 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := r.URL.Query().Get("key")
+	key, err := url.PathUnescape(r.URL.Query().Get("key"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
 	if len(key) == 0 {
 		log.Println("No registration key specified, ignoring")
-		http.Error(w, "Server error", 500)
+		http.NotFound(w, r)
 		return
 	}
 
 	username, err := database.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(r.RemoteAddr, "failed to get registration key:", err)
-		http.Error(w, "Server error", 500)
+		http.NotFound(w, r)
 		return
 	}
 
 	var publickey, privatekey wgtypes.Key
-	pubkeyParam := r.URL.Query().Get("pubkey")
+	pubkeyParam, err := url.PathUnescape(r.URL.Query().Get("pubkey"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
 	if len(pubkeyParam) != 0 {
 		publickey, err = wgtypes.NewKey([]byte(pubkeyParam))
 		if err != nil {
@@ -306,7 +317,6 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 				log.Println(r.RemoteAddr, "unable to remove wg device: ", err)
 			}
 		}
-
 	}()
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
