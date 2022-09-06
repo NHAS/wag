@@ -330,8 +330,12 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	keyStr := strings.TrimSpace(privatekey.String())
+	if keyStr == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" {
+		keyStr = ""
+	}
 	i := resources.Interface{
-		ClientPrivateKey:  strings.TrimSpace(privatekey.String()),
+		ClientPrivateKey:  keyStr,
 		ClientAddress:     address,
 		ServerAddress:     fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:   wgPublicKey.String(),
