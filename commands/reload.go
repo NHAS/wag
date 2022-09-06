@@ -24,7 +24,7 @@ func (g *reload) Name() string {
 }
 
 func (g *reload) PrintUsage() {
-	fmt.Println("Usage of cleanup:")
+	fmt.Println("Usage of reload:")
 	fmt.Println("  Reload ACLs from config.json")
 }
 
