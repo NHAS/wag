@@ -285,7 +285,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(pubkeyParam) != 0 {
-		publickey, err = wgtypes.NewKey([]byte(pubkeyParam))
+		publickey, err = wgtypes.ParseKey(pubkeyParam)
 		if err != nil {
 			log.Println(r.RemoteAddr, "failed to unmarshal wireguard public key:", err)
 			http.Error(w, "Server error", 500)

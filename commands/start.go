@@ -57,9 +57,20 @@ func (g *start) Init(args []string) error {
 		return errors.New("no issuer specified")
 	}
 
-	if len(config.Values().ExternalAddress) == 0 || net.ParseIP(config.Values().ExternalAddress) == nil {
-		return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to parse as IP")
+	if len(config.Values().ExternalAddress) == 0 {
+		return errors.New("Invalid ExternalAddress is empty")
+	}
 
+	if net.ParseIP(config.Values().ExternalAddress) == nil {
+
+		addresses, err := net.LookupIP(config.Values().ExternalAddress)
+		if err != nil {
+			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to parse as IP")
+		}
+
+		if len(addresses) == 0 {
+			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " not IPv4 or IPv6 external addresses found")
+		}
 	}
 
 	if config.Values().Lockout == 0 {
