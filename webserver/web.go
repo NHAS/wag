@@ -330,7 +330,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyStr := strings.TrimSpace(privatekey.String())
+	keyStr := privatekey.String()
 	if keyStr == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" {
 		keyStr = ""
 	}

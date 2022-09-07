@@ -55,11 +55,6 @@ func setupIptables() error {
 		return err
 	}
 
-	err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().WgDevName, "--dport", tunnelPort, "-j", "ACCEPT")
-	if err != nil {
-		return err
-	}
-
 	err = ipt.Append("filter", "INPUT", "-i", config.Values().WgDevName, "-j", "DROP")
 	if err != nil {
 		return err
