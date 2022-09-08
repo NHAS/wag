@@ -131,7 +131,6 @@ func (g *start) Run() error {
 	log.Println("Wag started successfully, Ctrl + C to stop")
 	err = <-error
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am control c") {
-		log.Println(err)
 		return err
 	}
 
