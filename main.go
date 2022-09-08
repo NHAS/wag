@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"syscall"
@@ -64,22 +63,19 @@ func root(args []string) error {
 		if cmd.Name() == subcommand {
 
 			var configLocation string
+			cmd.FlagSet().StringVar(&configLocation, "config", "./config.json", "Configuration file location")
 
-			configfs := flag.NewFlagSet("config", flag.ContinueOnError)
-			configfs.Usage = func() {}
-			configfs.SetOutput(io.Discard)
-
-			configfs.StringVar(&configLocation, "config", "./config.json", "Configuration file location")
-
-			configfs.Parse(os.Args[2:])
-
-			err := config.Load(configLocation)
+			err := cmd.FlagSet().Parse(os.Args[2:])
 			if err != nil {
 				return err
 			}
 
-			err = cmd.Init(os.Args[2:])
+			err = config.Load(configLocation)
 			if err != nil {
+				return err
+			}
+
+			if err = cmd.Check(); err != nil {
 				if err != flag.ErrHelp {
 					fmt.Println("Error: ", err.Error())
 					cmd.PrintUsage()

@@ -1,8 +1,11 @@
 package commands
 
+import "flag"
+
 type Command interface {
-	Init([]string) error
+	Check() error
 	Run() error
 	PrintUsage()
 	Name() string
+	FlagSet() *flag.FlagSet
 }

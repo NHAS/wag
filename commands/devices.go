@@ -35,6 +35,10 @@ func Devices() *devices {
 	return gc
 }
 
+func (g *devices) FlagSet() *flag.FlagSet {
+	return g.fs
+}
+
 func (g *devices) Name() string {
 
 	return g.fs.Name()
@@ -44,12 +48,7 @@ func (g *devices) PrintUsage() {
 	g.fs.Usage()
 }
 
-func (g *devices) Init(args []string) error {
-	err := g.fs.Parse(args)
-	if err != nil {
-		return err
-	}
-
+func (g *devices) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "reset", "del", "list", "lock", "mfa_sessions":
@@ -67,7 +66,7 @@ func (g *devices) Init(args []string) error {
 		return errors.New("invalid action choice")
 	}
 
-	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}

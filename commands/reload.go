@@ -18,6 +18,10 @@ func Reload() *reload {
 	return gc
 }
 
+func (g *reload) FlagSet() *flag.FlagSet {
+	return g.fs
+}
+
 func (g *reload) Name() string {
 
 	return g.fs.Name()
@@ -28,12 +32,7 @@ func (g *reload) PrintUsage() {
 	fmt.Println("  Reload ACLs from config.json")
 }
 
-func (g *reload) Init(args []string) error {
-	err := g.fs.Parse(args)
-	if err != nil {
-		return err
-	}
-
+func (g *reload) Check() error {
 	return nil
 }
 

@@ -20,6 +20,10 @@ func Cleanup() *cleanup {
 	return gc
 }
 
+func (g *cleanup) FlagSet() *flag.FlagSet {
+	return g.fs
+}
+
 func (g *cleanup) Name() string {
 
 	return g.fs.Name()
@@ -30,12 +34,7 @@ func (g *cleanup) PrintUsage() {
 	fmt.Println("  Attempt to clear all iptables rules that wag creates, and bring down wireguard interface")
 }
 
-func (g *cleanup) Init(args []string) error {
-	err := g.fs.Parse(args)
-	if err != nil {
-		return err
-	}
-
+func (g *cleanup) Check() error {
 	return nil
 }
 

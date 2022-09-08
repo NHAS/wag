@@ -19,8 +19,6 @@ import (
 
 type start struct {
 	fs *flag.FlagSet
-
-	tunnelPort string
 }
 
 func Start() *start {
@@ -29,6 +27,10 @@ func Start() *start {
 	}
 
 	return gc
+}
+
+func (g *start) FlagSet() *flag.FlagSet {
+	return g.fs
 }
 
 func (g *start) Name() string {
@@ -41,14 +43,9 @@ func (g *start) PrintUsage() {
 	fmt.Println("  Run the wag server on the settings found in config.json")
 }
 
-func (g *start) Init(args []string) error {
-	err := g.fs.Parse(args)
-	if err != nil {
-		return err
-	}
+func (g *start) Check() error {
 
 	//Checks that the contents of the configuration file match reality and are sane
-
 	if _, _, err := router.ServerDetails(); err != nil {
 		return err
 	}
@@ -81,7 +78,7 @@ func (g *start) Init(args []string) error {
 		return errors.New("session timeout policy is not set")
 	}
 
-	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
