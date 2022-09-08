@@ -13,7 +13,7 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 # Requirements
 
-glibc 2.34 or higher
+glibc 2.34 or higher  
 go1.16+
 
 The wireguard device must be running before wag is started.  
@@ -49,7 +49,7 @@ git clone git@github.com:NHAS/wag.git
 cd wag
 go build
 
-cp example_config config.json
+cp example_config.json config.json
 
 sudo ./wag start
 ```
