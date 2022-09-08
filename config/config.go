@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"strings"
 	"sync"
@@ -253,13 +252,13 @@ func Reload() error {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
 
+	previousPath := values.path
 	newConfig, err := load(values.path)
 	if err != nil {
-		log.Println("Unable to reload config: ", err)
 		return errors.New("Failed to reload configuration file: " + err.Error())
 	}
-	log.Println("able to reload config")
 	values = newConfig
+	values.path = previousPath
 
 	return nil
 }
