@@ -32,17 +32,6 @@ func Setup(error chan<- error) (err error) {
 		return fmt.Errorf("cannot start wireguard control %v", err)
 	}
 
-	endpointChanges := make(chan net.IP)
-
-	go func() {
-		for ip := range endpointChanges {
-			log.Println("Endpoint change, removing invalidating 2fa for: ", ip)
-			if err := Deauthenticate(ip.String()); err != nil {
-				log.Println("Unable to remove forwards for device: ", err)
-			}
-		}
-	}()
-
 	go func() {
 		startup := true
 		var endpoints = map[wgtypes.Key]*net.UDPAddr{}
@@ -69,7 +58,11 @@ func Setup(error chan<- error) (err error) {
 
 					//Dont try and remove rules, if we've just started
 					if !startup {
-						endpointChanges <- p.AllowedIPs[0].IP
+						ip := p.AllowedIPs[0].IP.String()
+						log.Println(ip, "endpoint changed", previousAddress.String(), "->", p.Endpoint.String())
+						if err := Deauthenticate(ip); err != nil {
+							log.Println(ip, "unable to remove forwards for device: ", err)
+						}
 					}
 				}
 

@@ -111,7 +111,7 @@ func CreateMFAEntry(address, publickey, username string) (Device, error) {
 
 }
 
-func Authenticate(address, code string) (username string, err error) {
+func Authenticate(address, code string) (err error) {
 
 	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, lockoutPolicy)
 	if err != nil {
@@ -121,7 +121,7 @@ func Authenticate(address, code string) (username string, err error) {
 	var url string
 	var attempts int
 
-	err = database.QueryRow(`SELECT url, attempts, username FROM Totp WHERE address = ?`, address).Scan(&url, &attempts, &username)
+	err = database.QueryRow(`SELECT url, attempts FROM Totp WHERE address = ?`, address).Scan(&url, &attempts)
 	if err != nil {
 		return
 	}
@@ -132,11 +132,11 @@ func Authenticate(address, code string) (username string, err error) {
 	}
 
 	if attempts > lockoutPolicy {
-		return "", errors.New("Account is locked")
+		return errors.New("account is locked")
 	}
 
 	if !totp.Validate(code, key.Secret()) {
-		return "", errors.New("Code does not match expected")
+		return errors.New("code does not match expected")
 	}
 
 	return
