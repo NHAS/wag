@@ -163,7 +163,7 @@ The configuration file specifies how long a session can live for, before expirin
 `WgDevName`: The wireguard tunnel device name that wag will manage  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
-`SessionTimeoutMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes  
+`SessionTimeoutMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 `WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  

@@ -100,7 +100,7 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 
     if (user_restricted_routes)
     {
-        return bpf_map_lookup_elem(user_restricted_routes, &key) && *timestamp > bpf_ktime_get_boot_ns();
+        return bpf_map_lookup_elem(user_restricted_routes, &key) && (*timestamp == __UINT64_MAX__ || *timestamp > bpf_ktime_get_boot_ns());
     }
 
     return 0;

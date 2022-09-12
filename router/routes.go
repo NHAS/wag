@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"strings"
 	"wag/config"
@@ -353,7 +354,12 @@ func SetAuthorized(internalAddress string) error {
 		return err
 	}
 
-	return xdpObjects.Sessions.Put(ip.To4(), uint64(C.GetTimeStamp())+uint64(config.Values().SessionTimeoutMinutes)*60000000000)
+	mfaTimeout := uint64(C.GetTimeStamp()) + uint64(config.Values().SessionTimeoutMinutes)*60000000000
+	if config.Values().SessionTimeoutMinutes < 0 {
+		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
+	}
+
+	return xdpObjects.Sessions.Put(ip.To4(), mfaTimeout)
 }
 
 func Deauthenticate(address string) error {
