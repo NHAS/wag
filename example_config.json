@@ -8,10 +8,10 @@
     "Issuer": "192.168.121.61",
     "Webserver": {
         "Public": {
-            "ListenAddress": "192.168.121.61:8080"
+            "ListenAddress": ":8081"
         },
         "Tunnel": {
-            "ListenAddress": "192.168.1.1:8080"
+            "ListenAddress": "192.168.1.2:8080"
         }
     },
     "Acls": {

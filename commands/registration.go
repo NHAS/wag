@@ -32,6 +32,10 @@ func Registration() *registration {
 	return gc
 }
 
+func (g *registration) FlagSet() *flag.FlagSet {
+	return g.fs
+}
+
 func (g *registration) Name() string {
 
 	return g.fs.Name()
@@ -41,12 +45,7 @@ func (g *registration) PrintUsage() {
 	g.fs.Usage()
 }
 
-func (g *registration) Init(args []string) error {
-	err := g.fs.Parse(args)
-	if err != nil {
-		return err
-	}
-
+func (g *registration) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "add", "del", "list":
@@ -69,7 +68,7 @@ func (g *registration) Init(args []string) error {
 		return errors.New("Invalid action choice: " + g.action)
 	}
 
-	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("Cannot load database: %v", err)
 	}

@@ -59,7 +59,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
+			err <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -71,7 +71,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
+			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 
@@ -95,7 +95,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
+			err <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 	} else {
 		go func() {
