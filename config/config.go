@@ -49,6 +49,8 @@ type config struct {
 	VPNRange         *net.IPNet `json:"-"`
 	VPNServerAddress net.IP     `json:"-"`
 
+	DNS []string
+
 	Acls Acls
 }
 
@@ -151,77 +153,65 @@ func load(path string) (c config, err error) {
 		globalAcl.Allow = append(globalAcl.Allow, c.VPNServerAddress.String()+"/32")
 	}
 
+	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
+	for i := 0; i < len(c.DNS); i++ {
+		newAddress, err := parseAddress(c.DNS[i])
+		if err != nil {
+			return c, err
+		}
+
+		for ii := range newAddress {
+
+			// For the first new address, replace the domain entry in the Allow'd acls with an IP
+			if ii == 0 {
+				c.DNS[i] = newAddress[ii]
+				continue
+			}
+
+			c.DNS = append(c.DNS, newAddress[ii])
+		}
+
+		globalAcl.Allow = append(globalAcl.Allow, newAddress...)
+	}
+
 	for _, acl := range c.Acls.Policies {
 
 		for i := 0; i < len(acl.Allow); i++ {
-			if net.ParseIP(acl.Allow[i]) == nil {
-
-				_, _, err := net.ParseCIDR(acl.Allow[i])
-				if err != nil {
-
-					addresses, err := net.LookupIP(acl.Allow[i])
-					if err != nil {
-						return c, fmt.Errorf("unable to resolve address from: %s", acl.Allow[i])
-					}
-
-					if len(addresses) == 0 {
-						return c, fmt.Errorf("no addresses for %s", acl.Allow[i])
-					}
-
-					addedSomething := false
-					for ii := range addresses {
-						if addresses[ii].To4() != nil {
-							addedSomething = true
-
-							if ii == 0 {
-								acl.Allow[i] = addresses[ii].String() // Replace the domain with an address
-								continue
-							}
-
-							acl.Allow = append(acl.Allow, addresses[ii].String())
-						}
-					}
-					if !addedSomething {
-						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Allow[i])
-					}
-				}
+			newAddress, err := parseAddress(acl.Allow[i])
+			if err != nil {
+				return c, err
 			}
+
+			// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
+			for ii := range newAddress {
+
+				// For the first new address, replace the domain entry in the Allow'd acls with an IP
+				if ii == 0 {
+					acl.Allow[i] = newAddress[ii]
+					continue
+				}
+
+				acl.Allow = append(acl.Allow, newAddress[ii])
+			}
+
 		}
 
 		for i := 0; i < len(acl.Mfa); i++ {
-			if net.ParseIP(acl.Mfa[i]) == nil {
+			newAddress, err := parseAddress(acl.Mfa[i])
+			if err != nil {
+				return c, err
+			}
 
-				_, _, err := net.ParseCIDR(acl.Mfa[i])
-				if err != nil {
+			// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
+			for ii := range newAddress {
 
-					addresses, err := net.LookupIP(acl.Mfa[i])
-					if err != nil {
-						return c, fmt.Errorf("unable to resolve address from: %s", acl.Mfa[i])
-					}
-
-					if len(addresses) == 0 {
-						return c, fmt.Errorf("no addresses for %s", acl.Mfa[i])
-					}
-
-					addedSomething := false
-					for ii := range addresses {
-						if addresses[ii].To4() != nil {
-							addedSomething = true
-
-							if ii == 0 {
-								acl.Mfa[i] = addresses[ii].String() // Replace the domain with an address
-								continue
-							}
-
-							acl.Mfa = append(acl.Mfa, addresses[ii].String())
-						}
-					}
-
-					if !addedSomething {
-						return c, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", acl.Mfa[i])
-					}
-
+				// For the first new address, replace the domain entry in the Mfa'd acls with an IP
+				if ii == 0 {
+					acl.Mfa[i] = newAddress[ii]
+					continue
 				}
+
+				acl.Mfa = append(acl.Mfa, newAddress[ii])
 			}
 		}
 	}
@@ -261,4 +251,41 @@ func Reload() error {
 	values.path = previousPath
 
 	return nil
+}
+
+func parseAddress(address string) ([]string, error) {
+
+	if net.ParseIP(address) == nil {
+
+		_, _, err := net.ParseCIDR(address)
+		if err != nil {
+
+			//If we suspect this is a domain
+			addresses, err := net.LookupIP(address)
+			if err != nil {
+				return nil, fmt.Errorf("unable to resolve address from: %s", address)
+			}
+
+			if len(addresses) == 0 {
+				return nil, fmt.Errorf("no addresses for %s", address)
+			}
+
+			output := []string{}
+			addedSomething := false
+			for _, addr := range addresses {
+				if addr.To4() != nil {
+					addedSomething = true
+					output = append(output, addr.String())
+				}
+			}
+
+			if !addedSomething {
+				return nil, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", address)
+			}
+
+			return output, nil
+		}
+	}
+
+	return nil, nil
 }

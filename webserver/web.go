@@ -357,6 +357,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		ServerAddress:     fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:   wgPublicKey.String(),
 		CapturedAddresses: append(acl.Allow, acl.Mfa...),
+		DNS:               config.Values().DNS,
 	}
 
 	err = resources.InterfaceTemplate.Execute(w, &i)

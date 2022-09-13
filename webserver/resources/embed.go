@@ -16,6 +16,7 @@ type Interface struct {
 	ServerAddress     string
 	ServerPublicKey   string
 	CapturedAddresses []string
+	DNS               []string
 }
 
 var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).Parse(interfaceTemplate))
@@ -42,7 +43,8 @@ type MfaPrompt struct {
 
 var PromptTmpl *template.Template = template.Must(template.New("").Parse(mfaPromptTmplt))
 
-//Not a template
+// Not a template
+//
 //go:embed success.html
 var MfaSuccess string
 

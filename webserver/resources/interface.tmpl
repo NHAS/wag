@@ -1,7 +1,10 @@
-{{if .ClientPrivateKey}}
+{{- if .ClientPrivateKey }}
 [Interface]
 PrivateKey = {{.ClientPrivateKey}}
-{{end}}
+{{- end}}
+{{- if .DNS}}
+DNS = {{StringsJoin .DNS ", "}}
+{{- end}}
 Address = {{.ClientAddress}}
 
 [Peer]
