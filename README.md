@@ -171,6 +171,7 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
+`DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
 Full config example
@@ -183,6 +184,7 @@ Full config example
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
     "Issuer": "192.168.121.61",
+    "DNS": ["1.1.1.1"],
     "Webserver": {
         "Public": {
             "ListenAddress": "192.168.121.61:8080"
