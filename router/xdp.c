@@ -88,19 +88,20 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         .addr = *dst_ip,
     };
 
+    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
+    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
+
+    if (user_restricted_routes)
+    {
+        return bpf_map_lookup_elem(user_restricted_routes, &key) && (*timestamp == __UINT64_MAX__ || *timestamp > bpf_ktime_get_boot_ns());
+    }
+
     void *user_public_routes = bpf_map_lookup_elem(&public_table, src_ip);
 
     // If the key is a match for the LPM in the public table
     if (user_public_routes && bpf_map_lookup_elem(user_public_routes, &key))
     {
         return 1;
-    }
-
-    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
-
-    if (user_restricted_routes)
-    {
-        return bpf_map_lookup_elem(user_restricted_routes, &key) && (*timestamp == __UINT64_MAX__ || *timestamp > bpf_ktime_get_boot_ns());
     }
 
     return 0;
