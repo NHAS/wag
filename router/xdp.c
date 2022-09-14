@@ -101,7 +101,7 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         return 0;
     }
 
-    // The most recent time a valid packet was received from our user src_ip
+    // The most recent time a valid packet was received from our a user src_ip
     __u64 *lastpacket = bpf_map_lookup_elem(&last_packet_time, src_ip);
     if (!lastpacket)
     {
@@ -115,9 +115,6 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     {
         return 0;
     }
-
-    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
-    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
 
     __u64 currentTime = bpf_ktime_get_boot_ns();
 
@@ -136,6 +133,9 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         bpf_map_update_elem(&sessions, src_ip, &locked, BPF_EXIST);
     }
 
+    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
+    // If the key is a match for the LPM in the public table
+    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
     if (user_restricted_routes)
     {
 
@@ -153,8 +153,6 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     }
 
     void *user_public_routes = bpf_map_lookup_elem(&public_table, src_ip);
-
-    // If the key is a match for the LPM in the public table
     if (user_public_routes && bpf_map_lookup_elem(user_public_routes, &key))
     {
         // Only update the lastpacket time if we're not expired
