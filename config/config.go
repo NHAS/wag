@@ -97,12 +97,14 @@ func GetEffectiveAcl(username string) Acl {
 }
 
 func load(path string) (c config, err error) {
-	configBytes, err := ioutil.ReadFile(path)
+	configFile, err := os.Open(path)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
+	dec := json.NewDecoder(configFile)
+	dec.DisallowUnknownFields()
 
-	err = json.Unmarshal(configBytes, &c)
+	err = dec.Decode(&c)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
@@ -155,25 +157,7 @@ func load(path string) (c config, err error) {
 	}
 
 	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	for i := 0; i < len(c.DNS); i++ {
-		newAddress, err := parseAddress(c.DNS[i])
-		if err != nil {
-			return c, err
-		}
-
-		for ii := range newAddress {
-
-			// For the first new address, replace the domain entry in the Allow'd acls with an IP
-			if ii == 0 {
-				c.DNS[i] = newAddress[ii]
-				continue
-			}
-
-			c.DNS = append(c.DNS, newAddress[ii])
-		}
-
-		globalAcl.Allow = append(globalAcl.Allow, newAddress...)
-	}
+	globalAcl.Allow = append(globalAcl.Allow, c.DNS...)
 
 	for _, acl := range c.Acls.Policies {
 
