@@ -174,8 +174,6 @@ func IsAuthed(address string) bool {
 
 	currentTime := uint64(C.GetTimeStamp())
 
-	fmt.Println(lastPacket, timestamp)
-
 	sessionValid := timestamp != 0 && (timestamp > currentTime || timestamp == math.MaxUint64)
 
 	sessionActive := lastPacket != 0 && ((currentTime-lastPacket) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
