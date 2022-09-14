@@ -94,6 +94,7 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, __u32 *ip_s
 
 static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 {
+
     // Max lifetime of the session.
     __u64 *session_expiry = bpf_map_lookup_elem(&sessions, src_ip);
     if (!session_expiry)
@@ -148,6 +149,7 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         {
 
             bpf_map_update_elem(&last_packet_time, src_ip, &currentTime, BPF_EXIST);
+
             return 1;
         }
     }
@@ -169,7 +171,6 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 SEC("xdp")
 int xdp_prog_func(struct xdp_md *ctx)
 {
-
     __u32 src_ip, dst_ip;
     if (!parse_ip_src_dst_addr(ctx, &src_ip, &dst_ip))
     {

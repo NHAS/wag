@@ -9,6 +9,7 @@ import (
 	"wag/database"
 
 	"github.com/cilium/ebpf"
+	"golang.org/x/net/ipv4"
 )
 
 func TestBasicLoad(t *testing.T) {
@@ -92,16 +93,110 @@ func TestAddNewDevices(t *testing.T) {
 			t.Fatal("mfa allow list does not match configured acls")
 		}
 	}
+}
 
-	buff := make([]byte, 15)
-	value, _, err := xdpObjects.XdpProgFunc.Test(buff)
+func TestAuthorise(t *testing.T) {
+	if err := setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
 	if err != nil {
-		t.Fatalf("program failed %s", err)
+		t.Fatal(err)
 	}
 
-	if result(value) != "XDP_DROP" {
-		t.Fatal("program did not drop a completely blank packet: did", result(value))
+	err = SetAuthorized(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	if !IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
+
+	headers := []ipv4.Header{
+		{
+			Version: 4,
+			Dst:     net.ParseIP("11.11.11.11"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+	}
+
+	expectedResults := map[string]uint32{
+		headers[0].String(): 1,
+	}
+
+	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
+	for i := range mfas {
+
+		ip, _, err := net.ParseCIDR(mfas[i])
+		if err != nil {
+			t.Fatal("could not parse ip: ", err)
+		}
+
+		newHeader := ipv4.Header{
+			Version: 4,
+			Dst:     ip,
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		}
+		headers = append(headers, newHeader)
+
+		expectedResults[newHeader.String()] = 2
+
+	}
+
+	for i := range headers {
+		if headers[i].Src == nil || headers[i].Dst == nil {
+			t.Fatal("could not parse ip")
+		}
+
+		packet, err := headers[i].Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if result(value) != result(expectedResults[headers[i].String()]) {
+			t.Fatalf("program did not %s packet instead did: %s", result(expectedResults[headers[i].String()]), result(value))
+		}
+	}
+
+	err = Deauthenticate(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as deauthorized it should be.... deauthorized")
+	}
+
+	for i := range headers {
+		if headers[i].Src == nil || headers[i].Dst == nil {
+			t.Fatal("could not parse ip")
+		}
+
+		packet, err := headers[i].Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if result(value) != "XDP_DROP" {
+			t.Fatalf("after deauthenticating, everything should be XDP_DROP instead %s", result(value))
+		}
+	}
+
 }
 
 // https://stackoverflow.com/questions/36000487/check-for-equality-on-slices-without-order
@@ -109,8 +204,6 @@ func sameStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
 		return false
 	}
-
-	fmt.Println("x: ", x, "y:", y)
 
 	// create a map of string -> int
 	diff := make(map[string]int, len(x))

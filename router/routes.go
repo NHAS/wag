@@ -94,6 +94,11 @@ func loadXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
+	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	if err != nil {
+		return fmt.Errorf("could not set inactivity timeout: %s", err)
+	}
+
 	return nil
 }
 
@@ -123,11 +128,6 @@ func setupXDP() error {
 
 	if err := attachXDP(); err != nil {
 		return err
-	}
-
-	err := xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
-	if err != nil {
-		return fmt.Errorf("could not set inactivity timeout: %s", err)
 	}
 
 	knownDevices, err := database.GetDevices()
