@@ -123,7 +123,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if !router.IsAlreadyAuthed(clientTunnelIp) {
+	if router.IsAuthed(clientTunnelIp) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -199,7 +199,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if !router.IsAlreadyAuthed(clientTunnelIp) {
+	if router.IsAuthed(clientTunnelIp) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
@@ -351,6 +351,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	if keyStr == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" {
 		keyStr = ""
 	}
+
 	i := resources.Interface{
 		ClientPrivateKey:  keyStr,
 		ClientAddress:     address,

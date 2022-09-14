@@ -144,10 +144,11 @@ func GetAllAuthorised() (map[string]uint64, error) {
 			result[ip.String()] = timestamp - currentTimestamp
 		}
 	}
+
 	return result, sessionsIter.Err()
 }
 
-func IsAlreadyAuthed(address string) bool {
+func IsAuthed(address string) bool {
 
 	ip := net.ParseIP(address)
 	//Wasnt able to parse any IP address
@@ -314,7 +315,7 @@ func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 	return nil
 }
 
-func RefreshAcls() []error {
+func RefreshConfiguration() []error {
 
 	devices, err := database.GetDevices()
 	if err != nil {
