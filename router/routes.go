@@ -108,6 +108,11 @@ func setupXDP() error {
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}
 
+	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	if err != nil {
+		return fmt.Errorf("could not set inactivity timeout: %s", err)
+	}
+
 	knownDevices, err := database.GetDevices()
 	if err != nil {
 		return err
@@ -160,7 +165,21 @@ func IsAlreadyAuthed(address string) bool {
 	if xdpObjects.Sessions.Lookup([]byte(ip), &timestamp) != nil {
 		return false
 	}
-	return timestamp < uint64(C.GetTimeStamp())
+
+	var lastPacket uint64
+	if xdpObjects.LastPacketTime.Lookup([]byte(ip), &lastPacket) != nil {
+		return false
+	}
+
+	currentTime := uint64(C.GetTimeStamp())
+
+	fmt.Println(lastPacket, timestamp)
+
+	sessionValid := timestamp != 0 && (timestamp > currentTime || timestamp == math.MaxUint64)
+
+	sessionActive := lastPacket != 0 && ((currentTime-lastPacket) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
+
+	return sessionValid && sessionActive
 }
 
 func xdpRemoveDevice(address string) error {
@@ -228,7 +247,12 @@ func xdpAddDevice(device database.Device) error {
 	}
 
 	//Defaultly add device that is not authenticated
-	return xdpObjects.Sessions.Put(ip.To4(), uint64(0))
+	err = xdpObjects.Sessions.Put(ip.To4(), uint64(0))
+	if err != nil {
+		return err
+	}
+
+	return xdpObjects.LastPacketTime.Put(ip.To4(), uint64(0))
 }
 
 func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
@@ -299,6 +323,11 @@ func RefreshAcls() []error {
 
 	var errors []error
 
+	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	if err != nil {
+		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
+	}
+
 	for _, device := range devices {
 		ip := net.ParseIP(device.Address)
 		if ip == nil || ip.To4() == nil {
@@ -348,18 +377,17 @@ func SetAuthorized(internalAddress string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	var timestamp uint64
-	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
+	mfaTimeout := uint64(C.GetTimeStamp()) + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
+	if config.Values().MaxSessionLifetimeMinutes < 0 {
+		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
+	}
+
+	err := xdpObjects.Sessions.Update(ip.To4(), mfaTimeout, ebpf.UpdateExist)
 	if err != nil {
 		return err
 	}
 
-	mfaTimeout := uint64(C.GetTimeStamp()) + uint64(config.Values().SessionTimeoutMinutes)*60000000000
-	if config.Values().SessionTimeoutMinutes < 0 {
-		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
-	}
-
-	return xdpObjects.Sessions.Put(ip.To4(), mfaTimeout)
+	return xdpObjects.LastPacketTime.Update(ip.To4(), uint64(C.GetTimeStamp()), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {
@@ -373,20 +401,17 @@ func Deauthenticate(address string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	var timestamp uint64
-	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
-	if err != nil {
-		return err
-	}
+	xdpObjects.LastPacketTime.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
 
-	return xdpObjects.Sessions.Put(ip.To4(), uint64(0))
+	return xdpObjects.Sessions.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
 }
 
 type description struct {
-	IsAuthorized bool
-	Expires      uint64
-	MFA          []string
-	Public       []string
+	IsAuthorized        bool
+	Expires             uint64
+	LastPacketTimestamp uint64
+	MFA                 []string
+	Public              []string
 }
 
 func GetRules() (map[string]description, error) {
@@ -409,6 +434,22 @@ func GetRules() (map[string]description, error) {
 
 	var innerMapID ebpf.MapID
 	var ipBytes []byte
+	var val uint64
+
+	lastPacket := xdpObjects.LastPacketTime.Iterate()
+	for lastPacket.Next(&ipBytes, &val) {
+		ip := net.IP(ipBytes)
+
+		d := result[ip.String()]
+
+		d.LastPacketTimestamp = val
+
+		result[ip.String()] = d
+	}
+
+	if lastPacket.Err() != nil {
+		return nil, lastPacket.Err()
+	}
 
 	publicRoutesIter := xdpObjects.PublicTable.Iterate()
 	for publicRoutesIter.Next(&ipBytes, &innerMapID) {

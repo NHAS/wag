@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"wag/utils"
@@ -33,14 +33,15 @@ type Acls struct {
 }
 
 type config struct {
-	path                  string
-	Proxied               bool
-	WgDevName             string
-	HelpMail              string
-	Lockout               int
-	ExternalAddress       string
-	SessionTimeoutMinutes int
-	Webserver             struct {
+	path                            string
+	Proxied                         bool
+	WgDevName                       string
+	HelpMail                        string
+	Lockout                         int
+	ExternalAddress                 string
+	MaxSessionLifetimeMinutes       int
+	SessionInactivityTimeoutMinutes int
+	Webserver                       struct {
 		Public webserverDetails
 		Tunnel webserverDetails
 	}

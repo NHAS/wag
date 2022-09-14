@@ -74,8 +74,12 @@ func (g *start) Check() error {
 		return errors.New("lockout policy unconfigured")
 	}
 
-	if config.Values().SessionTimeoutMinutes == 0 {
-		return errors.New("session timeout policy is not set")
+	if config.Values().MaxSessionLifetimeMinutes == 0 {
+		return errors.New("session max lifetime policy is not set (may be disabled by setting it to -1)")
+	}
+
+	if config.Values().SessionInactivityTimeoutMinutes == 0 {
+		return errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
 	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
