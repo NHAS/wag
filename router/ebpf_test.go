@@ -221,14 +221,14 @@ func result(code uint32) string {
 func addDevices() ([]database.Device, error) {
 
 	devices := []database.Device{
-		database.Device{
+		{
 			Address:   "192.168.1.2",
 			Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
 			Username:  "tester",
 			Enforcing: true,
 			Attempts:  0,
 		},
-		database.Device{
+		{
 			Address:   "192.168.1.3",
 			Publickey: "sXns6f8d6SMehnT6DQG8URCXnNCFe6ouxVmpJB7WeS0=",
 			Username:  "randomthingappliedtoall",
