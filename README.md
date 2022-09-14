@@ -230,3 +230,16 @@ Full config example
 - Linux only
 - Modern kernel 4.10+ at least (needs ebpf and xdp)
 
+
+# Testing
+
+Currently the cilium framework has a bug on newer kernels, meaning that the testing framework will not work in kernels 5.15+ (https://github.com/cilium/ebpf/pull/788/commits/1b41d4467c422ba17b374818429489fa7fcc18b7)
+This can be fixed manually by applying the patch given in the commit. 
+
+Otherwise, just do the following to test:
+```sh
+cd router
+sudo go test.
+```
+
+Sudo is required to load the epbf program into the kernel.
