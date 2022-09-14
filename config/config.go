@@ -239,10 +239,10 @@ func Reload() error {
 }
 
 func parseAddress(address string) ([]string, error) {
+	ip := net.ParseIP(address)
+	if ip == nil {
 
-	if net.ParseIP(address) == nil {
-
-		_, _, err := net.ParseCIDR(address)
+		_, cidr, err := net.ParseCIDR(address)
 		if err != nil {
 
 			//If we suspect this is a domain
@@ -260,7 +260,7 @@ func parseAddress(address string) ([]string, error) {
 			for _, addr := range addresses {
 				if addr.To4() != nil {
 					addedSomething = true
-					output = append(output, addr.String())
+					output = append(output, addr.String()+"/32")
 				}
 			}
 
@@ -270,7 +270,9 @@ func parseAddress(address string) ([]string, error) {
 
 			return output, nil
 		}
+
+		return []string{cidr.String()}, nil
 	}
 
-	return nil, nil
+	return []string{ip.To4().String() + "/32"}, nil
 }

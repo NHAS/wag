@@ -66,12 +66,7 @@ var (
 	innerMapSpec *ebpf.MapSpec
 )
 
-func setupXDP() error {
-	iface, err := net.InterfaceByName(config.Values().WgDevName)
-	if err != nil {
-		return fmt.Errorf("lookup network iface %q: %s", config.Values().WgDevName, err)
-	}
-
+func loadXDP() error {
 	spec, err := loadBpf()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
@@ -99,6 +94,15 @@ func setupXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
+	return nil
+}
+
+func attachXDP() error {
+	iface, err := net.InterfaceByName(config.Values().WgDevName)
+	if err != nil {
+		return fmt.Errorf("lookup network iface %q: %s", config.Values().WgDevName, err)
+	}
+
 	// Attach the program.
 	xdpLink, err = link.AttachXDP(link.XDPOptions{
 		Program:   xdpObjects.XdpProgFunc,
@@ -108,7 +112,20 @@ func setupXDP() error {
 		return fmt.Errorf("could not attach XDP program: %s", err)
 	}
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	return nil
+}
+
+func setupXDP() error {
+
+	if err := loadXDP(); err != nil {
+		return err
+	}
+
+	if err := attachXDP(); err != nil {
+		return err
+	}
+
+	err := xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
 	if err != nil {
 		return fmt.Errorf("could not set inactivity timeout: %s", err)
 	}
