@@ -17,7 +17,7 @@ import (
 
 /*
 #include <time.h>
-static unsigned long long GetTimeStamp(void)
+static unsigned long long C_GetTimeStamp(void)
 {
     struct timespec ts;
     clock_gettime(CLOCK_BOOTTIME, &ts);
@@ -25,6 +25,10 @@ static unsigned long long GetTimeStamp(void)
 }
 */
 import "C"
+
+func GetTimeStamp() uint64 {
+	return uint64(C.C_GetTimeStamp())
+}
 
 type Key struct {
 
@@ -155,7 +159,7 @@ func GetAllAuthorised() (map[string]uint64, error) {
 	for sessionsIter.Next(&ipBytes, &timestamp) {
 		ip := net.IP(ipBytes)
 
-		currentTimestamp := uint64(C.GetTimeStamp())
+		currentTimestamp := GetTimeStamp()
 
 		if timestamp > currentTimestamp {
 			result[ip.String()] = timestamp - currentTimestamp
@@ -189,7 +193,7 @@ func IsAuthed(address string) bool {
 		return false
 	}
 
-	currentTime := uint64(C.GetTimeStamp())
+	currentTime := GetTimeStamp()
 
 	sessionValid := timestamp != 0 && (timestamp > currentTime || timestamp == math.MaxUint64)
 
@@ -393,7 +397,7 @@ func SetAuthorized(internalAddress string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	mfaTimeout := uint64(C.GetTimeStamp()) + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
+	mfaTimeout := GetTimeStamp() + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
 	if config.Values().MaxSessionLifetimeMinutes < 0 {
 		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
 	}
@@ -403,7 +407,7 @@ func SetAuthorized(internalAddress string) error {
 		return err
 	}
 
-	return xdpObjects.LastPacketTime.Update(ip.To4(), uint64(C.GetTimeStamp()), ebpf.UpdateExist)
+	return xdpObjects.LastPacketTime.Update(ip.To4(), GetTimeStamp(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {

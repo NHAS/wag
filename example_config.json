@@ -2,7 +2,7 @@
     "WgDevName": "wg0",
     "Lockout": 5,
     "HelpMail": "help@example.com",
-    "MaxSessionLifetimeMinutes": 3,
+    "MaxSessionLifetimeMinutes": 2,
     "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",

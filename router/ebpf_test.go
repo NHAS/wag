@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 	"wag/config"
 	"wag/database"
 
@@ -95,7 +96,7 @@ func TestAddNewDevices(t *testing.T) {
 	}
 }
 
-func TestAuthorise(t *testing.T) {
+func TestBasicAuthorise(t *testing.T) {
 	if err := setup(); err != nil {
 		t.Fatal(err)
 	}
@@ -195,6 +196,107 @@ func TestAuthorise(t *testing.T) {
 		if result(value) != "XDP_DROP" {
 			t.Fatalf("after deauthenticating, everything should be XDP_DROP instead %s", result(value))
 		}
+	}
+
+}
+
+func TestSlidingWindow(t *testing.T) {
+	if err := setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = SetAuthorized(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
+
+	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
+
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(out[0].Address),
+		Len:     ipv4.HeaderLen,
+	}
+
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
+
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var before uint64
+	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &before)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var timeoutFromMap uint64
+	err = xdpObjects.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	difference := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
+	if timeoutFromMap != difference {
+		t.Fatal("timeout retrieved from ebpf program does not match json")
+	}
+
+	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	if err != nil {
+		t.Fatalf("program failed %s", err)
+	}
+
+	if value != 2 {
+		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
+	}
+
+	var after uint64
+	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &after)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if after == before {
+		t.Fatal("sending a packet did not change sliding window timeout")
+	}
+
+	if after < before {
+		t.Fatal("the resulting update must be closer in time")
+	}
+
+	t.Logf("Now doing timing test for sliding window waiting %d+10seconds", config.Values().SessionInactivityTimeoutMinutes)
+
+	//Check slightly after inactivity timeout to see if the user is now not authenticated
+	time.Sleep(time.Duration(config.Values().SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
+
+	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	if err != nil {
+		t.Fatalf("program failed %s", err)
+	}
+
+	if value != 1 {
+		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
+	}
+
+	if IsAuthed(out[0].Address) {
+		t.Fatal("user is still authorized after inactivity timeout should have killed them")
 	}
 
 }
