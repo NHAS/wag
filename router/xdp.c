@@ -15,10 +15,28 @@ struct ip4_trie_key
     __u32 addr;      // rest can are arbitrary
 };
 
-// Map of users to BOOTTIME uint64 timestamp denoting authorization status
+// Map of users (ipv4) to BOOTTIME uint64 timestamp denoting authorization status
 struct bpf_map_def SEC("maps") sessions = {
     .type = BPF_MAP_TYPE_HASH,
     .max_entries = MAX_MAP_ENTRIES,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .map_flags = 0,
+};
+
+// Map of users (ipv4) to BOOTTIME uint64 timestamp denoting when the last packet was recieved
+struct bpf_map_def SEC("maps") last_packet_time = {
+    .type = BPF_MAP_TYPE_HASH,
+    .max_entries = MAX_MAP_ENTRIES,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .map_flags = 0,
+};
+
+// A single variable in nano seconds
+struct bpf_map_def SEC("maps") inactivity_timeout_minutes = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .max_entries = 1,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .map_flags = 0,
@@ -76,11 +94,30 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, __u32 *ip_s
 
 static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 {
-    __u64 *timestamp = bpf_map_lookup_elem(&sessions, src_ip);
-    if (!timestamp)
+
+    // Max lifetime of the session.
+    __u64 *session_expiry = bpf_map_lookup_elem(&sessions, src_ip);
+    if (!session_expiry)
     {
         return 0;
     }
+
+    // The most recent time a valid packet was received from our a user src_ip
+    __u64 *lastpacket = bpf_map_lookup_elem(&last_packet_time, src_ip);
+    if (!lastpacket)
+    {
+        return 0;
+    }
+
+    // Our userland defined inactivity timeout
+    u32 index = 0;
+    __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
+    if (!inactivity_timeout)
+    {
+        return 0;
+    }
+
+    __u64 currentTime = bpf_ktime_get_boot_ns();
 
     // The inner map must be a LPM trie
     struct ip4_trie_key key = {
@@ -88,19 +125,43 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         .addr = *dst_ip,
     };
 
-    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
-    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
+    // If the inactivity timeout is not disabled and users session has timed out
+    u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - *lastpacket) >= *inactivity_timeout));
 
+    if (isTimedOut)
+    {
+        u64 locked = 0;
+        bpf_map_update_elem(&sessions, src_ip, &locked, BPF_EXIST);
+    }
+
+    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
+    // If the key is a match for the LPM in the public table
+    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
     if (user_restricted_routes)
     {
-        return bpf_map_lookup_elem(user_restricted_routes, &key) && (*timestamp == __UINT64_MAX__ || *timestamp > bpf_ktime_get_boot_ns());
+
+        if (bpf_map_lookup_elem(user_restricted_routes, &key) &&
+            // 0 indicates invalid session
+            *session_expiry != 0 &&
+            // If max session lifetime is disabled, or we are before the max lifetime of the session
+            (*session_expiry == __UINT64_MAX__ || *session_expiry > currentTime) &&
+            !isTimedOut)
+        {
+
+            bpf_map_update_elem(&last_packet_time, src_ip, &currentTime, BPF_EXIST);
+
+            return 1;
+        }
     }
 
     void *user_public_routes = bpf_map_lookup_elem(&public_table, src_ip);
-
-    // If the key is a match for the LPM in the public table
     if (user_public_routes && bpf_map_lookup_elem(user_public_routes, &key))
     {
+        // Only update the lastpacket time if we're not expired
+        if (!isTimedOut)
+        {
+            bpf_map_update_elem(&last_packet_time, src_ip, &currentTime, BPF_EXIST);
+        }
         return 1;
     }
 
@@ -110,7 +171,6 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 SEC("xdp")
 int xdp_prog_func(struct xdp_md *ctx)
 {
-
     __u32 src_ip, dst_ip;
     if (!parse_ip_src_dst_addr(ctx, &src_ip, &dst_ip))
     {

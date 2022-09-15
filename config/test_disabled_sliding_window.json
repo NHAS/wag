@@ -3,7 +3,7 @@
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": 2,
-    "SessionInactivityTimeoutMinutes": 1,
+    "SessionInactivityTimeoutMinutes": -1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
     "Issuer": "192.168.121.61",

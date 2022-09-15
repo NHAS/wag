@@ -131,7 +131,7 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errs := router.RefreshAcls()
+	errs := router.RefreshConfiguration()
 	if len(errs) > 0 {
 		w.WriteHeader(500)
 		w.Header().Set("Content-Type", "text/plain")

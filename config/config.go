@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"wag/utils"
@@ -33,14 +33,15 @@ type Acls struct {
 }
 
 type config struct {
-	path                  string
-	Proxied               bool
-	WgDevName             string
-	HelpMail              string
-	Lockout               int
-	ExternalAddress       string
-	SessionTimeoutMinutes int
-	Webserver             struct {
+	path                            string
+	Proxied                         bool
+	WgDevName                       string
+	HelpMail                        string
+	Lockout                         int
+	ExternalAddress                 string
+	MaxSessionLifetimeMinutes       int
+	SessionInactivityTimeoutMinutes int
+	Webserver                       struct {
 		Public webserverDetails
 		Tunnel webserverDetails
 	}
@@ -96,12 +97,14 @@ func GetEffectiveAcl(username string) Acl {
 }
 
 func load(path string) (c config, err error) {
-	configBytes, err := ioutil.ReadFile(path)
+	configFile, err := os.Open(path)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
+	dec := json.NewDecoder(configFile)
+	dec.DisallowUnknownFields()
 
-	err = json.Unmarshal(configBytes, &c)
+	err = dec.Decode(&c)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
@@ -205,10 +208,6 @@ func Load(path string) error {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
 
-	if values.path != "" {
-		return errors.New("Configuration has already been loaded, please use 'Reload' instead")
-	}
-
 	newConfig, err := load(path)
 	if err != nil {
 		return err
@@ -236,10 +235,10 @@ func Reload() error {
 }
 
 func parseAddress(address string) ([]string, error) {
+	ip := net.ParseIP(address)
+	if ip == nil {
 
-	if net.ParseIP(address) == nil {
-
-		_, _, err := net.ParseCIDR(address)
+		_, cidr, err := net.ParseCIDR(address)
 		if err != nil {
 
 			//If we suspect this is a domain
@@ -257,7 +256,7 @@ func parseAddress(address string) ([]string, error) {
 			for _, addr := range addresses {
 				if addr.To4() != nil {
 					addedSomething = true
-					output = append(output, addr.String())
+					output = append(output, addr.String()+"/32")
 				}
 			}
 
@@ -267,7 +266,9 @@ func parseAddress(address string) ([]string, error) {
 
 			return output, nil
 		}
+
+		return []string{cidr.String()}, nil
 	}
 
-	return nil, nil
+	return []string{ip.To4().String() + "/32"}, nil
 }
