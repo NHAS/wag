@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestBasicLoad(t *testing.T) {
-	if err := setup(); err != nil {
+	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -22,7 +23,7 @@ func TestBasicLoad(t *testing.T) {
 
 func TestBlankPacket(t *testing.T) {
 
-	if err := setup(); err != nil {
+	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -40,7 +41,7 @@ func TestBlankPacket(t *testing.T) {
 
 func TestAddNewDevices(t *testing.T) {
 
-	if err := setup(); err != nil {
+	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -97,7 +98,7 @@ func TestAddNewDevices(t *testing.T) {
 }
 
 func TestBasicAuthorise(t *testing.T) {
-	if err := setup(); err != nil {
+	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -201,7 +202,7 @@ func TestBasicAuthorise(t *testing.T) {
 }
 
 func TestSlidingWindow(t *testing.T) {
-	if err := setup(); err != nil {
+	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -297,6 +298,225 @@ func TestSlidingWindow(t *testing.T) {
 
 	if IsAuthed(out[0].Address) {
 		t.Fatal("user is still authorized after inactivity timeout should have killed them")
+	}
+}
+
+func TestDisabledSlidingWindow(t *testing.T) {
+	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var timeoutFromMap uint64
+	err = xdpObjects.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if timeoutFromMap != math.MaxUint64 {
+		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
+	}
+
+	err = SetAuthorized(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
+
+	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
+
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(out[0].Address),
+		Len:     ipv4.HeaderLen,
+	}
+
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
+
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Now doing timing test for disabled sliding window waiting...")
+
+	elapsed := 0
+	for {
+		time.Sleep(15 * time.Second)
+		elapsed += 15
+
+		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if value == 1 {
+			if elapsed < config.Values().MaxSessionLifetimeMinutes*60 {
+				t.Fatal("epbf kernel blocking valid traffic early")
+			} else {
+				break
+			}
+
+		}
+	}
+
+}
+
+func TestMaxSessionLifetime(t *testing.T) {
+	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = SetAuthorized(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
+
+	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
+
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(out[0].Address),
+		Len:     ipv4.HeaderLen,
+	}
+
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
+
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	if err != nil {
+		t.Fatalf("program failed %s", err)
+	}
+
+	if value != 2 {
+		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
+	}
+
+	t.Logf("Waiting for %d minutes to test max session timeout", config.Values().MaxSessionLifetimeMinutes)
+
+	time.Sleep(time.Minute * time.Duration(config.Values().MaxSessionLifetimeMinutes))
+
+	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	if err != nil {
+		t.Fatalf("program failed %s", err)
+	}
+
+	if value != 1 {
+		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
+	}
+
+	if IsAuthed(out[0].Address) {
+		t.Fatal("user is still authorized after inactivity timeout should have killed them")
+	}
+}
+
+func TestDisablingMaxLifetime(t *testing.T) {
+	if err := setup("../config/test_disabled_max_lifetime.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = SetAuthorized(out[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !IsAuthed(out[0].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
+
+	var maxSessionLife uint64
+	err = xdpObjects.Sessions.Lookup(net.ParseIP(out[0].Address).To4(), &maxSessionLife)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if maxSessionLife != math.MaxUint64 {
+		t.Fatalf("lifetime was not set to max uint64, was %d (maxuint64 %d)", maxSessionLife, uint64(math.MaxUint64))
+	}
+
+	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
+
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(out[0].Address),
+		Len:     ipv4.HeaderLen,
+	}
+
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
+
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Now doing timing test for disabled sliding window waiting...")
+
+	elapsed := 0
+	for {
+		time.Sleep(15 * time.Second)
+		elapsed += 15
+
+		t.Logf("waiting %d sec...", elapsed)
+
+		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if value == 1 {
+			t.Fatal("should not block traffic")
+		}
+
+		if elapsed > 30 {
+			break
+		}
+
 	}
 
 }
@@ -441,8 +661,8 @@ func addDevices() ([]database.Device, error) {
 	return devices, nil
 }
 
-func setup() error {
-	err := config.Load("../example_config.json")
+func setup(what string) error {
+	err := config.Load(what)
 	if err != nil && !strings.Contains(err.Error(), "Configuration has already been loaded") {
 
 		return err

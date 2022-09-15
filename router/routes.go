@@ -98,7 +98,12 @@ func loadXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	value := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
+	if config.Values().SessionInactivityTimeoutMinutes < 0 {
+		value = math.MaxUint64
+	}
+
+	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
 	if err != nil {
 		return fmt.Errorf("could not set inactivity timeout: %s", err)
 	}
@@ -343,7 +348,12 @@ func RefreshConfiguration() []error {
 
 	var errors []error
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000)
+	value := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
+	if config.Values().SessionInactivityTimeoutMinutes < 0 {
+		value = math.MaxUint64
+	}
+
+	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
 	if err != nil {
 		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
 	}

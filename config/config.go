@@ -208,10 +208,6 @@ func Load(path string) error {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
 
-	if values.path != "" {
-		return errors.New("Configuration has already been loaded, please use 'Reload' instead")
-	}
-
 	newConfig, err := load(path)
 	if err != nil {
 		return err
