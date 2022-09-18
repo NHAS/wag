@@ -18,7 +18,7 @@ func TestBasicLoad(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 }
 
 func TestBlankPacket(t *testing.T) {
@@ -26,15 +26,16 @@ func TestBlankPacket(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	buff := make([]byte, 15)
-	value, _, err := xdpObjects.XdpProgFunc.Test(buff)
+
+	value, _, err := objs.TcIngress.Test(buff)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
 
-	if result(value) != "XDP_DROP" {
+	if value != TC_ACT_SHOT {
 		t.Fatal("program did not drop a completely blank packet: did", result(value))
 	}
 }
@@ -44,19 +45,19 @@ func TestAddNewDevices(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = checkTimestampMap(out, xdpObjects.LastPacketTime)
+	err = checkTimestampMap(out, objs.LastPacketTime)
 	if err != nil {
 		t.Fatal("checking lastpackettime:", err)
 	}
 
-	err = checkTimestampMap(out, xdpObjects.Sessions)
+	err = checkTimestampMap(out, objs.Sessions)
 	if err != nil {
 		t.Fatal("checking sessions:", err)
 	}
@@ -68,7 +69,7 @@ func TestAddNewDevices(t *testing.T) {
 		}
 	}
 
-	publicAcls, err := checkLPMMap(pubs, xdpObjects.PublicTable)
+	publicAcls, err := checkLPMMap(pubs, objs.PublicTable)
 	if err != nil {
 		t.Fatal("checking publictable:", err)
 	}
@@ -80,7 +81,7 @@ func TestAddNewDevices(t *testing.T) {
 		}
 	}
 
-	mfaAcls, err := checkLPMMap(mfas, xdpObjects.MfaTable)
+	mfaAcls, err := checkLPMMap(mfas, objs.MfaTable)
 	if err != nil {
 		t.Fatal("checking mfatable:", err)
 	}
@@ -101,7 +102,7 @@ func TestBasicAuthorise(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
@@ -127,7 +128,7 @@ func TestBasicAuthorise(t *testing.T) {
 	}
 
 	expectedResults := map[string]uint32{
-		headers[0].String(): 1,
+		headers[0].String(): TC_ACT_SHOT,
 	}
 
 	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
@@ -146,7 +147,7 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 		headers = append(headers, newHeader)
 
-		expectedResults[newHeader.String()] = 2
+		expectedResults[newHeader.String()] = TC_ACT_OK
 
 	}
 
@@ -160,7 +161,7 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := objs.TcIngress.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
@@ -189,13 +190,13 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := objs.TcIngress.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
 
-		if result(value) != "XDP_DROP" {
-			t.Fatalf("after deauthenticating, everything should be XDP_DROP instead %s", result(value))
+		if value != TC_ACT_SHOT {
+			t.Fatalf("after deauthenticating, everything should be TC_ACT_SHOT instead %s", result(value))
 		}
 	}
 
@@ -205,7 +206,7 @@ func TestSlidingWindow(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
@@ -243,13 +244,13 @@ func TestSlidingWindow(t *testing.T) {
 	}
 
 	var before uint64
-	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &before)
+	err = objs.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &before)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var timeoutFromMap uint64
-	err = xdpObjects.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
+	err = objs.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,17 +260,17 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal("timeout retrieved from ebpf program does not match json")
 	}
 
-	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err := objs.TcIngress.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
 
-	if value != 2 {
-		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
+	if value != TC_ACT_OK {
+		t.Fatalf("program did not %s packet instead did: %s", result(TC_ACT_OK), result(value))
 	}
 
 	var after uint64
-	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &after)
+	err = objs.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &after)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,13 +288,13 @@ func TestSlidingWindow(t *testing.T) {
 	//Check slightly after inactivity timeout to see if the user is now not authenticated
 	time.Sleep(time.Duration(config.Values().SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
 
-	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err = objs.TcIngress.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
 
-	if value != 1 {
-		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
+	if value != TC_ACT_SHOT {
+		t.Fatalf("program did not %s packet instead did: %s", result(TC_ACT_SHOT), result(value))
 	}
 
 	if IsAuthed(out[0].Address) {
@@ -305,7 +306,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
@@ -313,7 +314,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 	}
 
 	var timeoutFromMap uint64
-	err = xdpObjects.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
+	err = objs.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,12 +360,12 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		time.Sleep(15 * time.Second)
 		elapsed += 15
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := objs.TcIngress.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
 
-		if value == 1 {
+		if value == TC_ACT_SHOT {
 			if elapsed < config.Values().MaxSessionLifetimeMinutes*60 {
 				t.Fatal("epbf kernel blocking valid traffic early")
 			} else {
@@ -380,7 +381,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
@@ -417,25 +418,25 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err := objs.TcIngress.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
 
-	if value != 2 {
-		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
+	if value != TC_ACT_OK {
+		t.Fatalf("program did not %s packet instead did: %s", result(TC_ACT_OK), result(value))
 	}
 
 	t.Logf("Waiting for %d minutes to test max session timeout", config.Values().MaxSessionLifetimeMinutes)
 
 	time.Sleep(time.Minute * time.Duration(config.Values().MaxSessionLifetimeMinutes))
 
-	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err = objs.TcIngress.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
 
-	if value != 1 {
+	if value != TC_ACT_SHOT {
 		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
 	}
 
@@ -448,7 +449,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 	if err := setup("../config/test_disabled_max_lifetime.json"); err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
+	defer objs.Close()
 
 	out, err := addDevices()
 	if err != nil {
@@ -465,7 +466,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 	}
 
 	var maxSessionLife uint64
-	err = xdpObjects.Sessions.Lookup(net.ParseIP(out[0].Address).To4(), &maxSessionLife)
+	err = objs.Sessions.Lookup(net.ParseIP(out[0].Address).To4(), &maxSessionLife)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -504,12 +505,12 @@ func TestDisablingMaxLifetime(t *testing.T) {
 
 		t.Logf("waiting %d sec...", elapsed)
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := objs.TcIngress.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
 
-		if value == 1 {
+		if value == TC_ACT_SHOT {
 			t.Fatal("should not block traffic")
 		}
 
@@ -622,14 +623,19 @@ func checkLPMMap(devices []database.Device, m *ebpf.Map) (map[string][]string, e
 	return found, nil
 }
 
+const (
+	TC_ACT_OK   = 0
+	TC_ACT_SHOT = 2
+)
+
 func result(code uint32) string {
 	switch code {
-	case 1:
-		return "XDP_DROP"
+	case 0:
+		return "TC_ACT_OK"
 	case 2:
-		return "XDP_PASS"
+		return "TC_ACT_SHOT"
 	default:
-		return "XDP_UNKNOWN_UNUSED"
+		return "UNKNOWN_UNUSED"
 	}
 }
 

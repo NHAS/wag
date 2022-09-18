@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -61,17 +62,17 @@ func (l Key) String() string {
 	return fmt.Sprintf("%s/%d", l.IP.String(), l.Prefixlen)
 }
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS tc bpf.c -- -I headers
 
 var (
 	//Keep reference to xdpLink, otherwise it may be garbage collected
 	xdpLink      link.Link
-	xdpObjects   bpfObjects
+	objs         tcObjects
 	innerMapSpec *ebpf.MapSpec
 )
 
 func loadXDP() error {
-	spec, err := loadBpf()
+	spec, err := loadTc()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
 	}
@@ -94,7 +95,7 @@ func loadXDP() error {
 	spec.Maps["mfa_table"].InnerMap = innerMapSpec
 
 	// Load pre-compiled programs into the kernel.
-	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
+	if err = spec.LoadAndAssign(&objs, nil); err != nil {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
@@ -103,7 +104,7 @@ func loadXDP() error {
 		value = math.MaxUint64
 	}
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
+	err = objs.InactivityTimeoutMinutes.Put(uint32(0), value)
 	if err != nil {
 		return fmt.Errorf("could not set inactivity timeout: %s", err)
 	}
@@ -112,18 +113,43 @@ func loadXDP() error {
 }
 
 func attachXDP() error {
-	iface, err := net.InterfaceByName(config.Values().WgDevName)
+
+	wgInterface, err := netlink.LinkByName(config.Values().WgDevName)
 	if err != nil {
-		return fmt.Errorf("lookup network iface %q: %s", config.Values().WgDevName, err)
+		return fmt.Errorf("cannot find %s: %v", config.Values().WgDevName, err)
 	}
 
-	// Attach the program.
-	xdpLink, err = link.AttachXDP(link.XDPOptions{
-		Program:   xdpObjects.XdpProgFunc,
-		Interface: iface.Index,
-	})
+	attrs := netlink.QdiscAttrs{
+		LinkIndex: wgInterface.Attrs().Index,
+		Handle:    netlink.MakeHandle(0xffff, 0),
+		Parent:    netlink.HANDLE_CLSACT,
+	}
+
+	qdisc := &netlink.GenericQdisc{
+		QdiscAttrs: attrs,
+		QdiscType:  "clsact",
+	}
+
+	if err := netlink.QdiscAdd(qdisc); err != nil {
+		return fmt.Errorf("cannot add clsact qdisc: %v", err)
+	}
+
+	ingressFilter := &netlink.BpfFilter{
+		FilterAttrs: netlink.FilterAttrs{
+			LinkIndex: wgInterface.Attrs().Index,
+			Parent:    netlink.HANDLE_MIN_INGRESS,
+			Handle:    netlink.MakeHandle(0, 1),
+			Protocol:  unix.ETH_P_ALL,
+			Priority:  1,
+		},
+		Fd:           objs.tcPrograms.TcIngress.FD(),
+		Name:         "wag-ingress-tc",
+		DirectAction: true,
+	}
+
+	err = netlink.FilterAdd(ingressFilter)
 	if err != nil {
-		return fmt.Errorf("could not attach XDP program: %s", err)
+		return fmt.Errorf("cannot add ingress filter: %v", err)
 	}
 
 	return nil
@@ -160,7 +186,7 @@ func GetAllAuthorised() (map[string]uint64, error) {
 	var ipBytes []byte
 	var timestamp uint64
 
-	sessionsIter := xdpObjects.Sessions.Iterate()
+	sessionsIter := objs.Sessions.Iterate()
 	for sessionsIter.Next(&ipBytes, &timestamp) {
 		ip := net.IP(ipBytes)
 
@@ -189,12 +215,12 @@ func IsAuthed(address string) bool {
 	}
 
 	var timestamp uint64
-	if xdpObjects.Sessions.Lookup([]byte(ip), &timestamp) != nil {
+	if objs.Sessions.Lookup([]byte(ip), &timestamp) != nil {
 		return false
 	}
 
 	var lastPacket uint64
-	if xdpObjects.LastPacketTime.Lookup([]byte(ip), &lastPacket) != nil {
+	if objs.LastPacketTime.Lookup([]byte(ip), &lastPacket) != nil {
 		return false
 	}
 
@@ -216,17 +242,17 @@ func xdpRemoveDevice(address string) error {
 	msg := "remove device failed: "
 	var finalError error = errors.New(msg)
 
-	sessionErr := xdpObjects.Sessions.Delete(ip.To4())
+	sessionErr := objs.Sessions.Delete(ip.To4())
 	if sessionErr != nil && !strings.Contains(sessionErr.Error(), ebpf.ErrKeyNotExist.Error()) {
 		finalError = errors.New(finalError.Error() + "removing from session table failed: " + sessionErr.Error() + " ")
 	}
 
-	publicErr := xdpObjects.PublicTable.Delete(ip.To4())
+	publicErr := objs.PublicTable.Delete(ip.To4())
 	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
 		finalError = errors.New(finalError.Error() + "removing from public table failed: " + sessionErr.Error() + " ")
 	}
 
-	mfaErr := xdpObjects.MfaTable.Delete(ip.To4())
+	mfaErr := objs.MfaTable.Delete(ip.To4())
 	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
 		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + sessionErr.Error() + " ")
 	}
@@ -246,7 +272,7 @@ func xdpAddDevice(device database.Device) error {
 	}
 
 	var timestamp uint64
-	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
+	err := objs.Sessions.Lookup(ip.To4(), &timestamp)
 	if err == nil {
 		return errors.New("attempted to add a device with address that already exists")
 	}
@@ -261,23 +287,23 @@ func xdpAddDevice(device database.Device) error {
 	acls := config.GetEffectiveAcl(device.Username)
 
 	// Create inner tables for the public and mfa routes based on the current ACLs
-	err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
+	err = xdpCreateRoutes(ip, objs.PublicTable, acls.Allow)
 	if err != nil {
 		return err
 	}
 
-	err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
+	err = xdpCreateRoutes(ip, objs.MfaTable, acls.Mfa)
 	if err != nil {
 		return err
 	}
 
 	//Defaultly add device that is not authenticated
-	err = xdpObjects.Sessions.Put(ip.To4(), uint64(0))
+	err = objs.Sessions.Put(ip.To4(), uint64(0))
 	if err != nil {
 		return err
 	}
 
-	return xdpObjects.LastPacketTime.Put(ip.To4(), uint64(0))
+	return objs.LastPacketTime.Put(ip.To4(), uint64(0))
 }
 
 func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
@@ -353,7 +379,7 @@ func RefreshConfiguration() []error {
 		value = math.MaxUint64
 	}
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
+	err = objs.InactivityTimeoutMinutes.Put(uint32(0), value)
 	if err != nil {
 		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
 	}
@@ -367,26 +393,26 @@ func RefreshConfiguration() []error {
 
 		acls := config.GetEffectiveAcl(device.Username)
 
-		err := xdpObjects.PublicTable.Delete(ip.To4())
+		err := objs.PublicTable.Delete(ip.To4())
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: delete public table for %s: %s", device.Username, err.Error()))
 			continue
 		}
 
 		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
+		err = xdpCreateRoutes(ip, objs.PublicTable, acls.Allow)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", device.Username, err.Error()))
 			continue
 		}
 
-		err = xdpObjects.MfaTable.Delete(ip.To4())
+		err = objs.MfaTable.Delete(ip.To4())
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: delete mfa table for %s: %s", device.Username, err.Error()))
 			continue
 		}
 
-		err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
+		err = xdpCreateRoutes(ip, objs.MfaTable, acls.Mfa)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", device.Username, err.Error()))
 			continue
@@ -412,12 +438,12 @@ func SetAuthorized(internalAddress string) error {
 		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
 	}
 
-	err := xdpObjects.Sessions.Update(ip.To4(), mfaTimeout, ebpf.UpdateExist)
+	err := objs.Sessions.Update(ip.To4(), mfaTimeout, ebpf.UpdateExist)
 	if err != nil {
 		return err
 	}
 
-	return xdpObjects.LastPacketTime.Update(ip.To4(), GetTimeStamp(), ebpf.UpdateExist)
+	return objs.LastPacketTime.Update(ip.To4(), GetTimeStamp(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {
@@ -431,9 +457,9 @@ func Deauthenticate(address string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	xdpObjects.LastPacketTime.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
+	objs.LastPacketTime.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
 
-	return xdpObjects.Sessions.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
+	return objs.Sessions.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
 }
 
 type description struct {
@@ -466,7 +492,7 @@ func GetRules() (map[string]description, error) {
 	var ipBytes []byte
 	var val uint64
 
-	lastPacket := xdpObjects.LastPacketTime.Iterate()
+	lastPacket := objs.LastPacketTime.Iterate()
 	for lastPacket.Next(&ipBytes, &val) {
 		ip := net.IP(ipBytes)
 
@@ -481,7 +507,7 @@ func GetRules() (map[string]description, error) {
 		return nil, lastPacket.Err()
 	}
 
-	publicRoutesIter := xdpObjects.PublicTable.Iterate()
+	publicRoutesIter := objs.PublicTable.Iterate()
 	for publicRoutesIter.Next(&ipBytes, &innerMapID) {
 		ip := net.IP(ipBytes)
 
@@ -510,7 +536,7 @@ func GetRules() (map[string]description, error) {
 		return nil, publicRoutesIter.Err()
 	}
 
-	mfaRoutesIter := xdpObjects.MfaTable.Iterate()
+	mfaRoutesIter := objs.MfaTable.Iterate()
 	for mfaRoutesIter.Next(&ipBytes, &innerMapID) {
 
 		ip := net.IP(ipBytes)

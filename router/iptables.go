@@ -7,6 +7,7 @@ import (
 	"wag/config"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/vishvananda/netlink"
 )
 
 func setupIptables() error {
@@ -106,4 +107,25 @@ func TearDown() {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
+	log.Println("Removing TC filters...")
+
+	wgInterface, err := netlink.LinkByName(config.Values().WgDevName)
+	if err != nil {
+		log.Printf("cannot find %s: %v", config.Values().WgDevName, err)
+	}
+
+	attrs := netlink.QdiscAttrs{
+		LinkIndex: wgInterface.Attrs().Index,
+		Handle:    netlink.MakeHandle(0xffff, 0),
+		Parent:    netlink.HANDLE_CLSACT,
+	}
+
+	qdisc := &netlink.GenericQdisc{
+		QdiscAttrs: attrs,
+		QdiscType:  "clsact",
+	}
+
+	if err := netlink.QdiscDel(qdisc); err != nil {
+		log.Printf("cannot remove clsact qdisc: %v", err)
+	}
 }

@@ -1,6 +1,9 @@
 // +build ignore
 
-#include "bpf_endian.h"
+#include <linux/pkt_cls.h>
+#include <linux/bpf.h>
+#include <linux/ip.h>
+
 #include "common.h"
 
 char __license[] SEC("license") = "Dual MIT/GPL";
@@ -64,7 +67,7 @@ struct bpf_map_def SEC("maps") public_table = {
 Attempt to parse the IPv4 source address from the packet.
 Returns 0 if there is no IPv4 header field; otherwise returns non-zero.
 */
-static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, __u32 *ip_src_addr, __u32 *ip_dst_addr)
+static __always_inline int parse_ip_src_dst_addr(struct __sk_buff *ctx, __u32 *ip_src_addr, __u32 *ip_dst_addr)
 {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
@@ -99,22 +102,22 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     __u64 *session_expiry = bpf_map_lookup_elem(&sessions, src_ip);
     if (!session_expiry)
     {
-        return 0;
+        return TC_ACT_SHOT;
     }
 
     // The most recent time a valid packet was received from our a user src_ip
     __u64 *lastpacket = bpf_map_lookup_elem(&last_packet_time, src_ip);
     if (!lastpacket)
     {
-        return 0;
+        return TC_ACT_SHOT;
     }
 
     // Our userland defined inactivity timeout
-    u32 index = 0;
+    __u32 index = 0;
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
     if (!inactivity_timeout)
     {
-        return 0;
+        return TC_ACT_SHOT;
     }
 
     __u64 currentTime = bpf_ktime_get_boot_ns();
@@ -126,11 +129,11 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     };
 
     // If the inactivity timeout is not disabled and users session has timed out
-    u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - *lastpacket) >= *inactivity_timeout));
+    __u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - *lastpacket) >= *inactivity_timeout));
 
     if (isTimedOut)
     {
-        u64 locked = 0;
+        __u64 locked = 0;
         bpf_map_update_elem(&sessions, src_ip, &locked, BPF_EXIST);
     }
 
@@ -150,7 +153,7 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 
             bpf_map_update_elem(&last_packet_time, src_ip, &currentTime, BPF_EXIST);
 
-            return 1;
+            return TC_ACT_OK;
         }
     }
 
@@ -162,26 +165,19 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         {
             bpf_map_update_elem(&last_packet_time, src_ip, &currentTime, BPF_EXIST);
         }
-        return 1;
+        return TC_ACT_OK;
     }
 
-    return 0;
+    return TC_ACT_SHOT;
 }
 
-SEC("xdp")
-int xdp_prog_func(struct xdp_md *ctx)
+SEC("tc_wag_ingress")
+int tc_ingress(struct __sk_buff *skb)
 {
     __u32 src_ip, dst_ip;
-    if (!parse_ip_src_dst_addr(ctx, &src_ip, &dst_ip))
+    if (!parse_ip_src_dst_addr(skb, &src_ip, &dst_ip))
     {
-        return XDP_DROP;
+        return TC_ACT_SHOT;
     }
-
-    if (conntrack(&src_ip, &dst_ip) || conntrack(&dst_ip, &src_ip))
-    {
-
-        return XDP_PASS;
-    }
-
-    return XDP_DROP;
+    return conntrack(&src_ip, &dst_ip);
 }
