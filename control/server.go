@@ -13,6 +13,8 @@ import (
 	"github.com/NHAS/wag/router"
 )
 
+var Version string
+
 const controlSocket = "/tmp/wag.sock"
 
 func block(w http.ResponseWriter, r *http.Request) {
@@ -147,6 +149,19 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
+func version(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if Version == "" {
+		Version = "UNKNOWN"
+	}
+
+	w.Write([]byte(Version))
+}
+
 func StartControlSocket() error {
 	l, err := net.Listen("unix", controlSocket)
 	if err != nil {
@@ -166,6 +181,8 @@ func StartControlSocket() error {
 	http.HandleFunc("/firewall/list", firewallRules)
 
 	http.HandleFunc("/config/reload", configReload)
+
+	http.HandleFunc("/version", version)
 
 	go http.Serve(l, nil)
 

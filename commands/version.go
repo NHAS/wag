@@ -3,9 +3,9 @@ package commands
 import (
 	"flag"
 	"fmt"
-)
 
-var Version string
+	"github.com/NHAS/wag/control"
+)
 
 type version struct {
 	fs *flag.FlagSet
@@ -39,11 +39,12 @@ func (g *version) Check() error {
 
 func (g *version) Run() error {
 
-	if Version == "" {
-		Version = "UNKNOWN"
+	ver, err := control.GetVersion()
+	if err != nil {
+		return err
 	}
 
-	fmt.Println(Version)
+	fmt.Println(ver)
 
 	return nil
 }

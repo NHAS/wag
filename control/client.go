@@ -121,3 +121,19 @@ func ConfigReload() error {
 
 	return nil
 }
+
+func GetVersion() (string, error) {
+
+	response, err := client.Get("http://unix/version")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+}
