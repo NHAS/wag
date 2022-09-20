@@ -22,7 +22,7 @@ func setupIptables() error {
 	}
 
 	//So. This to the average person will look like we say "Hey server forward anything and everything from the wireguard interface"
-	//And without the xdp ebpf program it would be, however if you look at xdp.c you can see that we can manipluate maps of addresses for each user
+	//And without the tc ebpf filter it would be, however if you look at bpf.c you can see that we can manipluate maps of addresses for each user
 	//This then controls whether the packet is dropped, but we still need iptables to do the higher level routing stuffs
 
 	err = ipt.ChangePolicy("filter", "FORWARD", "DROP")

@@ -22,7 +22,7 @@ func Setup(error chan<- error) (err error) {
 		}
 	}()
 
-	err = setupXDP()
+	err = setupTC()
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func Setup(error chan<- error) (err error) {
 		"\t\t\tSetting filter FORWARD policy to DROP\n",
 		"\t\t\tAllowed input on tunnel port\n",
 		"\t\t\tSet MASQUERADE\n",
-		"\t\t\tXDP eBPF program managing firewall\n",
+		"\t\t\tAdded TC eBPF filter\n",
 		"\t\t\tSet public forwards")
 
 	return nil

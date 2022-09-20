@@ -60,7 +60,7 @@ func RemovePeer(internalAddress string) error {
 
 	// Try both
 	err1 := ctrl.ConfigureDevice(config.Values().WgDevName, c)
-	err2 := xdpRemoveDevice(internalAddress)
+	err2 := removeDevice(internalAddress)
 
 	if err1 != nil {
 		return err1
@@ -116,10 +116,10 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 		return "", errors.New("unable to setup for first use mfa: " + err.Error())
 	}
 
-	err = xdpAddDevice(newDevice)
+	err = addDevice(newDevice)
 	if err != nil {
 
-		//make sure we attempt to clean up the db if the xdp add fails
+		//make sure we attempt to clean up the db if the tc add fails
 		database.DeleteDevice(newAddress)
 
 		return "", err

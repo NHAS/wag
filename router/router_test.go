@@ -659,7 +659,7 @@ func addDevices() ([]database.Device, error) {
 	}
 
 	for i := range devices {
-		err := xdpAddDevice(devices[i])
+		err := addDevice(devices[i])
 		if err != nil {
 			return nil, err
 		}
@@ -674,5 +674,5 @@ func setup(what string) error {
 		return err
 	}
 
-	return loadXDP()
+	return loadTC()
 }

@@ -65,13 +65,13 @@ func (l Key) String() string {
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS tc bpf.c -- -I headers
 
 var (
-	//Keep reference to xdpLink, otherwise it may be garbage collected
-	xdpLink      link.Link
+	//Keep reference to tcLink, otherwise it may be garbage collected
+	tcLink       link.Link
 	objs         tcObjects
 	innerMapSpec *ebpf.MapSpec
 )
 
-func loadXDP() error {
+func loadTC() error {
 	spec, err := loadTc()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
@@ -112,7 +112,7 @@ func loadXDP() error {
 	return nil
 }
 
-func attachXDP() error {
+func attachTC() error {
 
 	wgInterface, err := netlink.LinkByName(config.Values().WgDevName)
 	if err != nil {
@@ -155,13 +155,13 @@ func attachXDP() error {
 	return nil
 }
 
-func setupXDP() error {
+func setupTC() error {
 
-	if err := loadXDP(); err != nil {
+	if err := loadTC(); err != nil {
 		return err
 	}
 
-	if err := attachXDP(); err != nil {
+	if err := attachTC(); err != nil {
 		return err
 	}
 
@@ -171,7 +171,7 @@ func setupXDP() error {
 	}
 
 	for _, device := range knownDevices {
-		err := xdpAddDevice(device)
+		err := addDevice(device)
 		if err != nil {
 			return err
 		}
@@ -233,7 +233,7 @@ func IsAuthed(address string) bool {
 	return sessionValid && sessionActive
 }
 
-func xdpRemoveDevice(address string) error {
+func removeDevice(address string) error {
 	ip := net.ParseIP(address)
 	if ip == nil {
 		return errors.New("Address " + address + " is not parsable as an IP address")
@@ -264,7 +264,7 @@ func xdpRemoveDevice(address string) error {
 	return finalError
 }
 
-func xdpAddDevice(device database.Device) error {
+func addDevice(device database.Device) error {
 
 	ip := net.ParseIP(device.Address)
 	if ip == nil {
@@ -280,19 +280,19 @@ func xdpAddDevice(device database.Device) error {
 	defer func() {
 		//On error of any of the following operations, remove any bits that previous operations were able to add
 		if err != nil {
-			xdpRemoveDevice(device.Address)
+			removeDevice(device.Address)
 		}
 	}()
 
 	acls := config.GetEffectiveAcl(device.Username)
 
 	// Create inner tables for the public and mfa routes based on the current ACLs
-	err = xdpCreateRoutes(ip, objs.PublicTable, acls.Allow)
+	err = createRoutes(ip, objs.PublicTable, acls.Allow)
 	if err != nil {
 		return err
 	}
 
-	err = xdpCreateRoutes(ip, objs.MfaTable, acls.Mfa)
+	err = createRoutes(ip, objs.MfaTable, acls.Mfa)
 	if err != nil {
 		return err
 	}
@@ -306,7 +306,7 @@ func xdpAddDevice(device database.Device) error {
 	return objs.LastPacketTime.Put(ip.To4(), uint64(0))
 }
 
-func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
+func createRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 
 	if src == nil {
 		return errors.New("IP address was nil")
@@ -400,7 +400,7 @@ func RefreshConfiguration() []error {
 		}
 
 		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = xdpCreateRoutes(ip, objs.PublicTable, acls.Allow)
+		err = createRoutes(ip, objs.PublicTable, acls.Allow)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", device.Username, err.Error()))
 			continue
@@ -412,7 +412,7 @@ func RefreshConfiguration() []error {
 			continue
 		}
 
-		err = xdpCreateRoutes(ip, objs.MfaTable, acls.Mfa)
+		err = createRoutes(ip, objs.MfaTable, acls.Mfa)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", device.Username, err.Error()))
 			continue
