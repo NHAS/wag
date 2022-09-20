@@ -164,7 +164,8 @@ The configuration file specifies how long a session can live for, before expirin
 `WgDevName`: The wireguard tunnel device name that wag will manage  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
-`SessionTimeoutMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled
+`MaxSessionLifetimeMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled  
+`SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 `WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
@@ -180,7 +181,8 @@ Full config example
     "WgDevName": "wg0",
     "Lockout": 5,
     "HelpMail": "help@example.com",
-    "SessionTimeoutMinutes": 10,
+    "MaxSessionLifetimeMinutes": 2,
+    "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
     "Issuer": "192.168.121.61",
@@ -228,15 +230,10 @@ Full config example
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- Modern kernel 4.10+ at least (needs ebpf and xdp)
+- Modern kernel 4.12+ at least (needs ebpf and xdp)
 
 
 # Testing
-
-Currently the cilium framework has a bug on newer kernels, meaning that the testing framework will not work in kernels 5.15+ (https://github.com/cilium/ebpf/pull/788/commits/1b41d4467c422ba17b374818429489fa7fcc18b7)
-This can be fixed manually by applying the patch given in the commit. 
-
-Otherwise, just do the following to test:
 ```sh
 cd router
 sudo go test.
