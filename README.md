@@ -75,6 +75,8 @@ All commands need to be able to load the config file. And thus support `-config`
 
 `reload`: Reloads ACLs from configuration
 
+`version`: Display the version of wag
+
 `firewall`: Get firewall rules
 ```
 Usage of firewall:
