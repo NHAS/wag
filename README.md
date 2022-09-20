@@ -47,7 +47,7 @@ systemctl start wg-quick@wg0
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
-go build
+make
 
 cp example_config.json config.json
 
