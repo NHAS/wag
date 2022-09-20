@@ -155,24 +155,21 @@ func setupXDP() error {
 	return nil
 }
 
-func GetAllAuthorised() (map[string]uint64, error) {
-	result := make(map[string]uint64)
+func GetAllAuthorised() ([]string, error) {
 
-	var ipBytes []byte
-	var timestamp uint64
+	devices, err := database.GetDevices()
+	if err != nil {
+		return nil, err
+	}
 
-	sessionsIter := xdpObjects.Sessions.Iterate()
-	for sessionsIter.Next(&ipBytes, &timestamp) {
-		ip := net.IP(ipBytes)
-
-		currentTimestamp := GetTimeStamp()
-
-		if timestamp > currentTimestamp {
-			result[ip.String()] = timestamp - currentTimestamp
+	result := []string{}
+	for _, device := range devices {
+		if IsAuthed(device.Address) {
+			result = append(result, device.Address)
 		}
 	}
 
-	return result, sessionsIter.Err()
+	return result, nil
 }
 
 func IsAuthed(address string) bool {
@@ -439,8 +436,8 @@ func Deauthenticate(address string) error {
 
 type description struct {
 	IsAuthorized        bool
-	Expires             uint64
 	LastPacketTimestamp uint64
+	Expiry              uint64
 	MFA                 []string
 	Public              []string
 }
@@ -449,16 +446,15 @@ func GetRules() (map[string]description, error) {
 
 	result := make(map[string]description)
 
-	m, err := GetAllAuthorised()
+	authorizedDevices, err := GetAllAuthorised()
 	if err != nil {
 		return result, err
 	}
 
-	for ip, timestamp := range m {
+	for _, ip := range authorizedDevices {
 		d := result[ip]
 
 		d.IsAuthorized = true
-		d.Expires = timestamp
 
 		result[ip] = d
 	}
@@ -480,6 +476,21 @@ func GetRules() (map[string]description, error) {
 
 	if lastPacket.Err() != nil {
 		return nil, lastPacket.Err()
+	}
+
+	sessions := xdpObjects.Sessions.Iterate()
+	for sessions.Next(&ipBytes, &val) {
+		ip := net.IP(ipBytes)
+
+		d := result[ip.String()]
+
+		d.Expiry = val
+
+		result[ip.String()] = d
+	}
+
+	if sessions.Err() != nil {
+		return nil, sessions.Err()
 	}
 
 	publicRoutesIter := xdpObjects.PublicTable.Iterate()
