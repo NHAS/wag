@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"wag/config"
-	"wag/database"
-	"wag/utils"
+
+	"github.com/NHAS/wag/config"
+
+	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/utils"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"

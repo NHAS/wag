@@ -5,9 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-	"wag/config"
-	"wag/control"
-	"wag/database"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/database"
 )
 
 type devices struct {

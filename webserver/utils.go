@@ -4,8 +4,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"wag/config"
-	"wag/utils"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/utils"
 )
 
 func getIPFromRequest(r *http.Request) string {

@@ -5,7 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-	"wag/control"
+
+	"github.com/NHAS/wag/control"
 )
 
 type firewallCmd struct {

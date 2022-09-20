@@ -5,7 +5,8 @@ import (
 	"log"
 	"net"
 	"time"
-	"wag/config"
+
+	"github.com/NHAS/wag/config"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"

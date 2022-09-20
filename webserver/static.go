@@ -4,7 +4,8 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"wag/webserver/resources"
+
+	"github.com/NHAS/wag/webserver/resources"
 )
 
 func setMimeType(w http.ResponseWriter, r *http.Request) {

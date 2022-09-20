@@ -7,9 +7,10 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"wag/config"
-	"wag/database"
-	"wag/router"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/router"
 )
 
 const controlSocket = "/tmp/wag.sock"

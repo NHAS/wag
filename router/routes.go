@@ -7,8 +7,9 @@ import (
 	"math"
 	"net"
 	"strings"
-	"wag/config"
-	"wag/database"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"

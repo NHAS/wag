@@ -4,8 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
-	"wag/config"
-	"wag/router"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/router"
 )
 
 type cleanup struct {

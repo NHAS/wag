@@ -11,10 +11,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"wag/config"
-	"wag/database"
-	"wag/router"
-	"wag/webserver/resources"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/router"
+	"github.com/NHAS/wag/webserver/resources"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )

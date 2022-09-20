@@ -8,7 +8,8 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"wag/utils"
+
+	"github.com/NHAS/wag/utils"
 )
 
 type webserverDetails struct {

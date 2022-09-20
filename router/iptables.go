@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"wag/config"
+
+	"github.com/NHAS/wag/config"
 
 	"github.com/coreos/go-iptables/iptables"
 )

@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"wag/config"
-	"wag/database"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/net/ipv4"

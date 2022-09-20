@@ -3,7 +3,8 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"wag/control"
+
+	"github.com/NHAS/wag/control"
 )
 
 type reload struct {

@@ -6,8 +6,9 @@ import (
 	"log"
 	"os"
 	"syscall"
-	"wag/commands"
-	"wag/config"
+
+	"github.com/NHAS/wag/commands"
+	"github.com/NHAS/wag/config"
 )
 
 var cmds = []commands.Command{
@@ -18,6 +19,8 @@ var cmds = []commands.Command{
 	commands.Registration(),
 	commands.Devices(),
 	commands.Firewall(),
+
+	commands.VersionCmd(),
 }
 
 func help(full bool) {

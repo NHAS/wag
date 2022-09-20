@@ -5,8 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"strings"
-	"wag/config"
-	"wag/database"
+
+	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
 )
 
 type registration struct {
