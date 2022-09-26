@@ -167,14 +167,14 @@ The configuration file specifies how long a session can live for, before expirin
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
 `MaxSessionLifetimeMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled  
-`SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled
+`SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled  
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 `WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
-`DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)
+`DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
 Full config example
