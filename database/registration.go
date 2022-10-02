@@ -5,15 +5,20 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"time"
 )
 
 func GetRegistrationToken(token string) (username string, err error) {
+
+	minTime := time.After(1 * time.Second)
 
 	err = database.QueryRow(`
 		SELECT token, username FROM RegistrationTokens
 		WHERE
 			token = ?
 	`, token).Scan(&token, &username)
+
+	<-minTime
 
 	return
 }
