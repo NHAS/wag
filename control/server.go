@@ -174,18 +174,25 @@ func StartControlSocket() error {
 
 	log.Println("Started control socket: \n\t\t\t", controlSocket)
 
-	http.HandleFunc("/device/block", block)
-	http.HandleFunc("/device/sessions", sessions)
-	http.HandleFunc("/device/delete", delete)
+	controlMux := http.NewServeMux()
 
-	http.HandleFunc("/firewall/list", firewallRules)
+	controlMux.HandleFunc("/device/block", block)
+	controlMux.HandleFunc("/device/sessions", sessions)
+	controlMux.HandleFunc("/device/delete", delete)
 
-	http.HandleFunc("/config/reload", configReload)
+	controlMux.HandleFunc("/firewall/list", firewallRules)
 
-	http.HandleFunc("/version", version)
+	controlMux.HandleFunc("/config/reload", configReload)
 
-	go http.Serve(l, nil)
+	controlMux.HandleFunc("/version", version)
 
+	go func() {
+		srv := &http.Server{
+			Handler: controlMux,
+		}
+
+		srv.Serve(l)
+	}()
 	return nil
 }
 
