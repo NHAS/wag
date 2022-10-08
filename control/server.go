@@ -359,7 +359,7 @@ func StartControlSocket() error {
 	}
 
 	//Yes I know this is doubling up on the umask, but meh
-	if err := os.Chmod(controlSocket, 0750); err != nil {
+	if err := os.Chmod(controlSocket, 0760); err != nil {
 		return err
 	}
 
