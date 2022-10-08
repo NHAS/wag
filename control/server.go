@@ -2,10 +2,12 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/NHAS/wag/config"
@@ -17,7 +19,58 @@ var Version string
 
 const controlSocket = "/tmp/wag.sock"
 
-func block(w http.ResponseWriter, r *http.Request) {
+func listDevices(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	username := r.FormValue("username")
+	if username != "" {
+		d, err := database.GetDeviceByUsername(username)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		//Needs to be an array to match the list all option
+		ds := []database.Device{d}
+
+		b, err := json.Marshal(ds)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+
+		return
+	}
+
+	devices, err := database.GetDevices()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	b, err := json.Marshal(devices)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+func lockDevice(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.NotFound(w, r)
 		return
@@ -50,6 +103,39 @@ func block(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+func unlockDevice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	username, err := url.QueryUnescape(r.FormValue("username"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	d, err := database.GetDeviceByUsername(username)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = database.SetAttempts(d.Address, 0)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Write([]byte("OK"))
+}
+
 func sessions(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
@@ -64,12 +150,16 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := json.Marshal(sessions)
+	result, err := json.Marshal(sessions)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	w.Write(result)
 }
 
-func delete(w http.ResponseWriter, r *http.Request) {
+func deleteDevice(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.NotFound(w, r)
 		return
@@ -115,7 +205,11 @@ func firewallRules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	result, _ := json.Marshal(rules)
+	result, err := json.Marshal(rules)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	w.Write(result)
 }
@@ -128,9 +222,7 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 
 	err := config.Reload()
 	if err != nil {
-		w.WriteHeader(500)
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), 500)
 		return
 	}
 
@@ -162,6 +254,104 @@ func version(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(Version))
 }
 
+func listRegistrations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	result, err := database.GetRegistrationTokens()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Write(b)
+}
+
+func newRegistration(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	token := r.FormValue("token")
+	username := r.FormValue("username")
+
+	resp := RegistrationResult{Token: token, Username: username}
+
+	if token != "" {
+		err := database.AddRegistrationToken(token, username)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		b, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		w.Write(b)
+		return
+	}
+
+	token, err = database.GenerateToken(username)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	resp.Token = token
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Write(b)
+}
+
+func deleteRegistration(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	id := r.FormValue("id")
+
+	err = database.DeleteRegistrationToken(id)
+	if err != nil {
+
+		http.Error(w, errors.New("Could not delete token: "+err.Error()).Error(), 500)
+		return
+	}
+
+	w.Write([]byte("OK"))
+}
+
 func StartControlSocket() error {
 	l, err := net.Listen("unix", controlSocket)
 	if err != nil {
@@ -176,15 +366,21 @@ func StartControlSocket() error {
 
 	controlMux := http.NewServeMux()
 
-	controlMux.HandleFunc("/device/block", block)
+	controlMux.HandleFunc("/device/list", listDevices)
+	controlMux.HandleFunc("/device/lock", lockDevice)
+	controlMux.HandleFunc("/device/unlock", unlockDevice)
 	controlMux.HandleFunc("/device/sessions", sessions)
-	controlMux.HandleFunc("/device/delete", delete)
+	controlMux.HandleFunc("/device/delete", deleteDevice)
 
 	controlMux.HandleFunc("/firewall/list", firewallRules)
 
 	controlMux.HandleFunc("/config/reload", configReload)
 
 	controlMux.HandleFunc("/version", version)
+
+	controlMux.HandleFunc("/registration/list", listRegistrations)
+	controlMux.HandleFunc("/registration/create", newRegistration)
+	controlMux.HandleFunc("/registration/delete", deleteRegistration)
 
 	go func() {
 		srv := &http.Server{

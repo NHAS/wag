@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/database"
 )
 
@@ -61,8 +62,8 @@ func (g *registration) Check() error {
 		}
 
 	case "del":
-		if g.token == "" {
-			return errors.New("Token must be supplied")
+		if g.token == "" && g.username == "" {
+			return errors.New("Token or username must be supplied")
 		}
 	case "list":
 	default:
@@ -81,39 +82,36 @@ func (g *registration) Check() error {
 func (g *registration) Run() error {
 	switch g.action {
 	case "add":
-		if g.token != "" {
-			err := database.AddRegistrationToken(g.token, g.username)
-			if err != nil {
-				return err
-			}
 
-			fmt.Println("OK ", g.token, g.username)
-
-			return nil
-		}
-
-		token, err := database.GenerateToken(g.username)
+		result, err := control.NewRegistration(g.token, g.username)
 		if err != nil {
 			return err
 		}
 
 		fmt.Printf("token,username\n")
-		fmt.Printf("%s,%s\n", token, g.username)
+		fmt.Printf("%s,%s\n", result.Token, result.Username)
+
 	case "del":
 
-		err := database.DeleteRegistrationToken(g.token)
-		if err != nil {
-			return errors.New("Could not delete token: " + err.Error())
+		id := g.token
+		if id == "" {
+			id = g.username
 		}
-		fmt.Println("OK")
+
+		if err := control.DeleteRegistration(id); err != nil {
+			return err
+		}
+
+		fmt.Printf("OK")
+
 	case "list":
-		result, err := database.GetRegistrationTokens()
+		tokens, err := control.Registrations()
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("token,username")
-		for token, username := range result {
+		for token, username := range tokens {
 			fmt.Printf("%s,%s\n", token, username)
 		}
 	}

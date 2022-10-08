@@ -30,7 +30,7 @@ func Devices() *devices {
 
 	gc.fs.Bool("mfa_sessions", false, "Get list of deivces with active authorised sessions")
 
-	gc.fs.Bool("reset", false, "Reset locked account/device")
+	gc.fs.Bool("unlock", false, "Unlock a locked account/device")
 	gc.fs.Bool("lock", false, "Locked account/device access to mfa routes")
 
 	return gc
@@ -52,13 +52,13 @@ func (g *devices) PrintUsage() {
 func (g *devices) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "reset", "del", "list", "lock", "mfa_sessions":
+		case "unlock", "del", "list", "lock", "mfa_sessions":
 			g.action = strings.ToLower(f.Name)
 		}
 	})
 
 	switch g.action {
-	case "del", "reset", "lock":
+	case "del", "unlock", "lock":
 		if g.username == "" {
 			return errors.New("username must be supplied")
 		}
@@ -80,20 +80,21 @@ func (g *devices) Run() error {
 	switch g.action {
 	case "del":
 
-		err := control.Delete(g.username)
+		err := control.DeleteDevice(g.username)
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("OK")
 	case "list":
-		result, err := database.GetDevices()
+
+		ds, err := control.ListDevice("")
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("username,address,publickey,enforcingmfa,authattempts")
-		for _, device := range result {
+		for _, device := range ds {
 			fmt.Printf("%s,%s,%s,%t,%d\n", device.Username, device.Address, device.Publickey, device.Enforcing, device.Attempts)
 		}
 	case "mfa_sessions":
@@ -104,24 +105,20 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
-		err := control.Block(g.username)
+		err := control.LockDevice(g.username)
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("OK")
 
-	case "reset":
+	case "unlock":
 
-		d, err := database.GetDeviceByUsername(g.username)
+		err := control.UnlockDevice(g.username)
 		if err != nil {
-			return errors.New("could not find username: " + err.Error())
+			return err
 		}
 
-		err = database.SetAttempts(d.Address, 0)
-		if err != nil {
-			return errors.New("Could not reset device authentication attempts: " + err.Error())
-		}
 		fmt.Println("OK")
 	}
 

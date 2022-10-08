@@ -43,16 +43,17 @@ func GetRegistrationTokens() (map[string]string, error) {
 	return result, nil
 }
 
-func DeleteRegistrationToken(token string) error {
+func DeleteRegistrationToken(identifier string) error {
 	_, err := database.Exec(`
 		DELETE FROM
 			RegistrationTokens
 		WHERE
-			token = ?
-	`, token)
+			token = ? or username = ?
+	`, identifier, identifier)
 	return err
 }
 
+// Randomly generate a token for a specific username
 func GenerateToken(username string) (token string, err error) {
 	tokenBytes, err := generateRandomBytes(32)
 	if err != nil {
@@ -65,6 +66,7 @@ func GenerateToken(username string) (token string, err error) {
 	return
 }
 
+// Add a token to the database for the specific username, may fail of the token does not meet complexity requirements
 func AddRegistrationToken(token, username string) error {
 	if len(token) < 32 {
 		return errors.New("Registration token is too short")
