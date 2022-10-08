@@ -88,7 +88,7 @@ func (g *devices) Run() error {
 		fmt.Println("OK")
 	case "list":
 
-		ds, err := control.ListDevice("")
+		ds, err := control.ListDevice(g.username)
 		if err != nil {
 			return err
 		}

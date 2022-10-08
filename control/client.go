@@ -57,12 +57,12 @@ func DeleteDevice(username string) error {
 	}
 	defer response.Body.Close()
 
-	result, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
 
-	if string(result) != "OK!" {
 		return errors.New(string(result))
 	}
 
