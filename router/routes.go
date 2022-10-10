@@ -434,7 +434,7 @@ func Deauthenticate(address string) error {
 	return xdpObjects.Sessions.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
 }
 
-type description struct {
+type FirewallRules struct {
 	IsAuthorized        bool
 	LastPacketTimestamp uint64
 	Expiry              uint64
@@ -442,9 +442,9 @@ type description struct {
 	Public              []string
 }
 
-func GetRules() (map[string]description, error) {
+func GetRules() (map[string]FirewallRules, error) {
 
-	result := make(map[string]description)
+	result := make(map[string]FirewallRules)
 
 	authorizedDevices, err := GetAllAuthorised()
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/router"
 )
 
 var (
@@ -129,24 +130,29 @@ func Sessions() (string, error) {
 	return string(result), nil
 }
 
-func FirewallRules() error {
+func FirewallRules() (rules router.FirewallRules, err error) {
 
 	response, err := client.Get("http://unix/firewall/list")
 	if err != nil {
-		return err
+		return rules, err
 	}
 	defer response.Body.Close()
 
-	result, err := io.ReadAll(response.Body)
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return rules, err
+		}
+
+		return rules, errors.New("Error: " + string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&rules)
 	if err != nil {
-		return err
+		return rules, err
 	}
 
-	if string(result) != "OK!" {
-		return errors.New(string(result))
-	}
-
-	return nil
+	return
 }
 
 func ConfigReload() error {
@@ -157,12 +163,11 @@ func ConfigReload() error {
 	}
 	defer response.Body.Close()
 
-	result, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	if string(result) != "OK!" {
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
 		return errors.New(string(result))
 	}
 

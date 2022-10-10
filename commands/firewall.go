@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -57,7 +58,15 @@ func (g *firewallCmd) Check() error {
 func (g *firewallCmd) Run() error {
 	switch g.action {
 	case "list":
-		fmt.Println(control.FirewallRules())
+
+		rules, err := control.FirewallRules()
+		if err != nil {
+			return err
+		}
+
+		b, _ := json.Marshal(rules)
+
+		fmt.Println(string(b))
 	}
 	return nil
 
