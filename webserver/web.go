@@ -120,7 +120,8 @@ func Start(err chan<- error) {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	// The authorise endpoint passes us back here on auth failure/error, so we have to take errant POST's from those endpoints when we 302
+	if r.Method != "GET" && r.Method != "POST" {
 		http.NotFound(w, r)
 		return
 	}
@@ -140,12 +141,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, err := strconv.Atoi(r.URL.Query().Get("id"))
-	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "unable to decode message id", err)
-		http.Error(w, "Unknown error", 500)
-		return
-	}
+	msg, _ := strconv.Atoi(r.URL.Query().Get("id"))
 
 	if database.IsEnforcingMFA(clientTunnelIp) {
 		data := resources.MfaPrompt{
@@ -426,6 +422,6 @@ func message(i int) string {
 	case 2:
 		return "Account locked"
 	default:
-		return "You've found a flag! AURA-CTF{fae4964e5da5710cdf89a53a1074356d}"
+		return "Error"
 	}
 }
