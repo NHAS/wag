@@ -64,12 +64,15 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: start, cleanup, registration, devices, firewall
-
-
-All commands need to be able to load the config file. And thus support `-config`  
+Supported commands: `start`, `cleanup`, `registration`, `devices`, `firewall`  
   
 `start`: starts the wag server  
+```
+Usage of start:
+  Start wag server (does not daemonise)
+  -config string
+        Configuration file location (default "./config.json")
+```
 
 `cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
 
@@ -78,7 +81,7 @@ All commands need to be able to load the config file. And thus support `-config`
 `version`: Display the version of wag
 
 `firewall`: Get firewall rules
-```
+```  
 Usage of firewall:
   -list
         List firewall rules

@@ -44,8 +44,8 @@ func (g *start) Name() string {
 
 func (g *start) PrintUsage() {
 	fmt.Println("Usage of start:")
-
-	fmt.Println("  Run the wag server on the settings found in config.json")
+	fmt.Println("  Start wag server (does not daemonise)")
+	g.fs.PrintDefaults()
 }
 
 func (g *start) Check() error {
