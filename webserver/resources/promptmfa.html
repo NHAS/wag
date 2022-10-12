@@ -45,9 +45,9 @@
 
       </div>
 
-      {{if .ValidationFailed }}
+      {{if .Message }}
       <div class="one-half column offset-by-three small-space">
-        <p class="alert alert-error">Validation Failed</p>
+        <p class="alert alert-error">{{ .Message }}</p>
       </div>
       {{end}}
 

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -119,8 +120,10 @@ func Start(err chan<- error) {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-
-	mfaFailed := r.URL.Query().Get("success") == "0"
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
 
 	clientTunnelIp := getIPFromRequest(r)
 
@@ -137,10 +140,17 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	msg, err := strconv.Atoi(r.URL.Query().Get("id"))
+	if err != nil {
+		log.Println(device.Username, clientTunnelIp, "unable to decode message id", err)
+		http.Error(w, "Unknown error", 500)
+		return
+	}
+
 	if database.IsEnforcingMFA(clientTunnelIp) {
 		data := resources.MfaPrompt{
-			ValidationFailed: mfaFailed,
-			HelpMail:         config.Values().HelpMail,
+			Message:  message(msg),
+			HelpMail: config.Values().HelpMail,
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -177,10 +187,10 @@ func index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := resources.MfaDisplay{
-		ImageData:        "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
-		AccountName:      key.AccountName(),
-		Key:              key.Secret(),
-		ValidationFailed: mfaFailed,
+		ImageData:   "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
+		AccountName: key.AccountName(),
+		Key:         key.Secret(),
+		Message:     message(msg),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -194,7 +204,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 func authorise(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Redirect(w, r, "/?success=1", http.StatusPermanentRedirect)
+		http.NotFound(w, r)
 		return
 	}
 
@@ -216,7 +226,6 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 	err = r.ParseForm()
 	if err != nil {
 		log.Println(device.Username, clientTunnelIp, "client sent a weird form: ", err)
-
 		http.Error(w, "Bad request", 400)
 		return
 	}
@@ -226,7 +235,12 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 	err = database.Authenticate(clientTunnelIp, code)
 	if err != nil {
 		log.Println(device.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-		http.Redirect(w, r, "/?success=0", http.StatusTemporaryRedirect)
+		msg := "1"
+		if strings.Contains(err.Error(), "locked") {
+			msg = "2"
+		}
+		http.Redirect(w, r, "/?id="+msg, http.StatusTemporaryRedirect)
+
 		return
 	}
 
@@ -401,4 +415,17 @@ func routes(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
 
+}
+
+func message(i int) string {
+	switch i {
+	case 0:
+		return ""
+	case 1:
+		return "Validation failed"
+	case 2:
+		return "Account locked"
+	default:
+		return "You've found a flag! AURA-CTF{fae4964e5da5710cdf89a53a1074356d}"
+	}
 }

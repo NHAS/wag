@@ -25,10 +25,10 @@ var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(
 var mfaDisplayTmplt string
 
 type MfaDisplay struct {
-	ImageData        string
-	AccountName      string
-	Key              string
-	ValidationFailed bool
+	ImageData   string
+	AccountName string
+	Key         string
+	Message     string
 }
 
 var DisplayMFATmpl *template.Template = template.Must(template.New("").Parse(mfaDisplayTmplt))
@@ -37,8 +37,8 @@ var DisplayMFATmpl *template.Template = template.Must(template.New("").Parse(mfa
 var mfaPromptTmplt string
 
 type MfaPrompt struct {
-	ValidationFailed bool
-	HelpMail         string
+	Message  string
+	HelpMail string
 }
 
 var PromptTmpl *template.Template = template.Must(template.New("").Parse(mfaPromptTmplt))
