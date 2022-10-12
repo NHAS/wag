@@ -19,13 +19,16 @@ import (
 )
 
 type start struct {
-	fs *flag.FlagSet
+	fs     *flag.FlagSet
+	config string
 }
 
 func Start() *start {
 	gc := &start{
 		fs: flag.NewFlagSet("start", flag.ContinueOnError),
 	}
+
+	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
 
 	return gc
 }
@@ -41,13 +44,19 @@ func (g *start) Name() string {
 
 func (g *start) PrintUsage() {
 	fmt.Println("Usage of start:")
+
 	fmt.Println("  Run the wag server on the settings found in config.json")
 }
 
 func (g *start) Check() error {
 
+	err := config.Load(g.config)
+	if err != nil {
+		return err
+	}
+
 	//Checks that the contents of the configuration file match reality and are sane
-	if _, _, err := router.ServerDetails(); err != nil {
+	if _, _, err = router.ServerDetails(); err != nil {
 		return err
 	}
 
@@ -83,7 +92,7 @@ func (g *start) Check() error {
 		return errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
-	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}

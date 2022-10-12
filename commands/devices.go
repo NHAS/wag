@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
-	"github.com/NHAS/wag/database"
 )
 
 type devices struct {
@@ -65,11 +63,6 @@ func (g *devices) Check() error {
 	case "list", "mfa_sessions":
 	default:
 		return errors.New("invalid action choice")
-	}
-
-	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
-	if err != nil {
-		return fmt.Errorf("cannot load database: %v", err)
 	}
 
 	return nil

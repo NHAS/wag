@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
-	"github.com/NHAS/wag/database"
 )
 
 type registration struct {
@@ -68,11 +66,6 @@ func (g *registration) Check() error {
 	case "list":
 	default:
 		return errors.New("Invalid action choice: " + g.action)
-	}
-
-	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
-	if err != nil {
-		return fmt.Errorf("Cannot load database: %v", err)
 	}
 
 	return nil

@@ -10,13 +10,16 @@ import (
 )
 
 type cleanup struct {
-	fs *flag.FlagSet
+	fs     *flag.FlagSet
+	config string
 }
 
 func Cleanup() *cleanup {
 	gc := &cleanup{
 		fs: flag.NewFlagSet("cleanup", flag.ContinueOnError),
 	}
+
+	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
 
 	return gc
 }

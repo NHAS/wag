@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/NHAS/wag/commands"
-	"github.com/NHAS/wag/config"
 )
 
 var cmds = []commands.Command{
@@ -65,20 +64,7 @@ func root(args []string) error {
 	for _, cmd := range cmds {
 		if cmd.Name() == subcommand {
 
-			var configLocation string
-			cmd.FlagSet().StringVar(&configLocation, "config", "./config.json", "Configuration file location")
-
-			err := cmd.FlagSet().Parse(os.Args[2:])
-			if err != nil {
-				return err
-			}
-
-			err = config.Load(configLocation)
-			if err != nil {
-				return err
-			}
-
-			if err = cmd.Check(); err != nil {
+			if err := cmd.Check(); err != nil {
 				if err != flag.ErrHelp {
 					fmt.Println("Error: ", err.Error())
 					cmd.PrintUsage()
