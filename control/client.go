@@ -190,6 +190,22 @@ func GetVersion() (string, error) {
 	return string(result), nil
 }
 
+func GetBPFVersion() (string, error) {
+
+	response, err := client.Get("http://unix/version/bpf")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+}
+
 func Registrations() (out map[string]string, err error) {
 
 	response, err := client.Get("http://unix/registration/list")
@@ -244,6 +260,66 @@ func DeleteRegistration(id string) (err error) {
 	form.Add("id", id)
 
 	response, err := client.Post("http://unix/registration/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(string(result))
+	}
+
+	return
+}
+
+func Shutdown() (err error) {
+
+	response, err := client.Get("http://unix/shutdown")
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(string(result))
+	}
+
+	return
+}
+
+func PinBPF() (err error) {
+
+	response, err := client.Get("http://unix/ebpf/pin")
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(string(result))
+	}
+
+	return
+}
+
+func UnpinBPF() (err error) {
+
+	response, err := client.Get("http://unix/ebpf/unpin")
 	if err != nil {
 		return err
 	}

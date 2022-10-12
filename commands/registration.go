@@ -65,7 +65,7 @@ func (g *registration) Check() error {
 		}
 	case "list":
 	default:
-		return errors.New("Invalid action choice: " + g.action)
+		return errors.New("Unknown flag: " + g.action)
 	}
 
 	return nil

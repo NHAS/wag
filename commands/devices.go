@@ -62,7 +62,7 @@ func (g *devices) Check() error {
 		}
 	case "list", "mfa_sessions":
 	default:
-		return errors.New("invalid action choice")
+		return errors.New("Unknown flag: " + g.action)
 	}
 
 	return nil

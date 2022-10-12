@@ -1,20 +1,26 @@
 package commands
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/router"
 )
 
 type version struct {
-	fs *flag.FlagSet
+	fs     *flag.FlagSet
+	action string
 }
 
 func VersionCmd() *version {
 	gc := &version{
 		fs: flag.NewFlagSet("version", flag.ContinueOnError),
 	}
+
+	gc.fs.Bool("local", false, "do not connect to the running wag server, print local binary version information (useful for using with upgrade)")
 
 	return gc
 }
@@ -31,20 +37,43 @@ func (g *version) Name() string {
 func (g *version) PrintUsage() {
 	fmt.Println("Usage of version:")
 	fmt.Println("  Print version of wag")
+	g.fs.PrintDefaults()
 }
 
 func (g *version) Check() error {
+	g.fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "local":
+			g.action = strings.ToLower(f.Name)
+		}
+	})
+
+	switch g.action {
+	case "local":
+	case "":
+	default:
+		return errors.New("Unknown flag: " + g.action)
+	}
+
 	return nil
 }
 
 func (g *version) Run() error {
 
-	ver, err := control.GetVersion()
-	if err != nil {
-		return err
+	if g.action == "" {
+
+		ver, err := control.GetVersion()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(ver)
+		return nil
 	}
 
-	fmt.Println(ver)
+	fmt.Println("local")
+	fmt.Println(control.Version)
+	fmt.Println(router.GetBPFHash())
 
 	return nil
 }

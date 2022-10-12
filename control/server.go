@@ -254,6 +254,15 @@ func version(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(Version))
 }
 
+func bpfVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Write([]byte(router.GetBPFHash()))
+}
+
 func listRegistrations(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
@@ -378,6 +387,13 @@ func StartControlSocket() error {
 	controlMux.HandleFunc("/config/reload", configReload)
 
 	controlMux.HandleFunc("/version", version)
+	controlMux.HandleFunc("/version/bpf", bpfVersion)
+
+	// TODO, nullify cleanup
+	controlMux.HandleFunc("/ebpf/pin")
+	controlMux.HandleFunc("/ebpf/unpin")
+
+	controlMux.HandleFunc("/shutdown")
 
 	controlMux.HandleFunc("/registration/list", listRegistrations)
 	controlMux.HandleFunc("/registration/create", newRegistration)

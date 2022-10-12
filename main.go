@@ -20,6 +20,8 @@ var cmds = []commands.Command{
 	commands.Firewall(),
 
 	commands.VersionCmd(),
+
+	commands.Upgrade(),
 }
 
 func help(full bool) {

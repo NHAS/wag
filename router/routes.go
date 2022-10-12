@@ -1,7 +1,9 @@
 package router
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -566,4 +568,9 @@ func parseIP(address string) (Key, error) {
 
 	ones, _ := netmask.Mask.Size()
 	return Key{uint32(ones), ip}, nil
+}
+
+func GetBPFHash() string {
+	hash := sha256.Sum256(_BpfBytes)
+	return hex.EncodeToString(hash[:])
 }
