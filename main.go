@@ -60,6 +60,11 @@ func root(args []string) error {
 	for _, cmd := range cmds {
 		if cmd.Name() == subcommand {
 
+			err := cmd.FlagSet().Parse(os.Args[2:])
+			if err != nil {
+				return err
+			}
+
 			if err := cmd.Check(); err != nil {
 				if err != flag.ErrHelp {
 					fmt.Println("Error: ", err.Error())

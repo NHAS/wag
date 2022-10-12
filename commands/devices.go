@@ -55,6 +55,8 @@ func (g *devices) Check() error {
 		}
 	})
 
+	fmt.Println(g.action)
+
 	switch g.action {
 	case "del", "unlock", "lock":
 		if g.username == "" {
@@ -66,7 +68,6 @@ func (g *devices) Check() error {
 	}
 
 	return nil
-
 }
 
 func (g *devices) Run() error {
