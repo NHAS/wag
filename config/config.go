@@ -12,6 +12,8 @@ import (
 	"github.com/NHAS/wag/utils"
 )
 
+var Version string
+
 type webserverDetails struct {
 	ListenAddress string
 	CertPath      string

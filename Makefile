@@ -1,4 +1,4 @@
-LDFLAGS += -X 'github.com/NHAS/wag/control.Version=$(shell git describe --tags)'
+LDFLAGS += -X 'github.com/NHAS/wag/config.Version=$(shell git describe --tags)'
 
 LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 

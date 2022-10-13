@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/NHAS/wag/config"
@@ -28,6 +31,20 @@ static unsigned long long C_GetTimeStamp(void)
 }
 */
 import "C"
+
+const (
+	ebpfFS = "/sys/fs/bpf"
+
+	sessionsPin = "session"
+
+	inactivityPin = "inactivity_map"
+	lastPacketPin = "last_packet_map"
+
+	mfaMapPin    = "mfa_routes_map"
+	publicMapPin = "public_routes_map"
+)
+
+var programName = regexp.MustCompile(`^[\w_]`).ReplaceAllString(config.Version, "_")
 
 func GetTimeStamp() uint64 {
 	return uint64(C.C_GetTimeStamp())
@@ -93,6 +110,9 @@ func loadXDP() error {
 		MaxEntries: 2000,
 	}
 
+	spec.Programs[programName] = spec.Programs["xdp"]
+	spec.Programs[programName].Name = programName
+
 	spec.Maps["public_table"].InnerMap = innerMapSpec
 	spec.Maps["mfa_table"].InnerMap = innerMapSpec
 
@@ -127,6 +147,56 @@ func attachXDP() error {
 	})
 	if err != nil {
 		return fmt.Errorf("could not attach XDP program: %s", err)
+	}
+
+	return nil
+}
+
+func Pin() error {
+	err := xdpObjects.bpfMaps.Sessions.Pin(filepath.Join(ebpfFS, "wag_"+sessionsPin))
+	if err != nil {
+		return err
+	}
+
+	err = xdpObjects.bpfMaps.InactivityTimeoutMinutes.Pin(filepath.Join(ebpfFS, "wag_"+inactivityPin))
+	if err != nil {
+		return err
+	}
+
+	err = xdpObjects.bpfMaps.LastPacketTime.Pin(filepath.Join(ebpfFS, "wag_"+lastPacketPin))
+	if err != nil {
+		return err
+	}
+
+	err = xdpObjects.bpfMaps.MfaTable.Pin(filepath.Join(ebpfFS, "wag_"+mfaMapPin))
+	if err != nil {
+		return err
+	}
+
+	err = xdpObjects.bpfMaps.PublicTable.Pin(filepath.Join(ebpfFS, "wag_"+publicMapPin))
+	if err != nil {
+		return err
+	}
+
+	err = xdpObjects.bpfPrograms.XdpProgFunc.Pin(filepath.Join(ebpfFS, "wag_"+programName))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Unpin() error {
+
+	files, err := filepath.Glob(filepath.Join(ebpfFS, "wag_*"))
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
 
 	return nil

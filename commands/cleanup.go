@@ -3,9 +3,11 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/router"
 )
 
@@ -43,11 +45,15 @@ func (g *cleanup) Check() error {
 }
 
 func (g *cleanup) Run() error {
-
-	router.TearDown()
-
-	cmd := exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName)
-
-	return cmd.Run()
+	if _, err := os.Stat("/tmp/wag-no-cleanup"); err == nil {
+		err := os.Remove("/tmp/wag-no-cleanup")
+		if err != nil {
+			return err
+		}
+		router.TearDown()
+		control.TearDown()
+		return exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName).Run()
+	}
+	return nil
 
 }

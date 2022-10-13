@@ -15,8 +15,6 @@ import (
 	"github.com/NHAS/wag/router"
 )
 
-var Version string
-
 const controlSocket = "/tmp/wag.sock"
 
 func listDevices(w http.ResponseWriter, r *http.Request) {
@@ -247,11 +245,11 @@ func version(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if Version == "" {
-		Version = "UNKNOWN"
+	if config.Version == "" {
+		config.Version = "UNKNOWN"
 	}
 
-	w.Write([]byte(Version))
+	w.Write([]byte(config.Version))
 }
 
 func bpfVersion(w http.ResponseWriter, r *http.Request) {
@@ -361,6 +359,65 @@ func deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+func shutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	//We need to remove the unix control socket at the very least
+	if r.FormValue("cleanup") == "false" {
+		err := os.WriteFile("/tmp/wag-no-cleanup", []byte("0"), 0600)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		TearDown()
+	}
+
+	w.Write([]byte("OK"))
+
+	os.Exit(0)
+}
+
+func pinBPF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := router.Pin()
+	if err != nil {
+		http.Error(w, errors.New("Could not pin ebpf assets: "+err.Error()).Error(), 500)
+		return
+	}
+
+	w.Write([]byte("OK"))
+
+}
+
+func unpinBPF(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := router.Pin()
+	if err != nil {
+		http.Error(w, errors.New("Could not unpin ebpf assets: "+err.Error()).Error(), 500)
+		return
+	}
+
+	w.Write([]byte("OK"))
+}
+
 func StartControlSocket() error {
 	l, err := net.Listen("unix", controlSocket)
 	if err != nil {
@@ -389,11 +446,10 @@ func StartControlSocket() error {
 	controlMux.HandleFunc("/version", version)
 	controlMux.HandleFunc("/version/bpf", bpfVersion)
 
-	// TODO, nullify cleanup
-	controlMux.HandleFunc("/ebpf/pin")
-	controlMux.HandleFunc("/ebpf/unpin")
+	controlMux.HandleFunc("/ebpf/pin", pinBPF)
+	controlMux.HandleFunc("/ebpf/unpin", unpinBPF)
 
-	controlMux.HandleFunc("/shutdown")
+	controlMux.HandleFunc("/shutdown", shutdown)
 
 	controlMux.HandleFunc("/registration/list", listRegistrations)
 	controlMux.HandleFunc("/registration/create", newRegistration)

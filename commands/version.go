@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/router"
 )
@@ -72,7 +73,7 @@ func (g *version) Run() error {
 	}
 
 	fmt.Println("local")
-	fmt.Println(control.Version)
+	fmt.Println(config.Version)
 	fmt.Println(router.GetBPFHash())
 
 	return nil
