@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/NHAS/wag/config"
@@ -45,8 +44,6 @@ const (
 	mfaMapPin    = "mfa_routes"
 	publicMapPin = "public_routes"
 )
-
-var programName = regexp.MustCompile(`^[\w_]`).ReplaceAllString(config.Version, "_")
 
 func GetTimeStamp() uint64 {
 	return uint64(C.C_GetTimeStamp())
@@ -109,9 +106,6 @@ func loadXDP() error {
 		// and altered later.
 		MaxEntries: 2000,
 	}
-
-	spec.Programs[programName] = spec.Programs["xdp_prog_func"]
-	spec.Programs[programName].Name = programName
 
 	spec.Maps["public_table"].InnerMap = innerMapSpec
 	spec.Maps["mfa_table"].InnerMap = innerMapSpec
@@ -179,7 +173,7 @@ func Pin() error {
 		return err
 	}
 
-	err = xdpObjects.bpfPrograms.XdpWagFirewall.Pin(filepath.Join(ebpfFS, "wag_prog_"+programName))
+	err = xdpObjects.bpfPrograms.XdpWagFirewall.Pin(filepath.Join(ebpfFS, "wag_prog"))
 	if err != nil {
 		return err
 	}
@@ -193,7 +187,7 @@ func Unpin() error {
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("Random change")
 	var errs []string
 	for _, f := range files {
 		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
@@ -239,7 +233,7 @@ func loadPins() error {
 		return err
 	}
 
-	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.LoadPinnedProgram(filepath.Join(ebpfFS, "wag_prog_"+programName), nil)
+	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.LoadPinnedProgram(filepath.Join(ebpfFS, "wag_prog"), nil)
 	if err != nil {
 		return err
 	}

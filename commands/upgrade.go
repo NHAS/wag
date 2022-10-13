@@ -42,7 +42,7 @@ func (g *upgrade) Check() error {
 
 	if g.hash == "" {
 		fmt.Print("Enter bpf version hash (find with wag version -local): ")
-		fmt.Scanf("%s", g.hash)
+		fmt.Scanf("%s", &g.hash)
 	}
 
 	currentHash, err := control.GetBPFVersion()
@@ -65,7 +65,7 @@ func (g *upgrade) Run() error {
 	fmt.Println("Done")
 
 	fmt.Print("Shutting down server...")
-	if err := control.Shutdown(); err != nil {
+	if err := control.Shutdown(false); err != nil {
 		return err
 	}
 	fmt.Println("Done")

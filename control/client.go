@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -277,9 +278,12 @@ func DeleteRegistration(id string) (err error) {
 	return
 }
 
-func Shutdown() (err error) {
+func Shutdown(cleanup bool) (err error) {
 
-	response, err := client.Get("http://unix/shutdown")
+	form := url.Values{}
+	form.Add("cleanup", fmt.Sprintf("%t", cleanup))
+
+	response, err := client.Post("http://unix/shutdown", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
 		return err
 	}
