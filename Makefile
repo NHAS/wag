@@ -9,4 +9,4 @@ release: .generate_ebpf
 	go build -ldflags="$(LDFLAGS_RELEASE)"
 
 .generate_ebpf:
-	BPF_CLANG=clang BPF_CFLAGS='-O2 -g -Wall -Werror' go generate ./..
+	BPF_CLANG=clang BPF_CFLAGS='-O2 -g -Wall -Werror -DVERSION="$(shell git describe --tags)"' go generate ./...

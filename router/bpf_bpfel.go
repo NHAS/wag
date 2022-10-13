@@ -54,7 +54,7 @@ type bpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfProgramSpecs struct {
-	XdpProgFunc *ebpf.ProgramSpec `ebpf:"xdp_prog_func"`
+	XdpWagFirewall *ebpf.ProgramSpec `ebpf:"xdp_wag_firewall"`
 }
 
 // bpfMapSpecs contains maps before they are loaded into the kernel.
@@ -108,12 +108,12 @@ func (m *bpfMaps) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfPrograms struct {
-	XdpProgFunc *ebpf.Program `ebpf:"xdp_prog_func"`
+	XdpWagFirewall *ebpf.Program `ebpf:"xdp_wag_firewall"`
 }
 
 func (p *bpfPrograms) Close() error {
 	return _BpfClose(
-		p.XdpProgFunc,
+		p.XdpWagFirewall,
 	)
 }
 

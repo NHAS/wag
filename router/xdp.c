@@ -168,8 +168,9 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     return 0;
 }
 
+
 SEC("xdp")
-int xdp_prog_func(struct xdp_md *ctx)
+int xdp_wag_firewall(struct xdp_md *ctx)
 {
     __u32 src_ip, dst_ip;
     if (!parse_ip_src_dst_addr(ctx, &src_ip, &dst_ip))

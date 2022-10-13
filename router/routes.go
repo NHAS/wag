@@ -32,16 +32,18 @@ static unsigned long long C_GetTimeStamp(void)
 */
 import "C"
 
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
+
 const (
 	ebpfFS = "/sys/fs/bpf"
 
 	sessionsPin = "session"
 
-	inactivityPin = "inactivity_map"
-	lastPacketPin = "last_packet_map"
+	inactivityPin = "inactivity"
+	lastPacketPin = "last_packet"
 
-	mfaMapPin    = "mfa_routes_map"
-	publicMapPin = "public_routes_map"
+	mfaMapPin    = "mfa_routes"
+	publicMapPin = "public_routes"
 )
 
 var programName = regexp.MustCompile(`^[\w_]`).ReplaceAllString(config.Version, "_")
@@ -81,8 +83,6 @@ func (l Key) String() string {
 	return fmt.Sprintf("%s/%d", l.IP.String(), l.Prefixlen)
 }
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
-
 var (
 	//Keep reference to xdpLink, otherwise it may be garbage collected
 	xdpLink      link.Link
@@ -110,7 +110,7 @@ func loadXDP() error {
 		MaxEntries: 2000,
 	}
 
-	spec.Programs[programName] = spec.Programs["xdp"]
+	spec.Programs[programName] = spec.Programs["xdp_prog_func"]
 	spec.Programs[programName].Name = programName
 
 	spec.Maps["public_table"].InnerMap = innerMapSpec
@@ -142,7 +142,7 @@ func attachXDP() error {
 
 	// Attach the program.
 	xdpLink, err = link.AttachXDP(link.XDPOptions{
-		Program:   xdpObjects.XdpProgFunc,
+		Program:   xdpObjects.bpfPrograms.XdpWagFirewall,
 		Interface: iface.Index,
 	})
 	if err != nil {
@@ -153,32 +153,33 @@ func attachXDP() error {
 }
 
 func Pin() error {
-	err := xdpObjects.bpfMaps.Sessions.Pin(filepath.Join(ebpfFS, "wag_"+sessionsPin))
+
+	err := xdpObjects.bpfMaps.Sessions.Pin(filepath.Join(ebpfFS, "wag_map_"+sessionsPin))
 	if err != nil {
 		return err
 	}
 
-	err = xdpObjects.bpfMaps.InactivityTimeoutMinutes.Pin(filepath.Join(ebpfFS, "wag_"+inactivityPin))
+	err = xdpObjects.bpfMaps.InactivityTimeoutMinutes.Pin(filepath.Join(ebpfFS, "wag_map_"+inactivityPin))
 	if err != nil {
 		return err
 	}
 
-	err = xdpObjects.bpfMaps.LastPacketTime.Pin(filepath.Join(ebpfFS, "wag_"+lastPacketPin))
+	err = xdpObjects.bpfMaps.LastPacketTime.Pin(filepath.Join(ebpfFS, "wag_map_"+lastPacketPin))
 	if err != nil {
 		return err
 	}
 
-	err = xdpObjects.bpfMaps.MfaTable.Pin(filepath.Join(ebpfFS, "wag_"+mfaMapPin))
+	err = xdpObjects.bpfMaps.MfaTable.Pin(filepath.Join(ebpfFS, "wag_map_"+mfaMapPin))
 	if err != nil {
 		return err
 	}
 
-	err = xdpObjects.bpfMaps.PublicTable.Pin(filepath.Join(ebpfFS, "wag_"+publicMapPin))
+	err = xdpObjects.bpfMaps.PublicTable.Pin(filepath.Join(ebpfFS, "wag_map_"+publicMapPin))
 	if err != nil {
 		return err
 	}
 
-	err = xdpObjects.bpfPrograms.XdpProgFunc.Pin(filepath.Join(ebpfFS, "wag_"+programName))
+	err = xdpObjects.bpfPrograms.XdpWagFirewall.Pin(filepath.Join(ebpfFS, "wag_prog_"+programName))
 	if err != nil {
 		return err
 	}
@@ -193,16 +194,67 @@ func Unpin() error {
 		return err
 	}
 
+	var errs []string
 	for _, f := range files {
 		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
-			return err
+			errs = append(errs, err.Error())
 		}
 	}
 
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return errors.New(strings.Join(errs, " "))
+}
+
+func loadPins() error {
+
+	// Pins should only be loaded once, so even on error delete all wag pins
+	defer Unpin()
+
+	var err error
+	xdpObjects.bpfMaps.Sessions, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+sessionsPin), nil)
+	if err != nil {
+		return err
+	}
+
+	xdpObjects.bpfMaps.InactivityTimeoutMinutes, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+inactivityPin), nil)
+	if err != nil {
+		return err
+	}
+
+	xdpObjects.bpfMaps.LastPacketTime, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+lastPacketPin), nil)
+	if err != nil {
+		return err
+	}
+
+	xdpObjects.bpfMaps.MfaTable, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+mfaMapPin), nil)
+	if err != nil {
+		return err
+	}
+
+	xdpObjects.bpfMaps.PublicTable, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+publicMapPin), nil)
+	if err != nil {
+		return err
+	}
+
+	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.LoadPinnedProgram(filepath.Join(ebpfFS, "wag_prog_"+programName), nil)
+	if err != nil {
+		return err
+	}
+
 	return nil
+
 }
 
 func setupXDP() error {
+
+	// If we can load the pins instead of reattaching to the device, do so
+	err := loadPins()
+	if err == nil {
+		return nil
+	}
 
 	if err := loadXDP(); err != nil {
 		return err

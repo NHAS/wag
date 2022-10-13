@@ -30,7 +30,7 @@ func TestBlankPacket(t *testing.T) {
 	defer xdpObjects.Close()
 
 	buff := make([]byte, 15)
-	value, _, err := xdpObjects.XdpProgFunc.Test(buff)
+	value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(buff)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
@@ -161,7 +161,7 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
@@ -190,7 +190,7 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
@@ -260,7 +260,7 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal("timeout retrieved from ebpf program does not match json")
 	}
 
-	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
@@ -288,7 +288,7 @@ func TestSlidingWindow(t *testing.T) {
 	//Check slightly after inactivity timeout to see if the user is now not authenticated
 	time.Sleep(time.Duration(config.Values().SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
 
-	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err = xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
@@ -360,7 +360,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		time.Sleep(15 * time.Second)
 		elapsed += 15
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
@@ -418,7 +418,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
@@ -431,7 +431,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 
 	time.Sleep(time.Minute * time.Duration(config.Values().MaxSessionLifetimeMinutes))
 
-	value, _, err = xdpObjects.XdpProgFunc.Test(packet)
+	value, _, err = xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 	if err != nil {
 		t.Fatalf("program failed %s", err)
 	}
@@ -505,7 +505,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 
 		t.Logf("waiting %d sec...", elapsed)
 
-		value, _, err := xdpObjects.XdpProgFunc.Test(packet)
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
 		if err != nil {
 			t.Fatalf("program failed %s", err)
 		}
