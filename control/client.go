@@ -131,7 +131,7 @@ func Sessions() (string, error) {
 	return string(result), nil
 }
 
-func FirewallRules() (rules router.FirewallRules, err error) {
+func FirewallRules() (rules map[string]router.FirewallRules, err error) {
 
 	response, err := client.Get("http://unix/firewall/list")
 	if err != nil {

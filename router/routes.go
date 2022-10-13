@@ -187,7 +187,6 @@ func Unpin() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Random change")
 	var errs []string
 	for _, f := range files {
 		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
