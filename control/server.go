@@ -372,19 +372,16 @@ func shutdown(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//We need to remove the unix control socket at the very least
+	returnCode := 0
 	if r.FormValue("cleanup") == "false" {
-		err := os.WriteFile("/tmp/wag-no-cleanup", []byte("0"), 0600)
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-
-		TearDown()
+		returnCode = 3
 	}
 
 	w.Write([]byte("OK"))
 
-	os.Exit(0)
+	TearDown()
+
+	os.Exit(returnCode)
 }
 
 func pinBPF(w http.ResponseWriter, r *http.Request) {

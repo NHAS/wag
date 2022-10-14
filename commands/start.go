@@ -137,14 +137,14 @@ func (g *start) Run() error {
 
 		<-cancel
 
-		log.Println("\nGot ctrl + c gracefully exiting")
+		log.Println("\nGot signal gracefully exiting")
 
-		error <- errors.New("ignore me I am control c")
+		error <- errors.New("ignore me I am signal")
 	}()
 
 	log.Println("Wag started successfully, Ctrl + C to stop")
 	err = <-error
-	if err != nil && !strings.Contains(err.Error(), "ignore me I am control c") {
+	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err
 	}
 

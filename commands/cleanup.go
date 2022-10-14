@@ -3,8 +3,11 @@ package commands
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 
+	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/router"
 )
@@ -12,7 +15,6 @@ import (
 type cleanup struct {
 	fs     *flag.FlagSet
 	config string
-	force  bool
 }
 
 func Cleanup() *cleanup {
@@ -21,7 +23,6 @@ func Cleanup() *cleanup {
 	}
 
 	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
-	gc.fs.Bool("force", false, "Ignore /tmp/wag-no-cleanup and remove all iptables rules and other wag changes")
 
 	return gc
 }
@@ -42,22 +43,28 @@ func (g *cleanup) PrintUsage() {
 }
 
 func (g *cleanup) Check() error {
-	g.fs.Visit(func(f *flag.Flag) {
-		switch f.Name {
-		case "force":
-			g.force = true
-		}
-	})
+
+	err := config.Load(g.config)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (g *cleanup) Run() error {
-	if _, err := os.Stat("/tmp/wag-no-cleanup"); err == nil || g.force {
-		os.Remove("/tmp/wag-no-cleanup")
+	log.Println("Cleaning up")
+
+	//https://man7.org/linux/man-pages/man5/systemd.exec.5.html
+	result := os.Getenv("EXIT_STATUS")
+	//0 is we returned fine, so this firewall rules will be removed anyway
+	//3 is executed when Shutdown(false) is called, preventing cleanup
+
+	if result != "0" && result != "3" {
 		router.TearDown()
 		control.TearDown()
+		return exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName).Run()
 	}
-	return nil
 
+	return nil
 }

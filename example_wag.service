@@ -12,7 +12,8 @@ ExecStart=/opt/wag/wag start
 ExecStopPost=/opt/wag/wag cleanup
 
 Restart=on-failure
-RestartSec=1
+RestartSec=10
+
 KillSignal=SIGINT
 
 
