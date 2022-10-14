@@ -64,7 +64,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `registration`, `devices`, `firewall`  
+Supported commands: `start`, `cleanup`, `registration`, `devices`, `firewall`, `version`, `upgrade`
   
 `start`: starts the wag server  
 ```
@@ -118,6 +118,20 @@ Usage of devices:
   -reset
         Reset locked account/device
 ```
+
+`upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online
+```
+Usage of upgrade:
+  -force
+        Disable compatiablity checks
+  -hash string
+        Version hash from new wag version (find this by doing ./wag version -local)
+  -manual
+        Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary
+  -path string
+        File path to new wag executable
+```
+
 
 # User guide
 

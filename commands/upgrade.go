@@ -24,11 +24,11 @@ func Upgrade() *upgrade {
 		fs: flag.NewFlagSet("upgrade", flag.ContinueOnError),
 	}
 
-	gc.fs.Bool("force", false, "Disable ebpf hash checks")
-	gc.fs.Bool("manual", false, "Shutdown the server in upgrade mode")
+	gc.fs.Bool("force", false, "Disable version compatiablity checks")
+	gc.fs.Bool("manual", false, "Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary")
 
 	gc.fs.StringVar(&gc.newVersionPath, "path", "", "File path to new wag executable")
-	gc.fs.StringVar(&gc.hash, "hash", "", "Version has from new wag version (find this by doing ./wag version -local)")
+	gc.fs.StringVar(&gc.hash, "hash", "", "Version hash from new wag version (find this by doing ./wag version -local)")
 
 	return gc
 }
