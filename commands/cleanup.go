@@ -4,9 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 
-	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/router"
 )
@@ -14,6 +12,7 @@ import (
 type cleanup struct {
 	fs     *flag.FlagSet
 	config string
+	force  bool
 }
 
 func Cleanup() *cleanup {
@@ -22,6 +21,7 @@ func Cleanup() *cleanup {
 	}
 
 	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
+	gc.fs.Bool("force", false, "Ignore /tmp/wag-no-cleanup and remove all iptables rules and other wag changes")
 
 	return gc
 }
@@ -38,21 +38,25 @@ func (g *cleanup) Name() string {
 func (g *cleanup) PrintUsage() {
 	fmt.Println("Usage of cleanup:")
 	fmt.Println("  Attempt to clear all iptables rules that wag creates, and bring down wireguard interface")
+	g.fs.PrintDefaults()
 }
 
 func (g *cleanup) Check() error {
+	g.fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "force":
+			g.force = true
+		}
+	})
+
 	return nil
 }
 
 func (g *cleanup) Run() error {
-	if _, err := os.Stat("/tmp/wag-no-cleanup"); err == nil {
-		err := os.Remove("/tmp/wag-no-cleanup")
-		if err != nil {
-			return err
-		}
+	if _, err := os.Stat("/tmp/wag-no-cleanup"); err == nil || g.force {
+		os.Remove("/tmp/wag-no-cleanup")
 		router.TearDown()
 		control.TearDown()
-		return exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName).Run()
 	}
 	return nil
 

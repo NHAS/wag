@@ -11,8 +11,8 @@ ExecStart=/opt/wag/wag start
 # If any of the ExecStart tasks fail, then ExecStopPost will run
 ExecStopPost=/opt/wag/wag cleanup
 
-Restart=always
-RestartSec=10
+Restart=on-failure
+RestartSec=1
 KillSignal=SIGINT
 
 
