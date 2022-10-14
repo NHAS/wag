@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -88,6 +87,7 @@ var (
 )
 
 func loadXDP() error {
+
 	spec, err := loadBpf()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
@@ -173,6 +173,11 @@ func Pin() error {
 		return err
 	}
 
+	err = xdpLink.Pin(filepath.Join(ebpfFS, "wag_link"))
+	if err != nil {
+		return err
+	}
+
 	err = xdpObjects.bpfPrograms.XdpWagFirewall.Pin(filepath.Join(ebpfFS, "wag_prog"))
 	if err != nil {
 		return err
@@ -183,30 +188,30 @@ func Pin() error {
 
 func Unpin() error {
 
-	files, err := filepath.Glob(filepath.Join(ebpfFS, "wag_*"))
-	if err != nil {
-		return err
-	}
-	var errs []string
-	for _, f := range files {
-		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, err.Error())
-		}
-	}
+	if xdpObjects.bpfMaps.Sessions != nil {
+		xdpObjects.bpfMaps.Sessions.Unpin()
+		xdpObjects.bpfMaps.InactivityTimeoutMinutes.Unpin()
+		xdpObjects.bpfMaps.LastPacketTime.Unpin()
+		xdpObjects.bpfMaps.PublicTable.Unpin()
 
-	if len(errs) == 0 {
-		return nil
-	}
+		xdpObjects.bpfPrograms.XdpWagFirewall.Unpin()
 
-	return errors.New(strings.Join(errs, " "))
+		xdpLink.Unpin()
+	}
+	return nil
 }
 
 func loadPins() error {
 
 	// Pins should only be loaded once, so even on error delete all wag pins
-	defer Unpin()
-
 	var err error
+	defer func() {
+		Unpin()
+		if err != nil {
+			xdpObjects.Close()
+		}
+	}()
+
 	xdpObjects.bpfMaps.Sessions, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+sessionsPin), nil)
 	if err != nil {
 		return err
@@ -232,6 +237,11 @@ func loadPins() error {
 		return err
 	}
 
+	xdpLink, err = link.LoadPinnedLink(filepath.Join(ebpfFS, "wag_link"), nil)
+	if err != nil {
+		return err
+	}
+
 	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.LoadPinnedProgram(filepath.Join(ebpfFS, "wag_prog"), nil)
 	if err != nil {
 		return err
@@ -243,9 +253,9 @@ func loadPins() error {
 
 func setupXDP() error {
 
-	// If we can load the pins instead of reattaching to the device, do so
 	err := loadPins()
 	if err == nil {
+		// If we can load the pins instead of reattaching to the device, do so
 		return nil
 	}
 

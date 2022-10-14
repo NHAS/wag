@@ -128,7 +128,7 @@ func (g *start) Run() error {
 	if _, err := os.Stat(wag_was_upgraded); err == nil {
 		os.Remove(wag_was_upgraded)
 		g.noIptables = true
-		log.Println("Wag was upgraded to", config.Version, " iptables will not be configured. (Cause by presence of", wag_was_upgraded, ")")
+		log.Println("Wag was upgraded to", config.Version, " iptables will not be configured. (Due to presence of", wag_was_upgraded, ")")
 	}
 
 	webserver.Start(error)

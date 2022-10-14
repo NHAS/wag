@@ -68,13 +68,20 @@ func (g *version) Run() error {
 			return err
 		}
 
-		fmt.Println(ver)
+		hash, err := control.GetBPFVersion()
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("remote")
+		fmt.Println("Version:", ver)
+		fmt.Println("Hash:", hash)
 		return nil
 	}
 
 	fmt.Println("local")
-	fmt.Println(config.Version)
-	fmt.Println(router.GetBPFHash())
+	fmt.Println("Version:", config.Version)
+	fmt.Println("Hash:", router.GetBPFHash())
 
 	return nil
 }

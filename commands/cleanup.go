@@ -53,7 +53,6 @@ func (g *cleanup) Check() error {
 }
 
 func (g *cleanup) Run() error {
-	log.Println("Cleaning up")
 
 	//https://man7.org/linux/man-pages/man5/systemd.exec.5.html
 	result := os.Getenv("EXIT_STATUS")
@@ -61,6 +60,7 @@ func (g *cleanup) Run() error {
 	//3 is executed when Shutdown(false) is called, preventing cleanup
 
 	if result != "0" && result != "3" {
+		log.Println("Cleaning up")
 		router.TearDown()
 		control.TearDown()
 		return exec.Command("/usr/bin/wg-quick", "down", config.Values().WgDevName).Run()

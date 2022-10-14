@@ -406,7 +406,7 @@ func unpinBPF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := router.Pin()
+	err := router.Unpin()
 	if err != nil {
 		http.Error(w, errors.New("Could not unpin ebpf assets: "+err.Error()).Error(), 500)
 		return
