@@ -175,15 +175,15 @@ func deleteDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = router.RemovePeer(d.Address)
-	if err != nil {
-		http.Error(w, err.Error(), 404)
-		return
-	}
-
 	err = database.DeleteDevice(d.Address)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("could not delete device from database: %s", err.Error()), 404)
+		return
+	}
+
+	err = router.RemovePeer(d.Address)
+	if err != nil {
+		http.Error(w, err.Error(), 404)
 		return
 	}
 

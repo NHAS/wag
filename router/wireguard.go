@@ -51,7 +51,7 @@ func RemovePeer(internalAddress string) error {
 	}
 
 	if !found {
-		return errors.New("not found")
+		return errors.New("wireguard peer not found")
 	}
 
 	var c wgtypes.Config
