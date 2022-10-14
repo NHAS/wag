@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/database"
@@ -80,11 +82,11 @@ var (
 )
 
 var mapsLookup = map[string]**ebpf.Map{
-	"sessions":                   &xdpObjects.Sessions,
-	"last_packet_time":           &xdpObjects.LastPacketTime,
-	"inactivity_timeout_minutes": &xdpObjects.InactivityTimeoutMinutes,
-	"mfa_table":                  &xdpObjects.MfaTable,
-	"public_table":               &xdpObjects.PublicTable,
+	"sessions":        &xdpObjects.Sessions,
+	"last_packet_tim": &xdpObjects.LastPacketTime,
+	"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
+	"mfa_table":       &xdpObjects.MfaTable,
+	"public_table":    &xdpObjects.PublicTable,
 }
 
 func loadXDP() error {
@@ -135,13 +137,23 @@ func attachXDP() error {
 		return fmt.Errorf("lookup network iface %q: %s", config.Values().WgDevName, err)
 	}
 
-	// Attach the program.
-	xdpLink, err = link.AttachXDP(link.XDPOptions{
-		Program:   xdpObjects.bpfPrograms.XdpWagFirewall,
-		Interface: iface.Index,
-	})
-	if err != nil {
-		return fmt.Errorf("could not attach XDP program: %s", err)
+	//Try multiple times to attach program if the link is temporarily busy (work around for link.Close requiring a sleep)
+	for i := 0; i < 5; i++ {
+		// Attach the program.
+		xdpLink, err = link.AttachXDP(link.XDPOptions{
+			Program:   xdpObjects.bpfPrograms.XdpWagFirewall,
+			Interface: iface.Index,
+		})
+
+		if err != nil {
+			if strings.Contains(err.Error(), "device or resource busy") {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			return fmt.Errorf("could not attach XDP program: %s", err)
+		} else {
+			return nil
+		}
 	}
 
 	return nil
@@ -161,19 +173,21 @@ func Unpin() error {
 
 	os.Remove(filepath.Join(ebpfFS, "wag_link"))
 
+	if xdpLink != nil {
+		return xdpLink.Unpin()
+	}
+
 	return nil
 }
 
-func loadPins() error {
+func loadPins() (err error) {
 
-	linkLoaded := false // Stupid work around as links are not passed as pointers, so no way of telling if its init'd
-	var err error
 	defer func() {
-		Unpin() // Pins should only be loaded once then tied to the life of the program
-
 		if err != nil {
 			xdpObjects.Close()
-			if linkLoaded {
+
+			if xdpLink != nil {
+				log.Println("Closing link")
 				xdpLink.Close()
 			}
 		}
@@ -183,7 +197,8 @@ func loadPins() error {
 	if err != nil {
 		return err
 	}
-	linkLoaded = true
+
+	Unpin() // Pins should only be loaded once then tied to the life of the program
 
 	i, err := xdpLink.Info()
 	if err != nil {
@@ -202,23 +217,28 @@ func loadPins() error {
 
 	maps, available := programInfo.MapIDs()
 	if !available {
-		return errors.New("kernel is not new enough to load pins")
+		err = errors.New("kernel is not new enough to load pins")
+		return err
 	}
 
 	for _, m := range maps {
-		currentMap, err := ebpf.NewMapFromID(m)
+
+		var currentMap *ebpf.Map
+		currentMap, err = ebpf.NewMapFromID(m)
 		if err != nil {
 			return err
 		}
 
-		mapInfo, err := currentMap.Info()
+		var mapInfo *ebpf.MapInfo
+		mapInfo, err = currentMap.Info()
 		if err != nil {
 			return err
 		}
 
 		_, ok := mapsLookup[mapInfo.Name]
 		if !ok {
-			return errors.New("could not find map in lookup table")
+			err = errors.New("could not find map " + mapInfo.Name + " in lookup table")
+			return
 		}
 
 		*mapsLookup[mapInfo.Name] = currentMap
@@ -235,6 +255,8 @@ func setupXDP() error {
 		// If we can load the pins instead of reattaching to the device, do so
 		return nil
 	}
+
+	fmt.Println("Attaching XDP: ", err)
 
 	if err := loadXDP(); err != nil {
 		return err
