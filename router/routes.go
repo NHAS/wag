@@ -166,12 +166,16 @@ func Unpin() error {
 
 func loadPins() error {
 
+	linkLoaded := false // Stupid work around as links are not passed as pointers, so no way of telling if its init'd
 	var err error
 	defer func() {
 		Unpin() // Pins should only be loaded once then tied to the life of the program
 
 		if err != nil {
 			xdpObjects.Close()
+			if linkLoaded {
+				xdpLink.Close()
+			}
 		}
 	}()
 
@@ -179,6 +183,7 @@ func loadPins() error {
 	if err != nil {
 		return err
 	}
+	linkLoaded = true
 
 	i, err := xdpLink.Info()
 	if err != nil {
