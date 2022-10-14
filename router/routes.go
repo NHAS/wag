@@ -187,7 +187,7 @@ func loadPins() (err error) {
 			xdpObjects.Close()
 
 			if xdpLink != nil {
-				log.Println("Closing link")
+				log.Println("Unable to reconnect to XDP firewall, flushing (this will cause interruptions, sorry)")
 				xdpLink.Close()
 			}
 		}
