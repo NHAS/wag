@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/NHAS/wag/control"
 )
@@ -64,13 +65,22 @@ func (g *upgrade) Run() error {
 	}
 	fmt.Println("Done")
 
-	fmt.Print("Shutting down server...")
-	if err := control.Shutdown(false); err != nil {
+	fmt.Print("Writing iptables ignore tmp file....")
+	err := os.WriteFile(wag_was_upgraded, []byte("0"), 0600)
+	if err != nil {
 		return err
 	}
 	fmt.Println("Done")
 
 	fmt.Println("Ready to replace with new version")
 
+	fmt.Print("Shutting down server...")
+	if err := control.Shutdown(false); err != nil {
+		return err
+	}
+	fmt.Println("Done")
+
 	return nil
 }
+
+const wag_was_upgraded = "/tmp/wag-upgrade"

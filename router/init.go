@@ -12,11 +12,14 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func Setup(error chan<- error) (err error) {
-	err = setupIptables()
-	if err != nil {
-		return err
+func Setup(error chan<- error, iptables bool) (err error) {
+	if iptables {
+		err = setupIptables()
+		if err != nil {
+			return err
+		}
 	}
+
 	defer func() {
 		if err != nil {
 			TearDown()

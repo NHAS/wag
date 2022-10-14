@@ -19,8 +19,9 @@ import (
 )
 
 type start struct {
-	fs     *flag.FlagSet
-	config string
+	fs         *flag.FlagSet
+	config     string
+	noIptables bool
 }
 
 func Start() *start {
@@ -29,6 +30,7 @@ func Start() *start {
 	}
 
 	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
+	gc.fs.Bool("noiptables", false, "Do not add iptables rules")
 
 	return gc
 }
@@ -49,6 +51,12 @@ func (g *start) PrintUsage() {
 }
 
 func (g *start) Check() error {
+	g.fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "noiptables":
+			g.noIptables = false
+		}
+	})
 
 	err := config.Load(g.config)
 	if err != nil {
@@ -117,9 +125,15 @@ func (g *start) Run() error {
 
 	error := make(chan error)
 
+	if _, err := os.Stat(wag_was_upgraded); err == nil {
+		os.Remove(wag_was_upgraded)
+		g.noIptables = true
+		log.Println("Wag was upgraded to", config.Version, " iptables will not be configured. (Cause by presence of", wag_was_upgraded, ")")
+	}
+
 	webserver.Start(error)
 
-	err := router.Setup(error)
+	err := router.Setup(error, !g.noIptables)
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
 	}

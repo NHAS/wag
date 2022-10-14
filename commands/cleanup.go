@@ -63,7 +63,7 @@ func (g *cleanup) Run() error {
 	if result != "0" && result != "3" {
 		router.TearDown()
 		control.TearDown()
-		return exec.Command("/usr/bin/wg-quick", "stop", config.Values().WgDevName).Run()
+		return exec.Command("/usr/bin/wg-quick", "down", config.Values().WgDevName).Run()
 	}
 
 	return nil
