@@ -189,6 +189,7 @@ func Pin() error {
 func Unpin() error {
 
 	if xdpObjects.bpfMaps.Sessions != nil {
+
 		xdpObjects.bpfMaps.Sessions.Unpin()
 		xdpObjects.bpfMaps.InactivityTimeoutMinutes.Unpin()
 		xdpObjects.bpfMaps.LastPacketTime.Unpin()
@@ -203,14 +204,19 @@ func Unpin() error {
 
 func loadPins() error {
 
-	// Pins should only be loaded once, so even on error delete all wag pins
 	var err error
 	defer func() {
 		Unpin()
 		if err != nil {
+			// Pins should only be loaded once, so on the event of error delete all wag pins
 			xdpObjects.Close()
 		}
 	}()
+
+	xdpLink, err = link.LoadPinnedLink(filepath.Join(ebpfFS, "wag_link"), nil)
+	if err != nil {
+		return err
+	}
 
 	xdpObjects.bpfMaps.Sessions, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+sessionsPin), nil)
 	if err != nil {
@@ -233,11 +239,6 @@ func loadPins() error {
 	}
 
 	xdpObjects.bpfMaps.PublicTable, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+publicMapPin), nil)
-	if err != nil {
-		return err
-	}
-
-	xdpLink, err = link.LoadPinnedLink(filepath.Join(ebpfFS, "wag_link"), nil)
 	if err != nil {
 		return err
 	}

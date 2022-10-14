@@ -241,7 +241,7 @@ Full config example
 # Testing
 ```sh
 cd router
-sudo go test.
+sudo go test -v .
 ```
 
 Sudo is required to load the epbf program into the kernel.
