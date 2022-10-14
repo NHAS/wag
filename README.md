@@ -119,7 +119,8 @@ Usage of devices:
         Reset locked account/device
 ```
 
-`upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online
+`upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online  
+Note, this will not restart the server after shutdown, you will manually need to start the server after with your preferred service manager (`systemctl start wag`)
 ```
 Usage of upgrade:
   -force

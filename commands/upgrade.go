@@ -45,6 +45,7 @@ func (g *upgrade) Name() string {
 func (g *upgrade) PrintUsage() {
 	fmt.Println("Usage of upgrade:")
 	fmt.Println("  Pin all ebpf programs and then shutdown wag server while leaving the XDP firewall online")
+	fmt.Println("  THIS WILL NOT RESTART THE SERVER AFTER SHUTDOWN")
 	g.fs.PrintDefaults()
 }
 
