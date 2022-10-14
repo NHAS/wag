@@ -90,6 +90,7 @@ func (g *upgrade) Check() error {
 	}
 
 	if !g.force {
+		fmt.Print("Checking new version compatibility...")
 		output, err := exec.Command(g.newVersionPath, "version", "-local").CombinedOutput()
 		if err != nil {
 			return err
@@ -112,6 +113,7 @@ func (g *upgrade) Check() error {
 		if !bytes.Equal(bytes.TrimSpace(lines[2]), []byte("Hash: "+hash)) {
 			return errors.New("new version has a different version of the eBPF XDP firewall.\nWe cannot reload the XDP firewall on the fly. Please shutdown wag and place binary manually.\nOtherwise it will break in unpredicable ways.")
 		}
+		fmt.Println("Done")
 	}
 
 	return nil

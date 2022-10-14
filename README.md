@@ -250,7 +250,7 @@ Full config example
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- Modern kernel 4.12+ at least (needs ebpf and xdp)
+- Modern kernel 4.15+ at least (needs ebpf and xdp)
 
 
 # Testing

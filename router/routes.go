@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -34,14 +35,6 @@ import "C"
 
 const (
 	ebpfFS = "/sys/fs/bpf"
-
-	sessionsPin = "session"
-
-	inactivityPin = "inactivity"
-	lastPacketPin = "last_packet"
-
-	mfaMapPin    = "mfa_routes"
-	publicMapPin = "public_routes"
 )
 
 func GetTimeStamp() uint64 {
@@ -85,6 +78,14 @@ var (
 	xdpObjects   bpfObjects
 	innerMapSpec *ebpf.MapSpec
 )
+
+var mapsLookup = map[string]**ebpf.Map{
+	"sessions":                   &xdpObjects.Sessions,
+	"last_packet_time":           &xdpObjects.LastPacketTime,
+	"inactivity_timeout_minutes": &xdpObjects.InactivityTimeoutMinutes,
+	"mfa_table":                  &xdpObjects.MfaTable,
+	"public_table":               &xdpObjects.PublicTable,
+}
 
 func loadXDP() error {
 
@@ -148,37 +149,7 @@ func attachXDP() error {
 
 func Pin() error {
 
-	err := xdpObjects.bpfMaps.Sessions.Pin(filepath.Join(ebpfFS, "wag_map_"+sessionsPin))
-	if err != nil {
-		return err
-	}
-
-	err = xdpObjects.bpfMaps.InactivityTimeoutMinutes.Pin(filepath.Join(ebpfFS, "wag_map_"+inactivityPin))
-	if err != nil {
-		return err
-	}
-
-	err = xdpObjects.bpfMaps.LastPacketTime.Pin(filepath.Join(ebpfFS, "wag_map_"+lastPacketPin))
-	if err != nil {
-		return err
-	}
-
-	err = xdpObjects.bpfMaps.MfaTable.Pin(filepath.Join(ebpfFS, "wag_map_"+mfaMapPin))
-	if err != nil {
-		return err
-	}
-
-	err = xdpObjects.bpfMaps.PublicTable.Pin(filepath.Join(ebpfFS, "wag_map_"+publicMapPin))
-	if err != nil {
-		return err
-	}
-
-	err = xdpLink.Pin(filepath.Join(ebpfFS, "wag_link"))
-	if err != nil {
-		return err
-	}
-
-	err = xdpObjects.bpfPrograms.XdpWagFirewall.Pin(filepath.Join(ebpfFS, "wag_prog"))
+	err := xdpLink.Pin(filepath.Join(ebpfFS, "wag_link"))
 	if err != nil {
 		return err
 	}
@@ -188,17 +159,8 @@ func Pin() error {
 
 func Unpin() error {
 
-	if xdpObjects.bpfMaps.Sessions != nil {
+	os.Remove(filepath.Join(ebpfFS, "wag_link"))
 
-		xdpObjects.bpfMaps.Sessions.Unpin()
-		xdpObjects.bpfMaps.InactivityTimeoutMinutes.Unpin()
-		xdpObjects.bpfMaps.LastPacketTime.Unpin()
-		xdpObjects.bpfMaps.PublicTable.Unpin()
-
-		xdpObjects.bpfPrograms.XdpWagFirewall.Unpin()
-
-		xdpLink.Unpin()
-	}
 	return nil
 }
 
@@ -206,9 +168,9 @@ func loadPins() error {
 
 	var err error
 	defer func() {
-		Unpin()
+		Unpin() // Pins should only be loaded once then tied to the life of the program
+
 		if err != nil {
-			// Pins should only be loaded once, so on the event of error delete all wag pins
 			xdpObjects.Close()
 		}
 	}()
@@ -218,34 +180,43 @@ func loadPins() error {
 		return err
 	}
 
-	xdpObjects.bpfMaps.Sessions, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+sessionsPin), nil)
+	i, err := xdpLink.Info()
 	if err != nil {
 		return err
 	}
 
-	xdpObjects.bpfMaps.InactivityTimeoutMinutes, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+inactivityPin), nil)
+	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.NewProgramFromID(i.Program)
 	if err != nil {
 		return err
 	}
 
-	xdpObjects.bpfMaps.LastPacketTime, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+lastPacketPin), nil)
+	programInfo, err := xdpObjects.XdpWagFirewall.Info()
 	if err != nil {
 		return err
 	}
 
-	xdpObjects.bpfMaps.MfaTable, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+mfaMapPin), nil)
-	if err != nil {
-		return err
+	maps, available := programInfo.MapIDs()
+	if !available {
+		return errors.New("kernel is not new enough to load pins")
 	}
 
-	xdpObjects.bpfMaps.PublicTable, err = ebpf.LoadPinnedMap(filepath.Join(ebpfFS, "wag_map_"+publicMapPin), nil)
-	if err != nil {
-		return err
-	}
+	for _, m := range maps {
+		currentMap, err := ebpf.NewMapFromID(m)
+		if err != nil {
+			return err
+		}
 
-	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.LoadPinnedProgram(filepath.Join(ebpfFS, "wag_prog"), nil)
-	if err != nil {
-		return err
+		mapInfo, err := currentMap.Info()
+		if err != nil {
+			return err
+		}
+
+		_, ok := mapsLookup[mapInfo.Name]
+		if !ok {
+			return errors.New("could not find map in lookup table")
+		}
+
+		*mapsLookup[mapInfo.Name] = currentMap
 	}
 
 	return nil
