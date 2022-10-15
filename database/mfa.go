@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/pquerna/otp"
@@ -111,6 +112,14 @@ func CreateMFAEntry(address, publickey, username string) (Device, error) {
 
 }
 
+type entry struct {
+	usetime time.Time
+	code    string
+}
+
+var lockULock sync.Mutex
+var usedCodes = map[string]entry{}
+
 func Authenticate(address, code string) (err error) {
 
 	_, err = database.Exec(`UPDATE Totp SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, lockoutPolicy)
@@ -138,6 +147,16 @@ func Authenticate(address, code string) (err error) {
 	if !totp.Validate(code, key.Secret()) {
 		return errors.New("code does not match expected")
 	}
+
+	lockULock.Lock()
+
+	e := usedCodes[address]
+	if e.code == code && e.usetime.Add(30*time.Second).After(time.Now()) {
+		return errors.New("code already used")
+	}
+
+	usedCodes[address] = entry{code: code, usetime: time.Now()}
+	lockULock.Unlock()
 
 	return
 }
