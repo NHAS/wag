@@ -63,7 +63,7 @@ func (g *cleanup) Run() error {
 		log.Println("Cleaning up")
 		router.TearDown()
 		control.TearDown()
-		return exec.Command("/usr/bin/wg-quick", "down", config.Values().WgDevName).Run()
+		return exec.Command("/usr/bin/wg-quick", "down", config.Values().Wireguard.DevName).Run()
 	}
 
 	return nil

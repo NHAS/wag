@@ -132,9 +132,9 @@ func loadXDP() error {
 }
 
 func attachXDP() error {
-	iface, err := net.InterfaceByName(config.Values().WgDevName)
+	iface, err := net.InterfaceByName(config.Values().Wireguard.DevName)
 	if err != nil {
-		return fmt.Errorf("lookup network iface %q: %s", config.Values().WgDevName, err)
+		return fmt.Errorf("lookup network iface %q: %s", config.Values().Wireguard.DevName, err)
 	}
 
 	//Try multiple times to attach program if the link is temporarily busy (work around for link.Close requiring a sleep)
@@ -255,8 +255,6 @@ func setupXDP() error {
 		// If we can load the pins instead of reattaching to the device, do so
 		return nil
 	}
-
-	fmt.Println("Attaching XDP: ", err)
 
 	if err := loadXDP(); err != nil {
 		return err

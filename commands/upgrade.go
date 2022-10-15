@@ -63,21 +63,22 @@ func (g *upgrade) Check() error {
 		return errors.New("cannot specify both -manual and -path")
 	}
 
-	if !g.force && g.manual {
-		if g.hash == "" {
-			fmt.Print("Enter bpf version hash (find with wag version -local): ")
-			fmt.Scanf("%s", &g.hash)
-		}
+	if g.manual {
+		if !g.force {
+			if g.hash == "" {
+				fmt.Print("Enter bpf version hash (find with wag version -local): ")
+				fmt.Scanf("%s", &g.hash)
+			}
 
-		currentHash, err := control.GetBPFVersion()
-		if err != nil {
-			return err
-		}
+			currentHash, err := control.GetBPFVersion()
+			if err != nil {
+				return err
+			}
 
-		if g.hash != currentHash {
-			return errors.New("new version has a different version of the eBPF XDP firewall.\nWe cannot reload the XDP firewall on the fly. Please shutdown wag and place binary manually.\nOtherwise it will break in unpredicable ways.")
+			if g.hash != currentHash {
+				return errors.New("new version has a different version of the eBPF XDP firewall.\nWe cannot reload the XDP firewall on the fly. Please shutdown wag and place binary manually.\nOtherwise it will break in unpredicable ways.")
+			}
 		}
-
 		return nil
 	}
 

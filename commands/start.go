@@ -63,11 +63,6 @@ func (g *start) Check() error {
 		return err
 	}
 
-	//Checks that the contents of the configuration file match reality and are sane
-	if _, _, err = router.ServerDetails(); err != nil {
-		return err
-	}
-
 	if len(config.Values().Issuer) == 0 {
 		return errors.New("no issuer specified")
 	}
@@ -131,8 +126,6 @@ func (g *start) Run() error {
 		log.Println("Wag was upgraded to", config.Version, " iptables will not be configured. (Due to presence of", wag_was_upgraded, ")")
 	}
 
-	webserver.Start(error)
-
 	err := router.Setup(error, !g.noIptables)
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
@@ -144,6 +137,8 @@ func (g *start) Run() error {
 		return fmt.Errorf("unable to create control socket: %v", err)
 	}
 	defer control.TearDown()
+
+	webserver.Start(error)
 
 	go func() {
 		cancel := make(chan os.Signal, 1)

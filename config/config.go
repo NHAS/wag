@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/wag/utils"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var Version string
@@ -38,7 +39,6 @@ type Acls struct {
 type config struct {
 	path                            string
 	Proxied                         bool
-	WgDevName                       string
 	HelpMail                        string
 	Lockout                         int
 	ExternalAddress                 string
@@ -48,10 +48,21 @@ type config struct {
 		Public webserverDetails
 		Tunnel webserverDetails
 	}
+	Wireguard struct {
+		DevName             string
+		ListenPort          int
+		PrivateKey          string
+		Address             string
+		MTU                 int
+		PersistentKeepAlive int
+
+		//Not externally configurable
+		External      bool       `json:"-"`
+		Range         *net.IPNet `json:"-"`
+		ServerAddress net.IP     `json:"-"`
+	}
 	DatabaseLocation string
 	Issuer           string
-	VPNRange         *net.IPNet `json:"-"`
-	VPNServerAddress net.IP     `json:"-"`
 
 	DNS []string
 
@@ -112,28 +123,53 @@ func load(path string) (c config, err error) {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
 	}
 
-	i, err := net.InterfaceByName(c.WgDevName)
+	i, err := net.InterfaceByName(c.Wireguard.DevName)
 	if err == nil {
+		//A device already exists, so we're assuming it was externally set up (with something like wg-quick)
+		c.Wireguard.External = true
 
 		addresses, err := i.Addrs()
 		if err != nil {
-			return c, fmt.Errorf("Unable to get address for interface %s: %v", c.WgDevName, err)
+			return c, fmt.Errorf("Unable to get address for interface %s: %v", c.Wireguard.DevName, err)
 		}
 
 		if len(addresses) < 1 {
 			return c, errors.New("Wireguard interface does not have an ip address")
 		}
 
-		c.VPNServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
-		if c.VPNServerAddress == nil {
+		c.Wireguard.ServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+		if c.Wireguard.ServerAddress == nil {
 			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
 		}
 
-		_, c.VPNRange, err = net.ParseCIDR(addresses[0].String())
+		_, c.Wireguard.Range, err = net.ParseCIDR(addresses[0].String())
 		if err != nil {
 			return c, errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 
+	} else {
+		// A device doesnt already exist
+		c.Wireguard.ServerAddress, c.Wireguard.Range, err = net.ParseCIDR(c.Wireguard.Address)
+		if err != nil {
+			return c, errors.New("wireguard address invalid: " + err.Error())
+		}
+
+		_, err = wgtypes.ParseKey(c.Wireguard.PrivateKey)
+		if err != nil {
+			return c, errors.New("cannot parse wireguard key: " + err.Error())
+		}
+
+		if c.Wireguard.ListenPort == 0 {
+			return c, errors.New("wireguard ListenPort not set")
+		}
+
+		if c.Wireguard.MTU == 0 {
+			c.Wireguard.MTU = 1420
+		}
+
+		if c.Wireguard.PersistentKeepAlive == 0 {
+			c.Wireguard.PersistentKeepAlive = 25
+		}
 	}
 
 	c.Acls.rGroupLookup = map[string][]string{}
@@ -155,8 +191,8 @@ func load(path string) (c config, err error) {
 		globalAcl = c.Acls.Policies["*"]
 	}
 
-	if c.VPNServerAddress != nil {
-		globalAcl.Allow = append(globalAcl.Allow, c.VPNServerAddress.String()+"/32")
+	if c.Wireguard.ServerAddress != nil {
+		globalAcl.Allow = append(globalAcl.Allow, c.Wireguard.ServerAddress.String()+"/32")
 	}
 
 	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
