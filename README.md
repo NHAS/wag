@@ -18,8 +18,8 @@ go1.16+
 
 The wireguard device must be running before wag is started.  
   
-`iptables` and `wg-quick` must be installed. 
-Wag must be run as root, to manage `iptables` and the `wireguard` device itself.  
+`iptables` must be installed. 
+Wag must be run as root, to manage `iptables` and the `wireguard` device.  
    
 Forwarding must be enabled in `sysctl`.
 
@@ -27,20 +27,7 @@ Forwarding must be enabled in `sysctl`.
 sysctl -w net.ipv4.ip_forward=1
 ```
 
-It is a good idea to have `SaveConfig` set to `true` in the server configuration file, so that changes to the peers list made by wag will be saved.  
-
-```
-[Interface]
-Address = 192.168.1.1/24
-SaveConfig = true
-ListenPort = 51820
-PrivateKey = <omitted>
-```
-Example `/etc/wireguard/wg0.conf`   
-
-```
-systemctl start wg-quick@wg0
-```
+Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard. 
 
 # Setup instructions
 
@@ -136,11 +123,12 @@ Usage of upgrade:
 
 # User guide
 
-## Starting wag
+## Installing wag
 
-1. Create your `wg0.conf` and start the service `wg-quick@wg0`
-2. Edit the configuration file `WgDevName` to `WgDevName`:`wg0`
-3. `sudo ./wag start`
+1. Copy `wag`, `config.json` to `/opt/wag`
+2. Generate a wireguard private key with `wg genkey` set `PrivateKey` in the example config to it
+3. Copy (or link) `wag.service` to `/etc/systemd/system/` and start/enable the service
+
 
 ## Creating new registration tokens
 
@@ -201,12 +189,13 @@ The configuration file specifies how long a session can live for, before expirin
 `WgDevName`: The wireguard tunnel device name that wag will manage  
 
 `Wireguard`: Object that contains the wireguard device configuration
-          "DevName": "wg0",
-        "ListenPort": 53230,
-        "PrivateKey": "AN EXAMPLE KEY",
-        "Address": "192.168.1.1/24",
-        "MTU": 1420,
-        "PersistentKeepAlive": 25
+`DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)
+`ListenPort`: Port that wireguard will listen on
+`PrivateKey`: The wireguard private key, can be generated with `wg genkey`
+`Address`: Subnet the VPN is responsible for
+`MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet
+`PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds
+
 Full config example
 ```json
 {
