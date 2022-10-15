@@ -11,22 +11,14 @@ import (
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
 
-	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func Setup(error chan<- error, iptables bool) (err error) {
 
-	if !config.Values().Wireguard.External {
-		err = setupWireguard()
-		if err != nil {
-			return err
-		}
-	} else {
-		ctrl, err = wgctrl.New()
-		if err != nil {
-			return fmt.Errorf("cannot start wireguard control %v", err)
-		}
+	err = setupWireguard()
+	if err != nil {
+		return err
 	}
 
 	if iptables {

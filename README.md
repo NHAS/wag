@@ -181,24 +181,35 @@ The configuration file specifies how long a session can live for, before expirin
   
 `Proxied`: Respect the `X-Forward-For` directive, must ensure that you are securing the X-Forward-For directive in your reverse proxy  
 `HelpMail`: The email address that is shown on the prompt page  
-`WgDevName`: The wireguard tunnel device name that wag will manage  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
-`ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint  
+  
+`ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
+
 `MaxSessionLifetimeMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled  
 `SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled  
-`Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
-`WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
-`WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
-`WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
+  
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
+`Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
+`WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
+`WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
+`WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
+  
+`WgDevName`: The wireguard tunnel device name that wag will manage  
+
+`Wireguard`: Object that contains the wireguard device configuration
+          "DevName": "wg0",
+        "ListenPort": 53230,
+        "PrivateKey": "AN EXAMPLE KEY",
+        "Address": "192.168.1.1/24",
+        "MTU": 1420,
+        "PersistentKeepAlive": 25
 Full config example
 ```json
 {
-    "WgDevName": "wg0",
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": 2,
@@ -214,6 +225,14 @@ Full config example
         "Tunnel": {
             "ListenAddress": "192.168.1.1:8080"
         }
+    },
+    "Wireguard": {
+        "DevName": "wg0",
+        "ListenPort": 53230,
+        "PrivateKey": "AN EXAMPLE KEY",
+        "Address": "192.168.1.1/24",
+        "MTU": 1420,
+        "PersistentKeepAlive": 25
     },
     "Acls": {
         "Groups": {
@@ -259,4 +278,4 @@ cd router
 sudo go test -v .
 ```
 
-Sudo is required to load the epbf program into the kernel.
+Sudo is required to load the eBPF program into the kernel.

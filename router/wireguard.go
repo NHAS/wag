@@ -49,34 +49,38 @@ func (msg *IfAddrmsg) Serialize() []byte {
 }
 
 func setupWireguard() error {
-	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	ip, network, err := net.ParseCIDR(config.Values().Wireguard.Address)
-	if err != nil {
-		return err
-	}
-	network.IP = ip.To4()[:4] // Stop netlink freaking out at a ipv6 length ipv4 address
-
-	err = addWg(conn, config.Values().Wireguard.DevName, *network, config.Values().Wireguard.MTU)
-	if err != nil {
-		return err
-	}
-
-	key, err := wgtypes.ParseKey(config.Values().Wireguard.PrivateKey)
-	if err != nil {
-		return err
-	}
-
-	port := config.Values().Wireguard.ListenPort
 
 	c := wgtypes.Config{
-		PrivateKey:   &key,
-		ListenPort:   &port,
 		ReplacePeers: true,
+	}
+
+	if !config.Values().Wireguard.External {
+
+		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+
+		ip, network, err := net.ParseCIDR(config.Values().Wireguard.Address)
+		if err != nil {
+			return err
+		}
+		network.IP = ip.To4()[:4] // Stop netlink freaking out at a ipv6 length ipv4 address
+
+		err = addWg(conn, config.Values().Wireguard.DevName, *network, config.Values().Wireguard.MTU)
+		if err != nil {
+			return err
+		}
+
+		key, err := wgtypes.ParseKey(config.Values().Wireguard.PrivateKey)
+		if err != nil {
+			return err
+		}
+		c.PrivateKey = &key
+
+		port := config.Values().Wireguard.ListenPort
+		c.ListenPort = &port
 	}
 
 	devices, err := database.GetDevices()
