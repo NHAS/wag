@@ -1,6 +1,5 @@
 [Unit]
 Description=Wireguard Manager
-After=wg-quick@wg0
 
 [Service]
 User=root
