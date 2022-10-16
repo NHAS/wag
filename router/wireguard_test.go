@@ -7,6 +7,8 @@ import (
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/database"
+	"github.com/mdlayher/netlink"
+	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -56,6 +58,17 @@ func TestWgLoadBasic(t *testing.T) {
 
 	if len(addrs) != 1 {
 		t.Fatal("the device does not have the expected numer of ip addresses: ", len(addrs))
+	}
+
+	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+	if err != nil {
+		t.Fatal("Unable to remove wireguard device, netlink connection failed: ", err.Error())
+	}
+	defer conn.Close()
+
+	err = delWg(conn, config.Values().Wireguard.DevName)
+	if err != nil {
+		t.Fatal("Unable to remove wireguard device, delete failed: ", err.Error())
 	}
 
 }
@@ -131,5 +144,16 @@ func TestWgAddRemove(t *testing.T) {
 
 	if len(dev.Peers) != 0 {
 		t.Fatal("Removed only device the wireguard device was not informed")
+	}
+
+	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+	if err != nil {
+		t.Fatal("Unable to remove wireguard device, netlink connection failed: ", err.Error())
+	}
+	defer conn.Close()
+
+	err = delWg(conn, config.Values().Wireguard.DevName)
+	if err != nil {
+		t.Fatal("Unable to remove wireguard device, delete failed: ", err.Error())
 	}
 }
