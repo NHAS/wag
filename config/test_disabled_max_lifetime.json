@@ -1,5 +1,4 @@
 {
-    "WgDevName": "wg0",
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": -1,
@@ -14,6 +13,14 @@
         "Tunnel": {
             "ListenAddress": "192.168.1.2:8080"
         }
+    },
+    "Wireguard": {
+        "DevName": "wg0",
+        "ListenPort": 53230,
+        "PrivateKey": "AN EXAMPLE KEY",
+        "Address": "192.168.1.1/24",
+        "MTU": 1420,
+        "PersistentKeepAlive": 25
     },
     "Acls": {
         "Groups": {

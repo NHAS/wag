@@ -3,7 +3,6 @@ package control
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -172,12 +171,6 @@ func deleteDevice(w http.ResponseWriter, r *http.Request) {
 	d, err := database.GetDeviceByUsername(r.FormValue("username"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	err = database.DeleteDevice(d.Address)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("could not delete device from database: %s", err.Error()), 404)
 		return
 	}
 

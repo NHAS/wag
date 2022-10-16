@@ -131,25 +131,18 @@ func ServerDetails() (key wgtypes.Key, port int, err error) {
 	return dev.PublicKey, dev.ListenPort, nil
 }
 
+// Remove a wireguard peer from database and wg device
 func RemovePeer(internalAddress string) error {
 
-	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
+	var pubkey wgtypes.Key
+	deviceToRemove, err := database.GetDeviceByIP(internalAddress)
 	if err != nil {
 		return err
 	}
 
-	var pubkey wgtypes.Key
-	found := false
-	for _, peer := range dev.Peers {
-		if len(peer.AllowedIPs) == 1 && peer.AllowedIPs[0].IP.String() == internalAddress {
-			pubkey = peer.PublicKey
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return errors.New("wireguard peer not found")
+	pubkey, err = wgtypes.ParseKey(deviceToRemove.Publickey)
+	if err != nil {
+		return err
 	}
 
 	var c wgtypes.Config
@@ -158,9 +151,10 @@ func RemovePeer(internalAddress string) error {
 		Remove:    true,
 	})
 
-	// Try both
+	// Try all removals, if any work then the device is effectively blocked
 	err1 := ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
 	err2 := xdpRemoveDevice(internalAddress)
+	err3 := database.DeleteDevice(internalAddress)
 
 	if err1 != nil {
 		return err1
@@ -168,6 +162,10 @@ func RemovePeer(internalAddress string) error {
 
 	if err2 != nil {
 		return err1
+	}
+
+	if err3 != nil {
+		return fmt.Errorf("could not delete device from database: %s", err.Error())
 	}
 
 	return nil
@@ -182,7 +180,6 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 	}
 
 	//Poor selection algorithm
-
 	//If we dont have any peers take the server tun address and increment that
 	newAddress := config.Values().Wireguard.ServerAddress.String()
 	if len(dev.Peers) > 0 {
@@ -220,7 +217,7 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 	if err != nil {
 
 		//make sure we attempt to clean up the db if the xdp add fails
-		database.DeleteDevice(newAddress)
+		RemovePeer(newAddress)
 
 		return "", err
 	}
@@ -256,7 +253,7 @@ func incrementIP(origIP, cidr string) (string, error) {
 		}
 	}
 	if !ipNet.Contains(ip) {
-		return origIP, errors.New("overflowed CIDR while incrementing IP")
+		return origIP, fmt.Errorf("overflowed CIDR while incrementing IP (ip: %s range: %s)", ip.String(), ipNet.String())
 	}
 	return ip.String(), nil
 }
@@ -303,7 +300,6 @@ func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {
 	case netlink.Error:
 		errCode := binary.LittleEndian.Uint32(resp[0].Data)
 		if errCode != 0 {
-			fmt.Println("Netlink reported error: ", errCode)
 			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
 		}
 	}
@@ -354,7 +350,6 @@ func setIp(c *netlink.Conn, name string, address net.IPNet) error {
 	case netlink.Error:
 		errCode := binary.LittleEndian.Uint32(resp[0].Data)
 		if errCode != 0 {
-			fmt.Println("Netlink reported error: ", errCode)
 			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
 		}
 	}
@@ -402,7 +397,6 @@ func delWg(c *netlink.Conn, name string) error {
 	case netlink.Error:
 		errCode := binary.LittleEndian.Uint32(resp[0].Data)
 		if errCode != 0 {
-			fmt.Println("Netlink reported error: ", errCode)
 			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
 		}
 	}
