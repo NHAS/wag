@@ -1,0 +1,73 @@
+{
+    "Lockout": 5,
+    "HelpMail": "help@example.com",
+    "MaxSessionLifetimeMinutes": -1,
+    "SessionInactivityTimeoutMinutes": 1,
+    "ExternalAddress": "192.168.121.61",
+    "DatabaseLocation": "devices.db",
+    "Issuer": "192.168.121.61",
+    "Webserver": {
+        "Public": {
+            "ListenAddress": ":8081"
+        },
+        "Tunnel": {
+            "ListenAddress": "192.168.1.2:8080"
+        }
+    },
+    "Wireguard": {
+        "DevName": "wg0",
+        "ListenPort": 53230,
+        "PrivateKey": "AN EXAMPLE KEY",
+        "Address": "192.168.1.1/24",
+        "MTU": 1420,
+        "PersistentKeepAlive": 25
+    },
+    "Acls": {
+        "Groups": {
+            "group:nerds": [
+                "toaster",
+                "tester",
+                "abc"
+            ],
+            "group:administrators": [
+                "toaster",
+                "tester"
+            ]
+        },
+        "Policies": {
+            "*": {
+                "Allow": [
+                    "7.7.7.7",
+                    "google.com"
+                ]
+            },
+            "group:nerds": {
+                "Mfa": [
+                    "192.168.3.4/32"
+                ],
+                "Allow": [
+                    "192.168.3.5/32"
+                ]
+            },
+            "tester": {
+                "Mfa": [
+                    "192.168.3.0/24",
+                    "192.168.5.0/24"
+                ],
+                "Allow": [
+                    "4.3.3.3/32"
+                ]
+            },
+            "group:administrators": {
+                "Mfa": [
+                    "8.8.8.8"
+                ]
+            },
+            "toaster": {
+                "Allow": [
+                    "1.1.1.1/32"
+                ]
+            }
+        }
+    }
+}
