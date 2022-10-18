@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/database"
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
-
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func Setup(error chan<- error, iptables bool) (err error) {
@@ -41,8 +40,6 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 	go func() {
 		startup := true
-		var endpoints = map[wgtypes.Key]string{}
-
 		for {
 
 			dev, err := ctrl.Device(config.Values().Wireguard.DevName)
@@ -52,21 +49,33 @@ func Setup(error chan<- error, iptables bool) (err error) {
 			}
 
 			for _, p := range dev.Peers {
-				previousAddress := endpoints[p.PublicKey]
 
 				if len(p.AllowedIPs) != 1 {
 					log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
 					continue
 				}
 
-				if previousAddress != p.Endpoint.String() {
+				ip := p.AllowedIPs[0].IP.String()
 
-					endpoints[p.PublicKey] = p.Endpoint.String()
+				d, err := database.GetDeviceByIP(ip)
+				if err != nil {
+					log.Println("unable to get previous device endpoint for ", ip)
+					if err := Deauthenticate(ip); err != nil {
+						log.Println(ip, "unable to remove forwards for device: ", err)
+					}
+					continue
+				}
+
+				if d.Endpoint.String() != p.Endpoint.String() {
+
+					err = database.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
+					if err != nil {
+						log.Println(ip, "unable to update device endpoint: ", err)
+					}
 
 					//Dont try and remove rules, if we've just started
 					if !startup {
-						ip := p.AllowedIPs[0].IP.String()
-						log.Println(ip, "endpoint changed", previousAddress, "->", p.Endpoint.String())
+						log.Println(ip, "endpoint changed", d.Endpoint.String(), "->", p.Endpoint.String())
 						if err := Deauthenticate(ip); err != nil {
 							log.Println(ip, "unable to remove forwards for device: ", err)
 						}

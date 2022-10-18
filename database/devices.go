@@ -37,6 +37,16 @@ func stringToUDPaddr(address string) (r *net.UDPAddr) {
 	return
 }
 
+func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
+
+	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ?`, endpoint.String(), address)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func GetDevices() ([]Device, error) {
 
 	rows, err := database.Query("SELECT address, publickey, username, endpoint, enforcing, attempts FROM Devices ORDER by ROWID DESC")
