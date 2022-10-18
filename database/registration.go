@@ -82,7 +82,6 @@ func AddRegistrationToken(token, username string) error {
 	err := database.QueryRow("SELECT username FROM Totp WHERE username = ?", username).Scan(&u)
 	if err == nil {
 		return errors.New("cannot create registration token for username that already exists")
-
 	}
 
 	if err != nil && err != sql.ErrNoRows {

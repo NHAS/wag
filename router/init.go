@@ -41,7 +41,7 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 	go func() {
 		startup := true
-		var endpoints = map[wgtypes.Key]*net.UDPAddr{}
+		var endpoints = map[wgtypes.Key]string{}
 
 		for {
 
@@ -59,14 +59,14 @@ func Setup(error chan<- error, iptables bool) (err error) {
 					continue
 				}
 
-				if previousAddress.String() != p.Endpoint.String() {
+				if previousAddress != p.Endpoint.String() {
 
-					endpoints[p.PublicKey] = p.Endpoint
+					endpoints[p.PublicKey] = p.Endpoint.String()
 
 					//Dont try and remove rules, if we've just started
 					if !startup {
 						ip := p.AllowedIPs[0].IP.String()
-						log.Println(ip, "endpoint changed", previousAddress.String(), "->", p.Endpoint.String())
+						log.Println(ip, "endpoint changed", previousAddress, "->", p.Endpoint.String())
 						if err := Deauthenticate(ip); err != nil {
 							log.Println(ip, "unable to remove forwards for device: ", err)
 						}

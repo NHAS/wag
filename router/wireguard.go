@@ -99,6 +99,7 @@ func setupWireguard() error {
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
 			AllowedIPs:                  []net.IPNet{*network},
+			Endpoint:                    device.Endpoint,
 		})
 	}
 
