@@ -135,8 +135,6 @@ func (g *upgrade) Run() error {
 	}
 	fmt.Println("Done")
 
-	fmt.Println("Ready to replace with new version")
-
 	fmt.Print("Shutting down server...")
 	control.Shutdown(false)
 	fmt.Println("Done")
@@ -149,7 +147,13 @@ func (g *upgrade) Run() error {
 		if err != nil {
 			return err
 		}
+
+		fmt.Println("Wag has been replaced")
+
+		return nil
 	}
+
+	fmt.Println("Ready to replace with new version")
 
 	return nil
 }
