@@ -4,7 +4,7 @@
     "MaxSessionLifetimeMinutes": 2,
     "SessionInactivityTimeoutMinutes": -1,
     "ExternalAddress": "192.168.121.61",
-    "DatabaseLocation": "file::memory:?cache=shared",
+    "DatabaseLocation": "file::memory:",
     "Issuer": "192.168.121.61",
     "Webserver": {
         "Public": {
