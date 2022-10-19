@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NHAS/wag/config"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
@@ -88,7 +89,7 @@ func CreateMFAEntry(address, publickey, username string) (Device, error) {
 	}
 
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      totpIssuer,
+		Issuer:      config.Values().Issuer,
 		AccountName: username,
 	})
 	if err != nil {
@@ -122,7 +123,7 @@ var usedCodes = map[string]entry{}
 
 func Authenticate(address, code string) (err error) {
 
-	_, err = database.Exec(`UPDATE Devices SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, lockoutPolicy)
+	_, err = database.Exec(`UPDATE Devices SET attempts = attempts + 1 WHERE address = ? and attempts <= ?`, address, config.Values().Lockout)
 	if err != nil {
 		return
 	}
@@ -140,7 +141,7 @@ func Authenticate(address, code string) (err error) {
 		return
 	}
 
-	if attempts > lockoutPolicy {
+	if attempts > config.Values().Lockout {
 		return errors.New("account is locked")
 	}
 

@@ -17,7 +17,7 @@ func setupWgTest() error {
 		return err
 	}
 
-	err := database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err := database.Load(config.Values().DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}

@@ -95,7 +95,7 @@ func (g *start) Check() error {
 		return errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
-	err = database.Load(config.Values().DatabaseLocation, config.Values().Issuer, config.Values().Lockout)
+	err = database.Load(config.Values().DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
