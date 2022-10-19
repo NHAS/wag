@@ -50,9 +50,7 @@ func (msg *IfAddrmsg) Serialize() []byte {
 
 func setupWireguard() error {
 
-	c := wgtypes.Config{
-		ReplacePeers: true,
-	}
+	var c wgtypes.Config
 
 	if !config.Values().Wireguard.External {
 
