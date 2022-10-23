@@ -46,8 +46,7 @@ func TestMigrationFromVersion1(t *testing.T) {
 	INSERT INTO
 		Totp (address, publickey, username, url, attempts)
 	VALUES
-		(?, ?, ?, ?, ?)
-`, "192.168.1.1", "blank", "toaster", "no", 0)
+		(?, ?, ?, ?, ?)`, "192.168.1.1", "blank", "toaster", "no", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
