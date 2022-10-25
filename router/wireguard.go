@@ -1,10 +1,12 @@
 package router
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"time"
 	"unsafe"
 
@@ -180,22 +182,27 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 
 	//Poor selection algorithm
 	//If we dont have any peers take the server tun address and increment that
-	newAddress := config.Values().Wireguard.ServerAddress.String()
+	newAddress := net.ParseIP(config.Values().Wireguard.ServerAddress.String())
 	if len(dev.Peers) > 0 {
-		addresses := []string{}
+		addresses := make([]net.IP, 0, len(dev.Peers))
 		for _, peer := range dev.Peers {
-			addresses = append(addresses, utils.GetIP(peer.AllowedIPs[0].IP.String()))
+			addresses = append(addresses, net.ParseIP(utils.GetIP(peer.AllowedIPs[0].IP.String())))
 		}
+
+		// Find the last added address
+		sort.Slice(addresses, func(i, j int) bool {
+			return bytes.Compare(addresses[i], addresses[j]) < 0
+		})
 
 		newAddress = addresses[len(addresses)-1]
 	}
 
-	newAddress, err = incrementIP(newAddress, config.Values().Wireguard.Range.String())
+	newAddress, err = incrementIP(newAddress.String(), config.Values().Wireguard.Range.String())
 	if err != nil {
 		return "", err
 	}
 
-	_, network, err := net.ParseCIDR(newAddress + "/32")
+	_, network, err := net.ParseCIDR(newAddress.String() + "/32")
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +214,7 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 		AllowedIPs:        []net.IPNet{*network},
 	})
 
-	newDevice, err := database.CreateMFAEntry(newAddress, public.String(), username)
+	newDevice, err := database.CreateMFAEntry(newAddress.String(), public.String(), username)
 	if err != nil {
 		return "", errors.New("unable to setup for first use mfa: " + err.Error())
 	}
@@ -216,7 +223,7 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 	if err != nil {
 
 		//make sure we attempt to clean up the db if the xdp add fails
-		RemovePeer(newAddress)
+		RemovePeer(newAddress.String())
 
 		return "", err
 	}
@@ -239,11 +246,11 @@ func GetPeerRealIp(address string) (string, error) {
 	return "", errors.New("not found")
 }
 
-func incrementIP(origIP, cidr string) (string, error) {
+func incrementIP(origIP, cidr string) (net.IP, error) {
 	ip := net.ParseIP(origIP)
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return origIP, err
+		return ip, err
 	}
 	for i := len(ip) - 1; i >= 0; i-- {
 		ip[i]++
@@ -252,9 +259,9 @@ func incrementIP(origIP, cidr string) (string, error) {
 		}
 	}
 	if !ipNet.Contains(ip) {
-		return origIP, fmt.Errorf("overflowed CIDR while incrementing IP (ip: %s range: %s)", ip.String(), ipNet.String())
+		return ip, fmt.Errorf("overflowed CIDR while incrementing IP (ip: %s range: %s)", ip.String(), ipNet.String())
 	}
-	return ip.String(), nil
+	return ip, nil
 }
 
 func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {

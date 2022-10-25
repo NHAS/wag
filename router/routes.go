@@ -78,7 +78,19 @@ var (
 	//Keep reference to xdpLink, otherwise it may be garbage collected
 	xdpLink      link.Link
 	xdpObjects   bpfObjects
-	innerMapSpec *ebpf.MapSpec
+	innerMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
+		Name:      "inner_map",
+		Type:      ebpf.LPMTrie,
+		KeySize:   8, // 4 bytes for prefix, 4 bytes for u32 (ipv4)
+		ValueSize: 1, // quasi bool
+		// This flag is required for dynamically sized inner maps.
+		// Added in linux 5.10.
+		Flags: unix.BPF_F_NO_PREALLOC,
+
+		// We set this to 200 now, but this inner map spec gets copied
+		// and altered later.
+		MaxEntries: 2000,
+	}
 )
 
 var mapsLookup = map[string]**ebpf.Map{
@@ -94,20 +106,6 @@ func loadXDP() error {
 	spec, err := loadBpf()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
-	}
-
-	innerMapSpec = &ebpf.MapSpec{
-		Name:      "inner_map",
-		Type:      ebpf.LPMTrie,
-		KeySize:   8, // 4 bytes for prefix, 4 bytes for u32 (ipv4)
-		ValueSize: 1, // quasi bool
-		// This flag is required for dynamically sized inner maps.
-		// Added in linux 5.10.
-		Flags: unix.BPF_F_NO_PREALLOC,
-
-		// We set this to 200 now, but this inner map spec gets copied
-		// and altered later.
-		MaxEntries: 2000,
 	}
 
 	spec.Maps["public_table"].InnerMap = innerMapSpec
