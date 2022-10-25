@@ -161,7 +161,7 @@ Which can then be written to a config file.
 
 ## Entering MFA  
   
-To authenticate the user should browse to the servers vpn address, in this case `192.168.1.1:8080`, where they will be prompted for their 2fa code.  
+To authenticate the user should browse to the servers vpn address, in the example, case `192.168.1.1:8080`, where they will be prompted for their 2fa code.  
 The configuration file specifies how long a session can live for, before expiring.  
 
 
@@ -172,7 +172,7 @@ The configuration file specifies how long a session can live for, before expirin
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
-
+  
 `MaxSessionLifetimeMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled  
 `SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled  
   
@@ -186,16 +186,14 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
-`WgDevName`: The wireguard tunnel device name that wag will manage  
-
-`Wireguard`: Object that contains the wireguard device configuration
-`DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)
-`ListenPort`: Port that wireguard will listen on
-`PrivateKey`: The wireguard private key, can be generated with `wg genkey`
-`Address`: Subnet the VPN is responsible for
-`MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet
-`PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds
-
+`Wireguard`: Object that contains the wireguard device configuration  
+`DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
+`ListenPort`: Port that wireguard will listen on  
+`PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
+`Address`: Subnet the VPN is responsible for  
+`MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
+`PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
+  
 Full config example
 ```json
 {
