@@ -54,7 +54,7 @@ func (g *start) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "noiptables":
-			g.noIptables = false
+			g.noIptables = true
 		}
 	})
 
