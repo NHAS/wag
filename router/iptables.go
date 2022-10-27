@@ -55,6 +55,11 @@ func setupIptables() error {
 		return err
 	}
 
+	err = ipt.Append("filter", "INPUT", "-i", config.Values().Wireguard.DevName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
 	err = ipt.Append("filter", "INPUT", "-i", config.Values().Wireguard.DevName, "-j", "DROP")
 	if err != nil {
 		return err
