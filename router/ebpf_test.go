@@ -98,6 +98,68 @@ func TestAddNewDevices(t *testing.T) {
 	}
 }
 
+func TestRoutePriority(t *testing.T) {
+
+	if err := setup("../config/test_roaming_all_routes_mfa_priority.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	headers := []ipv4.Header{
+		{
+			Version: 4,
+			Dst:     net.ParseIP("8.8.8.8"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("11.11.11.11"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("1.1.1.1"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+	}
+
+	expectedResults := map[string]uint32{
+		headers[0].String(): 1,
+		headers[1].String(): 2,
+		headers[2].String(): 2,
+	}
+
+	for i := range headers {
+		if headers[i].Src == nil || headers[i].Dst == nil {
+			t.Fatal("could not parse ip")
+		}
+
+		packet, err := headers[i].Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if result(value) != result(expectedResults[headers[i].String()]) {
+			t.Logf("(%s) program did not %s packet instead did: %s", headers[i].String(), result(expectedResults[headers[i].String()]), result(value))
+			t.Fail()
+		}
+	}
+
+}
+
 func TestBasicAuthorise(t *testing.T) {
 	if err := setup("../example_config.json"); err != nil {
 		t.Fatal(err)
