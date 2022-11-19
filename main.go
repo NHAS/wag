@@ -22,6 +22,8 @@ var cmds = []commands.Command{
 	commands.VersionCmd(),
 
 	commands.Upgrade(),
+
+	commands.GenConfig(),
 }
 
 func help(full bool) {

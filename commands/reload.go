@@ -34,6 +34,7 @@ func (g *reload) PrintUsage() {
 }
 
 func (g *reload) Check() error {
+
 	return nil
 }
 

@@ -36,7 +36,7 @@ type Acls struct {
 	Policies     map[string]*Acl
 }
 
-type config struct {
+type Config struct {
 	path                            string
 	Proxied                         bool
 	HelpMail                        string
@@ -71,10 +71,10 @@ type config struct {
 
 var (
 	valuesLock sync.RWMutex
-	values     config
+	values     Config
 )
 
-func Values() config {
+func Values() Config {
 	valuesLock.RLock()
 	defer valuesLock.RUnlock()
 
@@ -110,7 +110,7 @@ func GetEffectiveAcl(username string) Acl {
 	return dereferencedAcl
 }
 
-func load(path string) (c config, err error) {
+func load(path string) (c Config, err error) {
 	configFile, err := os.Open(path)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
