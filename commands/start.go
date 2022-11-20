@@ -142,11 +142,11 @@ func (g *start) Run() error {
 
 	go func() {
 		cancel := make(chan os.Signal, 1)
-		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGPIPE, os.Interrupt, syscall.SIGQUIT)
+		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, syscall.SIGPIPE, os.Interrupt, syscall.SIGQUIT)
 
-		<-cancel
+		s := <-cancel
 
-		log.Println("\nGot signal gracefully exiting")
+		log.Printf("Got signal %s gracefully exiting\n", s)
 
 		error <- errors.New("ignore me I am signal")
 	}()
