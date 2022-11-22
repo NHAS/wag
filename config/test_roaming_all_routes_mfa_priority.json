@@ -1,0 +1,37 @@
+{
+    "Lockout": 5,
+    "HelpMail": "help@example.com",
+    "MaxSessionLifetimeMinutes": 2,
+    "SessionInactivityTimeoutMinutes": 1,
+    "ExternalAddress": "192.168.121.61",
+    "DatabaseLocation": "file::memory:",
+    "Issuer": "192.168.121.61",
+    "Webserver": {
+        "Public": {
+            "ListenAddress": ":8081"
+        },
+        "Tunnel": {
+            "ListenAddress": "192.168.1.1:8080"
+        }
+    },
+    "Wireguard": {
+        "DevName": "wg45",
+        "ListenPort": 53230,
+        "PrivateKey": "aEOTM9QSRsPFs4UMKeeLfsXDJiu6lCoKzVNyxnrsZVQ=",
+        "Address": "192.168.1.1/24",
+        "MTU": 1420,
+        "PersistentKeepAlive": 25
+    },
+    "Acls": {
+        "Policies": {
+            "*": {
+                "Allow": [
+                    "0.0.0.0/0"
+                ],
+                "Mfa": [
+                    "8.8.8.8"
+                ]
+            }
+        }
+    }
+}

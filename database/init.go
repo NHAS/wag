@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/NHAS/wag/database/migrations"
@@ -54,7 +55,7 @@ func Load(path string) error {
 		return err
 	}
 
-	if can {
+	if can && !strings.HasPrefix(path, "file::memory:") {
 		backupPath := path + "." + time.Now().Format("20060102150405") + ".bak"
 		log.Println("can do migrations, backing up database to ", backupPath)
 

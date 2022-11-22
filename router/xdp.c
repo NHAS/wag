@@ -137,11 +137,10 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
     // If the key is a match for the LPM in the public table
     void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, src_ip);
-    if (user_restricted_routes)
+    if (user_restricted_routes && bpf_map_lookup_elem(user_restricted_routes, &key))
     {
 
-        if (bpf_map_lookup_elem(user_restricted_routes, &key) &&
-            // 0 indicates invalid session
+        if ( // 0 indicates invalid session
             *session_expiry != 0 &&
             // If max session lifetime is disabled, or we are before the max lifetime of the session
             (*session_expiry == __UINT64_MAX__ || *session_expiry > currentTime) &&
@@ -152,6 +151,10 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 
             return 1;
         }
+
+       //If we match a MFA route, but we are not authorised dont fall through to the public route lookup
+       //just die
+       return 0;
     }
 
     void *user_public_routes = bpf_map_lookup_elem(&public_table, src_ip);
