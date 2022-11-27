@@ -15,8 +15,6 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 glibc 2.34 or higher  
 go1.16+
-
-The wireguard device must be running before wag is started.  
   
 `iptables` must be installed. 
 Wag must be run as root, to manage `iptables` and the `wireguard` device.  
