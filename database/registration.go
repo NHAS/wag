@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-func GetRegistrationToken(token string) (username string, err error) {
+func GetRegistrationToken(token string) (username string, overwrites bool, err error) {
 
 	minTime := time.After(1 * time.Second)
 
 	err = database.QueryRow(`
-		SELECT token, username FROM RegistrationTokens
+		SELECT token, username, overwrite FROM RegistrationTokens
 		WHERE
 			token = ?
-	`, token).Scan(&token, &username)
+	`, token).Scan(&token, &username, &overwrites)
 
 	<-minTime
 
@@ -25,7 +25,7 @@ func GetRegistrationToken(token string) (username string, err error) {
 
 // Returns list of tokens in a map of token : username
 func GetRegistrationTokens() (map[string]string, error) {
-	rows, err := database.Query("SELECT * from RegistrationTokens ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT token, username from RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -54,20 +54,20 @@ func DeleteRegistrationToken(identifier string) error {
 }
 
 // Randomly generate a token for a specific username
-func GenerateToken(username string) (token string, err error) {
+func GenerateToken(username string, overwrite bool) (token string, err error) {
 	tokenBytes, err := generateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
 
 	token = hex.EncodeToString(tokenBytes)
-	err = AddRegistrationToken(token, username)
+	err = AddRegistrationToken(token, username, overwrite)
 
 	return
 }
 
 // Add a token to the database for the specific username, may fail of the token does not meet complexity requirements
-func AddRegistrationToken(token, username string) error {
+func AddRegistrationToken(token, username string, overwrite bool) error {
 	if len(token) < 32 {
 		return errors.New("Registration token is too short")
 	}
@@ -76,24 +76,26 @@ func AddRegistrationToken(token, username string) error {
 		return errors.New("Registration token contains illegal characters (allowed characters a-z A-Z - . _ )")
 	}
 
-	//Technically racy, but to no real effect
+	if !overwrite {
 
-	var u string
-	err := database.QueryRow("SELECT username FROM Devices WHERE username = ?", username).Scan(&u)
-	if err == nil {
-		return errors.New("cannot create registration token for username that already exists")
+		//Technically racy, but to no real effect
+		var u string
+		err := database.QueryRow("SELECT username FROM Devices WHERE username = ?", username).Scan(&u)
+		if err == nil {
+			return errors.New("cannot create registration token for username that already exists")
+		}
+
+		if err != nil && err != sql.ErrNoRows {
+			return errors.New("failed to create registration token: " + err.Error())
+		}
 	}
 
-	if err != nil && err != sql.ErrNoRows {
-		return errors.New("failed to create registration token: " + err.Error())
-	}
-
-	_, err = database.Exec(`
+	_, err := database.Exec(`
 		INSERT INTO
-			RegistrationTokens (token, username)
+			RegistrationTokens (token, username, overwrite)
 		VALUES
-			(?, ?)
-	`, token, username)
+			(?, ?, ?)
+	`, token, username, overwrite)
 
 	return err
 }

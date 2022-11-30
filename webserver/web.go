@@ -297,7 +297,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := database.GetRegistrationToken(key)
+	username, overwrites, err := database.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
@@ -329,23 +329,44 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey = privatekey.PublicKey()
 	}
 
-	address, err := router.AddPeer(publickey, username)
-	if err != nil {
-		log.Println(username, remoteAddr, "unable to add device: ", err)
+	var address string
+	if overwrites {
 
-		http.Error(w, "Server Error", 500)
-		return
-	}
-
-	defer func() {
+		device, err := database.GetDeviceByUsername(username)
 		if err != nil {
-			log.Println(username, remoteAddr, "removing device (due to registration failure)")
-			err := router.RemovePeer(address)
-			if err != nil {
-				log.Println(username, remoteAddr, "unable to remove wg device: ", err)
-			}
+			log.Printf(username, remoteAddr, "could not get '%s' user from db to replace: %v", username, err)
+
+			http.Error(w, "Server Error", 500)
+			return
 		}
-	}()
+
+		oldPublicKey, _ := wgtypes.ParseKey(device.Publickey)
+
+		address, err = router.ReplacePeer(oldPublicKey, publickey)
+		if err != nil {
+			log.Println(username, remoteAddr, "unable to replace device: ", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
+	} else {
+		address, err := router.AddPeer(publickey, username)
+		if err != nil {
+			log.Println(username, remoteAddr, "unable to add device: ", err)
+
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
+		defer func() {
+			if err != nil {
+				log.Println(username, remoteAddr, "removing device (due to registration failure)")
+				err := router.RemovePeer(address)
+				if err != nil {
+					log.Println(username, remoteAddr, "unable to remove wg device: ", err)
+				}
+			}
+		}()
+	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
@@ -359,6 +380,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyStr := privatekey.String()
+	//Empty value of a private key in wgtype.Key
 	if keyStr == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" {
 		keyStr = ""
 	}

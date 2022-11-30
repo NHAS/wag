@@ -172,6 +172,47 @@ func RemovePeer(internalAddress string) error {
 	return nil
 }
 
+func ReplacePeer(oldPublicKey, newPublicKey wgtypes.Key) (string, error) {
+	device, err := database.GetDeviceByPublicKey(oldPublicKey)
+	if err != nil {
+		return "", errors.New("could not find peer in database")
+	}
+
+	err = database.UpdateDevicePublicKey(device.Address, newPublicKey)
+	if err != nil {
+		return "", errors.New("could not update peer public key in database")
+	}
+
+	//As the api for managing wireguard has no "update public key" function we have to do it manually remove -> add
+
+	var c wgtypes.Config
+	c.Peers = append(c.Peers, wgtypes.PeerConfig{
+		PublicKey: oldPublicKey,
+		Remove:    true,
+	})
+
+	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	if err != nil {
+		return "", err
+	}
+
+	_, network, err := net.ParseCIDR(device.Address + "/32")
+	if err != nil {
+		return "", err
+	}
+
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			PublicKey:         newPublicKey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        []net.IPNet{*network},
+		},
+	}
+
+	return device.Address, ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+
+}
+
 // AddPeer the device to wireguard
 func AddPeer(public wgtypes.Key, username string) (string, error) {
 
@@ -208,11 +249,13 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 	}
 
 	var c wgtypes.Config
-	c.Peers = append(c.Peers, wgtypes.PeerConfig{
-		PublicKey:         public,
-		ReplaceAllowedIPs: true,
-		AllowedIPs:        []net.IPNet{*network},
-	})
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			PublicKey:         public,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        []net.IPNet{*network},
+		},
+	}
 
 	newDevice, err := database.CreateMFAEntry(newAddress.String(), public.String(), username)
 	if err != nil {

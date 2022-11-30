@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/utils"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type Device struct {
@@ -89,6 +90,10 @@ func GetDeviceByUsername(username string) (d Device, err error) {
 	return getDevice("username = ?", username)
 }
 
+func GetDeviceByPublicKey(key wgtypes.Key) (d Device, err error) {
+	return getDevice("publickey = ?", key.String())
+}
+
 func getDevice(attribute string, value string) (d Device, err error) {
 	var (
 		enforcing sql.NullString
@@ -116,5 +121,18 @@ func DeleteDevice(address string) error {
 		WHERE
 			address = ?
 	`, address)
+	return err
+}
+
+func UpdateDevicePublicKey(address string, publicKey wgtypes.Key) error {
+	_, err := database.Exec(`
+		UPDATE
+			Devices
+		SET
+		    publickey = ?
+		WHERE
+			address = ?
+
+	`, publicKey.String(), address)
 	return err
 }

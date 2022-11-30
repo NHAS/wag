@@ -291,11 +291,12 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	token := r.FormValue("token")
 	username := r.FormValue("username")
+	allowOverwrite := r.FormValue("overwrite") == "true"
 
 	resp := RegistrationResult{Token: token, Username: username}
 
 	if token != "" {
-		err := database.AddRegistrationToken(token, username)
+		err := database.AddRegistrationToken(token, username, allowOverwrite)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -311,7 +312,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err = database.GenerateToken(username)
+	token, err = database.GenerateToken(username, allowOverwrite)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
