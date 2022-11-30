@@ -16,7 +16,7 @@ import (
 )
 
 func TestBasicLoad(t *testing.T) {
-	if err := setup("../example_config.json"); err != nil {
+	if err := setup("../config/test_in_memory_db.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -24,7 +24,7 @@ func TestBasicLoad(t *testing.T) {
 
 func TestBlankPacket(t *testing.T) {
 
-	if err := setup("../example_config.json"); err != nil {
+	if err := setup("../config/test_in_memory_db.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -42,7 +42,7 @@ func TestBlankPacket(t *testing.T) {
 
 func TestAddNewDevices(t *testing.T) {
 
-	if err := setup("../example_config.json"); err != nil {
+	if err := setup("../config/test_in_memory_db.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -161,7 +161,7 @@ func TestRoutePriority(t *testing.T) {
 }
 
 func TestBasicAuthorise(t *testing.T) {
-	if err := setup("../example_config.json"); err != nil {
+	if err := setup("../config/test_in_memory_db.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()
@@ -265,7 +265,7 @@ func TestBasicAuthorise(t *testing.T) {
 }
 
 func TestSlidingWindow(t *testing.T) {
-	if err := setup("../example_config.json"); err != nil {
+	if err := setup("../config/test_disabled_max_lifetime.json"); err != nil {
 		t.Fatal(err)
 	}
 	defer xdpObjects.Close()

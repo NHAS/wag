@@ -4,7 +4,7 @@
     "MaxSessionLifetimeMinutes": -1,
     "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
-    "DatabaseLocation": "devices.db",
+    "DatabaseLocation": "file::memory:",
     "Issuer": "192.168.121.61",
     "Webserver": {
         "Public": {
@@ -17,7 +17,7 @@
     "Wireguard": {
         "DevName": "wg0",
         "ListenPort": 53230,
-        "PrivateKey": "AN EXAMPLE KEY",
+        "PrivateKey": "cFYv9YROACD78hFBxQ29mkXol974NMLMt4hFOe+oXl4=",
         "Address": "192.168.1.1/24",
         "MTU": 1420,
         "PersistentKeepAlive": 25
