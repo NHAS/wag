@@ -77,6 +77,8 @@ Usage of firewall:
 Usage of registration:
   -add
         Create a new enrolment token
+  -overwrite
+        Add registration token for existing user, will overwrite wireguard public key (but not 2FA)
   -del
         Delete existing enrolment token
   -list
