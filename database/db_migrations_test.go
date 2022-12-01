@@ -65,7 +65,12 @@ func TestMigrationFromVersion1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d, err := GetDeviceByIP("192.168.1.1")
+	user, err := GetUser("toaster")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := user.GetDevice("192.168.1.1")
 	if err != nil {
 		t.Fatal(err)
 	}

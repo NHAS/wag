@@ -87,7 +87,7 @@ func (g *devices) Run() error {
 
 		fmt.Println("username,address,publickey,enforcingmfa,authattempts,endpoint")
 		for _, device := range ds {
-			fmt.Printf("%s,%s,%s,%t,%d,%s\n", device.Username, device.Address, device.Publickey, device.Enforcing, device.Attempts, device.Endpoint.String())
+			fmt.Printf("%s,%s,%s,%t,%d,%s\n", device.Username, device.Address, device.Publickey, device.Endpoint.String())
 		}
 	case "mfa_sessions":
 		sessions, err := control.Sessions()

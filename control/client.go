@@ -48,10 +48,11 @@ func ListDevice(username string) (d []database.Device, err error) {
 	return
 }
 
-func DeleteDevice(username string) error {
+// Take device address to remove
+func DeleteDevice(address string) error {
 
 	form := url.Values{}
-	form.Add("username", username)
+	form.Add("address", address)
 
 	response, err := client.Post("http://unix/device/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -71,10 +72,10 @@ func DeleteDevice(username string) error {
 	return nil
 }
 
-func LockDevice(username string) error {
+func LockDevice(address string) error {
 
 	form := url.Values{}
-	form.Add("username", username)
+	form.Add("address", address)
 
 	response, err := client.Post("http://unix/device/lock", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -93,10 +94,10 @@ func LockDevice(username string) error {
 	return nil
 }
 
-func UnlockDevice(username string) error {
+func UnlockDevice(address string) error {
 
 	form := url.Values{}
-	form.Add("username", username)
+	form.Add("address", address)
 
 	response, err := client.Post("http://unix/device/unlock", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {

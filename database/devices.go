@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -14,9 +15,8 @@ type Device struct {
 	Address   string
 	Publickey string
 	Username  string
-	Enforcing bool
-	Attempts  int
 	Endpoint  *net.UDPAddr
+	Attempts  int
 }
 
 func stringToUDPaddr(address string) (r *net.UDPAddr) {
@@ -40,7 +40,7 @@ func stringToUDPaddr(address string) (r *net.UDPAddr) {
 
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 
-	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ?`, endpoint.String(), address)
+	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ? LIMIT 1`, endpoint.String(), address)
 	if err != nil {
 		return err
 	}
@@ -48,22 +48,20 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 	return nil
 }
 
-func GetDevices() ([]Device, error) {
+func GetAllDevices() (devices []Device, err error) {
 
-	rows, err := database.Query("SELECT address, publickey, username, endpoint, enforcing, attempts FROM Devices ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT address, publickey, username, endpoint, attempts FROM Devices ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
 
-	result := []Device{}
 	for rows.Next() {
 
 		var (
-			enforcing sql.NullString
-			endpoint  sql.NullString
-			d         Device
+			endpoint sql.NullString
+			d        Device
 		)
-		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &enforcing, &d.Attempts)
+		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &d.Attempts)
 		if err != nil {
 			return nil, err
 		}
@@ -72,67 +70,90 @@ func GetDevices() ([]Device, error) {
 			d.Endpoint = stringToUDPaddr(endpoint.String)
 		}
 
-		d.Enforcing = enforcing.Valid
-
-		result = append(result, d)
+		devices = append(devices, d)
 	}
 
-	return result, nil
+	return devices, nil
 
 }
 
-// Yes mildly cursed.
-func GetDeviceByIP(address string) (d Device, err error) {
-	return getDevice("address = ?", address)
-}
-
-func GetDeviceByUsername(username string) (d Device, err error) {
-	return getDevice("username = ?", username)
-}
-
-func GetDeviceByPublicKey(key wgtypes.Key) (d Device, err error) {
-	return getDevice("publickey = ?", key.String())
-}
-
-func getDevice(attribute string, value string) (d Device, err error) {
-	var (
-		enforcing sql.NullString
-		endpoint  sql.NullString
-	)
-
-	err = database.QueryRow("SELECT address, publickey, username, endpoint, enforcing, attempts FROM Devices WHERE "+attribute, value).Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &enforcing, &d.Attempts)
-	if err != nil {
-		return Device{}, err
+func AddDevice(username, address, publickey string) (Device, error) {
+	if net.ParseIP(address) == nil {
+		return Device{}, errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
 	}
 
-	if endpoint.Valid {
-		d.Endpoint = stringToUDPaddr(endpoint.String)
-	}
+	//Leaves enforcing null
+	_, err := database.Exec(`
+	INSERT INTO
+		Devices (address, username, publickey)
+	VALUES
+		(?, ?, ?)
+`, address, username, publickey)
 
-	d.Enforcing = enforcing.Valid
-
-	return
+	return Device{
+		Address:   address,
+		Publickey: publickey,
+		Username:  username,
+	}, err
 }
 
-func DeleteDevice(address string) error {
+func DeleteDevice(username, id string) error {
 	_, err := database.Exec(`
 		DELETE FROM
 			Devices
 		WHERE
-			address = ?
-	`, address)
+			username = ? AND 
+			(address = $2 OR publickey = $2)
+		LIMIT 1
+	`, username, id)
 	return err
 }
 
-func UpdateDevicePublicKey(address string, publicKey wgtypes.Key) error {
+func DeleteDevices(username string) error {
+	_, err := database.Exec(`
+		DELETE FROM
+			Devices
+		WHERE
+			username = ?
+	`, username)
+	return err
+}
+
+func UpdateDevicePublicKey(username, id string, publicKey wgtypes.Key) error {
 	_, err := database.Exec(`
 		UPDATE
 			Devices
 		SET
 		    publickey = ?
 		WHERE
-			address = ?
+			username = ? AND 
+			(address = $2 OR publickey = $2)
+		LIMIT 1
 
-	`, publicKey.String(), address)
+	`, publicKey.String(), username, id)
 	return err
+}
+
+func GetDeviceByAddress(address string) (device Device, err error) {
+	var (
+		endpoint sql.NullString
+	)
+
+	err = database.QueryRow(`SELECT 
+								* 
+							FROM 
+								Devices 
+							WHERE 
+								address = ?`,
+		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint)
+
+	if err != nil {
+		return Device{}, err
+	}
+
+	if endpoint.Valid {
+		device.Endpoint = stringToUDPaddr(endpoint.String)
+	}
+
+	return
 }

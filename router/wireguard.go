@@ -83,7 +83,7 @@ func setupWireguard() error {
 		c.ListenPort = &port
 	}
 
-	devices, err := database.GetDevices()
+	devices, err := database.GetAllDevices()
 	if err != nil {
 		return err
 	}
@@ -133,15 +133,9 @@ func ServerDetails() (key wgtypes.Key, port int, err error) {
 }
 
 // Remove a wireguard peer from database and wg device
-func RemovePeer(internalAddress string) error {
+func RemovePeer(device database.Device) error {
 
-	var pubkey wgtypes.Key
-	deviceToRemove, err := database.GetDeviceByIP(internalAddress)
-	if err != nil {
-		return err
-	}
-
-	pubkey, err = wgtypes.ParseKey(deviceToRemove.Publickey)
+	pubkey, err := wgtypes.ParseKey(device.Publickey)
 	if err != nil {
 		return err
 	}
@@ -154,8 +148,8 @@ func RemovePeer(internalAddress string) error {
 
 	// Try all removals, if any work then the device is effectively blocked
 	err1 := ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
-	err2 := xdpRemoveDevice(internalAddress)
-	err3 := database.DeleteDevice(internalAddress)
+	err2 := xdpRemoveDevice(device.Address)
+	err3 := database.DeleteDevice(device.Username, device.Address)
 
 	if err1 != nil {
 		return err1
@@ -172,18 +166,18 @@ func RemovePeer(internalAddress string) error {
 	return nil
 }
 
-func ReplacePeer(oldPublicKey, newPublicKey wgtypes.Key) (string, error) {
-	device, err := database.GetDeviceByPublicKey(oldPublicKey)
-	if err != nil {
-		return "", errors.New("could not find peer in database")
-	}
-
-	err = database.UpdateDevicePublicKey(device.Address, newPublicKey)
+// Takes the device to replace and returns the address of said device
+func ReplacePeer(device database.Device, newPublicKey wgtypes.Key) (string, error) {
+	err := database.UpdateDevicePublicKey(device.Username, device.Address, newPublicKey)
 	if err != nil {
 		return "", errors.New("could not update peer public key in database")
 	}
 
 	//As the api for managing wireguard has no "update public key" function we have to do it manually remove -> add
+	oldPublicKey, err := wgtypes.ParseKey(device.Publickey)
+	if err != nil {
+		return "", err
+	}
 
 	var c wgtypes.Config
 	c.Peers = append(c.Peers, wgtypes.PeerConfig{
@@ -213,12 +207,12 @@ func ReplacePeer(oldPublicKey, newPublicKey wgtypes.Key) (string, error) {
 
 }
 
-// AddPeer the device to wireguard
-func AddPeer(public wgtypes.Key, username string) (string, error) {
+// AddPeer the device to wireguard and to database
+func AddPeer(public wgtypes.Key, username string) (database.Device, error) {
 
 	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
 	if err != nil {
-		return "", err
+		return database.Device{}, err
 	}
 
 	//Poor selection algorithm
@@ -240,12 +234,12 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 
 	newAddress, err = incrementIP(newAddress.String(), config.Values().Wireguard.Range.String())
 	if err != nil {
-		return "", err
+		return database.Device{}, err
 	}
 
 	_, network, err := net.ParseCIDR(newAddress.String() + "/32")
 	if err != nil {
-		return "", err
+		return database.Device{}, err
 	}
 
 	var c wgtypes.Config
@@ -257,21 +251,21 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 		},
 	}
 
-	newDevice, err := database.CreateMFAEntry(newAddress.String(), public.String(), username)
+	device, err := database.AddDevice(username, newAddress.String(), public.String())
 	if err != nil {
-		return "", errors.New("unable to setup for first use mfa: " + err.Error())
+		return database.Device{}, err
 	}
 
-	err = xdpAddDevice(newDevice)
+	err = xdpAddDevice(device)
 	if err != nil {
 
 		//make sure we attempt to clean up the db if the xdp add fails
-		RemovePeer(newAddress.String())
+		RemovePeer(device)
 
-		return "", err
+		return database.Device{}, err
 	}
 
-	return network.IP.String(), ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	return device, ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
 }
 
 func GetPeerRealIp(address string) (string, error) {

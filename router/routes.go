@@ -262,7 +262,7 @@ func setupXDP() error {
 		return err
 	}
 
-	knownDevices, err := database.GetDevices()
+	knownDevices, err := database.GetAllDevices()
 	if err != nil {
 		return err
 	}
@@ -279,7 +279,7 @@ func setupXDP() error {
 
 func GetAllAuthorised() ([]string, error) {
 
-	devices, err := database.GetDevices()
+	devices, err := database.GetAllDevices()
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 
 func RefreshConfiguration() []error {
 
-	devices, err := database.GetDevices()
+	devices, err := database.GetAllDevices()
 	if err != nil {
 		return []error{err}
 	}

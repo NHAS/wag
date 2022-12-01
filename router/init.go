@@ -57,7 +57,7 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 				ip := p.AllowedIPs[0].IP.String()
 
-				d, err := database.GetDeviceByIP(ip)
+				d, err := database.GetDeviceByAddress(ip)
 				if err != nil {
 					log.Println("unable to get previous device endpoint for ", ip)
 					if err := Deauthenticate(ip); err != nil {

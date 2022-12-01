@@ -15,7 +15,7 @@ import (
 
 var (
 	database               *sql.DB
-	allowedTokenCharacters = regexp.MustCompile("[a-zA-Z0-9\\-\\_\\.]+")
+	allowedTokenCharacters = regexp.MustCompile(`[a-zA-Z0-9\-\_\.]+`)
 )
 
 func copyFile(src, dst string) error {

@@ -89,11 +89,11 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if address != "10.2.43.2" {
+	if address.Address != "10.2.43.2" {
 		t.Fatal("address of added peer did not match expected: ", address)
 	}
 
-	d, err := database.GetDevices()
+	d, err := database.GetAllDevices()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	d, err = database.GetDevices()
+	d, err = database.GetAllDevices()
 	if err != nil {
 		t.Fatal(err)
 	}

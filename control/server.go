@@ -29,17 +29,22 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := r.FormValue("username")
+
 	if username != "" {
-		d, err := database.GetDeviceByUsername(username)
+
+		user, err := database.GetUser(username)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
 
-		//Needs to be an array to match the list all option
-		ds := []database.Device{d}
+		devices, err := user.GetDevices()
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 
-		b, err := json.Marshal(ds)
+		b, err := json.Marshal(devices)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -51,7 +56,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	devices, err := database.GetDevices()
+	devices, err := database.GetAllDevices()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -79,19 +84,21 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := database.GetDeviceByUsername(r.FormValue("username"))
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	err = router.Deauthenticate(d.Address)
+	address := r.FormValue("address")
+	err = router.Deauthenticate(address)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
 	}
 
-	err = database.SetAttempts(d.Address, config.Values().Lockout+1)
+	user, err := database.GetUserFromAddress(address)
+	if err != nil {
+		http.Error(w, "not found: "+err.Error(), 404)
+
+		return
+	}
+
+	err = user.SetDeviceAuthenticationAttempts(address, config.Values().Lockout+1)
 	if err != nil {
 		http.Error(w, "could not lock device in db: "+err.Error(), 404)
 		return
@@ -112,19 +119,20 @@ func unlockDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, err := url.QueryUnescape(r.FormValue("username"))
+	address, err := url.QueryUnescape(r.FormValue("address"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	d, err := database.GetDeviceByUsername(username)
+	user, err := database.GetUserFromAddress(address)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, "not found: "+err.Error(), 404)
+
 		return
 	}
 
-	err = database.SetAttempts(d.Address, 0)
+	err = user.SetDeviceAuthenticationAttempts(address, 0)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -168,13 +176,21 @@ func deleteDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d, err := database.GetDeviceByUsername(r.FormValue("username"))
+	address := r.FormValue("address")
+
+	user, err := database.GetUserFromAddress(address)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	err = router.RemovePeer(d.Address)
+	device, err := user.GetDevice(address)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = router.RemovePeer(device)
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 		return
@@ -291,12 +307,12 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	token := r.FormValue("token")
 	username := r.FormValue("username")
-	allowOverwrite := r.FormValue("overwrite") == "true"
+	deviceToOverwrite := r.FormValue("overwrite")
 
 	resp := RegistrationResult{Token: token, Username: username}
 
 	if token != "" {
-		err := database.AddRegistrationToken(token, username, allowOverwrite)
+		err := database.AddRegistrationToken(token, username, deviceToOverwrite)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -312,7 +328,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err = database.GenerateToken(username, allowOverwrite)
+	token, err = database.GenerateToken(username, deviceToOverwrite)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

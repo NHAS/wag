@@ -134,16 +134,16 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	device, err := database.GetDeviceByIP(clientTunnelIp)
+	user, err := database.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Unknown error", 500)
+		http.Error(w, "Bad request", 400)
 		return
 	}
 
 	msg, _ := strconv.Atoi(r.URL.Query().Get("id"))
 
-	if database.IsEnforcingMFA(clientTunnelIp) {
+	if user.IsEnforcingMFA() {
 		data := resources.MfaPrompt{
 			Message:  message(msg),
 			HelpMail: config.Values().HelpMail,
@@ -152,24 +152,24 @@ func index(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		err := resources.PromptTmpl.Execute(w, &data)
 		if err != nil {
-			log.Println(device.Username, clientTunnelIp, "unable to execute template: ", err)
+			log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
 		}
 
 		return
 	}
 
-	log.Println(device.Username, clientTunnelIp, "first use, showing MFA details")
+	log.Println(user.Username, clientTunnelIp, "first use, showing MFA details")
 
-	key, err := database.ShowSecret(clientTunnelIp)
+	key, err := user.ShowTOTPSecret()
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "showing secret failed:", err)
+		log.Println(user.Username, clientTunnelIp, "showing secret failed:", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
 
 	image, err := key.Image(200, 200)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "generating image failed:", err)
+		log.Println(user.Username, clientTunnelIp, "generating image failed:", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
@@ -177,7 +177,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	var buff bytes.Buffer
 	err = png.Encode(&buff, image)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "encoding mfa secret as png failed:", err)
+		log.Println(user.Username, clientTunnelIp, "encoding mfa secret as png failed:", err)
 		http.Error(w, "Unknown error", 500)
 		return
 	}
@@ -192,7 +192,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	err = resources.DisplayMFATmpl.Execute(w, &data)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "unable to build template:", err)
+		log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
 		http.Error(w, "Server error", 500)
 	}
 
@@ -212,25 +212,25 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	device, err := database.GetDeviceByIP(clientTunnelIp)
+	user, err := database.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "unable to get device for internal address:", err)
-		http.Error(w, "Bad request", http.StatusUnauthorized)
+		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
+		http.Error(w, "Bad request", 400)
 		return
 	}
 
 	err = r.ParseForm()
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "client sent a weird form: ", err)
+		log.Println(user.Username, clientTunnelIp, "client sent a weird form: ", err)
 		http.Error(w, "Bad request", 400)
 		return
 	}
 
 	code := r.FormValue("code")
 
-	err = database.Authenticate(clientTunnelIp, code)
+	err = user.Authenticate(clientTunnelIp, code)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg := "1"
 		if strings.Contains(err.Error(), "locked") {
 			msg = "2"
@@ -240,18 +240,18 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !database.IsEnforcingMFA(clientTunnelIp) {
-		err := database.SetMFAEnforcing(clientTunnelIp)
+	if !user.IsEnforcingMFA() {
+		err := user.SetEnforceMFAOn()
 		if err != nil {
-			log.Println(device.Username, clientTunnelIp, "failed to set MFA to enforcing", err)
+			log.Println(user.Username, clientTunnelIp, "failed to set MFA to enforcing", err)
 			http.Error(w, "Server error", 500)
 			return
 		}
 	}
 
-	err = database.SetAttempts(clientTunnelIp, 0)
+	err = user.SetDeviceAuthenticationAttempts(clientTunnelIp, 0)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "unable to reset number of mfa attempts: ", err)
+		log.Println(user.Username, clientTunnelIp, "unable to reset number of mfa attempts: ", err)
 
 		http.Error(w, "Server error", 500)
 		return
@@ -259,13 +259,13 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	err = router.SetAuthorized(clientTunnelIp)
 	if err != nil {
-		log.Println(device.Username, clientTunnelIp, "unable to add mfa routes", err)
+		log.Println(user.Username, clientTunnelIp, "unable to add mfa routes", err)
 
 		http.Error(w, "Server error", 500)
 		return
 	}
 
-	log.Println(device.Username, clientTunnelIp, "authorised")
+	log.Println(user.Username, clientTunnelIp, "authorised")
 
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Write([]byte(resources.MfaSuccess))
@@ -330,25 +330,36 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var address string
-	if overwrites {
+	if overwrites != "" {
 
-		device, err := database.GetDeviceByUsername(username)
+		user, err := database.GetUser(username)
 		if err != nil {
-			log.Printf(username, remoteAddr, "could not get '%s' user from db to replace: %v", username, err)
-
+			log.Printf(username, remoteAddr, "could not find user '%s' from db to replace %s: %v", username, overwrites, err)
 			http.Error(w, "Server Error", 500)
 			return
 		}
 
-		oldPublicKey, _ := wgtypes.ParseKey(device.Publickey)
+		device, err := user.GetDevice(overwrites)
+		if err != nil {
+			log.Printf(username, remoteAddr, "could not find device '%s' for iser '%s' db to replace %s: %v", overwrites, username, err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
 
-		address, err = router.ReplacePeer(oldPublicKey, publickey)
+		address, err = router.ReplacePeer(device, publickey)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to replace device: ", err)
 			http.Error(w, "Server Error", 500)
 			return
 		}
 	} else {
+		_, err := database.CreateUserAccount(username)
+		if err != nil {
+			log.Println(username, remoteAddr, "unable create new user: "+err.Error())
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
 		address, err := router.AddPeer(publickey, username)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to add device: ", err)
@@ -419,9 +430,9 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remoteAddress := getIPFromRequest(r)
-	device, err := database.GetDeviceByIP(remoteAddress)
+	user, err := database.GetUserFromAddress(remoteAddress)
 	if err != nil {
-		log.Println(device.Username, remoteAddress, "Could not find device: ", err)
+		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
 		http.Error(w, "Server Error", 500)
 		return
 	}
@@ -429,7 +440,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "text/plain")
 
-	acl := config.GetEffectiveAcl(device.Username)
+	acl := config.GetEffectiveAcl(user.Username)
 
 	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
 

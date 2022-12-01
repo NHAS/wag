@@ -703,14 +703,12 @@ func addDevices() ([]database.Device, error) {
 			Address:   "192.168.1.2",
 			Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
 			Username:  "tester",
-			Enforcing: true,
 			Attempts:  0,
 		},
 		{
 			Address:   "192.168.1.3",
 			Publickey: "sXns6f8d6SMehnT6DQG8URCXnNCFe6ouxVmpJB7WeS0=",
 			Username:  "randomthingappliedtoall",
-			Enforcing: true,
 			Attempts:  0,
 		},
 	}
