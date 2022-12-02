@@ -390,7 +390,11 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(username, remoteAddr, "successfully registered as", address, ":", publickey.String())
+	logMsg := "registered as"
+	if overwrites != "" {
+		logMsg = "overwrote"
+	}
+	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
 }
 
 func routes(w http.ResponseWriter, r *http.Request) {

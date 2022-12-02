@@ -51,6 +51,11 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	resp := control.RegistrationResult{Token: token, Username: username}
 
+	tokenType := "registration"
+	if overwrite != "" {
+		tokenType = "overwrite"
+	}
+
 	if token != "" {
 		err := data.AddRegistrationToken(token, username, overwrite)
 		if err != nil {
@@ -64,7 +69,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Println("overwrite token for ", username, "created. Overwrites: ", overwrite)
+		log.Println(tokenType, "token for ", username, "created.")
 
 		w.Write(b)
 		return
@@ -84,7 +89,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("registration token for ", username, "created")
+	log.Println(tokenType, "token for ", username, "created")
 	w.Write(b)
 }
 

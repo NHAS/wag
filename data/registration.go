@@ -83,11 +83,10 @@ func AddRegistrationToken(token, username, overwrite string) error {
 	if overwrite != "" {
 		var u string
 		err = database.QueryRow("SELECT address FROM Devices WHERE address = ? AND username = ?", overwrite, username).Scan(&u)
-		if err == nil {
-			return errors.New("could not find device that this token is intended to overwrite")
-		}
-
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return errors.New("could not find device that this token is intended to overwrite")
+			}
 			return errors.New("failed to create registration token: " + err.Error())
 		}
 	}
