@@ -59,8 +59,8 @@ func (g *devices) Check() error {
 
 	switch g.action {
 	case "del", "unlock", "lock":
-		if g.address == "" {
-			return errors.New("address must be supplied")
+		if g.address == "" && g.username == "" {
+			return errors.New("address or username must be supplied")
 		}
 	case "list", "mfa_sessions":
 	default:
@@ -133,6 +133,8 @@ func (g *devices) Run() error {
 					return err
 				}
 			}
+
+			fmt.Println("OK")
 			return nil
 		}
 
@@ -159,6 +161,8 @@ func (g *devices) Run() error {
 					return err
 				}
 			}
+
+			fmt.Println("OK")
 			return nil
 		}
 
