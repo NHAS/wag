@@ -173,7 +173,11 @@ func (u *user) Authenticate(device, code string) error {
 		return err
 	}
 
-	if attempts > config.Values().Lockout || locked {
+	if attempts > config.Values().Lockout {
+		return errors.New("device is locked")
+	}
+
+	if locked {
 		return errors.New("account is locked")
 	}
 

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/control/wagctl"
 )
@@ -12,8 +13,8 @@ import (
 type devices struct {
 	fs *flag.FlagSet
 
-	address string
-	action  string
+	address, username string
+	action            string
 }
 
 func Devices() *devices {
@@ -22,6 +23,7 @@ func Devices() *devices {
 	}
 
 	gc.fs.StringVar(&gc.address, "address", "", "Address of device")
+	gc.fs.StringVar(&gc.username, "username", "", "Owner of multiple devices")
 
 	gc.fs.Bool("del", false, "Remove device and block wireguard access")
 	gc.fs.Bool("list", false, "List wireguard devices")
@@ -71,6 +73,26 @@ func (g *devices) Check() error {
 func (g *devices) Run() error {
 	switch g.action {
 	case "del":
+		if g.username != "" {
+			ds, err := wagctl.ListDevice(g.username)
+			if err != nil {
+				return err
+
+			}
+			fmt.Println("deleting all devices for: ", g.username)
+			time.Sleep(3 * time.Second)
+
+			for _, device := range ds {
+				fmt.Println("deleting ", device.Address)
+				err := wagctl.DeleteDevice(device.Address)
+				if err != nil {
+					return err
+				}
+			}
+
+			fmt.Println("OK")
+			return nil
+		}
 
 		err := wagctl.DeleteDevice(g.address)
 		if err != nil {
@@ -97,6 +119,23 @@ func (g *devices) Run() error {
 		fmt.Println(sessions)
 	case "lock":
 
+		if g.username != "" {
+			ds, err := wagctl.ListDevice(g.username)
+			if err != nil {
+				return err
+
+			}
+
+			for _, device := range ds {
+				fmt.Println("locking ", device)
+				err := wagctl.LockDevice(device.Address)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
 		err := wagctl.LockDevice(g.address)
 		if err != nil {
 			return err
@@ -106,9 +145,21 @@ func (g *devices) Run() error {
 
 	case "unlock":
 
-		err := wagctl.UnlockDevice(g.address)
-		if err != nil {
-			return err
+		if g.username != "" {
+
+			ds, err := wagctl.ListDevice(g.username)
+			if err != nil {
+				return err
+
+			}
+
+			for _, device := range ds {
+				err := wagctl.UnlockDevice(device.Address)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 
 		fmt.Println("OK")

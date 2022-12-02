@@ -423,7 +423,7 @@ func message(i int) string {
 	case 1:
 		return "Validation failed"
 	case 2:
-		return "Account locked"
+		return "Too many attempts. Locked"
 	default:
 		return "Error"
 	}
