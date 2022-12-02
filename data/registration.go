@@ -1,4 +1,4 @@
-package database
+package data
 
 import (
 	"crypto/rand"
@@ -28,7 +28,7 @@ func GetRegistrationToken(token string) (username, overwrites string, err error)
 
 // Returns list of tokens in a map of token : username
 func GetRegistrationTokens() (map[string]string, error) {
-	rows, err := database.Query("SELECT token, username, overwrites from RegistrationTokens ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT token, username, overwrite from RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +51,8 @@ func DeleteRegistrationToken(identifier string) error {
 		DELETE FROM
 			RegistrationTokens
 		WHERE
-			token = ? or username = ?
-		LIMIT 1
-	`, identifier, identifier)
+			token = $1 OR username = $1
+	`, identifier)
 	return err
 }
 
@@ -97,8 +96,8 @@ func AddRegistrationToken(token, username, overwrite string) error {
 	INSERT INTO
 		RegistrationTokens (token, username, overwrite)
 	VALUES
-		(?, ?)
-`, token, username)
+		(?, ?, ?)
+`, token, username, overwrite)
 
 	return err
 }

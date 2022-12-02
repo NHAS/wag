@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/control/wagctl"
 	"github.com/NHAS/wag/router"
 )
 
@@ -63,12 +63,12 @@ func (g *version) Run() error {
 
 	if g.action == "" {
 
-		ver, err := control.GetVersion()
+		ver, err := wagctl.GetVersion()
 		if err != nil {
 			return err
 		}
 
-		hash, err := control.GetBPFVersion()
+		hash, err := wagctl.GetBPFVersion()
 		if err != nil {
 			return err
 		}

@@ -1,4 +1,4 @@
-package database
+package data
 
 import (
 	"database/sql"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database/migrations"
+	"github.com/NHAS/wag/data/migrations"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -65,12 +65,7 @@ func TestMigrationFromVersion1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, err := GetUser("toaster")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	d, err := user.GetDevice("192.168.1.1")
+	d, err := GetDeviceByAddress("192.168.1.1")
 	if err != nil {
 		t.Fatal(err)
 	}

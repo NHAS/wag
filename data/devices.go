@@ -1,4 +1,4 @@
-package database
+package data
 
 import (
 	"database/sql"
@@ -40,9 +40,52 @@ func stringToUDPaddr(address string) (r *net.UDPAddr) {
 
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 
-	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ? LIMIT 1`, endpoint.String(), address)
+	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ?`, endpoint.String(), address)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func GetDevice(username, id string) (device Device, err error) {
+	var (
+		endpoint sql.NullString
+	)
+
+	err = database.QueryRow(`SELECT 
+								* 
+							FROM 
+								Devices 
+							WHERE 
+								username = ? 
+									AND 
+								(address = $2 OR publickey = $2)`,
+		username, id).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts)
+
+	if err != nil {
+		return Device{}, err
+	}
+
+	if endpoint.Valid {
+		device.Endpoint = stringToUDPaddr(endpoint.String)
+	}
+
+	return
+}
+
+func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
+	_, err := database.Exec(`
+	UPDATE 
+		Devices
+	SET
+		attempts = ?
+	WHERE
+		address = ? AND username = ?
+	`, attempts, address, username)
+
+	if err != nil {
+		return errors.New("Unable to set number of account attempts: " + err.Error())
 	}
 
 	return nil
@@ -104,7 +147,6 @@ func DeleteDevice(username, id string) error {
 		WHERE
 			username = ? AND 
 			(address = $2 OR publickey = $2)
-		LIMIT 1
 	`, username, id)
 	return err
 }
@@ -119,20 +161,18 @@ func DeleteDevices(username string) error {
 	return err
 }
 
-func UpdateDevicePublicKey(username, id string, publicKey wgtypes.Key) error {
+func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 	_, err := database.Exec(`
 		UPDATE
 			Devices
 		SET
 		    publickey = ?
 		WHERE
-			username = ? AND 
-			(address = $2 OR publickey = $2)
-		LIMIT 1
-
-	`, publicKey.String(), username, id)
+			username = ? AND address = ?`, publicKey.String(), username, address)
 	return err
 }
+
+//CREATE TABLE Devices(address string primary key, username string not null, publickey string not null unique, endpoint string, attempts integer  DEFAULT 0 not null);
 
 func GetDeviceByAddress(address string) (device Device, err error) {
 	var (
@@ -145,7 +185,7 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 								Devices 
 							WHERE 
 								address = ?`,
-		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint)
+		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts)
 
 	if err != nil {
 		return Device{}, err
@@ -156,4 +196,34 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 	}
 
 	return
+}
+
+func GetDevicesByUser(username string) (devices []Device, err error) {
+	rows, err := database.Query(`SELECT * FROM Devices WHERE username = ?`, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+
+		var (
+			endpoint sql.NullString
+		)
+
+		var d Device
+		//Devices(address string primary key,
+		//username string not null, publickey string not null unique, endpoint string, attempts integer not null
+		err = rows.Scan(&d.Address, &d.Username, &d.Publickey, &endpoint, &d.Attempts)
+		if err != nil {
+			return nil, err
+		}
+
+		if endpoint.Valid {
+			d.Endpoint = stringToUDPaddr(endpoint.String)
+		}
+
+		devices = append(devices, d)
+	}
+
+	return devices, rows.Err()
 }

@@ -8,7 +8,7 @@ import (
 	"os/exec"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/control/server"
 	"github.com/NHAS/wag/router"
 )
 
@@ -62,7 +62,7 @@ func (g *cleanup) Run() error {
 	if result != "0" && result != "3" {
 		log.Println("Cleaning up")
 		router.TearDown()
-		control.TearDown()
+		server.TearDown()
 		exec.Command("/usr/bin/wg-quick", "save", config.Values().Wireguard.DevName).Run()
 
 		return exec.Command("/usr/bin/wg-quick", "down", config.Values().Wireguard.DevName).Run()

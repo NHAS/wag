@@ -1,4 +1,4 @@
-package control
+package wagctl
 
 import (
 	"context"
@@ -11,7 +11,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
 )
 
@@ -19,14 +20,33 @@ var (
 	client = http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", controlSocket)
+				return net.Dial("unix", control.Socket)
 			},
 		},
 	}
 )
 
+func simplepost(path string, form url.Values) error {
+
+	response, err := client.Post("http://unix/"+path, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
 // List devices, if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
-func ListDevice(username string) (d []database.Device, err error) {
+func ListDevice(username string) (d []data.Device, err error) {
 
 	response, err := client.Get("http://unix/device/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -54,22 +74,7 @@ func DeleteDevice(address string) error {
 	form := url.Values{}
 	form.Add("address", address)
 
-	response, err := client.Post("http://unix/device/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-
-		return errors.New(string(result))
-	}
-
-	return nil
+	return simplepost("device/delete", form)
 }
 
 func LockDevice(address string) error {
@@ -77,21 +82,7 @@ func LockDevice(address string) error {
 	form := url.Values{}
 	form.Add("address", address)
 
-	response, err := client.Post("http://unix/device/lock", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(result))
-	}
-
-	return nil
+	return simplepost("device/lock", form)
 }
 
 func UnlockDevice(address string) error {
@@ -99,21 +90,60 @@ func UnlockDevice(address string) error {
 	form := url.Values{}
 	form.Add("address", address)
 
-	response, err := client.Post("http://unix/device/unlock", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	return simplepost("device/unlock", form)
+}
+
+func ListUsers(username string) (users []data.UserModel, err error) {
+
+	response, err := client.Get("http://unix/users/list?username=" + url.QueryEscape(username))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return errors.New(string(result))
+
+		return nil, errors.New(string(result))
 	}
 
-	return nil
+	err = json.NewDecoder(response.Body).Decode(&users)
+
+	return
+}
+
+// Take device address to remove
+func DeleteUser(username string) error {
+	form := url.Values{}
+	form.Add("username", username)
+
+	return simplepost("users/delete", form)
+}
+
+func LockUser(username string) error {
+	form := url.Values{}
+	form.Add("username", username)
+
+	return simplepost("users/lock", form)
+}
+
+func UnlockUser(username string) error {
+
+	form := url.Values{}
+	form.Add("username", username)
+
+	return simplepost("users/unlock", form)
+}
+
+func ResetUserMFA(username string) error {
+
+	form := url.Values{}
+	form.Add("username", username)
+
+	return simplepost("users/reset", form)
 }
 
 func Sessions() (string, error) {
@@ -232,35 +262,30 @@ func Registrations() (out map[string]string, err error) {
 	return
 }
 
-type RegistrationResult struct {
-	Token    string
-	Username string
-}
-
-func NewRegistration(token, username string, allowOverwrite bool) (r RegistrationResult, err error) {
+func NewRegistration(token, username, overwrite string) (r control.RegistrationResult, err error) {
 
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("token", token)
-	form.Add("overwrite", fmt.Sprintf("%t", allowOverwrite))
+	form.Add("overwrite", overwrite)
 
 	response, err := client.Post("http://unix/registration/create", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
-		return RegistrationResult{}, err
+		return control.RegistrationResult{}, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
-			return RegistrationResult{}, err
+			return control.RegistrationResult{}, err
 		}
 
-		return RegistrationResult{}, errors.New(string(result))
+		return control.RegistrationResult{}, errors.New(string(result))
 	}
 
 	if err := json.NewDecoder(response.Body).Decode(&r); err != nil {
-		return RegistrationResult{}, err
+		return control.RegistrationResult{}, err
 	}
 
 	return
@@ -271,22 +296,7 @@ func DeleteRegistration(id string) (err error) {
 	form := url.Values{}
 	form.Add("id", id)
 
-	response, err := client.Post("http://unix/registration/delete", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-
-		return errors.New(string(result))
-	}
-
-	return
+	return simplepost("registration/delete", form)
 }
 
 func Shutdown(cleanup bool) (err error) {
@@ -294,22 +304,7 @@ func Shutdown(cleanup bool) (err error) {
 	form := url.Values{}
 	form.Add("cleanup", fmt.Sprintf("%t", cleanup))
 
-	response, err := client.Post("http://unix/shutdown", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-
-		return errors.New(string(result))
-	}
-
-	return
+	return simplepost("shutdown", form)
 }
 
 func PinBPF() (err error) {

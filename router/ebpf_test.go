@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/data"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/net/ipv4"
@@ -62,7 +62,7 @@ func TestAddNewDevices(t *testing.T) {
 		t.Fatal("checking sessions:", err)
 	}
 
-	pubs := []database.Device{}
+	pubs := []data.Device{}
 	for _, device := range out {
 		if len(config.GetEffectiveAcl(device.Username).Allow) > 0 {
 			pubs = append(pubs, device)
@@ -74,7 +74,7 @@ func TestAddNewDevices(t *testing.T) {
 		t.Fatal("checking publictable:", err)
 	}
 
-	mfas := []database.Device{}
+	mfas := []data.Device{}
 	for _, device := range out {
 		if len(config.GetEffectiveAcl(device.Username).Mfa) > 0 {
 			mfas = append(mfas, device)
@@ -609,7 +609,7 @@ func sameStringSlice(x, y []string) bool {
 	return len(diff) == 0
 }
 
-func checkTimestampMap(devices []database.Device, m *ebpf.Map) error {
+func checkTimestampMap(devices []data.Device, m *ebpf.Map) error {
 	var ipBytes []byte
 	var time uint64
 
@@ -641,7 +641,7 @@ func checkTimestampMap(devices []database.Device, m *ebpf.Map) error {
 	return nil
 }
 
-func checkLPMMap(devices []database.Device, m *ebpf.Map) (map[string][]string, error) {
+func checkLPMMap(devices []data.Device, m *ebpf.Map) (map[string][]string, error) {
 	var innerMapID ebpf.MapID
 	var ipBytes []byte
 
@@ -696,9 +696,9 @@ func result(code uint32) string {
 	}
 }
 
-func addDevices() ([]database.Device, error) {
+func addDevices() ([]data.Device, error) {
 
-	devices := []database.Device{
+	devices := []data.Device{
 		{
 			Address:   "192.168.1.2",
 			Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
@@ -714,7 +714,7 @@ func addDevices() ([]database.Device, error) {
 	}
 
 	for i := range devices {
-		err := xdpAddDevice(devices[i])
+		err := xdpAddDevice(devices[i].Username, devices[i].Address)
 		if err != nil {
 			return nil, err
 		}

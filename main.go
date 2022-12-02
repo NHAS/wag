@@ -17,6 +17,7 @@ var cmds = []commands.Command{
 
 	commands.Registration(),
 	commands.Devices(),
+	commands.Users(),
 	commands.Firewall(),
 
 	commands.VersionCmd(),

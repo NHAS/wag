@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
+	"github.com/NHAS/wag/users"
 	"github.com/NHAS/wag/webserver/resources"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -128,13 +129,13 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp) {
+	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
 	}
 
-	user, err := database.GetUserFromAddress(clientTunnelIp)
+	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
 		http.Error(w, "Bad request", 400)
@@ -160,7 +161,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "first use, showing MFA details")
 
-	key, err := user.ShowTOTPSecret()
+	key, err := user.Totp()
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "showing secret failed:", err)
 		http.Error(w, "Unknown error", 500)
@@ -206,13 +207,13 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := getIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp) {
+	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		w.Write([]byte(resources.MfaSuccess))
 		return
 	}
 
-	user, err := database.GetUserFromAddress(clientTunnelIp)
+	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
 		http.Error(w, "Bad request", 400)
@@ -228,7 +229,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	code := r.FormValue("code")
 
-	err = user.Authenticate(clientTunnelIp, code)
+	err = user.Authenticate(clientTunnelIp.String(), code)
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg := "1"
@@ -237,31 +238,6 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, "/?id="+msg, http.StatusTemporaryRedirect)
 
-		return
-	}
-
-	if !user.IsEnforcingMFA() {
-		err := user.SetEnforceMFAOn()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to set MFA to enforcing", err)
-			http.Error(w, "Server error", 500)
-			return
-		}
-	}
-
-	err = user.SetDeviceAuthenticationAttempts(clientTunnelIp, 0)
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to reset number of mfa attempts: ", err)
-
-		http.Error(w, "Server error", 500)
-		return
-	}
-
-	err = router.SetAuthorized(clientTunnelIp)
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to add mfa routes", err)
-
-		http.Error(w, "Server error", 500)
 		return
 	}
 
@@ -297,7 +273,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, overwrites, err := database.GetRegistrationToken(key)
+	username, overwrites, err := data.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
@@ -329,49 +305,43 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey = privatekey.PublicKey()
 	}
 
-	var address string
-	if overwrites != "" {
-
-		user, err := database.GetUser(username)
-		if err != nil {
-			log.Printf(username, remoteAddr, "could not find user '%s' from db to replace %s: %v", username, overwrites, err)
-			http.Error(w, "Server Error", 500)
-			return
-		}
-
-		device, err := user.GetDevice(overwrites)
-		if err != nil {
-			log.Printf(username, remoteAddr, "could not find device '%s' for iser '%s' db to replace %s: %v", overwrites, username, err)
-			http.Error(w, "Server Error", 500)
-			return
-		}
-
-		address, err = router.ReplacePeer(device, publickey)
-		if err != nil {
-			log.Println(username, remoteAddr, "unable to replace device: ", err)
-			http.Error(w, "Server Error", 500)
-			return
-		}
-	} else {
-		_, err := database.CreateUserAccount(username)
+	user, err := users.GetUser(username)
+	if err != nil {
+		user, err = users.CreateUser(username)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable create new user: "+err.Error())
 			http.Error(w, "Server Error", 500)
 			return
 		}
+	}
 
-		address, err := router.AddPeer(publickey, username)
+	var address string
+	if overwrites != "" {
+
+		err = user.SetDevicePublicKey(publickey.String(), overwrites)
+		if err != nil {
+			log.Println(username, remoteAddr, "could update '", overwrites, "': ", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
+		address = overwrites
+
+	} else {
+
+		device, err := user.AddDevice(publickey)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to add device: ", err)
 
 			http.Error(w, "Server Error", 500)
 			return
 		}
+		address = device.Address
 
 		defer func() {
 			if err != nil {
 				log.Println(username, remoteAddr, "removing device (due to registration failure)")
-				err := router.RemovePeer(address)
+				err := router.RemovePeer(device.Address, device.Publickey)
 				if err != nil {
 					log.Println(username, remoteAddr, "unable to remove wg device: ", err)
 				}
@@ -413,7 +383,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Finish registration process
-	err = database.DeleteRegistrationToken(key)
+	err = data.DeleteRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "expiring registration token failed:", err)
 		http.Error(w, "Server Error", 500)
@@ -430,7 +400,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remoteAddress := getIPFromRequest(r)
-	user, err := database.GetUserFromAddress(remoteAddress)
+	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
 		http.Error(w, "Server Error", 500)

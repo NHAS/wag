@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/data"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -262,13 +262,13 @@ func setupXDP() error {
 		return err
 	}
 
-	knownDevices, err := database.GetAllDevices()
+	knownDevices, err := data.GetAllDevices()
 	if err != nil {
 		return err
 	}
 
 	for _, device := range knownDevices {
-		err := xdpAddDevice(device)
+		err := xdpAddDevice(device.Username, device.Address)
 		if err != nil {
 			return err
 		}
@@ -279,7 +279,7 @@ func setupXDP() error {
 
 func GetAllAuthorised() ([]string, error) {
 
-	devices, err := database.GetAllDevices()
+	devices, err := data.GetAllDevices()
 	if err != nil {
 		return nil, err
 	}
@@ -341,6 +341,11 @@ func xdpRemoveDevice(address string) error {
 		finalError = errors.New(finalError.Error() + "removing from session table failed: " + sessionErr.Error() + " ")
 	}
 
+	lastPacketErr := xdpObjects.LastPacketTime.Delete(ip.To4())
+	if lastPacketErr != nil && !strings.Contains(lastPacketErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from lastpackettime table failed: " + lastPacketErr.Error() + " ")
+	}
+
 	publicErr := xdpObjects.PublicTable.Delete(ip.To4())
 	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
 		finalError = errors.New(finalError.Error() + "removing from public table failed: " + sessionErr.Error() + " ")
@@ -358,11 +363,11 @@ func xdpRemoveDevice(address string) error {
 	return finalError
 }
 
-func xdpAddDevice(device database.Device) error {
+func xdpAddDevice(username, address string) error {
 
-	ip := net.ParseIP(device.Address)
+	ip := net.ParseIP(address)
 	if ip == nil {
-		return errors.New("Device " + device.Username + " does not have an internal IP address assigned to it, this is a big bug")
+		return errors.New("Device " + username + " does not have an internal IP address assigned to it, this is a big bug")
 	}
 
 	var timestamp uint64
@@ -374,11 +379,11 @@ func xdpAddDevice(device database.Device) error {
 	defer func() {
 		//On error of any of the following operations, remove any bits that previous operations were able to add
 		if err != nil {
-			xdpRemoveDevice(device.Address)
+			xdpRemoveDevice(address)
 		}
 	}()
 
-	acls := config.GetEffectiveAcl(device.Username)
+	acls := config.GetEffectiveAcl(username)
 
 	// Create inner tables for the public and mfa routes based on the current ACLs
 	err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
@@ -461,7 +466,7 @@ func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 
 func RefreshConfiguration() []error {
 
-	devices, err := database.GetAllDevices()
+	devices, err := data.GetAllDevices()
 	if err != nil {
 		return []error{err}
 	}

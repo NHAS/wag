@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/control/wagctl"
 )
 
 type upgrade struct {
@@ -70,7 +70,7 @@ func (g *upgrade) Check() error {
 				fmt.Scanf("%s", &g.hash)
 			}
 
-			currentHash, err := control.GetBPFVersion()
+			currentHash, err := wagctl.GetBPFVersion()
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ func (g *upgrade) Check() error {
 			return errors.New("new program did not report local version")
 		}
 
-		hash, err := control.GetBPFVersion()
+		hash, err := wagctl.GetBPFVersion()
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ func (g *upgrade) Check() error {
 func (g *upgrade) Run() error {
 
 	fmt.Print("Pinning ebpf assets....")
-	if err := control.PinBPF(); err != nil {
+	if err := wagctl.PinBPF(); err != nil {
 		return err
 	}
 	fmt.Println("Done")
@@ -136,7 +136,7 @@ func (g *upgrade) Run() error {
 	fmt.Println("Done")
 
 	fmt.Print("Shutting down server...")
-	control.Shutdown(false)
+	wagctl.Shutdown(false)
 	fmt.Println("Done")
 
 	if g.newVersionPath != "" {

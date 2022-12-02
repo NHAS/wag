@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/data"
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
@@ -57,9 +57,9 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 				ip := p.AllowedIPs[0].IP.String()
 
-				d, err := database.GetDeviceByAddress(ip)
+				d, err := data.GetDeviceByAddress(ip)
 				if err != nil {
-					log.Println("unable to get previous device endpoint for ", ip)
+					log.Println("unable to get previous device endpoint for ", ip, err)
 					if err := Deauthenticate(ip); err != nil {
 						log.Println(ip, "unable to remove forwards for device: ", err)
 					}
@@ -68,7 +68,7 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 				if d.Endpoint.String() != p.Endpoint.String() {
 
-					err = database.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
+					err = data.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
 					if err != nil {
 						log.Println(ip, "unable to update device endpoint: ", err)
 					}

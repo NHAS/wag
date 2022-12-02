@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/data"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -17,7 +17,7 @@ func setupWgTest() error {
 		return err
 	}
 
-	err := database.Load(config.Values().DatabaseLocation)
+	err := data.Load(config.Values().DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
@@ -89,17 +89,8 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if address.Address != "10.2.43.2" {
+	if address != "10.2.43.2" {
 		t.Fatal("address of added peer did not match expected: ", address)
-	}
-
-	d, err := database.GetAllDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(d) != 1 {
-		t.Fatal("Added one device, didnt get 1 device back from the db")
 	}
 
 	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
@@ -123,18 +114,9 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal("the peer did have the same ip address as what was added: ", dev.Peers[0].AllowedIPs[0].IP.String())
 	}
 
-	err = RemovePeer(address)
+	err = RemovePeer(pk.String(), address)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	d, err = database.GetAllDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(d) != 0 {
-		t.Fatal("Removed only device, but db still recorded a device")
 	}
 
 	dev, err = ctrl.Device(config.Values().Wireguard.DevName)

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/control/wagctl"
 )
 
 type firewallCmd struct {
@@ -59,7 +59,7 @@ func (g *firewallCmd) Run() error {
 	switch g.action {
 	case "list":
 
-		rules, err := control.FirewallRules()
+		rules, err := wagctl.FirewallRules()
 		if err != nil {
 			return err
 		}

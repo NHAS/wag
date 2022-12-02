@@ -1,4 +1,4 @@
-package database
+package data
 
 import (
 	"database/sql"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NHAS/wag/database/migrations"
+	"github.com/NHAS/wag/data/migrations"
 	_ "github.com/mattn/go-sqlite3"
 )
 

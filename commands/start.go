@@ -12,8 +12,8 @@ import (
 	"syscall"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control"
-	"github.com/NHAS/wag/database"
+	"github.com/NHAS/wag/control/server"
+	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
 	"github.com/NHAS/wag/webserver"
 )
@@ -95,7 +95,7 @@ func (g *start) Check() error {
 		return errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
-	err = database.Load(config.Values().DatabaseLocation)
+	err = data.Load(config.Values().DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
@@ -132,11 +132,11 @@ func (g *start) Run() error {
 	}
 	defer router.TearDown()
 
-	err = control.StartControlSocket()
+	err = server.StartControlSocket()
 	if err != nil {
 		return fmt.Errorf("unable to create control socket: %v", err)
 	}
-	defer control.TearDown()
+	defer server.TearDown()
 
 	webserver.Start(error)
 

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/NHAS/wag/control"
+	"github.com/NHAS/wag/control/wagctl"
 )
 
 type reload struct {
@@ -40,5 +40,5 @@ func (g *reload) Check() error {
 
 func (g *reload) Run() error {
 
-	return control.ConfigReload()
+	return wagctl.ConfigReload()
 }

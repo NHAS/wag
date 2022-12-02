@@ -9,7 +9,7 @@ import (
 	"github.com/NHAS/wag/utils"
 )
 
-func getIPFromRequest(r *http.Request) string {
+func getIPFromRequest(r *http.Request) net.IP {
 
 	//Do not respect the X-Forwarded-For header until we are explictly told we are being proxied.
 	if config.Values().Proxied {
@@ -17,9 +17,9 @@ func getIPFromRequest(r *http.Request) string {
 
 		addresses := strings.Split(ips, ",")
 		if ips != "" && len(addresses) > 0 && net.ParseIP(addresses[0]) != nil {
-			return addresses[0]
+			return net.ParseIP(addresses[0]).To4()
 		}
 	}
 
-	return utils.GetIP(r.RemoteAddr)
+	return net.ParseIP(utils.GetIP(r.RemoteAddr)).To4()
 }
