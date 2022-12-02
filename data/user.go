@@ -94,7 +94,7 @@ func IsEnforcingMFA(username string) bool {
 	SELECT 
 		enforcing 
 	FROM 
-		Devices
+		Users
 	WHERE
 		username = ?
 `, username).Scan(&enforcing)
