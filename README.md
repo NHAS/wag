@@ -49,7 +49,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `registration`, `devices`, `firewall`, `version`, `upgrade`
+Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`,  `upgrade`, `gen-config`
   
 `start`: starts the wag server  
 ```
@@ -77,33 +77,52 @@ Usage of firewall:
 Usage of registration:
   -add
         Create a new enrolment token
-  -overwrite
-        Add registration token for existing user, will overwrite wireguard public key (but not 2FA)
   -del
         Delete existing enrolment token
   -list
         List tokens
+  -overwrite string
+        Add registration token for an existing users device, will overwrite wireguard public key (but not 2FA)
   -token string
         Manually set registration token (Optional)
   -username string
         Username of device
 ```  
 
-`devices`: Manages MFA and device access  
+`devices`: Manages devices  
 ```
 Usage of devices:
   -address string
-        Device address
+        Address of device
   -del
-        Completely remove device blocks wireguard access
+        Remove device and block wireguard access
   -list
-        List devices with 2fa entries
+        List wireguard devices
   -lock
-        Locked account/device access to mfa routes
+        Lock device access to mfa routes
   -mfa_sessions
-        Get list of deivces with active authorised sessions
-  -reset
-        Reset locked account/device
+        Get list of devices with active authorised sessions
+  -unlock
+        Unlock device
+  -username string
+        Owner of multiple devices
+```
+  
+`users`: Manages users MFA and can delete all users devices
+```
+Usage of users:
+  -del
+        Delete user and all associated devices
+  -list
+        List users, if '-username' supply will filter by user
+  -lock
+        Locked account, disables all MFA on all devices and deauthenticates all active sessions
+  -reset-mfa
+        Reset MFA details, invalids all session and set MFA to be shown
+  -unlock
+        Unlock a locked account
+  -username string
+        Username to act upon
 ```
 
 `upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online  

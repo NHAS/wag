@@ -27,7 +27,7 @@ func Registration() *registration {
 	gc.fs.StringVar(&gc.token, "token", "", "Manually set registration token (Optional)")
 	gc.fs.StringVar(&gc.username, "username", "", "Username of device")
 
-	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for existing user, will overwrite wireguard public key (but not 2FA)")
+	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
 
 	gc.fs.Bool("add", false, "Create a new enrolment token")
 	gc.fs.Bool("del", false, "Delete existing enrolment token")
