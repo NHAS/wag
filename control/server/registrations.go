@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/NHAS/wag/control"
@@ -63,6 +64,8 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		log.Println("overwrite token for ", username, "created. Overwrites: ", overwrite)
+
 		w.Write(b)
 		return
 	}
@@ -81,6 +84,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("registration token for ", username, "created")
 	w.Write(b)
 }
 
@@ -104,6 +108,8 @@ func deleteRegistration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, errors.New("Could not delete token: "+err.Error()).Error(), 500)
 		return
 	}
+
+	log.Println("registration token deleted")
 
 	w.Write([]byte("OK"))
 }

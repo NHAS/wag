@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/NHAS/wag/data"
@@ -84,6 +85,8 @@ func lockUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(username, "locked")
+
 	w.Write([]byte("OK"))
 }
 
@@ -112,6 +115,8 @@ func unlockUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
 	}
+
+	log.Println(username, "unlocked")
 
 	w.Write([]byte("OK"))
 }
@@ -142,6 +147,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(username, "deleted")
+
 	w.Write([]byte("OK"))
 }
 
@@ -170,6 +177,8 @@ func resetMfaUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
 	}
+
+	log.Println(username, "MFA has been reset and will be shown")
 
 	w.Write([]byte("OK"))
 }

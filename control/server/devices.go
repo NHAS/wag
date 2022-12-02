@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -100,6 +101,8 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(user.Username, " device", address, "has been locked")
+
 	w.Write([]byte("OK"))
 }
 
@@ -133,6 +136,8 @@ func unlockDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Println(user.Username, " device", address, "has been unlocked")
 
 	w.Write([]byte("OK"))
 }
@@ -185,6 +190,8 @@ func deleteDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Println(user.Username, " device", address, "deleted")
 
 	w.Write([]byte("OK"))
 }

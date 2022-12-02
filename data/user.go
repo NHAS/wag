@@ -194,7 +194,6 @@ func GetUserData(username string) (u UserModel, err error) {
 	u.Enforcing = enforcing.Valid
 
 	return
-
 }
 
 func GetUserDataFromAddress(address string) (u UserModel, err error) {

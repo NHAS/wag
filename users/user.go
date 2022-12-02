@@ -3,7 +3,6 @@ package users
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -243,8 +242,6 @@ func CreateUser(username string) (user, error) {
 }
 
 func GetUser(username string) (user, error) {
-
-	log.Printf("got user '%s'", username)
 
 	ud, err := data.GetUserData(username)
 	if err != nil {
