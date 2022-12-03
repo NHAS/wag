@@ -18,6 +18,8 @@ import (
 	"github.com/NHAS/wag/router"
 	"github.com/NHAS/wag/users"
 	"github.com/NHAS/wag/webserver/resources"
+	"github.com/boombuler/barcode"
+	"github.com/boombuler/barcode/qr"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -46,6 +48,7 @@ func Start(err chan<- error) {
 	}
 
 	public := http.NewServeMux()
+	public.HandleFunc("/static/", embeddedStatic)
 	public.HandleFunc("/register_device", registerDevice)
 	public.HandleFunc("/reachability", reachability)
 
@@ -342,15 +345,13 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err != nil {
 				log.Println(username, remoteAddr, "removing device (due to registration failure)")
-				err := router.RemovePeer(device.Address, device.Publickey)
+				err := user.DeleteDevice(device.Address)
 				if err != nil {
 					log.Println(username, remoteAddr, "unable to remove wg device: ", err)
 				}
 			}
 		}()
 	}
-
-	w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
 
 	acl := config.GetEffectiveAcl(username)
 
@@ -376,11 +377,57 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		DNS:               config.Values().DNS,
 	}
 
-	err = resources.InterfaceTemplate.Execute(w, &i)
-	if err != nil {
-		log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
-		http.Error(w, "Server Error", 500)
-		return
+	if r.URL.Query().Get("type") == "mobile" {
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+
+		var config bytes.Buffer
+		err = resources.InterfaceTemplate.Execute(&config, &i)
+		if err != nil {
+			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
+		image, err := qr.Encode(config.String(), qr.M, qr.Auto)
+		if err != nil {
+			log.Println(username, remoteAddr, "failed to generate qr code:", err)
+			http.Error(w, "Server Error", 500)
+		}
+
+		image, err = barcode.Scale(image, 400, 400)
+		if err != nil {
+			log.Println(username, remoteAddr, "failed to output barcode bytes:", err)
+			http.Error(w, "Server Error", 500)
+		}
+
+		var buff bytes.Buffer
+		err = png.Encode(&buff, image)
+		if err != nil {
+			log.Println(user.Username, remoteAddr, "encoding mfa secret as png failed:", err)
+			http.Error(w, "Unknown error", 500)
+			return
+		}
+
+		qr := resources.QrCodeRegistrationDisplay{
+			ImageData: "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
+			Username:  username,
+		}
+
+		err = resources.DisplayRegistrationAsQRCodeTmpl.Execute(w, &qr)
+		if err != nil {
+			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
+	} else {
+		w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
+		err = resources.InterfaceTemplate.Execute(w, &i)
+		if err != nil {
+			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
 	}
 
 	//Finish registration process

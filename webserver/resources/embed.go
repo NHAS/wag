@@ -43,6 +43,16 @@ type MfaPrompt struct {
 
 var PromptTmpl *template.Template = template.Must(template.New("").Parse(mfaPromptTmplt))
 
+//go:embed qrcode_registration.html
+var qrcodeRegistrationDisplayTmplt string
+
+type QrCodeRegistrationDisplay struct {
+	ImageData string
+	Username  string
+}
+
+var DisplayRegistrationAsQRCodeTmpl *template.Template = template.Must(template.New("").Parse(qrcodeRegistrationDisplayTmplt))
+
 // Not a template
 //
 //go:embed success.html
