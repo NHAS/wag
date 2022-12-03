@@ -166,6 +166,11 @@ func (g *devices) Run() error {
 			return nil
 		}
 
+		err := wagctl.UnlockDevice(g.address)
+		if err != nil {
+			return err
+		}
+
 		fmt.Println("OK")
 	}
 

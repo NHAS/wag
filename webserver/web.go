@@ -427,7 +427,7 @@ func message(i int) string {
 	case 1:
 		return "Validation failed"
 	case 2:
-		return "Too many attempts. Locked"
+		return "Locked"
 	default:
 		return "Error"
 	}

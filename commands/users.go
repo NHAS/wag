@@ -26,8 +26,8 @@ func Users() *users {
 	gc.fs.Bool("del", false, "Delete user and all associated devices")
 	gc.fs.Bool("list", false, "List users, if '-username' supply will filter by user")
 
-	gc.fs.Bool("lock", false, "Locked account, disables all MFA on all devices and deauthenticates all active sessions")
-	gc.fs.Bool("unlock", false, "Unlock a locked account")
+	gc.fs.Bool("lockaccount", false, "Lock account disable authention from any device, deauthenticates user active sessions")
+	gc.fs.Bool("unlockaccount", false, "Unlock a locked account, does not unlock specific device locks (use device -unlock -username <> for that)")
 
 	gc.fs.Bool("reset-mfa", false, "Reset MFA details, invalids all session and set MFA to be shown")
 
@@ -50,13 +50,13 @@ func (g *users) PrintUsage() {
 func (g *users) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "lock", "unlock", "del", "list", "reset-mfa":
+		case "lockaccount", "unlockaccount", "del", "list", "reset-mfa":
 			g.action = strings.ToLower(f.Name)
 		}
 	})
 
 	switch g.action {
-	case "del", "unlock", "lock", "reset-mfa":
+	case "del", "unlockaccount", "lockaccount", "reset-mfa":
 		if g.username == "" {
 			return errors.New("address must be supplied")
 		}
@@ -89,7 +89,7 @@ func (g *users) Run() error {
 		for _, user := range users {
 			fmt.Printf("%s,%t,%t\n", user.Username, user.Locked, user.Enforcing)
 		}
-	case "lock":
+	case "lockaccount":
 
 		err := wagctl.LockUser(g.username)
 		if err != nil {
@@ -98,7 +98,7 @@ func (g *users) Run() error {
 
 		fmt.Println("OK")
 
-	case "unlock":
+	case "unlockaccount":
 
 		err := wagctl.UnlockUser(g.username)
 		if err != nil {
