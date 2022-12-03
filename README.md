@@ -201,7 +201,10 @@ The configuration file specifies how long a session can live for, before expirin
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
-`WebServer.<endpoint>.ListenAddress`: Listen address for endpoint  
+
+`WebServer.Public.ListenAddress`: Listen address for endpoint  
+`WebServer.Tunnel.Port`: Port for in-vpn-tunnel webserver, this does not take a full IP address, as the tunnel listener should *never* be outside the wireguard device
+
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
@@ -229,7 +232,7 @@ Full config example
             "ListenAddress": "192.168.121.61:8080"
         },
         "Tunnel": {
-            "ListenAddress": "192.168.1.1:8080"
+            "Port": "8080"
         }
     },
     "Wireguard": {
