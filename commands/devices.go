@@ -23,7 +23,7 @@ func Devices() *devices {
 	}
 
 	gc.fs.StringVar(&gc.address, "address", "", "Address of device")
-	gc.fs.StringVar(&gc.username, "username", "", "Owner of multiple devices")
+	gc.fs.StringVar(&gc.username, "username", "", "Owner of device (indicates that command acts on all devices own by user)")
 
 	gc.fs.Bool("del", false, "Remove device and block wireguard access")
 	gc.fs.Bool("list", false, "List wireguard devices")
