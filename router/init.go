@@ -3,7 +3,6 @@ package router
 import (
 	"fmt"
 	"log"
-	"net"
 	"time"
 
 	"github.com/NHAS/wag/config"
@@ -101,7 +100,6 @@ func Setup(error chan<- error, iptables bool) (err error) {
 }
 
 func TearDown() {
-	_, tunnelPort, _ := net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
 
 	log.Println("Removing Firewall rules...")
 
@@ -128,7 +126,7 @@ func TearDown() {
 	}
 
 	//Allow input to authorize web server on the tunnel
-	err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().Wireguard.DevName, "--dport", tunnelPort, "-j", "ACCEPT")
+	err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().Wireguard.DevName, "--dport", config.Values().Webserver.Tunnel.Port, "-j", "ACCEPT")
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}

@@ -1,9 +1,6 @@
 package router
 
 import (
-	"fmt"
-	"net"
-
 	"github.com/NHAS/wag/config"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -13,11 +10,6 @@ func setupIptables() error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
-	}
-
-	_, tunnelPort, err := net.SplitHostPort(config.Values().Webserver.Tunnel.ListenAddress)
-	if err != nil {
-		return fmt.Errorf("unable to split host port: %v", err)
 	}
 
 	//So. This to the average person will look like we say "Hey server forward anything and everything from the wireguard interface"
@@ -45,7 +37,7 @@ func setupIptables() error {
 	}
 
 	//Allow input to authorize web server on the tunnel
-	err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().Wireguard.DevName, "--dport", tunnelPort, "-j", "ACCEPT")
+	err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().Wireguard.DevName, "--dport", config.Values().Webserver.Tunnel.Port, "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}

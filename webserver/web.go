@@ -85,12 +85,13 @@ func Start(err chan<- error) {
 	tunnel.HandleFunc("/routes/", routes)
 	tunnel.HandleFunc("/", index)
 
+	tunnelListenAddress := config.Values().Wireguard.ServerAddress.String() + ":" + config.Values().Webserver.Tunnel.Port
 	if config.Values().Webserver.Tunnel.SupportsTLS() {
 
 		go func() {
 
 			srv := &http.Server{
-				Addr:         config.Values().Webserver.Tunnel.ListenAddress,
+				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -103,7 +104,7 @@ func Start(err chan<- error) {
 	} else {
 		go func() {
 			srv := &http.Server{
-				Addr:         config.Values().Webserver.Tunnel.ListenAddress,
+				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -116,7 +117,7 @@ func Start(err chan<- error) {
 
 	//Group the print statement so that multithreading wont disorder them
 	log.Println("Started listening:\n",
-		"\t\t\tTunnel Listener: ", config.Values().Webserver.Tunnel.ListenAddress, "\n",
+		"\t\t\tTunnel Listener: ", tunnelListenAddress, "\n",
 		"\t\t\tPublic Listener: ", config.Values().Webserver.Public.ListenAddress)
 }
 

@@ -90,16 +90,11 @@ func (g *genconfig) Run() error {
 		fmt.Print("enter vpn subnet (default 10.1.2.1/24): ")
 		fmt.Scanf("%s", &c.Wireguard.Address)
 
-		ip, _, err := net.ParseCIDR(c.Wireguard.Address)
-		if err != nil {
-			return err
-		}
-
 		tunnelPort := 80
 		fmt.Print("vpn tunnel port (default 80): ")
 		fmt.Scanf("%d", &tunnelPort)
 
-		c.Webserver.Tunnel.ListenAddress = fmt.Sprintf("%s:%d", ip, tunnelPort)
+		c.Webserver.Tunnel.Port = fmt.Sprintf("%d", tunnelPort)
 
 		c.DatabaseLocation = "devices.db"
 

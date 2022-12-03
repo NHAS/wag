@@ -16,9 +16,18 @@ import (
 var Version string
 
 type webserverDetails struct {
+	CertPath string
+	KeyPath  string
+}
+
+type usualWeb struct {
 	ListenAddress string
-	CertPath      string
-	KeyPath       string
+	webserverDetails
+}
+
+type tunnelWeb struct {
+	webserverDetails
+	Port string
 }
 
 func (wb webserverDetails) SupportsTLS() bool {
@@ -45,8 +54,8 @@ type Config struct {
 	MaxSessionLifetimeMinutes       int
 	SessionInactivityTimeoutMinutes int
 	Webserver                       struct {
-		Public webserverDetails
-		Tunnel webserverDetails
+		Public usualWeb
+		Tunnel tunnelWeb
 	}
 	Wireguard struct {
 		DevName             string

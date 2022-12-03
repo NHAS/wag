@@ -100,8 +100,8 @@ func (g *start) Check() error {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
 
-	if config.Values().Webserver.Tunnel.ListenAddress == "" {
-		return fmt.Errorf("tunnel listen address is not set (Tunnel.ListenAddress)")
+	if config.Values().Webserver.Tunnel.Port == "" {
+		return fmt.Errorf("tunnel listener port is not set (Tunnel.ListenAddress.Port)")
 	}
 
 	if config.Values().Webserver.Public.ListenAddress == "" {
