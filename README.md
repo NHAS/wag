@@ -86,7 +86,7 @@ Usage of registration:
   -token string
         Manually set registration token (Optional)
   -username string
-        Username of device
+        User to add device to
 ```  
 
 `devices`: Manages devices  
@@ -105,7 +105,7 @@ Usage of devices:
   -unlock
         Unlock device
   -username string
-        Owner of multiple devices
+        Owner of device (indicates that command acts on all devices owned by user)
 ```
   
 `users`: Manages users MFA and can delete all users devices
