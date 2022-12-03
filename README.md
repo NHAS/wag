@@ -82,7 +82,7 @@ Usage of registration:
   -list
         List tokens
   -overwrite string
-        Add registration token for an existing users device, will overwrite wireguard public key (but not 2FA)
+        Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)
   -token string
         Manually set registration token (Optional)
   -username string
