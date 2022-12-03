@@ -11,7 +11,7 @@
             "ListenAddress": ":8081"
         },
         "Tunnel": {
-            "ListenAddress": "10.2.43.1:8080"
+            "Port": "8080"
         }
     },
     "Wireguard": {
