@@ -142,7 +142,7 @@ func (g *start) Run() error {
 
 	go func() {
 		cancel := make(chan os.Signal, 1)
-		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, syscall.SIGPIPE, os.Interrupt, syscall.SIGQUIT)
+		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, os.Interrupt, syscall.SIGQUIT)
 
 		s := <-cancel
 
