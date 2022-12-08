@@ -86,6 +86,7 @@ func Start(err chan<- error) {
 	tunnel.HandleFunc("/static/", embeddedStatic)
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/routes/", routes)
+	tunnel.HandleFunc("/pulbic_key/", publicKey)
 	tunnel.HandleFunc("/", index)
 
 	tunnelListenAddress := config.Values().Wireguard.ServerAddress.String() + ":" + config.Values().Webserver.Tunnel.Port
@@ -465,7 +466,25 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	acl := config.GetEffectiveAcl(user.Username)
 
 	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
+}
 
+func publicKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename=pubkey")
+	w.Header().Set("Content-Type", "text/plain")
+
+	wgPublicKey, _, err := router.ServerDetails()
+	if err != nil {
+		log.Println("unable access wireguard device: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
+	w.Write([]byte(wgPublicKey.String()))
 }
 
 func message(i int) string {
