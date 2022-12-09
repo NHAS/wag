@@ -86,7 +86,7 @@ func Start(err chan<- error) {
 	tunnel.HandleFunc("/static/", embeddedStatic)
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/routes/", routes)
-	tunnel.HandleFunc("/pulbic_key/", publicKey)
+	tunnel.HandleFunc("/public_key/", publicKey)
 	tunnel.HandleFunc("/", index)
 
 	tunnelListenAddress := config.Values().Wireguard.ServerAddress.String() + ":" + config.Values().Webserver.Tunnel.Port
