@@ -24,6 +24,10 @@
   <link rel="stylesheet" href="/static/css/skeleton.css">
   <link rel="stylesheet" href="/static/css/custom.css">
 
+  <!--Specific TOTP functions
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="/static/js/totp.js"></script>
+
   <!-- Favicon
 –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <link rel="icon" type="image/png" href="/static/images/favicon.png">
@@ -32,9 +36,18 @@
 
 <body>
 
+  <!-- Server error Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container" id="serverError" hidden="true">
+    <div class="row">
+      <div class="small-space one-half column offset-by-three">
+        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
+      </div>
+    </div>
+  </div>
   <!-- Primary Page Layout
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container">
+  <div class="container" id="mfaDisplay">
     <div class="row">
       <div class="medium-space one-half column offset-by-three">
         <h4>Configure mobile app</h4>
@@ -50,7 +63,7 @@
 
     <div class="row">
       <div class="one-half column offset-by-three center">
-        <img src="{{.ImageData}}" />
+        <img id="ImageData" width="200px" , height="200px" />
       </div>
     </div>
 
@@ -60,8 +73,8 @@
           If you are unable to scan this image, select "Enter a setup key" and enter the following information.
         </p>
 
-        <div>Account name: {{.AccountName}}</div>
-        <div>Your key: {{.Key}}</div>
+        <div>Account name: <span id="AccountName"></span></div>
+        <div>Your key: <span id="Key"></span></div>
         <div>Type of key: Time based</div>
       </div>
     </div>
@@ -72,7 +85,7 @@
     </div>
     {{end}}
 
-    <form method="POST" action="/authorise/" autocomplete="off">
+    <form method="POST" action="/register_mfa/totp/" autocomplete="off">
       <div class="row">
         <div class="small-space one-half column offset-by-three">
           <label for="mfaCode">MFA Code</label>

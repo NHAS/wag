@@ -13,6 +13,8 @@ func setMimeType(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(r.URL.Path)
 
 	switch ext {
+	case ".js":
+		headers.Set("Content-Type", "text/javascript")
 	case ".css":
 		headers.Set("Content-Type", "text/css")
 	case ".png":

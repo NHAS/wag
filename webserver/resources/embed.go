@@ -21,27 +21,20 @@ type Interface struct {
 
 var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).Parse(interfaceTemplate))
 
-//go:embed displaymfa.html
-var mfaDisplayTmplt string
+//go:embed register_mfa_totp.html
+var totpRegistration string
 
-type MfaDisplay struct {
-	ImageData   string
-	AccountName string
-	Key         string
-	Message     string
-}
+var TotpMFATemplate *template.Template = template.Must(template.New("").Parse(totpRegistration))
 
-var DisplayMFATmpl *template.Template = template.Must(template.New("").Parse(mfaDisplayTmplt))
+//go:embed prompt_mfa_totp.html
+var totpPrompt string
 
-//go:embed promptmfa.html
-var mfaPromptTmplt string
-
-type MfaPrompt struct {
+type Msg struct {
 	Message  string
 	HelpMail string
 }
 
-var PromptTmpl *template.Template = template.Must(template.New("").Parse(mfaPromptTmplt))
+var TotpMFAPromptTmpl *template.Template = template.Must(template.New("").Parse(totpPrompt))
 
 //go:embed qrcode_registration.html
 var qrcodeRegistrationDisplayTmplt string
