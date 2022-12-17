@@ -2,6 +2,7 @@ package authenticators
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -141,8 +142,12 @@ func (u *WebauthnUser) UnmarshalJSON(b []byte) error {
 
 	for id := range anon.Credentials {
 		longTerm := anon.Credentials[id]
+		d, err := base64.StdEncoding.DecodeString(id)
+		if err != nil {
+			return err
+		}
 		//TODO: Why the fuck does this not unmarshal fine? id gets munged somehow
-		u.Credentials[string(longTerm.ID)] = &longTerm
+		u.Credentials[string(d)] = &longTerm
 	}
 
 	return nil
@@ -162,7 +167,8 @@ func (u *WebauthnUser) MarshalJSON() ([]byte, error) {
 	}
 
 	for id, cred := range u.Credentials {
-		anon.Credentials[id] = *cred
+
+		anon.Credentials[base64.StdEncoding.EncodeToString([]byte(id))] = *cred
 	}
 
 	return json.Marshal(&anon)
