@@ -18,14 +18,38 @@ import (
 	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
 	"github.com/NHAS/wag/users"
+	"github.com/NHAS/wag/webserver/authenticators"
 	"github.com/NHAS/wag/webserver/resources"
+	"github.com/NHAS/wag/webserver/session"
+	"github.com/NHAS/webauthn/protocol"
+	"github.com/NHAS/webauthn/webauthn"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
+	"github.com/pquerna/otp/totp"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func Start(err chan<- error) {
+var (
+	webAuthN *webauthn.WebAuthn
+)
+
+func Start(errChan chan<- error) error {
+
+	url, err := url.Parse(config.Values().Webserver.Tunnel.Url)
+	if err != nil {
+		return err
+	}
+
+	webAuthN, err = webauthn.New(&webauthn.Config{
+		RPDisplayName: config.Values().Issuer,               // Display Name for your site
+		RPID:          strings.Split(url.Host, ":")[0],      // Generally the domain name for your site
+		RPOrigin:      config.Values().Webserver.Tunnel.Url, // The origin URL for WebAuthn requests
+	})
+
+	if err != nil {
+		return err
+	}
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -66,7 +90,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
+			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -78,17 +102,22 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			err <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
+			errChan <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 
 	tunnel := http.NewServeMux()
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
+
+	tunnel.HandleFunc("/authorise/webauthn/", authoriseWebauthn)
 	tunnel.HandleFunc("/authorise/totp/", authoriseTotp)
 	tunnel.HandleFunc("/authorise/", authorise)
+
 	tunnel.HandleFunc("/routes/", routes)
 	tunnel.HandleFunc("/public_key/", publicKey)
+
+	tunnel.HandleFunc("/register_mfa/webauthn/", registerWebauthn)
 	tunnel.HandleFunc("/register_mfa/totp/", registerTotp)
 	tunnel.HandleFunc("/register_mfa/", registerMFA)
 
@@ -108,7 +137,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
+			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 	} else {
 		go func() {
@@ -120,7 +149,7 @@ func Start(err chan<- error) {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			err <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
+			errChan <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
 		}()
 	}
 
@@ -128,6 +157,7 @@ func Start(err chan<- error) {
 	log.Println("Started listening:\n",
 		"\t\t\tTunnel Listener: ", tunnelListenAddress, "\n",
 		"\t\t\tPublic Listener: ", config.Values().Webserver.Public.ListenAddress)
+	return nil
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
@@ -190,15 +220,15 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
+	data := resources.Msg{
+		Message:  message(id),
+		HelpMail: config.Values().HelpMail,
+	}
+
 	method := r.URL.Query().Get("method")
 	switch method {
-	default:
+	case "totp":
 		log.Println(user.Username, clientTunnelIp, "registration, showing TOTP (default) details")
-
-		data := resources.Msg{
-			Message:  message(id),
-			HelpMail: config.Values().HelpMail,
-		}
 
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		err = resources.TotpMFATemplate.Execute(w, &data)
@@ -207,6 +237,14 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Server error", 500)
 		}
 
+	default:
+		log.Println(user.Username, clientTunnelIp, "registration, showing webauthn registration page")
+
+		err = resources.WebauthnMFATemplate.Execute(w, &data)
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
+			http.Error(w, "Server error", 500)
+		}
 	}
 
 }
@@ -237,9 +275,20 @@ func registerTotp(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		key, err := user.Totp()
+
+		key, err := totp.Generate(totp.GenerateOpts{
+			Issuer:      config.Values().Issuer,
+			AccountName: user.Username,
+		})
 		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "showing secret failed:", err)
+			log.Println(user.Username, clientTunnelIp, "generate key failed:", err)
+			http.Error(w, "Unknown error", 500)
+			return
+		}
+
+		err = data.SetUserMfa(user.Username, key.URL(), "totp")
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
 			http.Error(w, "Unknown error", 500)
 			return
 		}
@@ -279,9 +328,7 @@ func registerTotp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		code := r.FormValue("code")
-
-		err = user.Authenticate(clientTunnelIp.String(), code)
+		err = user.Authenticate(clientTunnelIp.String(), authenticators.Totp(w, r))
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 			msg := "1"
@@ -299,6 +346,96 @@ func registerTotp(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	default:
+		http.NotFound(w, r)
+		return
+	}
+
+}
+
+func registerWebauthn(w http.ResponseWriter, r *http.Request) {
+
+	clientTunnelIp := getIPFromRequest(r)
+
+	if router.IsAuthed(clientTunnelIp.String()) {
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		w.Write([]byte(resources.MfaSuccess))
+		return
+	}
+
+	user, err := users.GetUserFromAddress(clientTunnelIp)
+	if err != nil {
+		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
+		http.Error(w, "Bad request", 400)
+		return
+	}
+
+	if user.IsEnforcingMFA() {
+		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
+
+		http.Error(w, "Bad request", 400)
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+
+		webauthnUser := authenticators.NewUser(user.Username, user.Username)
+
+		registerOptions := func(credCreationOpts *protocol.PublicKeyCredentialCreationOptions) {
+			credCreationOpts.CredentialExcludeList = webauthnUser.CredentialExcludeList()
+		}
+
+		// generate PublicKeyCredentialCreationOptions, session data
+		options, sessionData, err := webAuthN.BeginRegistration(
+			webauthnUser,
+			registerOptions,
+		)
+
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
+			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:  "registration",
+			Value: session.StartSession(sessionData),
+			Path:  "/",
+		})
+
+		webauthdata, err := webauthnUser.MarshalJSON()
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
+			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = data.SetUserMfa(user.Username, string(webauthdata), "webauthn")
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
+			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		jsonResponse(w, options, http.StatusOK)
+	case "POST":
+		err = user.Authenticate(clientTunnelIp.String(), authenticators.WebauthnRegister(w, r, webAuthN))
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+			msg := "Validation Failed"
+			if strings.Contains(err.Error(), "locked") {
+				msg = "Locked."
+			}
+
+			jsonResponse(w, msg, http.StatusBadRequest)
+
+			return
+		}
+		jsonResponse(w, "Registration Success", http.StatusOK)
+
+		log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
+
 	default:
 		http.NotFound(w, r)
 		return
@@ -334,9 +471,23 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	msg, _ := strconv.Atoi(r.URL.Query().Get("id"))
 
-	method := r.URL.Query().Get("method")
-	switch method {
+	switch user.GetMFAType() {
 	default:
+
+		data := resources.Msg{
+			Message:  message(msg),
+			HelpMail: config.Values().HelpMail,
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		err := resources.WebauthnMFAPromptTmpl.Execute(w, &data)
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
+			http.Error(w, "Server Error", 500)
+			return
+		}
+
+	case "totp":
 		data := resources.Msg{
 			Message:  message(msg),
 			HelpMail: config.Values().HelpMail,
@@ -351,6 +502,85 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+}
+
+func authoriseWebauthn(w http.ResponseWriter, r *http.Request) {
+
+	clientTunnelIp := getIPFromRequest(r)
+
+	if router.IsAuthed(clientTunnelIp.String()) {
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+		w.Write([]byte(resources.MfaSuccess))
+		return
+	}
+
+	user, err := users.GetUserFromAddress(clientTunnelIp)
+	if err != nil {
+		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
+		http.Error(w, "Bad request", 400)
+		return
+	}
+
+	if !user.IsEnforcingMFA() {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+
+		webauthUserData, err := user.MFA()
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
+			jsonResponse(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		var webauthnUser authenticators.WebauthnUser
+		err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
+			jsonResponse(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// generate PublicKeyCredentialRequestOptions, session data
+		options, sessionData, err := webAuthN.BeginLogin(webauthnUser)
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
+			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:  "authentication",
+			Value: session.StartSession(sessionData),
+			Path:  "/",
+		})
+
+		jsonResponse(w, options, http.StatusOK)
+		log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
+	case "POST":
+
+		err = user.Authenticate(clientTunnelIp.String(), authenticators.WebauthnLogin(w, r, webAuthN))
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+			msg := "Validation Failed"
+			if strings.Contains(err.Error(), "locked") {
+				msg = "Locked."
+			}
+
+			jsonResponse(w, msg, http.StatusBadRequest)
+
+			return
+		}
+
+		jsonResponse(w, "Login Success", http.StatusOK)
+		log.Println(user.Username, clientTunnelIp, "logged in")
+	default:
+		http.NotFound(w, r)
+		return
+	}
 }
 
 func authoriseTotp(w http.ResponseWriter, r *http.Request) {
@@ -379,16 +609,7 @@ func authoriseTotp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = r.ParseForm()
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "client sent a weird form: ", err)
-		http.Error(w, "Bad request", 400)
-		return
-	}
-
-	code := r.FormValue("code")
-
-	err = user.Authenticate(clientTunnelIp.String(), code)
+	err = user.Authenticate(clientTunnelIp.String(), authenticators.Totp(w, r))
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg := "1"

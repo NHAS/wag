@@ -138,7 +138,10 @@ func (g *start) Run() error {
 	}
 	defer server.TearDown()
 
-	webserver.Start(error)
+	err = webserver.Start(error)
+	if err != nil {
+		return fmt.Errorf("unable to start webserver: %v", err)
+	}
 
 	go func() {
 		cancel := make(chan os.Signal, 1)

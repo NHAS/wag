@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Security Key Login</title>
+  <meta name="description" content="Security Key Login">
+  <meta name="author" content="Jordan Smith">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="/static/css/normalize.css">
+  <link rel="stylesheet" href="/static/css/skeleton.css">
+  <link rel="stylesheet" href="/static/css/custom.css">
+
+  <!--Specific TOTP functions
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="/static/js/webauthn.js"></script>
+
+  <!-- Favicon
+–––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="/static/images/favicon.png">
+
+</head>
+
+<body>
+
+  <!-- Server error Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container" id="serverError" hidden="true">
+    <div class="row">
+      <div class="small-space one-half column offset-by-three">
+        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
+      </div>
+    </div>
+  </div>
+  <!-- Primary Page Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container" id="mfaDisplay">
+
+    <div class="row center">
+        <h4>Log in</h4>
+    </div>
+
+    <div class="row">
+      <div class="column offset-by-three">
+        <img src="/static/images/u2fkey.avif">
+      </div>
+
+    </div>
+    <div class="row">
+      <div class="column one-half offset-by-three small-space center">
+        <input id="loginButton" class="button-primary" type="submit" value="Authorise">
+      </div>
+    </div>
+  </div>
+
+  <!-- End Document
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+</body>
+
+</html>

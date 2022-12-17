@@ -28,6 +28,7 @@ type usualWeb struct {
 type tunnelWeb struct {
 	webserverDetails
 	Port string
+	Url  string
 }
 
 func (wb webserverDetails) SupportsTLS() bool {

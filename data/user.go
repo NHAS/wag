@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/config"
-	"github.com/pquerna/otp/totp"
 )
 
 type UserModel struct {
 	Username  string
 	Mfa       string
+	MfaType   string
 	Locked    bool
 	Enforcing bool
 }
@@ -134,26 +134,48 @@ func SetEnforceMFAOff(username string) error {
 	return err
 }
 
-func GetTOTPSecret(username string) (string, error) {
-	var url string
-	var enforcing sql.NullString
+func GetMFASecret(username string) (string, error) {
+	var (
+		url, mfaType string
+		enforcing    sql.NullString
+	)
 	err := database.QueryRow(`
 		SELECT 
-			mfa, enforcing 
+			mfa, mfa_type, enforcing 
 		FROM 
 			Users
 		WHERE
 			username = ?
-	`, username).Scan(&url, &enforcing)
+	`, username).Scan(&url, &mfaType, &enforcing)
 	if err != nil {
 		return "", err
 	}
 
-	if enforcing.Valid {
-		return "", errors.New("MFA is set to enforcing, cannot reveal secret.")
+	// The webauthn "secret" needs to be used, but isnt returned to the client
+	if enforcing.Valid && mfaType != "webauthn" {
+		return "", errors.New("MFA is set to enforcing, cannot reveal totp secret.")
 	}
 
 	return url, nil
+}
+
+func GetMFAType(username string) (string, error) {
+	var (
+		mfaType string
+	)
+	err := database.QueryRow(`
+		SELECT 
+			mfa_type 
+		FROM 
+			Users
+		WHERE
+			username = ?
+	`, username).Scan(&mfaType)
+	if err != nil {
+		return "", err
+	}
+
+	return mfaType, nil
 }
 
 func DeleteUser(username string) error {
@@ -182,11 +204,11 @@ func GetUserData(username string) (u UserModel, err error) {
 
 	err = database.QueryRow(`
 	SELECT 
-		username, mfa, locked, enforcing
+		username, mfa, mfa_type, locked, enforcing
 	FROM 
 		Users
 	WHERE
-		username = ?`, username).Scan(&u.Username, &u.Mfa, &u.Locked, &enforcing)
+		username = ?`, username).Scan(&u.Username, &u.Mfa, &u.MfaType, &u.Locked, &enforcing)
 	if err != nil {
 		return UserModel{}, err
 	}
@@ -213,56 +235,38 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 	return GetUserData(username)
 }
 
-func SetUserMfa(username string) error {
-	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      config.Values().Issuer,
-		AccountName: username,
-	})
+func SetUserMfa(username, value, mfaType string) error {
 
-	if err != nil {
-		return err
-	}
-
-	_, err = database.Exec(`
+	_, err := database.Exec(`
 	UPDATE 
 		Users
 	SET
-		mfa = ?
+		mfa = ?, mfa_type = ?
 	WHERE
 		username = ?
-	`, key.URL(), username)
+	`, value, mfaType, username)
 
 	return err
 }
 
 func CreateUserDataAccount(username string) (UserModel, error) {
 
-	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      config.Values().Issuer,
-		AccountName: username,
-	})
-	if err != nil {
-		return UserModel{}, err
-	}
-
 	//Leaves enforcing null
-	_, err = database.Exec(`
+	_, err := database.Exec(`
 	INSERT INTO
-		Users (username, mfa)
+		Users (username,mfa)
 	VALUES
-		(?, ?)
-`, username, key.URL())
+		(?,"")
+`, username)
 
 	return UserModel{
 		Username: username,
-		Mfa:      key.URL(),
 	}, err
-
 }
 
 func GetAllUsers() (users []UserModel, err error) {
 
-	rows, err := database.Query("SELECT username, mfa, enforcing, locked FROM Users ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT username, mfa, mfa_type enforcing, locked FROM Users ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +277,7 @@ func GetAllUsers() (users []UserModel, err error) {
 			enforcing sql.NullString
 			u         UserModel
 		)
-		err = rows.Scan(&u.Username, &u.Mfa, &enforcing, &u.Locked)
+		err = rows.Scan(&u.Username, &u.Mfa, &u.MfaType, &enforcing, &u.Locked)
 		if err != nil {
 			return nil, err
 		}

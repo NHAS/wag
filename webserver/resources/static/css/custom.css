@@ -156,10 +156,15 @@
     }
 }
 
+img {
+    border-radius: .25rem !important;
+    width:48rem; /* you can use % */
+    height: auto;
+}
+
 .big-space {
     margin-top: 10%
 }
-
 
 .medium-space {
     margin-top: 5%
@@ -179,4 +184,8 @@
 
 .no-bottom-space {
     margin-bottom: 0;
+}
+
+.container {
+    padding-top: 6rem;
 }

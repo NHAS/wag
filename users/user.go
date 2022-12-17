@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sync"
-	"time"
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
+	"github.com/NHAS/wag/webserver/authenticators"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -21,21 +18,12 @@ type user struct {
 	Enforcing bool
 }
 
-type entry struct {
-	usetime time.Time
-	code    string
-}
-
-// Make sure that one time passwords (OTPs) are truly one time, store used codes
-var lockULock sync.Mutex
-var usedCodes = map[string]entry{}
-
 func (u *user) ResetDeviceAuthAttempts(address string) error {
 	return data.SetDeviceAuthenticationAttempts(u.Username, address, 0)
 }
 
 func (u *user) ResetMfa() error {
-	err := data.SetUserMfa(u.Username)
+	err := data.SetUserMfa(u.Username, "", "unset")
 	if err != nil {
 		return err
 	}
@@ -160,7 +148,7 @@ func (u *user) Delete() error {
 	return data.DeleteUser(u.Username)
 }
 
-func (u *user) Authenticate(device, code string) error {
+func (u *user) Authenticate(device string, authenticator authenticators.Authenticator) error {
 
 	// Make sure that the attempts is always incremented first to stop race condition attacks
 	err := data.IncrementAuthenticationAttempt(u.Username, device)
@@ -181,27 +169,11 @@ func (u *user) Authenticate(device, code string) error {
 		return errors.New("account is locked")
 	}
 
-	key, err := otp.NewKeyFromURL(mfa)
-	if err != nil {
+	if err := authenticator(mfa, u.Username); err != nil {
 		return err
 	}
 
-	if !totp.Validate(code, key.Secret()) {
-		return errors.New("code does not match expected")
-	}
-
-	lockULock.Lock()
-
-	e := usedCodes[u.Username]
-	if e.code == code && e.usetime.Add(30*time.Second).After(time.Now()) {
-		return errors.New("code already used")
-	}
-
-	usedCodes[u.Username] = entry{code: code, usetime: time.Now()}
-	lockULock.Unlock()
-
 	// Device has now successfully authenticated
-
 	if !u.IsEnforcingMFA() {
 		err := u.EnforceMFA()
 		if err != nil {
@@ -222,18 +194,23 @@ func (u *user) Authenticate(device, code string) error {
 	return nil
 }
 
-func (u *user) Totp() (*otp.Key, error) {
-	url, err := data.GetTOTPSecret(u.Username)
+func (u *user) MFA() (string, error) {
+	url, err := data.GetMFASecret(u.Username)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	key, err := otp.NewKeyFromURL(url)
+	return url, nil
+}
+
+func (u *user) GetMFAType() string {
+	mType, err := data.GetMFAType(u.Username)
+
 	if err != nil {
-		return nil, err
+		mType = "unset"
 	}
 
-	return key, nil
+	return mType
 }
 
 func CreateUser(username string) (user, error) {
