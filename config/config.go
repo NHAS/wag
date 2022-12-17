@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -28,7 +29,6 @@ type usualWeb struct {
 type tunnelWeb struct {
 	webserverDetails
 	Port string
-	Url  string
 }
 
 func (wb webserverDetails) SupportsTLS() bool {
@@ -57,6 +57,10 @@ type Config struct {
 	Webserver                       struct {
 		Public usualWeb
 		Tunnel tunnelWeb
+	}
+	Authenticators struct {
+		DefaultMethod string
+		DomainURL     string
 	}
 	Wireguard struct {
 		DevName             string
@@ -248,6 +252,25 @@ func load(path string) (c Config, err error) {
 				acl.Mfa = append(acl.Mfa, newAddress[ii])
 			}
 		}
+	}
+
+	switch c.Authenticators.DefaultMethod {
+	case "totp":
+		// Blank because no action needs to happen here
+	default:
+		if c.Authenticators.DomainURL == "" {
+			return c, errors.New("Authenticators.DomainURL unset (needed for webauthn): " + err.Error())
+		}
+
+		url, err := url.Parse(c.Authenticators.DomainURL)
+		if err != nil {
+			return c, errors.New("could not parse URL from Authenticators.DomainURL (needed for webauthn): " + err.Error())
+		}
+
+		if url.Scheme != "https" {
+			return c, errors.New("Authenticators.DomainURL was not https, webauthn requires https for javascript to access window.PublicKeyCredential (webauthn): " + err.Error())
+		}
+
 	}
 
 	return c, nil
