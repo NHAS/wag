@@ -41,14 +41,12 @@ func WebauthnLogin(w http.ResponseWriter, r *http.Request, webauthnConfig *webau
 			return errors.New("session data could not be turned into WebauthnSessionData")
 		}
 
-		// in an actual implementation, we should perform additional checks on
-		// the returned 'credential', i.e. check 'credential.Authenticator.CloneWarning'
-		// and then increment the credentials counter
 		c, err := webauthnConfig.FinishLogin(webauthnUser, *session, r)
 		if err != nil {
 			return err
 		}
 
+		//  check for cloned security keys
 		if c.Authenticator.CloneWarning {
 			return errors.New("cloned key detected")
 		}
@@ -58,7 +56,8 @@ func WebauthnLogin(w http.ResponseWriter, r *http.Request, webauthnConfig *webau
 			return err
 		}
 
-		err = data.SetUserMfa(username, string(webauthdata), "webauthn")
+		// Store the updated credentials (credential counter incremented by one)
+		err = data.SetUserMfa(username, string(webauthdata), WebauthnMFA)
 		if err != nil {
 			return err
 		}
@@ -88,7 +87,7 @@ func WebauthnRegister(w http.ResponseWriter, r *http.Request, webauthnConfig *we
 
 		webauthnSession, ok := sessionData.(*webauthn.SessionData)
 		if !ok {
-			return errors.New("could not get webauthnsession back")
+			return errors.New("could not get webauthn session back")
 		}
 
 		credential, err := webauthnConfig.FinishRegistration(webauthnUser, *webauthnSession, r)
@@ -103,7 +102,7 @@ func WebauthnRegister(w http.ResponseWriter, r *http.Request, webauthnConfig *we
 			return err
 		}
 
-		err = data.SetUserMfa(username, string(webauthdata), "webauthn")
+		err = data.SetUserMfa(username, string(webauthdata), WebauthnMFA)
 		if err != nil {
 
 			return err
@@ -120,7 +119,7 @@ type WebauthnUser struct {
 	id          uint64
 	name        string
 	displayName string
-	Credentials map[string]*webauthn.Credential
+	credentials map[string]*webauthn.Credential
 }
 
 func (u *WebauthnUser) UnmarshalJSON(b []byte) error {
@@ -138,7 +137,7 @@ func (u *WebauthnUser) UnmarshalJSON(b []byte) error {
 	u.id = anon.Id
 	u.name = anon.Name
 	u.displayName = anon.DisplayName
-	u.Credentials = make(map[string]*webauthn.Credential)
+	u.credentials = make(map[string]*webauthn.Credential)
 
 	for id := range anon.Credentials {
 		longTerm := anon.Credentials[id]
@@ -146,8 +145,8 @@ func (u *WebauthnUser) UnmarshalJSON(b []byte) error {
 		if err != nil {
 			return err
 		}
-		//TODO: Why the fuck does this not unmarshal fine? id gets munged somehow
-		u.Credentials[string(d)] = &longTerm
+		//Encoding non-ascii characters into JSON seems to be broken in golang
+		u.credentials[string(d)] = &longTerm
 	}
 
 	return nil
@@ -166,7 +165,7 @@ func (u *WebauthnUser) MarshalJSON() ([]byte, error) {
 		Credentials: make(map[string]webauthn.Credential),
 	}
 
-	for id, cred := range u.Credentials {
+	for id, cred := range u.credentials {
 
 		anon.Credentials[base64.StdEncoding.EncodeToString([]byte(id))] = *cred
 	}
@@ -181,7 +180,7 @@ func NewUser(name string, displayName string) *WebauthnUser {
 	user.id = randomUint64()
 	user.name = name
 	user.displayName = displayName
-	user.Credentials = map[string]*webauthn.Credential{}
+	user.credentials = map[string]*webauthn.Credential{}
 
 	return user
 }
@@ -217,19 +216,19 @@ func (u WebauthnUser) WebAuthnIcon() string {
 // AddCredential associates the credential to the user
 func (u *WebauthnUser) AddCredential(cred webauthn.Credential) {
 
-	u.Credentials[string(cred.ID)] = &cred
+	u.credentials[string(cred.ID)] = &cred
 
 }
 
 // WebAuthnCredentials returns credentials owned by the user
 func (u WebauthnUser) WebAuthnCredential(ID []byte) (out *webauthn.Credential) {
 
-	return u.Credentials[string(ID)]
+	return u.credentials[string(ID)]
 }
 
 // WebAuthnCredentials returns credentials owned by the user
 func (u WebauthnUser) WebAuthnCredentials() (out []*webauthn.Credential) {
-	for _, cred := range u.Credentials {
+	for _, cred := range u.credentials {
 		out = append(out, cred)
 	}
 
@@ -241,7 +240,7 @@ func (u WebauthnUser) WebAuthnCredentials() (out []*webauthn.Credential) {
 func (u WebauthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
 
 	credentialExcludeList := []protocol.CredentialDescriptor{}
-	for _, cred := range u.Credentials {
+	for _, cred := range u.credentials {
 		descriptor := protocol.CredentialDescriptor{
 			Type:         protocol.PublicKeyCredentialType,
 			CredentialID: cred.ID,

@@ -23,7 +23,7 @@ func (u *user) ResetDeviceAuthAttempts(address string) error {
 }
 
 func (u *user) ResetMfa() error {
-	err := data.SetUserMfa(u.Username, "", "unset")
+	err := data.SetUserMfa(u.Username, "", authenticators.UnsetMFA)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (u *user) GetMFAType() string {
 	mType, err := data.GetMFAType(u.Username)
 
 	if err != nil {
-		mType = "unset"
+		mType = authenticators.UnsetMFA
 	}
 
 	return mType

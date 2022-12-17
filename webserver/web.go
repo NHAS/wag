@@ -36,15 +36,15 @@ var (
 
 func Start(errChan chan<- error) error {
 
-	url, err := url.Parse(config.Values().Webserver.Tunnel.Url)
+	url, err := url.Parse(config.Values().Authenticators.DomainURL)
 	if err != nil {
 		return err
 	}
 
 	webAuthN, err = webauthn.New(&webauthn.Config{
-		RPDisplayName: config.Values().Issuer,               // Display Name for your site
-		RPID:          strings.Split(url.Host, ":")[0],      // Generally the domain name for your site
-		RPOrigin:      config.Values().Webserver.Tunnel.Url, // The origin URL for WebAuthn requests
+		RPDisplayName: config.Values().Issuer,                   // Display Name for your site
+		RPID:          strings.Split(url.Host, ":")[0],          // Generally the domain name for your site
+		RPOrigin:      config.Values().Authenticators.DomainURL, // The origin URL for WebAuthn requests
 	})
 
 	if err != nil {
@@ -226,8 +226,11 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	method := r.URL.Query().Get("method")
+	if method == "" {
+		method = config.Values().Authenticators.DefaultMethod
+	}
 	switch method {
-	case "totp":
+	case authenticators.TotpMFA:
 		log.Println(user.Username, clientTunnelIp, "registration, showing TOTP (default) details")
 
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -286,7 +289,7 @@ func registerTotp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = data.SetUserMfa(user.Username, key.URL(), "totp")
+		err = data.SetUserMfa(user.Username, key.URL(), authenticators.TotpMFA)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
 			http.Error(w, "Unknown error", 500)
@@ -411,7 +414,7 @@ func registerWebauthn(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = data.SetUserMfa(user.Username, string(webauthdata), "webauthn")
+		err = data.SetUserMfa(user.Username, string(webauthdata), authenticators.WebauthnMFA)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
 			jsonResponse(w, err.Error(), http.StatusInternalServerError)
@@ -487,7 +490,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-	case "totp":
+	case authenticators.TotpMFA:
 		data := resources.Msg{
 			Message:  message(msg),
 			HelpMail: config.Values().HelpMail,
