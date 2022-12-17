@@ -75,7 +75,7 @@ func (g *start) Check() error {
 
 		addresses, err := net.LookupIP(config.Values().ExternalAddress)
 		if err != nil {
-			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to parse as IP")
+			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to lookup as domain")
 		}
 
 		if len(addresses) == 0 {
