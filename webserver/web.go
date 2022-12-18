@@ -21,7 +21,6 @@ import (
 	"github.com/NHAS/wag/webserver/authenticators"
 	"github.com/NHAS/wag/webserver/resources"
 	"github.com/NHAS/wag/webserver/session"
-	"github.com/NHAS/webauthn/protocol"
 	"github.com/NHAS/webauthn/webauthn"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
@@ -324,13 +323,6 @@ func registerTotp(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, &mfa, 200)
 
 	case "POST":
-		err = r.ParseForm()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "client sent a weird form: ", err)
-			http.Error(w, "Bad request", 400)
-			return
-		}
-
 		err = user.Authenticate(clientTunnelIp.String(), authenticators.Totp(w, r))
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
@@ -385,14 +377,9 @@ func registerWebauthn(w http.ResponseWriter, r *http.Request) {
 
 		webauthnUser := authenticators.NewUser(user.Username, user.Username)
 
-		registerOptions := func(credCreationOpts *protocol.PublicKeyCredentialCreationOptions) {
-			credCreationOpts.CredentialExcludeList = webauthnUser.CredentialExcludeList()
-		}
-
 		// generate PublicKeyCredentialCreationOptions, session data
 		options, sessionData, err := webAuthN.BeginRegistration(
 			webauthnUser,
-			registerOptions,
 		)
 
 		if err != nil {

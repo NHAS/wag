@@ -36,18 +36,9 @@
 
 <body>
 
-  <!-- Server error Layout
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container" id="serverError" hidden="true">
-    <div class="row">
-      <div class="small-space one-half column offset-by-three">
-        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
-      </div>
-    </div>
-  </div>
   <!-- Primary Page Layout
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container" id="mfaDisplay">
+  <div class="container">
     <div class="row">
       <div class="medium-space one-half column offset-by-three">
         <h4>Configure mobile app</h4>
@@ -85,6 +76,12 @@
     </div>
     {{end}}
 
+    <div class="row" hidden="true" id="serverError">
+      <div class="small-space one-half column offset-by-three">
+        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
+      </div>
+    </div>
+
     <form method="POST" action="/register_mfa/totp/" autocomplete="off">
       <div class="row">
         <div class="small-space one-half column offset-by-three">
@@ -98,6 +95,12 @@
         </div>
       </div>
     </form>
+
+    <div class="row">
+      <div class="column one-half offset-by-three small-space center">
+        <a href="/register_mfa/?method=webauthn">Use another two-step login method</a>
+      </div>
+    </div>
 
   </div>
 

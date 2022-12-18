@@ -45,7 +45,7 @@ func embeddedStatic(w http.ResponseWriter, r *http.Request) {
 
 	_, err = w.Write(fileContent)
 	if err != nil {
-		log.Println("Error writing content")
-		http.Error(w, "Unable to write static resource", 500)
+		log.Println("Unable to write static resource: ", err, " path: ", r.URL.Path)
+		http.Error(w, "Server Error", 500)
 	}
 }

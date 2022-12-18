@@ -156,7 +156,7 @@ func (u *user) Authenticate(device string, authenticator authenticators.Authenti
 		return err
 	}
 
-	mfa, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
+	mfa, mfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (u *user) Authenticate(device string, authenticator authenticators.Authenti
 		return errors.New("account is locked")
 	}
 
-	if err := authenticator(mfa, u.Username); err != nil {
+	if err := authenticator(mfa, mfaType, u.Username); err != nil {
 		return err
 	}
 

@@ -51,14 +51,24 @@
 
     <div class="row center">
         <h4>Log in</h4>
+        <p>
+          In order to access restricted resources you must verify your identity. Please insert your security key.
+          If you are encountering issues, please send an email to <a href="mailto:{{.HelpMail}}">{{.HelpMail}}</a>
+        </p>
     </div>
 
-    <div class="row">
-      <div class="column offset-by-three">
+    <div class="row center">
+
         <img src="/static/images/u2fkey.avif">
-      </div>
 
     </div>
+
+    <div class="row" hidden="true" id="error">
+      <div class="small-space one-half column offset-by-three">
+        <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+      </div>
+    </div>
+
     <div class="row">
       <div class="column one-half offset-by-three small-space center">
         <input id="loginButton" class="button-primary" type="submit" value="Authorise">

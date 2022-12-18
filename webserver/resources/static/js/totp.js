@@ -21,7 +21,6 @@ async function populateTotpDetails() {
 
     } else {
         document.getElementById("serverError").hidden = false;
-        document.getElementById("mfaDisplay").hidden = true;
 
         console.log("Unable to fetch TOTP details for registration: ",  response.status, response.text);
     }

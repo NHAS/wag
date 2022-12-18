@@ -32,10 +32,10 @@ func IncrementAuthenticationAttempt(username, device string) error {
 	return nil
 }
 
-func GetAuthenticationDetails(username, device string) (mfa string, attempts int, locked bool, err error) {
+func GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
 	err = database.QueryRow(`SELECT 
-								mfa, attempts, locked 
+								mfa, mfa_type, attempts, locked 
 							 FROM 
 							 	Users 
 							 INNER JOIN 
@@ -43,7 +43,7 @@ func GetAuthenticationDetails(username, device string) (mfa string, attempts int
 							 ON 
 							 	Users.username = Devices.username 
 							 WHERE 
-							 	Devices.address = ? AND Users.username = ?`, device, username).Scan(&mfa, &attempts, &locked)
+							 	Devices.address = ? AND Users.username = ?`, device, username).Scan(&mfa, &mfaType, &attempts, &locked)
 	if err != nil {
 		return
 	}

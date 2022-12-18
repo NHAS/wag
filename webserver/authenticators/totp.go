@@ -21,7 +21,10 @@ var usedCodes = map[string]entry{}
 
 func Totp(w http.ResponseWriter, r *http.Request) Authenticator {
 
-	return func(mfaSecret, username string) error {
+	return func(mfaSecret, mfaType, username string) error {
+		if mfaType != TotpMFA {
+			return errors.New("wrong mfa type")
+		}
 
 		err := r.ParseForm()
 		if err != nil {

@@ -16,7 +16,11 @@ import (
 )
 
 func WebauthnLogin(w http.ResponseWriter, r *http.Request, webauthnConfig *webauthn.WebAuthn) Authenticator {
-	return func(mfaSecret, username string) error {
+	return func(mfaSecret, mfaType, username string) error {
+
+		if mfaType != WebauthnMFA {
+			return errors.New("wrong mfa type")
+		}
 
 		var webauthnUser WebauthnUser
 		err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
@@ -67,7 +71,10 @@ func WebauthnLogin(w http.ResponseWriter, r *http.Request, webauthnConfig *webau
 }
 
 func WebauthnRegister(w http.ResponseWriter, r *http.Request, webauthnConfig *webauthn.WebAuthn) Authenticator {
-	return func(mfaSecret, username string) error {
+	return func(mfaSecret, mfaType, username string) error {
+		if mfaType != WebauthnMFA {
+			return errors.New("wrong mfa type")
+		}
 
 		var webauthnUser WebauthnUser
 		err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))

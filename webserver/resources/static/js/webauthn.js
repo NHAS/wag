@@ -40,7 +40,8 @@ async function registerUser() {
     });
 
     if (!challenge.ok) {
-        console.log("error")
+        console.log("error getting challenge for registration: ", challenge.status)
+        document.getElementById("error").hidden = false;
         return
     }
 
@@ -85,7 +86,8 @@ async function registerUser() {
     });
 
     if (!finalise.ok) {
-        console.log("finalising failed")
+        console.log("finalising registration failed")
+        document.getElementById("error").hidden = false;
         return
     }
 
@@ -104,7 +106,9 @@ async function loginUser() {
     });
 
     if (!challenge.ok) {
-        console.log("login error")
+        console.log("fetching login challenge failed")
+
+        document.getElementById("error").hidden = false;
         return
     }
 
@@ -153,7 +157,14 @@ async function loginUser() {
     });
 
     if (!finalise.ok) {
+
+        let content = await finalise.json();
+
         console.log("logging in failed")
+        
+        document.getElementById("errorMsg").textContent = content;
+        document.getElementById("error").hidden = false;
+
         return
     }
 

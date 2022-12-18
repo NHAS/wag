@@ -36,29 +36,24 @@
 
 <body>
 
-  <!-- Server error Layout
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container" id="serverError" hidden="true">
-    <div class="row">
-      <div class="small-space one-half column offset-by-three">
-        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
-      </div>
-    </div>
-  </div>
   <!-- Primary Page Layout
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container" id="mfaDisplay">
+  <div class="container">
 
     <div class="row center">
         <h4>Register your security key</h4>
     </div>
 
-    <div class="row">
-      <div class="column offset-by-three">
+    <div class="row center">
         <img src="/static/images/u2fkey.avif">
-      </div>
-
     </div>
+
+    <div class="row" hidden="true" id="error">
+      <div class="small-space one-half column offset-by-three">
+        <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+      </div>
+    </div>
+
     <div class="row">
       <div class="column one-half offset-by-three small-space center">
         <input id="registerButton"class="button-primary" type="submit" value="Authorise">

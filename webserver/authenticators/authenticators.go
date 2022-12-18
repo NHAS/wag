@@ -1,6 +1,6 @@
 package authenticators
 
-type Authenticator func(mfaSecret, username string) error
+type Authenticator func(mfaSecret, mfaType, username string) error
 
 const (
 	UnsetMFA    = "unset"
