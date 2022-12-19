@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     populateTotpDetails()
 }, false);
 
@@ -12,7 +12,14 @@ async function populateTotpDetails() {
     });
 
     if (response.ok) {
-        const details = await response.json();
+
+        let details;
+        try {
+            details = await response.json();
+        } catch (e) {
+            document.getElementById("serverError").hidden = false;
+            return
+        }
 
         document.getElementById("ImageData").src = details.ImageData;
 
@@ -22,6 +29,6 @@ async function populateTotpDetails() {
     } else {
         document.getElementById("serverError").hidden = false;
 
-        console.log("Unable to fetch TOTP details for registration: ",  response.status, response.text);
+        console.log("Unable to fetch TOTP details for registration: ", response.status, response.text);
     }
 }

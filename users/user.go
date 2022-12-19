@@ -23,7 +23,20 @@ func (u *user) ResetDeviceAuthAttempts(address string) error {
 }
 
 func (u *user) ResetMfa() error {
-	err := data.SetUserMfa(u.Username, "", authenticators.UnsetMFA)
+
+	devices, err := u.GetDevices()
+	if err != nil {
+		return err
+	}
+
+	for _, device := range devices {
+		err := router.Deauthenticate(device.Address)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = data.SetUserMfa(u.Username, "", authenticators.UnsetMFA)
 	if err != nil {
 		return err
 	}
@@ -148,7 +161,7 @@ func (u *user) Delete() error {
 	return data.DeleteUser(u.Username)
 }
 
-func (u *user) Authenticate(device string, authenticator authenticators.Authenticator) error {
+func (u *user) Authenticate(device, mfaType string, authenticator authenticators.AuthenticatorFunc) error {
 
 	// Make sure that the attempts is always incremented first to stop race condition attacks
 	err := data.IncrementAuthenticationAttempt(u.Username, device)
@@ -156,7 +169,7 @@ func (u *user) Authenticate(device string, authenticator authenticators.Authenti
 		return err
 	}
 
-	mfa, mfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
+	mfa, userMfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
 	if err != nil {
 		return err
 	}
@@ -169,7 +182,11 @@ func (u *user) Authenticate(device string, authenticator authenticators.Authenti
 		return errors.New("account is locked")
 	}
 
-	if err := authenticator(mfa, mfaType, u.Username); err != nil {
+	if userMfaType != mfaType {
+		return errors.New("authenticator " + mfaType + " used for user with " + userMfaType)
+	}
+
+	if err := authenticator(mfa, u.Username); err != nil {
 		return err
 	}
 

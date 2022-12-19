@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"image/png"
 	"log"
@@ -18,37 +17,18 @@ import (
 	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
 	"github.com/NHAS/wag/users"
+	"github.com/NHAS/wag/utils"
 	"github.com/NHAS/wag/webserver/authenticators"
 	"github.com/NHAS/wag/webserver/resources"
-	"github.com/NHAS/wag/webserver/session"
-	"github.com/NHAS/webauthn/webauthn"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
-	"github.com/pquerna/otp/totp"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-)
 
-var (
-	webAuthN *webauthn.WebAuthn
+	_ "github.com/NHAS/wag/webserver/authenticators/methods"
 )
 
 func Start(errChan chan<- error) error {
-
-	url, err := url.Parse(config.Values().Authenticators.DomainURL)
-	if err != nil {
-		return err
-	}
-
-	webAuthN, err = webauthn.New(&webauthn.Config{
-		RPDisplayName: config.Values().Issuer,                   // Display Name for your site
-		RPID:          strings.Split(url.Host, ":")[0],          // Generally the domain name for your site
-		RPOrigin:      config.Values().Authenticators.DomainURL, // The origin URL for WebAuthn requests
-	})
-
-	if err != nil {
-		return err
-	}
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -109,16 +89,16 @@ func Start(errChan chan<- error) error {
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
-	tunnel.HandleFunc("/authorise/webauthn/", authoriseWebauthn)
-	tunnel.HandleFunc("/authorise/totp/", authoriseTotp)
+	for method, handler := range authenticators.MFA {
+		tunnel.HandleFunc("/authorise/"+method+"/", handler.AuthorisationEndpoint)
+		tunnel.HandleFunc("/register_mfa/"+method+"/", handler.RegistrationEndpoint)
+
+	}
 	tunnel.HandleFunc("/authorise/", authorise)
+	tunnel.HandleFunc("/register_mfa/", registerMFA)
 
 	tunnel.HandleFunc("/routes/", routes)
 	tunnel.HandleFunc("/public_key/", publicKey)
-
-	tunnel.HandleFunc("/register_mfa/webauthn/", registerWebauthn)
-	tunnel.HandleFunc("/register_mfa/totp/", registerTotp)
-	tunnel.HandleFunc("/register_mfa/", registerMFA)
 
 	tunnel.HandleFunc("/", index)
 
@@ -166,7 +146,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientTunnelIp := getIPFromRequest(r)
+	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -196,7 +176,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientTunnelIp := getIPFromRequest(r)
+	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -219,6 +199,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
+
 	data := resources.Msg{
 		Message:  message(id),
 		HelpMail: config.Values().HelpMail,
@@ -228,209 +209,20 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	if method == "" {
 		method = config.Values().Authenticators.DefaultMethod
 	}
-	switch method {
-	case authenticators.TotpMFA:
-		log.Println(user.Username, clientTunnelIp, "registration, showing TOTP (default) details")
 
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		err = resources.TotpMFATemplate.Execute(w, &data)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
-			http.Error(w, "Server error", 500)
-		}
-
-	default:
-		log.Println(user.Username, clientTunnelIp, "registration, showing webauthn registration page")
-
-		err = resources.WebauthnMFATemplate.Execute(w, &data)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
-			http.Error(w, "Server error", 500)
-		}
-	}
-
-}
-
-func registerTotp(w http.ResponseWriter, r *http.Request) {
-
-	clientTunnelIp := getIPFromRequest(r)
-
-	if router.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
-		return
-	}
-
-	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
-
-		http.Error(w, "Bad request", 400)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-
-		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      config.Values().Issuer,
-			AccountName: user.Username,
-		})
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "generate key failed:", err)
-			http.Error(w, "Unknown error", 500)
-			return
-		}
-
-		err = data.SetUserMfa(user.Username, key.URL(), authenticators.TotpMFA)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
-			http.Error(w, "Unknown error", 500)
-			return
-		}
-
-		image, err := key.Image(200, 200)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "generating image failed:", err)
-			http.Error(w, "Unknown error", 500)
-			return
-		}
-
-		var buff bytes.Buffer
-		err = png.Encode(&buff, image)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "encoding mfa secret as png failed:", err)
-			http.Error(w, "Unknown error", 500)
-			return
-		}
-
-		var mfa = struct {
-			ImageData   string
-			Key         string
-			AccountName string
-		}{
-			ImageData:   "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
-			Key:         key.Secret(),
-			AccountName: key.AccountName(),
-		}
-
-		jsonResponse(w, &mfa, 200)
-
-	case "POST":
-		err = user.Authenticate(clientTunnelIp.String(), authenticators.Totp(w, r))
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "1"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "2"
-			}
-
-			http.Redirect(w, r, "/register_mfa/?id="+msg, http.StatusTemporaryRedirect)
-
-			return
-		}
-
-		user.EnforceMFA()
-
-		log.Println(user.Username, clientTunnelIp, "authorised")
-
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-	default:
+	mfaMethod, ok := authenticators.MFA[method]
+	if !ok {
+		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", method)
 		http.NotFound(w, r)
 		return
 	}
 
-}
-
-func registerWebauthn(w http.ResponseWriter, r *http.Request) {
-
-	clientTunnelIp := getIPFromRequest(r)
-
-	if router.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	err = mfaMethod.RegistrationTemplate().Execute(w, &data)
 	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
-		return
+		log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
+		http.Error(w, "Server error", 500)
 	}
-
-	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
-
-		http.Error(w, "Bad request", 400)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-
-		webauthnUser := authenticators.NewUser(user.Username, user.Username)
-
-		// generate PublicKeyCredentialCreationOptions, session data
-		options, sessionData, err := webAuthN.BeginRegistration(
-			webauthnUser,
-		)
-
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:  "registration",
-			Value: session.StartSession(sessionData),
-			Path:  "/",
-		})
-
-		webauthdata, err := webauthnUser.MarshalJSON()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		err = data.SetUserMfa(user.Username, string(webauthdata), authenticators.WebauthnMFA)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		jsonResponse(w, options, http.StatusOK)
-	case "POST":
-		err = user.Authenticate(clientTunnelIp.String(), authenticators.WebauthnRegister(w, r, webAuthN))
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "Validation Failed"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "Locked."
-			}
-
-			jsonResponse(w, msg, http.StatusBadRequest)
-
-			return
-		}
-		jsonResponse(w, "Registration Success", http.StatusOK)
-
-		log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
-
-	default:
-		http.NotFound(w, r)
-		return
-	}
-
 }
 
 func authorise(w http.ResponseWriter, r *http.Request) {
@@ -439,7 +231,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientTunnelIp := getIPFromRequest(r)
+	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
@@ -461,159 +253,27 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	msg, _ := strconv.Atoi(r.URL.Query().Get("id"))
 
-	switch user.GetMFAType() {
-	default:
+	mfaMethod, ok := authenticators.MFA[user.GetMFAType()]
+	if !ok {
+		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", user.GetMFAType())
 
-		data := resources.Msg{
-			Message:  message(msg),
-			HelpMail: config.Values().HelpMail,
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		err := resources.WebauthnMFAPromptTmpl.Execute(w, &data)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
-			http.Error(w, "Server Error", 500)
-			return
-		}
-
-	case authenticators.TotpMFA:
-		data := resources.Msg{
-			Message:  message(msg),
-			HelpMail: config.Values().HelpMail,
-		}
-
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		err := resources.TotpMFAPromptTmpl.Execute(w, &data)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
-			http.Error(w, "Server Error", 500)
-			return
-		}
-	}
-
-}
-
-func authoriseWebauthn(w http.ResponseWriter, r *http.Request) {
-
-	clientTunnelIp := getIPFromRequest(r)
-
-	if router.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
-		return
-	}
-
-	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-
-		webauthUserData, err := user.MFA()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
-			jsonResponse(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		var webauthnUser authenticators.WebauthnUser
-		err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
-			jsonResponse(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// generate PublicKeyCredentialRequestOptions, session data
-		options, sessionData, err := webAuthN.BeginLogin(webauthnUser)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:  "authentication",
-			Value: session.StartSession(sessionData),
-			Path:  "/",
-		})
-
-		jsonResponse(w, options, http.StatusOK)
-		log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
-	case "POST":
-
-		err = user.Authenticate(clientTunnelIp.String(), authenticators.WebauthnLogin(w, r, webAuthN))
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "Validation Failed"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "Locked."
-			}
-
-			jsonResponse(w, msg, http.StatusBadRequest)
-
-			return
-		}
-
-		jsonResponse(w, "Login Success", http.StatusOK)
-		log.Println(user.Username, clientTunnelIp, "logged in")
-	default:
-		http.NotFound(w, r)
-		return
-	}
-}
-
-func authoriseTotp(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
 		http.NotFound(w, r)
 		return
 	}
 
-	clientTunnelIp := getIPFromRequest(r)
-
-	if router.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
-		return
+	data := resources.Msg{
+		Message:  message(msg),
+		HelpMail: config.Values().HelpMail,
 	}
 
-	user, err := users.GetUserFromAddress(clientTunnelIp)
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	err = mfaMethod.PromptTemplate().Execute(w, &data)
 	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
+		http.Error(w, "Server Error", 500)
 		return
 	}
 
-	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
-
-	err = user.Authenticate(clientTunnelIp.String(), authenticators.Totp(w, r))
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-		msg := "1"
-		if strings.Contains(err.Error(), "locked") {
-			msg = "2"
-		}
-		http.Redirect(w, r, "/?id="+msg, http.StatusTemporaryRedirect)
-
-		return
-	}
-
-	log.Println(user.Username, clientTunnelIp, "authorised")
-
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
 func reachability(w http.ResponseWriter, r *http.Request) {
@@ -628,7 +288,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	remoteAddr := getIPFromRequest(r)
+	remoteAddr := utils.GetIPFromRequest(r)
 
 	key, err := url.PathUnescape(r.URL.Query().Get("key"))
 	if err != nil {
@@ -816,7 +476,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	remoteAddress := getIPFromRequest(r)
+	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
@@ -862,15 +522,4 @@ func message(i int) string {
 	default:
 		return "Error"
 	}
-}
-
-// from: https://github.com/duo-labs/webauthn.io/blob/3f03b482d21476f6b9fb82b2bf1458ff61a61d41/server/response.go#L15
-func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
-	dj, err := json.Marshal(d)
-	if err != nil {
-		http.Error(w, "Error creating JSON response", http.StatusInternalServerError)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(c)
-	fmt.Fprintf(w, "%s", dj)
 }

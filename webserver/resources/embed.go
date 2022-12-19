@@ -2,8 +2,8 @@ package resources
 
 import (
 	"embed"
+	"html/template"
 	"strings"
-	"text/template"
 )
 
 //go:embed interface.tmpl

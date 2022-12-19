@@ -1,13 +1,13 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     const registerButton = document.getElementById("registerButton");
-    if(registerButton !== null) {
-        registerButton.onclick=registerUser;
+    if (registerButton !== null) {
+        registerButton.onclick = registerUser;
     }
-   
+
     const loginButton = document.getElementById("loginButton");
-    if(loginButton !== null) {
-        loginButton.onclick=loginUser;
+    if (loginButton !== null) {
+        loginButton.onclick = loginUser;
     }
 
     if (!window.PublicKeyCredential) {
@@ -45,7 +45,14 @@ async function registerUser() {
         return
     }
 
-    let credentialCreationOptions = await challenge.json();
+    let credentialCreationOptions;
+    try {
+        credentialCreationOptions = await challenge.json();
+    } catch (e) {
+        console.log("registering user failed")
+        document.getElementById("error").hidden = false;
+        return
+    }
 
     credentialCreationOptions.publicKey.challenge = bufferDecode(credentialCreationOptions.publicKey.challenge);
     credentialCreationOptions.publicKey.user.id = bufferDecode(credentialCreationOptions.publicKey.user.id);
@@ -96,7 +103,6 @@ async function registerUser() {
 }
 
 async function loginUser() {
-
     const challenge = await fetch("/authorise/webauthn/", {
         method: 'GET',
         mode: 'same-origin',
@@ -107,21 +113,40 @@ async function loginUser() {
 
     if (!challenge.ok) {
         console.log("fetching login challenge failed")
-
         document.getElementById("error").hidden = false;
         return
     }
 
-    let credentialRequestOptions = await challenge.json();
+    let credentialRequestOptions;
+    try {
+        credentialRequestOptions = await challenge.json();
+    } catch (e) {
+        console.log("logging in failed")
+        document.getElementById("error").hidden = false;
+        return
+    }
 
     credentialRequestOptions.publicKey.challenge = bufferDecode(credentialRequestOptions.publicKey.challenge);
     credentialRequestOptions.publicKey.allowCredentials.forEach(function (listItem) {
         listItem.id = bufferDecode(listItem.id);
     });
 
-    const assertion = await navigator.credentials.get({
-        publicKey: credentialRequestOptions.publicKey
-    });
+    let assertion;
+    try {
+        assertion = await navigator.credentials.get({
+            publicKey: credentialRequestOptions.publicKey
+        });
+    } catch (e) {
+        console.log("logging in failed")
+
+        document.getElementById("errorMsg").textContent = e
+        if (e.name == "InvalidStateError") {
+            document.getElementById("errorMsg").textContent = "Incorrect Security Device";
+        }
+
+        document.getElementById("error").hidden = false;
+        return
+    }
 
 
     let authData = assertion.response.authenticatorData;
@@ -131,7 +156,7 @@ async function loginUser() {
     let userHandle = assertion.response.userHandle;
 
 
-    const body =  JSON.stringify({
+    const body = JSON.stringify({
         id: assertion.id,
         rawId: bufferEncode(rawId),
         type: assertion.type,
@@ -161,13 +186,12 @@ async function loginUser() {
         let content = await finalise.json();
 
         console.log("logging in failed")
-        
+
         document.getElementById("errorMsg").textContent = content;
         document.getElementById("error").hidden = false;
 
         return
     }
-
 
     window.location.href = "/";
 }

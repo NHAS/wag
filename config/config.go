@@ -7,10 +7,12 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
-	"github.com/NHAS/wag/utils"
+	"github.com/NHAS/wag/webserver/authenticators"
+	"github.com/NHAS/webauthn/webauthn"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -60,7 +62,11 @@ type Config struct {
 	}
 	Authenticators struct {
 		DefaultMethod string
+		Methods       []string
 		DomainURL     string
+
+		//Not externally configurable
+		Webauthn *webauthn.WebAuthn `json:"-"`
 	}
 	Wireguard struct {
 		DevName             string
@@ -151,9 +157,17 @@ func load(path string) (c Config, err error) {
 			return c, errors.New("Wireguard interface does not have an ip address")
 		}
 
-		c.Wireguard.ServerAddress = net.ParseIP(utils.GetIP(addresses[0].String()))
+		addr := addresses[0].String()
+		for i := len(addr) - 1; i > 0; i-- {
+			if addr[i] == ':' || addr[i] == '/' {
+				addr = addr[:i]
+				break
+			}
+		}
+
+		c.Wireguard.ServerAddress = net.ParseIP(addr)
 		if c.Wireguard.ServerAddress == nil {
-			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", utils.GetIP(addresses[0].String()))
+			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", addr)
 		}
 
 		_, c.Wireguard.Range, err = net.ParseCIDR(addresses[0].String())
@@ -254,24 +268,57 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	switch c.Authenticators.DefaultMethod {
-	case "totp":
-		// Blank because no action needs to happen here
-	default:
-		if c.Authenticators.DomainURL == "" {
-			return c, errors.New("Authenticators.DomainURL unset (needed for webauthn): " + err.Error())
+	if len(c.Authenticators.Methods) == 0 {
+		for method := range authenticators.MFA {
+			c.Authenticators.Methods = append(c.Authenticators.Methods, method)
 		}
-
-		url, err := url.Parse(c.Authenticators.DomainURL)
-		if err != nil {
-			return c, errors.New("could not parse URL from Authenticators.DomainURL (needed for webauthn): " + err.Error())
-		}
-
-		if url.Scheme != "https" {
-			return c, errors.New("Authenticators.DomainURL was not https, webauthn requires https for javascript to access window.PublicKeyCredential (webauthn): " + err.Error())
-		}
-
 	}
+
+	resultMFAMap := make(map[string]authenticators.Authenticator)
+	for _, method := range c.Authenticators.Methods {
+		_, ok := authenticators.MFA[method]
+		if !ok {
+			return c, errors.New("mfa method invalid: " + method)
+		}
+
+		resultMFAMap[method] = authenticators.MFA[method]
+
+		if method == "webauthn" {
+
+			tunnelURL, err := url.Parse(c.Authenticators.DomainURL)
+			if err != nil {
+				return c, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
+			}
+
+			if tunnelURL.Scheme != "https" {
+				return c, errors.New("Authenticators.DomainURL was not HTTPS, yet webauthn was enabled (javascript wont be able to access window.PublicKeyCredential)")
+			}
+
+			c.Authenticators.Webauthn, err = webauthn.New(&webauthn.Config{
+				RPDisplayName: c.Issuer,                              // Display Name for your site
+				RPID:          strings.Split(tunnelURL.Host, ":")[0], // Generally the domain name for your site
+				RPOrigin:      c.Authenticators.DomainURL,            // The origin URL for WebAuthn requests
+			})
+
+			if err != nil {
+				return c, errors.New("could not configure webauthn domain: " + err.Error())
+			}
+		}
+	}
+
+	if c.Authenticators.DefaultMethod == "" {
+		// Insertion from map is random, thus we need to sort that out here
+		sort.Strings(c.Authenticators.Methods)
+		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
+	}
+
+	_, ok = resultMFAMap[c.Authenticators.DefaultMethod]
+	if !ok {
+		return c, errors.New("default mfa method invalid: " + c.Authenticators.DefaultMethod + " valid methods: " + strings.Join(c.Authenticators.Methods, ","))
+	}
+
+	// Remove all uneeded MFA methods from the MFA map
+	authenticators.MFA = resultMFAMap
 
 	return c, nil
 }
