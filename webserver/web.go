@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -198,10 +197,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
-
 	data := resources.Msg{
-		Message:  message(id),
 		HelpMail: config.Values().HelpMail,
 	}
 
@@ -251,8 +247,6 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, _ := strconv.Atoi(r.URL.Query().Get("id"))
-
 	mfaMethod, ok := authenticators.MFA[user.GetMFAType()]
 	if !ok {
 		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", user.GetMFAType())
@@ -262,7 +256,6 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := resources.Msg{
-		Message:  message(msg),
 		HelpMail: config.Values().HelpMail,
 	}
 
@@ -509,17 +502,4 @@ func publicKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(wgPublicKey.String()))
-}
-
-func message(i int) string {
-	switch i {
-	case 0:
-		return ""
-	case 1:
-		return "Validation failed"
-	case 2:
-		return "Locked"
-	default:
-		return "Error"
-	}
 }

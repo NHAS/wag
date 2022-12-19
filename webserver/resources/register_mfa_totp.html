@@ -70,12 +70,6 @@
       </div>
     </div>
 
-    {{if .Message }}
-    <div class="small-space one-half column offset-by-three">
-      <p class="alert alert-error">{{ .Message }}</p>
-    </div>
-    {{end}}
-
     <div class="row" hidden="true" id="error">
       <div class="small-space one-half column offset-by-three">
         <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>

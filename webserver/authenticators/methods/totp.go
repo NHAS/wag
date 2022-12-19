@@ -8,7 +8,6 @@ import (
 	"image/png"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -111,23 +110,17 @@ func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	case "POST":
 		err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+		msg, status := resultMessage(err)
+		jsonResponse(w, msg, status)
+
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-
-			msg := "Validation Failed"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "Locked."
-			}
-
-			jsonResponse(w, msg, http.StatusBadRequest)
 			return
 		}
 
+		log.Println(user.Username, clientTunnelIp, "authorised")
 		user.EnforceMFA()
 
-		log.Println(user.Username, clientTunnelIp, "authorised")
-
-		jsonResponse(w, "Login Success", http.StatusOK)
 	default:
 		http.NotFound(w, r)
 		return
@@ -162,21 +155,16 @@ func (t *Totp) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
+	msg, status := resultMessage(err)
+	jsonResponse(w, msg, status)
+
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-		msg := "Validation Failed"
-		if strings.Contains(err.Error(), "locked") {
-			msg = "Locked."
-		}
-
-		jsonResponse(w, msg, http.StatusBadRequest)
-
 		return
 	}
 
 	log.Println(user.Username, clientTunnelIp, "authorised")
 
-	jsonResponse(w, "Login Success", http.StatusOK)
 }
 
 func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticators.AuthenticatorFunc {

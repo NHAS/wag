@@ -20,7 +20,6 @@ type Interface struct {
 }
 
 type Msg struct {
-	Message  string
 	HelpMail string
 }
 

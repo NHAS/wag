@@ -59,6 +59,8 @@ async function loginUser(location) {
         })
     });
 
+    document.getElementById("mfaCode").value = "";
+
     if (!send.ok) {
         console.log("failed to send totp code")
 

@@ -9,7 +9,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/data"
@@ -65,7 +64,7 @@ func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -78,14 +77,14 @@ func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 		webauthdata, err := webauthnUser.MarshalJSON()
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		err = data.SetUserMfa(user.Username, string(webauthdata), authenticators.WebauthnMFA)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -138,18 +137,16 @@ func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 
 				return nil
 			})
+
+		msg, status := resultMessage(err)
+		jsonResponse(w, msg, status)
+
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "Validation Failed"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "Locked."
-			}
-
-			jsonResponse(w, msg, http.StatusBadRequest)
-
 			return
 		}
-		jsonResponse(w, "Registration Success", http.StatusOK)
+
+		log.Println(user.Username, clientTunnelIp, "authorised")
 
 		log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
 
@@ -187,7 +184,8 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 		webauthUserData, err := user.MFA()
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
-			jsonResponse(w, err.Error(), http.StatusBadRequest)
+
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -195,7 +193,7 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 		err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
-			jsonResponse(w, err.Error(), http.StatusBadRequest)
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -203,7 +201,7 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 		options, sessionData, err := config.Values().Authenticators.Webauthn.BeginLogin(webauthnUser)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
-			jsonResponse(w, err.Error(), http.StatusInternalServerError)
+			jsonResponse(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -266,20 +264,17 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 
 				return nil
 			})
+
+		msg, status := resultMessage(err)
+		jsonResponse(w, msg, status)
+
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "Validation Failed"
-			if strings.Contains(err.Error(), "locked") {
-				msg = "Locked."
-			}
-
-			jsonResponse(w, msg, http.StatusBadRequest)
-
 			return
 		}
 
-		jsonResponse(w, "Login Success", http.StatusOK)
-		log.Println(user.Username, clientTunnelIp, "logged in")
+		log.Println(user.Username, clientTunnelIp, "authorised")
+
 	default:
 		http.NotFound(w, r)
 		return
