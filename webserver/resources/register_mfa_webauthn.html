@@ -41,11 +41,14 @@
   <div class="container">
 
     <div class="row center">
+      <div class="one-half column offset-by-three">
         <h4>Register your security key</h4>
+        <div>
     </div>
 
     <div class="row center">
         <img class="smol-image" src="/static/images/u2fkey.avif">
+        <input id="registerButton" class="button-primary u-pull-right small-space" type="submit" value="Authorise" autofocus>
     </div>
 
     <div class="row" hidden="true" id="error">
@@ -54,21 +57,16 @@
       </div>
     </div>
 
-    <div class="row">
-      <div class="column one-half offset-by-three small-space center">
-        <input id="registerButton" class="button-primary" type="submit" value="Authorise" autofocus>
-      </div>
-    </div>
 
-    {{if gt .NumMethods 1}}
-    <div class="row">
-      <div class="column one-half offset-by-three small-space center">
-        <a href="/register_mfa/?method=select">Use another two-step login method</a>
-      </div>
-    </div>
-    {{end}}
   </div>
 
+  {{if gt .NumMethods 1}}
+  <div class="row">
+    <div class="column small-space center">
+      <a href="/register_mfa/?method=select">Use another two-step login method</a>
+    </div>
+  </div>
+  {{end}}
   <!-- End Document
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
 </body>

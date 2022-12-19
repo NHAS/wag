@@ -158,7 +158,7 @@
 
 .smol-image {
     border-radius: .25rem !important;
-    width: 48rem;
+    width: 100%;
     /* you can use % */
     height: auto;
 }
