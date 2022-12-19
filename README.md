@@ -208,13 +208,18 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
+`Authenticators`: Object that contains configurations for the authentication methods wag provides  
+`Authenticators.DomainURL`: Full domain of the authentication endpoint (in the vpn tunnel), must be a proper domain and using https for webauthn to work 
+`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: webauth, totp)    
+`Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn"]  
+   
 `Wireguard`: Object that contains the wireguard device configuration  
-`DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
-`ListenPort`: Port that wireguard will listen on  
-`PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
-`Address`: Subnet the VPN is responsible for  
-`MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
-`PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
+`Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
+`Wireguard.ListenPort`: Port that wireguard will listen on  
+`Wireguard.PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
+`Wireguard.Address`: Subnet the VPN is responsible for  
+`Wireguard.MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
+`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
   
 Full config example
 ```json
