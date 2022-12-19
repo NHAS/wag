@@ -230,7 +230,7 @@ Full config example
     "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
-    "Issuer": "192.168.121.61",
+    "Issuer": "vpn.test",
     "DNS": ["1.1.1.1"],
     "Webserver": {
         "Public": {
@@ -239,6 +239,11 @@ Full config example
         "Tunnel": {
             "Port": "8080"
         }
+    },
+    "Authenticators": {
+        "DomainURL": "https://vpn.test:8080",
+        "DefaultMethod":"webauthn",
+        "Methods":["totp","webauthn"]
     },
     "Wireguard": {
         "DevName": "wg0",
