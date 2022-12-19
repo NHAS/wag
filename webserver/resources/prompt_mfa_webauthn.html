@@ -40,24 +40,28 @@
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <div class="container" id="mfaDisplay">
 
-    <div class="row center">
+    <div class="row">
       <div class="one-half column offset-by-three">
-        <h4>Log in</h4>
-        <p>
-          In order to access restricted resources you must verify your identity. Please insert your security key.
-          If you are encountering issues, please send an email to <a href="mailto:{{.HelpMail}}">{{.HelpMail}}</a>
-        </p>
-      </div>
-    </div>
+        <div class="row">
+          <h4 class="center">Insert security key</h4>
+          <p class="">
+            In order to access restricted resources you must verify your identity. Please insert your security key.
+            If you are encountering issues, please send an email to <a href="mailto:{{.HelpMail}}">{{.HelpMail}}</a>
+          </p>
+        </div>
 
-    <div class="row center">
-        <img class="smol-image"  src="/static/images/u2fkey.avif">
-        <input id="loginButton" class="button-primary u-pull-right small-space" type="submit" value="Authorise" autofocus>
-    </div>
+        <div class="row">
+          <img class="smol-image" src="/static/images/u2fkey.avif">
+        </div>
 
-    <div class="row" hidden="true" id="error">
-      <div class="small-space one-half column offset-by-three">
-        <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+        <div hidden="true" class="row" id="error">
+          <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+        </div>
+
+        <div class="row">
+          <input id="loginButton" class="button-primary u-pull-right small-space" type="submit" value="Authorise"
+            autofocus>
+        </div>
       </div>
     </div>
 

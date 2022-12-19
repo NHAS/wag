@@ -44,41 +44,47 @@ async function populateTotpDetails() {
 
 async function loginUser(location) {
 
-    const send = await fetch(location, {
-        method: 'POST',
-        mode: 'same-origin',
-        cache: 'no-cache',
-        credentials: 'same-origin',
-        redirect: 'follow',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-        },
-        body: new URLSearchParams({
-            "code": document.getElementById("mfaCode").value
-        })
-    });
+    try {
+        const send = await fetch(location, {
+            method: 'POST',
+            mode: 'same-origin',
+            cache: 'no-cache',
+            credentials: 'same-origin',
+            redirect: 'follow',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: new URLSearchParams({
+                "code": document.getElementById("mfaCode").value
+            })
+        });
 
-    document.getElementById("mfaCode").value = "";
+        document.getElementById("mfaCode").value = "";
 
-    if (!send.ok) {
-        console.log("failed to send totp code")
+        if (!send.ok) {
+            console.log("failed to send totp code")
 
-        let response;
-        try {
-            response = await send.json();
-        } catch (e) {
-            console.log("logging in failed")
+            let response;
+            try {
+                response = await send.json();
+            } catch (e) {
+                console.log("logging in failed")
 
+                document.getElementById("error").hidden = false;
+                return
+            }
+
+            document.getElementById("errorMsg").textContent = response;
             document.getElementById("error").hidden = false;
             return
         }
-
-        document.getElementById("errorMsg").textContent = response;
+    } catch (e) {
+        console.log("logging in user failed")
+        document.getElementById("errorMsg").textContent = e.message;
         document.getElementById("error").hidden = false;
         return
     }
-
 
 
     window.location.href = "/";
