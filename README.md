@@ -209,7 +209,7 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
 `Authenticators`: Object that contains configurations for the authentication methods wag provides  
-`Authenticators.DomainURL`: Full domain of the authentication endpoint (in the vpn tunnel), must be a proper domain and using https for webauthn to work 
+`Authenticators.DomainURL`: Full domain of the authentication endpoint (in the vpn tunnel), must be a proper domain and using https for webauthn to work  
 `Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: webauth, totp)    
 `Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn"]  
    
