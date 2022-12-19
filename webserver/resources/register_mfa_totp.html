@@ -38,7 +38,7 @@
 
   <!-- Primary Page Layout
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container">
+  <div class="container" id="registration">
     <div class="row">
       <div class="medium-space one-half column offset-by-three">
         <h4>Configure mobile app</h4>
@@ -76,13 +76,13 @@
     </div>
     {{end}}
 
-    <div class="row" hidden="true" id="serverError">
+    <div class="row" hidden="true" id="error">
       <div class="small-space one-half column offset-by-three">
-        <p class="alert alert-error">A server error has occurred, please contact: {{.HelpMail}}</p>
+        <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
       </div>
     </div>
 
-    <form method="POST" action="/register_mfa/totp/" autocomplete="off">
+    <form id="loginForm" autocomplete="off">
       <div class="row">
         <div class="small-space one-half column offset-by-three">
           <label for="mfaCode">MFA Code</label>

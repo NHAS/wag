@@ -113,13 +113,13 @@ func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 		err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			msg := "1"
+
+			msg := "Validation Failed"
 			if strings.Contains(err.Error(), "locked") {
-				msg = "2"
+				msg = "Locked."
 			}
 
-			http.Redirect(w, r, "/register_mfa/?id="+msg, http.StatusTemporaryRedirect)
-
+			jsonResponse(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -127,7 +127,7 @@ func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		jsonResponse(w, "Login Success", http.StatusOK)
 	default:
 		http.NotFound(w, r)
 		return
@@ -164,18 +164,19 @@ func (t *Totp) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-		msg := "1"
+		msg := "Validation Failed"
 		if strings.Contains(err.Error(), "locked") {
-			msg = "2"
+			msg = "Locked."
 		}
-		http.Redirect(w, r, "/?id="+msg, http.StatusTemporaryRedirect)
+
+		jsonResponse(w, msg, http.StatusBadRequest)
 
 		return
 	}
 
 	log.Println(user.Username, clientTunnelIp, "authorised")
 
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	jsonResponse(w, "Login Success", http.StatusOK)
 }
 
 func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticators.AuthenticatorFunc {

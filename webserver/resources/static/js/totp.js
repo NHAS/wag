@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', function () {
-    populateTotpDetails()
+    let location = '/authorise/totp/';
+    if (document.getElementById("registration") !== null) {
+        location = "/register_mfa/totp/";
+        populateTotpDetails()
+    }
+
+    document.getElementById('loginForm').onsubmit = function () {
+        loginUser(location);
+        return false;
+    };
 }, false);
 
 async function populateTotpDetails() {
@@ -17,7 +26,7 @@ async function populateTotpDetails() {
         try {
             details = await response.json();
         } catch (e) {
-            document.getElementById("serverError").hidden = false;
+            document.getElementById("error").hidden = false;
             return
         }
 
@@ -27,8 +36,48 @@ async function populateTotpDetails() {
         document.getElementById("Key").textContent = details.Key;
 
     } else {
-        document.getElementById("serverError").hidden = false;
+        document.getElementById("error").hidden = false;
 
         console.log("Unable to fetch TOTP details for registration: ", response.status, response.text);
     }
+}
+
+async function loginUser(location) {
+
+    const send = await fetch(location, {
+        method: 'POST',
+        mode: 'same-origin',
+        cache: 'no-cache',
+        credentials: 'same-origin',
+        redirect: 'follow',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+        },
+        body: new URLSearchParams({
+            "code": document.getElementById("mfaCode").value
+        })
+    });
+
+    if (!send.ok) {
+        console.log("failed to send totp code")
+
+        let response;
+        try {
+            response = await send.json();
+        } catch (e) {
+            console.log("logging in failed")
+
+            document.getElementById("error").hidden = false;
+            return
+        }
+
+        document.getElementById("errorMsg").textContent = response;
+        document.getElementById("error").hidden = false;
+        return
+    }
+
+
+
+    window.location.href = "/";
 }

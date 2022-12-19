@@ -25,6 +25,10 @@
   <link rel="stylesheet" href="/static/css/custom.css">
 
 
+  <!--Specific TOTP functions
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="/static/js/totp.js"></script>
+
   <!-- Favicon
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <link rel="icon" type="image/png" href="/static/images/favicon.png">
@@ -52,8 +56,14 @@
       </div>
       {{end}}
 
-      <form method="POST" action="/authorise/totp/" autocomplete="off">
-        <div class="row medium-space">
+      <div class="row" hidden="true" id="error">
+        <div class="one-half column offset-by-three">
+          <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+        </div>
+      </div>
+      
+      <form id="loginForm" autocomplete="off">
+        <div class="row">
           <div class="one-half column offset-by-three">
             <label for="mfaCode">MFA Code</label>
             <input name="code" class="u-full-width" type="text" maxlength="6" placeholder="000000" id="mfaCode"
