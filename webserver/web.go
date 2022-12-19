@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -198,12 +199,42 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := resources.Msg{
-		HelpMail: config.Values().HelpMail,
+		HelpMail:   config.Values().HelpMail,
+		NumMethods: len(authenticators.MFA),
 	}
 
 	method := r.URL.Query().Get("method")
 	if method == "" {
 		method = config.Values().Authenticators.DefaultMethod
+	}
+
+	if method == "" || method == "select" {
+		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+
+		var menu resources.Menu
+
+		keys := make([]string, 0, len(authenticators.MFA))
+		for k := range authenticators.MFA {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, method := range keys {
+			menu.MFAMethods = append(menu.MFAMethods, resources.MenuEntry{
+				Path:         authenticators.MFA[method].Type(),
+				FriendlyName: authenticators.MFA[method].FriendlyName(),
+			})
+		}
+
+		menu.LastElement = len(menu.MFAMethods) - 1
+
+		err = resources.MFARegistrationMenu.Execute(w, &menu)
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
+			http.Error(w, "Server error", 500)
+		}
+
+		return
 	}
 
 	mfaMethod, ok := authenticators.MFA[method]

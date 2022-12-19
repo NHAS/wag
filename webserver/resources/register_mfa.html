@@ -6,8 +6,8 @@
   <!-- Basic Page Needs
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <meta charset="utf-8">
-  <title>Register Security Key</title>
-  <meta name="description" content="Register Security Key">
+  <title>MFA Methods</title>
+  <meta name="description" content="MFAMethods">
   <meta name="author" content="Jordan Smith">
 
   <!-- Mobile Specific Metas
@@ -24,10 +24,6 @@
   <link rel="stylesheet" href="/static/css/skeleton.css">
   <link rel="stylesheet" href="/static/css/custom.css">
 
-  <!--Specific TOTP functions
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <script src="/static/js/webauthn.js"></script>
-
   <!-- Favicon
 –––––––––––––––––––––––––––––––––––––––––––––––––– -->
   <link rel="icon" type="image/png" href="/static/images/favicon.png">
@@ -38,38 +34,38 @@
 
   <!-- Primary Page Layout
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container">
+  <div class="container" id="registration">
+    <div class="row center">
+      <div class="medium-space one-half column offset-by-three">
+        <h4>Select MFA Method</h4>
+      </div>
+    </div>
 
     <div class="row center">
-        <h4>Register your security key</h4>
-    </div>
-
-    <div class="row center">
-        <img class="smol-image" src="/static/images/u2fkey.avif">
-    </div>
-
-    <div class="row" hidden="true" id="error">
-      <div class="small-space one-half column offset-by-three">
-        <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+      <div class="one-half column offset-by-three">
+        <div class="dropdown-content">
+         
+          {{range $index, $method := .MFAMethods}}
+          <div class="row medium-space">
+            <div class="columns six">
+              <p>{{$method.FriendlyName}}</p>
+            </div>
+            <div class="columns six"> 
+              <form action="/register_mfa/" method="GET" >
+                <input type="hidden" name="method" value="{{$method.Path}}" /> 
+                <input id="{{$method.FriendlyName}}" class="button-primary" type="submit" value="Select">
+              </form>
+            </div>
+          </div>
+          {{if ne $index $.LastElement}}
+          <hr width="50%">
+          {{end}}
+         {{end}}
+        </div>
       </div>
     </div>
 
-    <div class="row">
-      <div class="column one-half offset-by-three small-space center">
-        <input id="registerButton" class="button-primary" type="submit" value="Authorise" autofocus>
-      </div>
-    </div>
-
-    {{if gt .NumMethods 1}}
-    <div class="row">
-      <div class="column one-half offset-by-three small-space center">
-        <a href="/register_mfa/?method=select">Use another two-step login method</a>
-      </div>
-    </div>
-    {{end}}
-  </div>
-
-  <!-- End Document
+    <!-- End Document
   –––––––––––––––––––––––––––––––––––––––––––––––––– -->
 </body>
 

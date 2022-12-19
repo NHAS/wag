@@ -15,6 +15,7 @@ const (
 
 type Authenticator interface {
 	Type() string
+	FriendlyName() string
 
 	RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 	AuthorisationEndpoint(w http.ResponseWriter, r *http.Request)

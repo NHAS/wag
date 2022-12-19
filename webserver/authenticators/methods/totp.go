@@ -38,6 +38,10 @@ func (t *Totp) Type() string {
 	return authenticators.TotpMFA
 }
 
+func (t *Totp) FriendlyName() string {
+	return "Time Based Code"
+}
+
 func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 

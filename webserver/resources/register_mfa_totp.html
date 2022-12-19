@@ -90,11 +90,13 @@
       </div>
     </form>
 
+    {{if gt .NumMethods 1}}
     <div class="row">
       <div class="column one-half offset-by-three small-space center">
-        <a href="/register_mfa/?method=webauthn">Use another two-step login method</a>
+        <a href="/register_mfa/?method=select">Use another two-step login method</a>
       </div>
     </div>
+    {{end}}
 
   </div>
 

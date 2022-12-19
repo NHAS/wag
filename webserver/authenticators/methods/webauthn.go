@@ -29,6 +29,10 @@ func (wa *Webauthn) Type() string {
 	return authenticators.WebauthnMFA
 }
 
+func (wa *Webauthn) FriendlyName() string {
+	return "Security Key"
+}
+
 func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 

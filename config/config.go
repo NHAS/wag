@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 
@@ -285,9 +284,18 @@ func load(path string) (c Config, err error) {
 
 		if method == "webauthn" {
 
+			if c.Authenticators.DomainURL == "" {
+				return c, errors.New("Authenticators.DomainURL unset, needed for webauthn")
+
+			}
+
 			tunnelURL, err := url.Parse(c.Authenticators.DomainURL)
 			if err != nil {
 				return c, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
+			}
+
+			if !c.Webserver.Tunnel.SupportsTLS() {
+				return c, errors.New("Tunnel does not support TLS (no cert/key given)")
 			}
 
 			if tunnelURL.Scheme != "https" {
@@ -303,18 +311,19 @@ func load(path string) (c Config, err error) {
 			if err != nil {
 				return c, errors.New("could not configure webauthn domain: " + err.Error())
 			}
+
 		}
 	}
 
-	if c.Authenticators.DefaultMethod == "" {
-		// Insertion from map is random, thus we need to sort that out here
-		sort.Strings(c.Authenticators.Methods)
-		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
+	if c.Authenticators.DefaultMethod != "" {
+		_, ok = resultMFAMap[c.Authenticators.DefaultMethod]
+		if !ok {
+			return c, errors.New("default mfa method invalid: " + c.Authenticators.DefaultMethod + " valid methods: " + strings.Join(c.Authenticators.Methods, ","))
+		}
 	}
 
-	_, ok = resultMFAMap[c.Authenticators.DefaultMethod]
-	if !ok {
-		return c, errors.New("default mfa method invalid: " + c.Authenticators.DefaultMethod + " valid methods: " + strings.Join(c.Authenticators.Methods, ","))
+	if len(c.Authenticators.Methods) == 1 {
+		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
 	}
 
 	// Remove all uneeded MFA methods from the MFA map

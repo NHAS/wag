@@ -158,7 +158,8 @@
 
 .smol-image {
     border-radius: .25rem !important;
-    width:48rem; /* you can use % */
+    width: 48rem;
+    /* you can use % */
     height: auto;
 }
 
@@ -188,4 +189,36 @@
 
 .container {
     padding-top: 6rem;
+}
+
+.dropdown-content {
+    border-radius: 1rem !important;
+    background-color: #f1f1f1;
+    min-width: 160px;
+
+    border-style: solid;
+    border-color: #c9cccb;
+    border-width: 0.1rem;
+}
+
+.dropdown-content hr {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.dropdown-content .row {
+    display: flex; 
+    align-items: center;
+    margin-bottom: 5%;
+}
+.dropdown-content form {
+    margin: 0;
+}
+
+.dropdown-content input {
+    margin: 0;
+}
+
+.dropdown-content p {
+    margin: 0;
 }
