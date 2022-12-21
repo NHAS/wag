@@ -209,10 +209,16 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
 `Authenticators`: Object that contains configurations for the authentication methods wag provides  
-`Authenticators.DomainURL`: Full domain of the authentication endpoint (in the vpn tunnel), must be a proper domain and using https for webauthn to work  
-`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: webauth, totp)    
-`Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn"]  
-   
+`Authenticators.DomainURL`: Full url of the vpn authentication endpoint, required for `webauthn` and `oidc`
+`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`)    
+`Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn","oidc"]
+
+`Authenticators.OIDC`: Object that contains `OIDC` specific configuration options
+`Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
+`Authenticators.OIDC.ClientID`:  OIDC identifier for application
+`Authenticators.OIDC.ClientSecret`: OIDC secret
+`Authenticators.OIDC.GroupsClaimName`: Not yet used. 
+  
 `Wireguard`: Object that contains the wireguard device configuration  
 `Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
 `Wireguard.ListenPort`: Port that wireguard will listen on  

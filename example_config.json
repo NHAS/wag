@@ -24,7 +24,7 @@
         ],
         "OIDC": {
             "IssuerURL": "http://localhost:8080/",
-            "ClientSecret": "",
+            "ClientSecret": "AN EXAMPLE KEY",
             "ClientID": "account",
             "GroupsClaimName": "groups"
         }
