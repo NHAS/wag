@@ -198,11 +198,6 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := resources.Msg{
-		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
-	}
-
 	method := r.URL.Query().Get("method")
 	if method == "" {
 		method = config.Values().Authenticators.DefaultMethod
@@ -244,12 +239,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	err = mfaMethod.RegistrationTemplate().Execute(w, &data)
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
-		http.Error(w, "Server error", 500)
-	}
+	mfaMethod.RegistrationHandler(w, r, user.Username, clientTunnelIp.String())
 }
 
 func authorise(w http.ResponseWriter, r *http.Request) {
@@ -286,18 +276,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := resources.Msg{
-		HelpMail: config.Values().HelpMail,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	err = mfaMethod.PromptTemplate().Execute(w, &data)
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to execute template: ", err)
-		http.Error(w, "Server Error", 500)
-		return
-	}
-
+	mfaMethod.PromptHandler(w, r, user.Username, clientTunnelIp.String())
 }
 
 func reachability(w http.ResponseWriter, r *http.Request) {

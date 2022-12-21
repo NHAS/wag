@@ -1,6 +1,6 @@
 {{- if .ClientPrivateKey }}
 [Interface]
-PrivateKey = {{.ClientPrivateKey}}
+PrivateKey = {{.ClientPrivateKey | Unescape}}
 {{- end}}
 {{- if .DNS}}
 DNS = {{StringsJoin .DNS ", "}}
@@ -9,6 +9,6 @@ Address = {{.ClientAddress}}
 
 [Peer]
 Endpoint =  {{.ServerAddress}}
-PublicKey = {{.ServerPublicKey}}
+PublicKey = {{.ServerPublicKey | Unescape}}
 AllowedIPs = {{StringsJoin .CapturedAddresses ", "}}
 PersistentKeepAlive = 10

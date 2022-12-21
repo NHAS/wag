@@ -20,11 +20,16 @@ type Interface struct {
 }
 
 type Msg struct {
+	Message    string
+	URL        string
 	HelpMail   string
 	NumMethods int
 }
 
-var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{"StringsJoin": strings.Join}).Parse(interfaceTemplate))
+var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{
+	"StringsJoin": strings.Join,
+	"Unescape":    func(s string) template.HTML { return template.HTML(s) },
+}).Parse(interfaceTemplate))
 
 type Menu struct {
 	MFAMethods  []MenuEntry
@@ -39,6 +44,11 @@ type MenuEntry struct {
 var mfaRegistrationMenu string
 
 var MFARegistrationMenu *template.Template = template.Must(template.New("").Parse(mfaRegistrationMenu))
+
+//go:embed oidc_error.html
+var oidcError string
+
+var OIDCMFATemplate *template.Template = template.Must(template.New("").Parse(oidcError))
 
 //go:embed register_mfa_totp.html
 var totpRegistration string

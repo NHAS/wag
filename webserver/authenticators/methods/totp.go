@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"html/template"
 	"image/png"
 	"log"
 	"net/http"
@@ -32,6 +31,10 @@ var lockULock sync.Mutex
 var usedCodes = map[string]entry{}
 
 type Totp struct {
+}
+
+func (t *Totp) Init(settings map[string]string) error {
+	return nil
 }
 
 func (t *Totp) Type() string {
@@ -204,10 +207,14 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticat
 	}
 }
 
-func (t *Totp) PromptTemplate() *template.Template {
-	return resources.TotpMFAPromptTmpl
+func (t *Totp) PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+	if err := renderTemplate(w, resources.TotpMFAPromptTmpl, "", ""); err != nil {
+		log.Println(username, ip, "unable to render totp prompt template: ", err)
+	}
 }
 
-func (t *Totp) RegistrationTemplate() *template.Template {
-	return resources.TotpMFATemplate
+func (t *Totp) RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+	if err := renderTemplate(w, resources.TotpMFATemplate, "", ""); err != nil {
+		log.Println(username, ip, "unable to render totp mfa template: ", err)
+	}
 }

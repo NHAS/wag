@@ -243,7 +243,13 @@ Full config example
     "Authenticators": {
         "DomainURL": "https://vpn.test:8080",
         "DefaultMethod":"webauthn",
-        "Methods":["totp","webauthn"]
+        "Methods":["totp","webauthn", "oidc"],
+        "OIDC": {
+            "IssuerURL": "http://localhost:8080/",
+            "ClientSecret": "",
+            "ClientID": "account",
+            "GroupsClaimName": "groups"
+        }
     },
     "Wireguard": {
         "DevName": "wg0",

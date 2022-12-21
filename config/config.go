@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -61,8 +62,16 @@ type Config struct {
 	}
 	Authenticators struct {
 		DefaultMethod string
-		Methods       []string
-		DomainURL     string
+
+		Methods   []string
+		DomainURL string
+
+		OIDC struct {
+			IssuerURL       string
+			ClientSecret    string
+			ClientID        string
+			GroupsClaimName string
+		}
 
 		//Not externally configurable
 		Webauthn *webauthn.WebAuthn `json:"-"`
@@ -98,7 +107,6 @@ func Values() Config {
 	defer valuesLock.RUnlock()
 
 	v := values
-
 	return v
 }
 
@@ -282,11 +290,52 @@ func load(path string) (c Config, err error) {
 
 		resultMFAMap[method] = authenticators.MFA[method]
 
-		if method == "webauthn" {
+		settings := make(map[string]string)
+		switch method {
+
+		case "oidc":
+			if c.Authenticators.DomainURL == "" {
+				return c, errors.New("Authenticators.DomainURL unset, needed for oidc")
+			}
+
+			if c.Authenticators.OIDC.GroupsClaimName == "" {
+				c.Authenticators.OIDC.GroupsClaimName = "groups"
+			}
+
+			if c.Authenticators.OIDC.IssuerURL == "" {
+				return c, errors.New("OIDC issuer url is not set, but oidc authentication method is enabled")
+			}
+
+			tunnelURL, err := url.Parse(c.Authenticators.OIDC.IssuerURL)
+			if err != nil {
+				return c, errors.New("unable to parse Authenticators.OIDC.IssuerURL: " + err.Error())
+			}
+
+			if tunnelURL.Scheme != "https" && tunnelURL.Scheme != "http" {
+				return c, errors.New("Authenticators.OIDC.IssuerURL was not HTTP/HTTPS")
+			}
+
+			if tunnelURL.Scheme == "http" {
+				log.Println("[WARNING] OIDC issuer url is http, this may be insecure")
+			}
+
+			if c.Authenticators.OIDC.ClientSecret == "" {
+				return c, errors.New("Authenticators.OIDC.ClientSecret is empty, but oidc authentication method is enabled")
+			}
+
+			if c.Authenticators.OIDC.ClientID == "" {
+				return c, errors.New("Authenticators.OIDC.ClientID is empty, but oidc authentication method is enabled")
+			}
+
+			settings["ClientID"] = c.Authenticators.OIDC.ClientID
+			settings["ClientSecret"] = c.Authenticators.OIDC.ClientSecret
+			settings["IssuerURL"] = c.Authenticators.OIDC.IssuerURL
+			settings["DomainURL"] = c.Authenticators.DomainURL
+
+		case "webauthn":
 
 			if c.Authenticators.DomainURL == "" {
 				return c, errors.New("Authenticators.DomainURL unset, needed for webauthn")
-
 			}
 
 			tunnelURL, err := url.Parse(c.Authenticators.DomainURL)
@@ -312,6 +361,10 @@ func load(path string) (c Config, err error) {
 				return c, errors.New("could not configure webauthn domain: " + err.Error())
 			}
 
+		}
+
+		if err := resultMFAMap[method].Init(settings); err != nil {
+			return c, err
 		}
 	}
 

@@ -1,7 +1,6 @@
 package authenticators
 
 import (
-	"html/template"
 	"net/http"
 )
 
@@ -11,17 +10,20 @@ const (
 	UnsetMFA    = "unset"
 	TotpMFA     = "totp"
 	WebauthnMFA = "webauthn"
+	OidcMFA     = "oidc"
 )
 
 type Authenticator interface {
+	Init(settings map[string]string) error
+
 	Type() string
 	FriendlyName() string
 
 	RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 	AuthorisationEndpoint(w http.ResponseWriter, r *http.Request)
 
-	PromptTemplate() *template.Template
-	RegistrationTemplate() *template.Template
+	PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string)
+	RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string)
 }
 
 var MFA = map[string]Authenticator{}

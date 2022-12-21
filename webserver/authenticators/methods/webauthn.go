@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"html/template"
 	"log"
 	"net/http"
 
@@ -23,6 +22,10 @@ import (
 )
 
 type Webauthn struct {
+}
+
+func (wa *Webauthn) Init(settings map[string]string) error {
+	return nil
 }
 
 func (wa *Webauthn) Type() string {
@@ -285,13 +288,16 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (wa *Webauthn) PromptTemplate() *template.Template {
-	return resources.WebauthnMFAPromptTmpl
+func (wa *Webauthn) PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+	if err := renderTemplate(w, resources.WebauthnMFAPromptTmpl, "", ""); err != nil {
+		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
+	}
 }
 
-func (wa *Webauthn) RegistrationTemplate() *template.Template {
-
-	return resources.WebauthnMFATemplate
+func (wa *Webauthn) RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+	if err := renderTemplate(w, resources.WebauthnMFATemplate, "", ""); err != nil {
+		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
+	}
 }
 
 // WebauthnUser represents the user model
