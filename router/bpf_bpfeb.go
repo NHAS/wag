@@ -61,11 +61,11 @@ type bpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
+	AccountLocked            *ebpf.MapSpec `ebpf:"account_locked"`
+	Devices                  *ebpf.MapSpec `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.MapSpec `ebpf:"inactivity_timeout_minutes"`
-	LastPacketTime           *ebpf.MapSpec `ebpf:"last_packet_time"`
 	MfaTable                 *ebpf.MapSpec `ebpf:"mfa_table"`
 	PublicTable              *ebpf.MapSpec `ebpf:"public_table"`
-	Sessions                 *ebpf.MapSpec `ebpf:"sessions"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -87,20 +87,20 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
+	AccountLocked            *ebpf.Map `ebpf:"account_locked"`
+	Devices                  *ebpf.Map `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.Map `ebpf:"inactivity_timeout_minutes"`
-	LastPacketTime           *ebpf.Map `ebpf:"last_packet_time"`
 	MfaTable                 *ebpf.Map `ebpf:"mfa_table"`
 	PublicTable              *ebpf.Map `ebpf:"public_table"`
-	Sessions                 *ebpf.Map `ebpf:"sessions"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
+		m.AccountLocked,
+		m.Devices,
 		m.InactivityTimeoutMinutes,
-		m.LastPacketTime,
 		m.MfaTable,
 		m.PublicTable,
-		m.Sessions,
 	)
 }
 
