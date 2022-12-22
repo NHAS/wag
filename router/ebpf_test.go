@@ -52,14 +52,39 @@ func TestAddNewDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = checkTimestampMap(out, xdpObjects.LastPacketTime)
-	if err != nil {
-		t.Fatal("checking lastpackettime:", err)
+	var ipBytes []byte
+	var deviceBytes = make([]byte, 40)
+
+	found := map[string]bool{}
+
+	iter := xdpObjects.Devices.Iterate()
+	for iter.Next(&ipBytes, &deviceBytes) {
+		ip := net.IP(ipBytes)
+
+		var newDevice device
+		err := newDevice.Unpack(deviceBytes)
+		if err != nil {
+			t.Fatal("unpacking new device:", err)
+		}
+
+		if newDevice.lastPacketTime != 0 || newDevice.lastPacketTime != 0 && newDevice.deviceLock != 0 {
+			t.Fatal("timers were not 0 immediately after device add")
+		}
+		found[ip.String()] = true
 	}
 
-	err = checkTimestampMap(out, xdpObjects.Sessions)
-	if err != nil {
-		t.Fatal("checking sessions:", err)
+	if iter.Err() != nil {
+		t.Fatalf("iterator reported an error: %s", iter.Err())
+	}
+
+	if len(found) != len(out) {
+		t.Fatalf("expected number of devices not found when iterating timestamp map %d != %d", len(found), len(out))
+	}
+
+	for _, device := range out {
+		if !found[device.Address] {
+			t.Fatalf("%s not found even though it should have been added", device.Address)
+		}
 	}
 
 	pubs := []data.Device{}
@@ -305,8 +330,13 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var before uint64
-	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &before)
+	var beforeDevice device
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = beforeDevice.Unpack(deviceBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,17 +361,22 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
 	}
 
-	var after uint64
-	err = xdpObjects.LastPacketTime.Lookup(net.ParseIP(out[0].Address).To4(), &after)
+	var afterDevice device
+	deviceBytes, err = xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if after == before {
+	err = afterDevice.Unpack(deviceBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if afterDevice.lastPacketTime == beforeDevice.lastPacketTime {
 		t.Fatal("sending a packet did not change sliding window timeout")
 	}
 
-	if after < before {
+	if afterDevice.lastPacketTime < beforeDevice.lastPacketTime {
 		t.Fatal("the resulting update must be closer in time")
 	}
 
@@ -527,14 +562,19 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	var maxSessionLife uint64
-	err = xdpObjects.Sessions.Lookup(net.ParseIP(out[0].Address).To4(), &maxSessionLife)
+	var maxSessionLifeDevice device
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if maxSessionLife != math.MaxUint64 {
-		t.Fatalf("lifetime was not set to max uint64, was %d (maxuint64 %d)", maxSessionLife, uint64(math.MaxUint64))
+	err = maxSessionLifeDevice.Unpack(deviceBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if maxSessionLifeDevice.sessionExpiry != math.MaxUint64 {
+		t.Fatalf("lifetime was not set to max uint64, was %d (maxuint64 %d)", maxSessionLifeDevice.sessionExpiry, uint64(math.MaxUint64))
 	}
 
 	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
@@ -607,38 +647,6 @@ func sameStringSlice(x, y []string) bool {
 		}
 	}
 	return len(diff) == 0
-}
-
-func checkTimestampMap(devices []data.Device, m *ebpf.Map) error {
-	var ipBytes []byte
-	var time uint64
-
-	found := map[string]bool{}
-
-	iter := m.Iterate()
-	for iter.Next(&ipBytes, &time) {
-		ip := net.IP(ipBytes)
-		if time != 0 {
-			return fmt.Errorf("timer was not 0 immediately after device add")
-		}
-		found[ip.String()] = true
-	}
-
-	if iter.Err() != nil {
-		return fmt.Errorf("iterator reported an error: %s", iter.Err())
-	}
-
-	if len(found) != len(devices) {
-		return fmt.Errorf("expected number of devices not found when iterating timestamp map %d != %d", len(found), len(devices))
-	}
-
-	for _, device := range devices {
-		if !found[device.Address] {
-			return fmt.Errorf("%s not found even though it should have been added", device.Address)
-		}
-	}
-
-	return nil
 }
 
 func checkLPMMap(devices []data.Device, m *ebpf.Map) (map[string][]string, error) {

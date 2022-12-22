@@ -1,6 +1,7 @@
 package router
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -41,6 +42,50 @@ const (
 
 func GetTimeStamp() uint64 {
 	return uint64(C.C_GetTimeStamp())
+}
+
+type device struct {
+	sessionExpiry  uint64
+	lastPacketTime uint64
+
+	// Hash of username (sha1 20 bytes)
+	// Essentially allows us to compress all usernames, if collisions are a problem in the future we'll move to sha256 or xxhash
+	user_id [20]byte
+
+	deviceLock uint32
+}
+
+func (d device) Size() int {
+	return 40 // 8 + 8 + 20 + 4
+}
+
+func (d device) Bytes() []byte {
+
+	output := make([]byte, 40)
+
+	binary.LittleEndian.PutUint64(output[0:8], d.sessionExpiry)
+	binary.LittleEndian.PutUint64(output[8:16], d.lastPacketTime)
+
+	copy(output[16:36], d.user_id[:])
+
+	binary.LittleEndian.PutUint32(output[36:], d.deviceLock)
+
+	return output
+}
+
+func (d *device) Unpack(b []byte) error {
+	if len(b) != 40 {
+		return errors.New("too short")
+	}
+
+	d.sessionExpiry = binary.LittleEndian.Uint64(b[:8])
+	d.lastPacketTime = binary.LittleEndian.Uint64(b[8:16])
+
+	copy(d.user_id[:], b[16:36])
+
+	d.deviceLock = binary.LittleEndian.Uint32(b[16:])
+
+	return nil
 }
 
 type Key struct {
@@ -94,8 +139,8 @@ var (
 )
 
 var mapsLookup = map[string]**ebpf.Map{
-	"sessions":        &xdpObjects.Sessions,
-	"last_packet_tim": &xdpObjects.LastPacketTime,
+	"account_locked":  &xdpObjects.AccountLocked,
+	"devices":         &xdpObjects.bpfMaps.Devices,
 	"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
 	"mfa_table":       &xdpObjects.MfaTable,
 	"public_table":    &xdpObjects.PublicTable,
@@ -308,23 +353,29 @@ func IsAuthed(address string) bool {
 		return false
 	}
 
-	var timestamp uint64
-	if xdpObjects.Sessions.Lookup([]byte(ip), &timestamp) != nil {
+	var isAccountLocked uint32
+	if xdpObjects.AccountLocked.Lookup([]byte(ip), &isAccountLocked) != nil {
 		return false
 	}
 
-	var lastPacket uint64
-	if xdpObjects.LastPacketTime.Lookup([]byte(ip), &lastPacket) != nil {
+	var deviceStruct device
+	deviceBytes := make([]byte, deviceStruct.Size())
+
+	if xdpObjects.Devices.Lookup([]byte(ip), deviceBytes) != nil {
+		return false
+	}
+
+	if deviceStruct.Unpack(deviceBytes) != nil {
 		return false
 	}
 
 	currentTime := GetTimeStamp()
 
-	sessionValid := timestamp != 0 && (timestamp > currentTime || timestamp == math.MaxUint64)
+	sessionValid := deviceStruct.deviceLock != 0 && (deviceStruct.sessionExpiry > currentTime || deviceStruct.sessionExpiry == math.MaxUint64)
 
-	sessionActive := lastPacket != 0 && ((currentTime-lastPacket) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
+	sessionActive := ((currentTime-deviceStruct.lastPacketTime) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
 
-	return sessionValid && sessionActive
+	return isAccountLocked == 0 && deviceStruct.deviceLock == 0 && sessionValid && sessionActive
 }
 
 func xdpRemoveDevice(address string) error {
@@ -336,24 +387,22 @@ func xdpRemoveDevice(address string) error {
 	msg := "remove device failed: "
 	var finalError error = errors.New(msg)
 
-	sessionErr := xdpObjects.Sessions.Delete(ip.To4())
-	if sessionErr != nil && !strings.Contains(sessionErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from session table failed: " + sessionErr.Error() + " ")
+	var deviceStruct device
+	deviceBytes := make([]byte, deviceStruct.Size())
+
+	deviceTableErr := xdpObjects.Devices.LookupAndDelete(ip.To4(), deviceBytes)
+	if deviceTableErr != nil && !strings.Contains(deviceTableErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from devices table failed: " + deviceTableErr.Error() + " ")
 	}
 
-	lastPacketErr := xdpObjects.LastPacketTime.Delete(ip.To4())
-	if lastPacketErr != nil && !strings.Contains(lastPacketErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from lastpackettime table failed: " + lastPacketErr.Error() + " ")
-	}
-
-	publicErr := xdpObjects.PublicTable.Delete(ip.To4())
+	publicErr := xdpObjects.PublicTable.Delete(deviceStruct.user_id)
 	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from public table failed: " + sessionErr.Error() + " ")
+		finalError = errors.New(finalError.Error() + "removing from public table failed: " + deviceTableErr.Error() + " ")
 	}
 
-	mfaErr := xdpObjects.MfaTable.Delete(ip.To4())
+	mfaErr := xdpObjects.MfaTable.Delete(deviceStruct.user_id)
 	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + sessionErr.Error() + " ")
+		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + publicErr.Error() + " ")
 	}
 
 	if finalError.Error() == msg {
@@ -370,75 +419,33 @@ func xdpAddDevice(username, address string) error {
 		return errors.New("Device " + username + " does not have an internal IP address assigned to it, this is a big bug")
 	}
 
-	var timestamp uint64
-	err := xdpObjects.Sessions.Lookup(ip.To4(), &timestamp)
+	var deviceStruct device
+	deviceBytes := make([]byte, deviceStruct.Size())
+	err := xdpObjects.Devices.Lookup(ip.To4(), &deviceBytes)
 	if err == nil {
 		return errors.New("attempted to add a device with address that already exists")
 	}
 
-	defer func() {
-		//On error of any of the following operations, remove any bits that previous operations were able to add
-		if err != nil {
-			xdpRemoveDevice(address)
-		}
-	}()
-
-	acls := config.GetEffectiveAcl(username)
-
-	// Create inner tables for the public and mfa routes based on the current ACLs
-	err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
-	if err != nil {
-		return err
-	}
-
-	err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
-	if err != nil {
-		return err
-	}
-
 	//Defaultly add device that is not authenticated
-	err = xdpObjects.Sessions.Put(ip.To4(), uint64(0))
-	if err != nil {
+	deviceStruct.lastPacketTime = 0
+	deviceStruct.sessionExpiry = 0
+	deviceStruct.user_id = sha1.Sum([]byte(username))
+
+	if err := xdpUserExists(deviceStruct.user_id); err != nil {
 		return err
 	}
 
-	return xdpObjects.LastPacketTime.Put(ip.To4(), uint64(0))
+	return xdpObjects.Devices.Put(ip.To4(), deviceStruct.Bytes())
 }
 
-func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
+func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error {
 
-	if src == nil {
-		return errors.New("IP address was nil")
-	}
-
-	if src.To4() == nil {
-		return errors.New("unable to get ipv4 address from supplied ip")
-	}
-
+	userid := sha1.Sum([]byte(username))
 	var innerMapID ebpf.MapID
-	err := table.Lookup([]byte(src.To4()), &innerMapID)
+
+	err := table.Lookup(userid, &innerMapID)
 	if err != nil {
-		if strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
-			inner, err := ebpf.NewMap(innerMapSpec)
-			if err != nil {
-				return fmt.Errorf("create new map: %s", err)
-			}
-			defer inner.Close()
-
-			err = table.Put([]byte(src.To4()), uint32(inner.FD()))
-			if err != nil {
-				return fmt.Errorf("put outer: %s", err)
-			}
-
-			//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
-			err = table.Lookup([]byte(src.To4()), &innerMapID)
-			if err != nil {
-				return fmt.Errorf("lookup inner: %s", err)
-			}
-
-		} else {
-			return fmt.Errorf("lookup outer: %s", err)
-		}
+		return fmt.Errorf("error looking up table: %s", err)
 	}
 
 	for _, destination := range destinations {
@@ -452,13 +459,74 @@ func xdpCreateRoutes(src net.IP, table *ebpf.Map, destinations []string) error {
 		if err != nil {
 			return fmt.Errorf("inner map: %s", err)
 		}
-		defer innerMap.Close()
 
 		err = innerMap.Put(k.Bytes(), uint8(1))
 		if err != nil {
 			return fmt.Errorf("inner map: %s", err)
 		}
 
+		innerMap.Close()
+
+	}
+
+	return nil
+}
+
+func xdpUserExists(userid [20]byte) error {
+	var locked uint32 // Unused
+	err := xdpObjects.AccountLocked.Lookup(userid, &locked)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func xdpAddUser(username string, acls config.Acl) error {
+
+	userid := sha1.Sum([]byte(username))
+
+	if xdpUserExists(userid) != nil {
+		return errors.New("user already exists")
+	}
+
+	err := xdpObjects.AccountLocked.Put(userid, uint32(0))
+	if err != nil {
+		return err
+	}
+
+	addMap := func(table *ebpf.Map) error {
+		inner, err := ebpf.NewMap(innerMapSpec)
+		if err != nil {
+			return fmt.Errorf("%s creating new map: %s", table.String(), err)
+		}
+
+		err = table.Put(userid, uint32(inner.FD()))
+		if err != nil {
+			return fmt.Errorf("%s adding new map to public table: %s", table.String(), err)
+		}
+
+		return inner.Close()
+	}
+
+	err = addMap(xdpObjects.PublicTable)
+	if err != nil {
+		return err
+	}
+
+	err = addMap(xdpObjects.MfaTable)
+	if err != nil {
+		return err
+	}
+
+	//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
+
+	if err := xdpAddRoute(username, xdpObjects.MfaTable, acls.Mfa); err != nil {
+		return err
+	}
+
+	if err := xdpAddRoute(username, xdpObjects.PublicTable, acls.Allow); err != nil {
+		return err
 	}
 
 	return nil
@@ -499,7 +567,7 @@ func RefreshConfiguration() []error {
 		}
 
 		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = xdpCreateRoutes(ip, xdpObjects.PublicTable, acls.Allow)
+		err = xdpCreateUser(ip, xdpObjects.PublicTable, acls.Allow)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", device.Username, err.Error()))
 			continue
@@ -511,7 +579,7 @@ func RefreshConfiguration() []error {
 			continue
 		}
 
-		err = xdpCreateRoutes(ip, xdpObjects.MfaTable, acls.Mfa)
+		err = xdpCreateUser(ip, xdpObjects.MfaTable, acls.Mfa)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", device.Username, err.Error()))
 			continue
@@ -523,26 +591,22 @@ func RefreshConfiguration() []error {
 }
 
 func SetAuthorized(internalAddress string) error {
-	ip := net.ParseIP(internalAddress)
-	if ip == nil {
-		return errors.New("Unable to get IP address from: " + internalAddress)
-	}
-
-	if ip.To4() == nil {
-		return errors.New("IP address was not ipv4")
-	}
-
-	mfaTimeout := GetTimeStamp() + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
-	if config.Values().MaxSessionLifetimeMinutes < 0 {
-		mfaTimeout = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
-	}
-
-	err := xdpObjects.Sessions.Update(ip.To4(), mfaTimeout, ebpf.UpdateExist)
+	storedDevice, err := data.GetDeviceByAddress(internalAddress)
 	if err != nil {
 		return err
 	}
 
-	return xdpObjects.LastPacketTime.Update(ip.To4(), GetTimeStamp(), ebpf.UpdateExist)
+	var deviceStruct device
+	deviceStruct.lastPacketTime = GetTimeStamp()
+
+	deviceStruct.sessionExpiry = GetTimeStamp() + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
+	if config.Values().MaxSessionLifetimeMinutes < 0 {
+		deviceStruct.sessionExpiry = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
+	}
+
+	deviceStruct.user_id = sha1.Sum([]byte(storedDevice.Username))
+
+	return xdpObjects.Devices.Update(net.ParseIP(storedDevice.Address).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {
@@ -556,9 +620,7 @@ func Deauthenticate(address string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	xdpObjects.LastPacketTime.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
-
-	return xdpObjects.Sessions.Update(ip.To4(), uint64(0), ebpf.UpdateExist)
+	return xdpObjects.Devices.Delete(ip.To4())
 }
 
 type FirewallRules struct {
@@ -578,104 +640,79 @@ func GetRules() (map[string]FirewallRules, error) {
 		return result, err
 	}
 
-	for _, ip := range authorizedDevices {
-		d := result[ip]
-
-		d.IsAuthorized = true
-
-		result[ip] = d
+	users, err := data.GetAllUsers()
+	if err != nil {
+		return nil, err
 	}
 
-	var innerMapID ebpf.MapID
-	var ipBytes []byte
-	var val uint64
+	userlookup := map[string]string{}
 
-	lastPacket := xdpObjects.LastPacketTime.Iterate()
-	for lastPacket.Next(&ipBytes, &val) {
-		ip := net.IP(ipBytes)
-
-		d := result[ip.String()]
-
-		d.LastPacketTimestamp = val
-
-		result[ip.String()] = d
+	for _, user := range users {
+		hash := sha1.Sum([]byte(user.Username))
+		userlookup[string(hash[:])] = user.Username // Yes I know, problems of my own design
 	}
 
-	if lastPacket.Err() != nil {
-		return nil, lastPacket.Err()
-	}
-
-	sessions := xdpObjects.Sessions.Iterate()
-	for sessions.Next(&ipBytes, &val) {
-		ip := net.IP(ipBytes)
-
-		d := result[ip.String()]
-
-		d.Expiry = val
-
-		result[ip.String()] = d
-	}
-
-	if sessions.Err() != nil {
-		return nil, sessions.Err()
-	}
-
-	publicRoutesIter := xdpObjects.PublicTable.Iterate()
-	for publicRoutesIter.Next(&ipBytes, &innerMapID) {
-		ip := net.IP(ipBytes)
-
+	iterateSubmap := func(innerMapID ebpf.MapID) (result []string, err error) {
 		innerMap, err := ebpf.NewMapFromID(innerMapID)
 		if err != nil {
 			return nil, fmt.Errorf("map from id: %s", err)
 		}
 
-		d := result[ip.String()]
-
-		var innerKey []byte
-		var val uint8
+		var (
+			innerKey []byte
+			val      uint8
+		)
 		innerIter := innerMap.Iterate()
 		kv := Key{}
 		for innerIter.Next(&innerKey, &val) {
 			kv.Unpack(innerKey)
-
-			d.Public = append(d.Public, kv.String())
+			result = append(result, kv.String())
 		}
+
 		innerMap.Close()
 
-		result[ip.String()] = d
+		return
 	}
 
-	if publicRoutesIter.Err() != nil {
-		return nil, publicRoutesIter.Err()
-	}
+	for _, address := range authorizedDevices {
+		fwRule := result[address]
+		fwRule.IsAuthorized = true
 
-	mfaRoutesIter := xdpObjects.MfaTable.Iterate()
-	for mfaRoutesIter.Next(&ipBytes, &innerMapID) {
+		ip := net.IP(address)
 
-		ip := net.IP(ipBytes)
+		var (
+			currentDevice device
+			innerMapID    ebpf.MapID
+		)
 
-		innerMap, err := ebpf.NewMapFromID(innerMapID)
+		deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
 		if err != nil {
-			return nil, fmt.Errorf("map from id: %s", err)
+			return nil, err
 		}
 
-		d := result[ip.String()]
-
-		var innerKey []byte
-		var val uint8
-		innerIter := innerMap.Iterate()
-		kv := Key{}
-		for innerIter.Next(&innerKey, &val) {
-			kv.Unpack(innerKey)
-
-			d.MFA = append(d.MFA, kv.String())
+		err = currentDevice.Unpack(deviceBytes)
+		if err != nil {
+			return nil, err
 		}
-		innerMap.Close()
 
-		result[ip.String()] = d
+		err = xdpObjects.PublicTable.Lookup(currentDevice.user_id, &innerMapID)
+		if err == nil {
+			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
+				return nil, err
+			}
+		}
+
+		err = xdpObjects.MfaTable.Lookup(currentDevice.user_id, &innerMapID)
+		if err == nil {
+			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
+				return nil, err
+			}
+		}
+
+		result[address] = fwRule
 	}
 
-	return result, mfaRoutesIter.Err()
+	return result, nil
 }
 
 func parseIP(address string) (Key, error) {

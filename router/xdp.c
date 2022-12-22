@@ -22,7 +22,7 @@ A massive oversimplifcation of what is in this file.
 │               uint32                │    └─────────────────────┼─ userid         char[20]   │
 └─────────────────────────────────────┘                          │  sessionExpiry  uint64     │
                                                                  │  lastPacketTime uint64     │
-                                                                 │                            │
+                                                                 │  deviceLock     uint32     │
                                                                  └────────────────────────────┘
 
     ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -105,12 +105,17 @@ A massive oversimplifcation of what is in this file.
 
 struct device
 {
+    __u64 sessionExpiry;
+    __u64 lastPacketTime;
+
     // Hash of username (sha1 20 bytes)
     // Essentially allows us to compress all usernames, if collisions are a problem in the future we'll move to sha256 or xxhash
     char user_id[MAX_USERID_LENGTH];
-    __u64 sessionExpiry;
-    __u64 lastPacketTime;
-};
+
+    __u32 device_lock;
+
+    // This struct is perfectly sized for a 64bit system, to exist without padding (40 bytes % 8 == 0)
+} __attribute__((__packed__));
 
 struct bpf_map_def SEC("maps") devices = {
     .type = BPF_MAP_TYPE_HASH,
@@ -210,8 +215,8 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     }
 
     // Check if the account exists
-    __u32 *isLocked = bpf_map_lookup_elem(&account_locked, src_ip);
-    if (!isLocked)
+    __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, src_ip);
+    if (!isAccountLocked)
     {
         return 0;
     }
@@ -241,8 +246,8 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     {
         // If the inactivity timeout is not disabled and users session has timed out
 
-        // If the account is NOT locked
-        if (!*isLocked &&
+        // If the account is NOT locked and device isnt locked
+        if (!*isAccountLocked && current_device->device_lock != 0 &&
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
             (current_device->sessionExpiry == __UINT64_MAX__ || current_device->sessionExpiry > currentTime) &&
             !isTimedOut)
