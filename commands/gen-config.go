@@ -119,12 +119,17 @@ func (g *genconfig) Run() error {
 		c.Wireguard.MTU = 1420
 		c.Wireguard.PersistentKeepAlive = 25
 
+		c.Acls.Groups = make(map[string][]string)
+		c.Acls.Policies = make(map[string]*config.Acl)
+
 	}
 
 	result, err := json.MarshalIndent(c, "", "    ")
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("\nnew config written to '%s', add some acls under Acls.Policies to start\n", g.path)
 
 	return ioutil.WriteFile(g.path, result, 0700)
 }

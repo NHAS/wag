@@ -73,7 +73,7 @@ type Config struct {
 	DatabaseLocation string
 	Issuer           string
 
-	DNS []string
+	DNS []string `json:",omitempty"`
 
 	Acls Acls
 }
@@ -179,6 +179,10 @@ func load(path string) (c Config, err error) {
 		if c.Wireguard.PersistentKeepAlive == 0 {
 			c.Wireguard.PersistentKeepAlive = 25
 		}
+	}
+
+	if len(c.Acls.Policies) == 0 {
+		return c, errors.New("no policies set under acls.Policies")
 	}
 
 	c.Acls.rGroupLookup = map[string][]string{}
