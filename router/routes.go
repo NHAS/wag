@@ -13,7 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/data"
@@ -23,25 +25,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-/*
-#include <time.h>
-static unsigned long long C_GetTimeStamp(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_BOOTTIME, &ts);
-    return (unsigned long long)ts.tv_sec * 1000000000UL + ts.tv_nsec;
-}
-*/
-import "C"
-
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
 
 const (
 	ebpfFS = "/sys/fs/bpf"
 )
 
+const CLOCK_BOOTTIME = uint32(7)
+
+type Timespec struct {
+	Ftv_sec  int64
+	Ftv_nsec int64
+} /* struct_timespec.h:10:1 */
+
 func GetTimeStamp() uint64 {
-	return uint64(C.C_GetTimeStamp())
+	var t Timespec
+	syscall.Syscall(syscall.SYS_CLOCK_GETTIME, uintptr(CLOCK_BOOTTIME), uintptr(unsafe.Pointer(&t)), 0)
+
+	return uint64(t.Ftv_sec*int64(time.Second) + t.Ftv_nsec)
 }
 
 type device struct {

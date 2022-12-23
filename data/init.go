@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/data/migrations"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var (
@@ -43,7 +43,7 @@ func copyFile(src, dst string) error {
 
 func Load(path string) error {
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return err
 	}
