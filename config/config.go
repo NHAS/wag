@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/webserver/authenticators"
 	"github.com/NHAS/webauthn/webauthn"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -50,6 +51,7 @@ type Acls struct {
 
 type Config struct {
 	path                            string
+	Socket                          string `json:",omitempty"`
 	Proxied                         bool
 	HelpMail                        string
 	Lockout                         int
@@ -156,6 +158,10 @@ func load(path string) (c Config, err error) {
 	err = dec.Decode(&c)
 	if err != nil {
 		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
+	}
+
+	if c.Socket == "" {
+		c.Socket = control.DefaultWagSocket
 	}
 
 	i, err := net.InterfaceByName(c.Wireguard.DevName)

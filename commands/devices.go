@@ -7,14 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
 type devices struct {
 	fs *flag.FlagSet
 
-	address, username string
-	action            string
+	address, username, socket string
+	action                    string
 }
 
 func Devices() *devices {
@@ -23,6 +24,8 @@ func Devices() *devices {
 	}
 
 	gc.fs.StringVar(&gc.address, "address", "", "Address of device")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag control socket to act on")
+
 	gc.fs.StringVar(&gc.username, "username", "", "Owner of device (indicates that command acts on all devices owned by user)")
 
 	gc.fs.Bool("del", false, "Remove device and block wireguard access")
@@ -71,10 +74,13 @@ func (g *devices) Check() error {
 }
 
 func (g *devices) Run() error {
+
+	ctl := wagctl.NewControlClient(g.socket)
+
 	switch g.action {
 	case "del":
 		if g.username != "" {
-			ds, err := wagctl.ListDevice(g.username)
+			ds, err := ctl.ListDevice(g.username)
 			if err != nil {
 				return err
 
@@ -84,7 +90,7 @@ func (g *devices) Run() error {
 
 			for _, device := range ds {
 				fmt.Println("deleting ", device.Address)
-				err := wagctl.DeleteDevice(device.Address)
+				err := ctl.DeleteDevice(device.Address)
 				if err != nil {
 					return err
 				}
@@ -94,7 +100,7 @@ func (g *devices) Run() error {
 			return nil
 		}
 
-		err := wagctl.DeleteDevice(g.address)
+		err := ctl.DeleteDevice(g.address)
 		if err != nil {
 			return err
 		}
@@ -102,7 +108,7 @@ func (g *devices) Run() error {
 		fmt.Println("OK")
 	case "list":
 
-		ds, err := wagctl.ListDevice("")
+		ds, err := ctl.ListDevice("")
 		if err != nil {
 			return err
 		}
@@ -112,7 +118,7 @@ func (g *devices) Run() error {
 			fmt.Printf("%s,%s,%s,%d,%s\n", device.Username, device.Address, device.Publickey, device.Attempts, device.Endpoint.String())
 		}
 	case "mfa_sessions":
-		sessions, err := wagctl.Sessions()
+		sessions, err := ctl.Sessions()
 		if err != nil {
 			return err
 		}
@@ -120,7 +126,7 @@ func (g *devices) Run() error {
 	case "lock":
 
 		if g.username != "" {
-			ds, err := wagctl.ListDevice(g.username)
+			ds, err := ctl.ListDevice(g.username)
 			if err != nil {
 				return err
 
@@ -128,7 +134,7 @@ func (g *devices) Run() error {
 
 			for _, device := range ds {
 				fmt.Println("locking ", device)
-				err := wagctl.LockDevice(device.Address)
+				err := ctl.LockDevice(device.Address)
 				if err != nil {
 					return err
 				}
@@ -138,7 +144,7 @@ func (g *devices) Run() error {
 			return nil
 		}
 
-		err := wagctl.LockDevice(g.address)
+		err := ctl.LockDevice(g.address)
 		if err != nil {
 			return err
 		}
@@ -149,14 +155,14 @@ func (g *devices) Run() error {
 
 		if g.username != "" {
 
-			ds, err := wagctl.ListDevice(g.username)
+			ds, err := ctl.ListDevice(g.username)
 			if err != nil {
 				return err
 
 			}
 
 			for _, device := range ds {
-				err := wagctl.UnlockDevice(device.Address)
+				err := ctl.UnlockDevice(device.Address)
 				if err != nil {
 					return err
 				}
@@ -166,7 +172,7 @@ func (g *devices) Run() error {
 			return nil
 		}
 
-		err := wagctl.UnlockDevice(g.address)
+		err := ctl.UnlockDevice(g.address)
 		if err != nil {
 			return err
 		}

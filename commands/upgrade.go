@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
@@ -17,12 +18,15 @@ type upgrade struct {
 	manual         bool
 	newVersionPath string
 	hash           string
+	socket         string
 }
 
 func Upgrade() *upgrade {
 	gc := &upgrade{
 		fs: flag.NewFlagSet("upgrade", flag.ContinueOnError),
 	}
+
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
 
 	gc.fs.Bool("force", false, "Disable version compatiablity checks")
 	gc.fs.Bool("manual", false, "Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary")
@@ -50,6 +54,9 @@ func (g *upgrade) PrintUsage() {
 }
 
 func (g *upgrade) Check() error {
+
+	ctl := wagctl.NewControlClient(g.socket)
+
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "force":
@@ -70,7 +77,7 @@ func (g *upgrade) Check() error {
 				fmt.Scanf("%s", &g.hash)
 			}
 
-			currentHash, err := wagctl.GetBPFVersion()
+			currentHash, err := ctl.GetBPFVersion()
 			if err != nil {
 				return err
 			}
@@ -106,7 +113,7 @@ func (g *upgrade) Check() error {
 			return errors.New("new program did not report local version")
 		}
 
-		hash, err := wagctl.GetBPFVersion()
+		hash, err := ctl.GetBPFVersion()
 		if err != nil {
 			return err
 		}
@@ -122,8 +129,10 @@ func (g *upgrade) Check() error {
 
 func (g *upgrade) Run() error {
 
+	ctl := wagctl.NewControlClient(g.socket)
+
 	fmt.Print("Pinning ebpf assets....")
-	if err := wagctl.PinBPF(); err != nil {
+	if err := ctl.PinBPF(); err != nil {
 		return err
 	}
 	fmt.Println("Done")
@@ -136,7 +145,7 @@ func (g *upgrade) Run() error {
 	fmt.Println("Done")
 
 	fmt.Print("Shutting down server...")
-	wagctl.Shutdown(false)
+	ctl.Shutdown(false)
 	fmt.Println("Done")
 
 	if g.newVersionPath != "" {

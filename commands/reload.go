@@ -4,17 +4,22 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
 type reload struct {
 	fs *flag.FlagSet
+
+	socket string
 }
 
 func Reload() *reload {
 	gc := &reload{
 		fs: flag.NewFlagSet("reload", flag.ContinueOnError),
 	}
+
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
 
 	return gc
 }
@@ -40,5 +45,5 @@ func (g *reload) Check() error {
 
 func (g *reload) Run() error {
 
-	return wagctl.ConfigReload()
+	return wagctl.NewControlClient(g.socket).ConfigReload()
 }

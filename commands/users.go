@@ -12,8 +12,8 @@ import (
 type users struct {
 	fs *flag.FlagSet
 
-	username string
-	action   string
+	username, socket string
+	action           string
 }
 
 func Users() *users {
@@ -22,6 +22,7 @@ func Users() *users {
 	}
 
 	gc.fs.StringVar(&gc.username, "username", "", "Username to act upon")
+	gc.fs.StringVar(&gc.socket, "socket", "", "Wag socket location, defaults to ")
 
 	gc.fs.Bool("del", false, "Delete user and all associated devices")
 	gc.fs.Bool("list", false, "List users, if '-username' supply will filter by user")
@@ -69,10 +70,12 @@ func (g *users) Check() error {
 }
 
 func (g *users) Run() error {
+	ctl := wagctl.NewControlClient(g.socket)
+
 	switch g.action {
 	case "del":
 
-		err := wagctl.DeleteUser(g.username)
+		err := ctl.DeleteUser(g.username)
 		if err != nil {
 			return err
 		}
@@ -80,7 +83,7 @@ func (g *users) Run() error {
 		fmt.Println("OK")
 	case "list":
 
-		users, err := wagctl.ListUsers(g.username)
+		users, err := ctl.ListUsers(g.username)
 		if err != nil {
 			return err
 		}
@@ -91,7 +94,7 @@ func (g *users) Run() error {
 		}
 	case "lockaccount":
 
-		err := wagctl.LockUser(g.username)
+		err := ctl.LockUser(g.username)
 		if err != nil {
 			return err
 		}
@@ -100,14 +103,14 @@ func (g *users) Run() error {
 
 	case "unlockaccount":
 
-		err := wagctl.UnlockUser(g.username)
+		err := ctl.UnlockUser(g.username)
 		if err != nil {
 			return err
 		}
 
 		fmt.Println("OK")
 	case "reset-mfa":
-		err := wagctl.ResetUserMFA(g.username)
+		err := ctl.ResetUserMFA(g.username)
 		if err != nil {
 			return err
 		}

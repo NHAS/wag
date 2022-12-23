@@ -11,12 +11,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/NHAS/wag/webserver"
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control/server"
 	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
-
+	"github.com/NHAS/wag/webserver"
 )
 
 type start struct {
@@ -31,6 +30,7 @@ func Start() *start {
 	}
 
 	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
+
 	gc.fs.Bool("noiptables", false, "Do not add iptables rules")
 
 	return gc
@@ -131,13 +131,22 @@ func (g *start) Run() error {
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
 	}
-	defer router.TearDown()
+	defer func() {
+		if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
+			router.TearDown()
+		}
+	}()
 
 	err = server.StartControlSocket()
 	if err != nil {
 		return fmt.Errorf("unable to create control socket: %v", err)
 	}
-	defer server.TearDown()
+	defer func() {
+
+		if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
+			server.TearDown()
+		}
+	}()
 
 	err = webserver.Start(error)
 	if err != nil {

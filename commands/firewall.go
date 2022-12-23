@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
 type firewallCmd struct {
-	fs     *flag.FlagSet
-	action string
+	fs             *flag.FlagSet
+	action, socket string
 }
 
 func Firewall() *firewallCmd {
@@ -21,6 +22,7 @@ func Firewall() *firewallCmd {
 	}
 
 	gc.fs.Bool("list", false, "List firewall rules")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag control socket to act on")
 
 	return gc
 }
@@ -56,10 +58,13 @@ func (g *firewallCmd) Check() error {
 }
 
 func (g *firewallCmd) Run() error {
+
+	ctl := wagctl.NewControlClient(g.socket)
+
 	switch g.action {
 	case "list":
 
-		rules, err := wagctl.FirewallRules()
+		rules, err := ctl.FirewallRules()
 		if err != nil {
 			return err
 		}

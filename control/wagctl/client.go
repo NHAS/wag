@@ -16,19 +16,25 @@ import (
 	"github.com/NHAS/wag/router"
 )
 
-var (
-	client = http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", control.Socket)
+type ctrlClient struct {
+	httpClient http.Client
+}
+
+func NewControlClient(socketPath string) *ctrlClient {
+	return &ctrlClient{
+		httpClient: http.Client{
+			Transport: &http.Transport{
+				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+					return net.Dial("unix", socketPath)
+				},
 			},
 		},
 	}
-)
+}
 
-func simplepost(path string, form url.Values) error {
+func (c *ctrlClient) simplepost(path string, form url.Values) error {
 
-	response, err := client.Post("http://unix/"+path, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	response, err := c.httpClient.Post("http://unix/"+path, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
 		return err
 	}
@@ -46,9 +52,9 @@ func simplepost(path string, form url.Values) error {
 }
 
 // List devices, if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
-func ListDevice(username string) (d []data.Device, err error) {
+func (c *ctrlClient) ListDevice(username string) (d []data.Device, err error) {
 
-	response, err := client.Get("http://unix/device/list?username=" + url.QueryEscape(username))
+	response, err := c.httpClient.Get("http://unix/device/list?username=" + url.QueryEscape(username))
 	if err != nil {
 		return nil, err
 	}
@@ -69,33 +75,33 @@ func ListDevice(username string) (d []data.Device, err error) {
 }
 
 // Take device address to remove
-func DeleteDevice(address string) error {
+func (c *ctrlClient) DeleteDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
 
-	return simplepost("device/delete", form)
+	return c.simplepost("device/delete", form)
 }
 
-func LockDevice(address string) error {
+func (c *ctrlClient) LockDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
 
-	return simplepost("device/lock", form)
+	return c.simplepost("device/lock", form)
 }
 
-func UnlockDevice(address string) error {
+func (c *ctrlClient) UnlockDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
 
-	return simplepost("device/unlock", form)
+	return c.simplepost("device/unlock", form)
 }
 
-func ListUsers(username string) (users []data.UserModel, err error) {
+func (c *ctrlClient) ListUsers(username string) (users []data.UserModel, err error) {
 
-	response, err := client.Get("http://unix/users/list?username=" + url.QueryEscape(username))
+	response, err := c.httpClient.Get("http://unix/users/list?username=" + url.QueryEscape(username))
 	if err != nil {
 		return nil, err
 	}
@@ -116,39 +122,39 @@ func ListUsers(username string) (users []data.UserModel, err error) {
 }
 
 // Take device address to remove
-func DeleteUser(username string) error {
+func (c *ctrlClient) DeleteUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
-	return simplepost("users/delete", form)
+	return c.simplepost("users/delete", form)
 }
 
-func LockUser(username string) error {
+func (c *ctrlClient) LockUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
-	return simplepost("users/lock", form)
+	return c.simplepost("users/lock", form)
 }
 
-func UnlockUser(username string) error {
-
-	form := url.Values{}
-	form.Add("username", username)
-
-	return simplepost("users/unlock", form)
-}
-
-func ResetUserMFA(username string) error {
+func (c *ctrlClient) UnlockUser(username string) error {
 
 	form := url.Values{}
 	form.Add("username", username)
 
-	return simplepost("users/reset", form)
+	return c.simplepost("users/unlock", form)
 }
 
-func Sessions() (string, error) {
+func (c *ctrlClient) ResetUserMFA(username string) error {
 
-	response, err := client.Get("http://unix/device/sessions")
+	form := url.Values{}
+	form.Add("username", username)
+
+	return c.simplepost("users/reset", form)
+}
+
+func (c *ctrlClient) Sessions() (string, error) {
+
+	response, err := c.httpClient.Get("http://unix/device/sessions")
 	if err != nil {
 		return "", err
 	}
@@ -162,9 +168,9 @@ func Sessions() (string, error) {
 	return string(result), nil
 }
 
-func FirewallRules() (rules map[string]router.FirewallRules, err error) {
+func (c *ctrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
 
-	response, err := client.Get("http://unix/firewall/list")
+	response, err := c.httpClient.Get("http://unix/firewall/list")
 	if err != nil {
 		return rules, err
 	}
@@ -187,9 +193,9 @@ func FirewallRules() (rules map[string]router.FirewallRules, err error) {
 	return
 }
 
-func ConfigReload() error {
+func (c *ctrlClient) ConfigReload() error {
 
-	response, err := client.Post("http://unix/config/reload", "text/plain", nil)
+	response, err := c.httpClient.Post("http://unix/config/reload", "text/plain", nil)
 	if err != nil {
 		return err
 	}
@@ -206,9 +212,9 @@ func ConfigReload() error {
 	return nil
 }
 
-func GetVersion() (string, error) {
+func (c *ctrlClient) GetVersion() (string, error) {
 
-	response, err := client.Get("http://unix/version")
+	response, err := c.httpClient.Get("http://unix/version")
 	if err != nil {
 		return "", err
 	}
@@ -222,9 +228,9 @@ func GetVersion() (string, error) {
 	return string(result), nil
 }
 
-func GetBPFVersion() (string, error) {
+func (c *ctrlClient) GetBPFVersion() (string, error) {
 
-	response, err := client.Get("http://unix/version/bpf")
+	response, err := c.httpClient.Get("http://unix/version/bpf")
 	if err != nil {
 		return "", err
 	}
@@ -238,9 +244,9 @@ func GetBPFVersion() (string, error) {
 	return string(result), nil
 }
 
-func Registrations() (out map[string]string, err error) {
+func (c *ctrlClient) Registrations() (out map[string]string, err error) {
 
-	response, err := client.Get("http://unix/registration/list")
+	response, err := c.httpClient.Get("http://unix/registration/list")
 	if err != nil {
 		return nil, err
 	}
@@ -262,14 +268,14 @@ func Registrations() (out map[string]string, err error) {
 	return
 }
 
-func NewRegistration(token, username, overwrite string) (r control.RegistrationResult, err error) {
+func (c *ctrlClient) NewRegistration(token, username, overwrite string) (r control.RegistrationResult, err error) {
 
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("token", token)
 	form.Add("overwrite", overwrite)
 
-	response, err := client.Post("http://unix/registration/create", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	response, err := c.httpClient.Post("http://unix/registration/create", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
 		return control.RegistrationResult{}, err
 	}
@@ -291,25 +297,25 @@ func NewRegistration(token, username, overwrite string) (r control.RegistrationR
 	return
 }
 
-func DeleteRegistration(id string) (err error) {
+func (c *ctrlClient) DeleteRegistration(id string) (err error) {
 
 	form := url.Values{}
 	form.Add("id", id)
 
-	return simplepost("registration/delete", form)
+	return c.simplepost("registration/delete", form)
 }
 
-func Shutdown(cleanup bool) (err error) {
+func (c *ctrlClient) Shutdown(cleanup bool) (err error) {
 
 	form := url.Values{}
 	form.Add("cleanup", fmt.Sprintf("%t", cleanup))
 
-	return simplepost("shutdown", form)
+	return c.simplepost("shutdown", form)
 }
 
-func PinBPF() (err error) {
+func (c *ctrlClient) PinBPF() (err error) {
 
-	response, err := client.Get("http://unix/ebpf/pin")
+	response, err := c.httpClient.Get("http://unix/ebpf/pin")
 	if err != nil {
 		return err
 	}
@@ -327,9 +333,9 @@ func PinBPF() (err error) {
 	return
 }
 
-func UnpinBPF() (err error) {
+func (c *ctrlClient) UnpinBPF() (err error) {
 
-	response, err := client.Get("http://unix/ebpf/unpin")
+	response, err := c.httpClient.Get("http://unix/ebpf/unpin")
 	if err != nil {
 		return err
 	}

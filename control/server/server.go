@@ -9,9 +9,10 @@ import (
 	"os"
 
 	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/router"
 )
+
+var socket string
 
 func firewallRules(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
@@ -141,17 +142,18 @@ func unpinBPF(w http.ResponseWriter, r *http.Request) {
 }
 
 func StartControlSocket() error {
-	l, err := net.Listen("unix", control.Socket)
+
+	l, err := net.Listen("unix", config.Values().Socket)
 	if err != nil {
 		return err
 	}
 
 	//Yes I know this is doubling up on the umask, but meh
-	if err := os.Chmod(control.Socket, 0760); err != nil {
+	if err := os.Chmod(config.Values().Socket, 0760); err != nil {
 		return err
 	}
 
-	log.Println("Started control socket: \n\t\t\t", control.Socket)
+	log.Println("Started control socket: \n\t\t\t", config.Values().Socket)
 
 	controlMux := http.NewServeMux()
 
@@ -194,7 +196,7 @@ func StartControlSocket() error {
 }
 
 func TearDown() {
-	err := os.Remove(control.Socket)
+	err := os.Remove(config.Values().Socket)
 	if err != nil {
 		log.Println(err)
 	}

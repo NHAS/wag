@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
@@ -14,6 +15,7 @@ type registration struct {
 
 	token    string
 	username string
+	socket   string
 	action   string
 
 	overwrite string
@@ -26,6 +28,8 @@ func Registration() *registration {
 
 	gc.fs.StringVar(&gc.token, "token", "", "Manually set registration token (Optional)")
 	gc.fs.StringVar(&gc.username, "username", "", "User to add device to")
+
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
 
 	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
 
@@ -77,10 +81,13 @@ func (g *registration) Check() error {
 }
 
 func (g *registration) Run() error {
+
+	ctl := wagctl.NewControlClient(g.socket)
+
 	switch g.action {
 	case "add":
 
-		result, err := wagctl.NewRegistration(g.token, g.username, g.overwrite)
+		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite)
 		if err != nil {
 			return err
 		}
@@ -95,14 +102,14 @@ func (g *registration) Run() error {
 			id = g.username
 		}
 
-		if err := wagctl.DeleteRegistration(id); err != nil {
+		if err := ctl.DeleteRegistration(id); err != nil {
 			return err
 		}
 
 		fmt.Printf("OK")
 
 	case "list":
-		tokens, err := wagctl.Registrations()
+		tokens, err := ctl.Registrations()
 		if err != nil {
 			return err
 		}
