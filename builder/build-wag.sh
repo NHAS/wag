@@ -5,5 +5,9 @@ if [[ ! -d /wag ]]; then
     exit 1
 fi
 
+
 cd /wag
+mkdir /build/go
+export GOPATH=/build/go
+export GOCACHE=/build/
 make release
