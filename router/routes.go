@@ -535,7 +535,7 @@ func xdpAddUser(username string, acls config.Acl) error {
 
 func RefreshConfiguration() []error {
 
-	devices, err := data.GetAllDevices()
+	users, err := data.GetAllUsers()
 	if err != nil {
 		return []error{err}
 	}
@@ -552,37 +552,34 @@ func RefreshConfiguration() []error {
 		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
 	}
 
-	for _, device := range devices {
-		ip := net.ParseIP(device.Address)
-		if ip == nil || ip.To4() == nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: cant parse ip from %s for user %s", device.Address, device.Username))
-			continue
-		}
+	for _, user := range users {
 
-		acls := config.GetEffectiveAcl(device.Username)
+		acls := config.GetEffectiveAcl(user.Username)
 
-		err := xdpObjects.PublicTable.Delete(ip.To4())
+		id := user.GetID()
+
+		err := xdpObjects.PublicTable.Delete(id)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: delete public table for %s: %s", device.Username, err.Error()))
+			errors = append(errors, fmt.Errorf("acl refresh failed: delete public table for %s: %s", user.Username, err.Error()))
 			continue
 		}
 
 		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = xdpCreateUser(ip, xdpObjects.PublicTable, acls.Allow)
+		err = xdpAddUser(user.Username, acls)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", device.Username, err.Error()))
+			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", user.Username, err.Error()))
 			continue
 		}
 
-		err = xdpObjects.MfaTable.Delete(ip.To4())
+		err = xdpObjects.MfaTable.Delete(id)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: delete mfa table for %s: %s", device.Username, err.Error()))
+			errors = append(errors, fmt.Errorf("acl refresh failed: delete mfa table for %s: %s", user.Username, err.Error()))
 			continue
 		}
 
-		err = xdpCreateUser(ip, xdpObjects.MfaTable, acls.Mfa)
+		err = xdpAddUser(user.Username, acls)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", device.Username, err.Error()))
+			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", user.Username, err.Error()))
 			continue
 		}
 

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"crypto/sha1"
 	"database/sql"
 	"errors"
 	"time"
@@ -14,6 +15,10 @@ type UserModel struct {
 	MfaType   string
 	Locked    bool
 	Enforcing bool
+}
+
+func (um *UserModel) GetID() [20]byte {
+	return sha1.Sum([]byte(um.Username))
 }
 
 // Make sure that the attempts is always incremented first to stop race condition attacks
