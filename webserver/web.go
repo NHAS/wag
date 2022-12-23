@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image/png"
 	"log"
 	"net/http"
 	"net/url"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/NHAS/wag/config"
@@ -87,6 +87,7 @@ func Start(errChan chan<- error) error {
 
 	tunnel := http.NewServeMux()
 
+	tunnel.HandleFunc("/status/", status)
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
 	for method, handler := range authenticators.MFA {
@@ -97,7 +98,6 @@ func Start(errChan chan<- error) error {
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/register_mfa/", registerMFA)
 
-	tunnel.HandleFunc("/routes/", routes)
 	tunnel.HandleFunc("/public_key/", publicKey)
 
 	tunnel.HandleFunc("/", index)
@@ -473,7 +473,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
 }
 
-func routes(w http.ResponseWriter, r *http.Request) {
+func status(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
 		return
@@ -487,12 +487,27 @@ func routes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", "attachment; filename=acl")
-	w.Header().Set("Content-Type", "text/plain")
-
 	acl := config.GetEffectiveAcl(user.Username)
 
-	w.Write([]byte(strings.Join(append(acl.Allow, acl.Mfa...), ", ")))
+	status := struct {
+		IsAuthorised bool
+		Routes       []string
+	}{
+		IsAuthorised: router.IsAuthed(remoteAddress.String()),
+		Routes:       append(acl.Allow, acl.Mfa...),
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename=acl")
+	w.Header().Set("Content-Type", "application/json")
+
+	result, err := json.Marshal(&status)
+	if err != nil {
+		log.Println(user.Username, remoteAddress, "error marshalling status")
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(result)
 }
 
 func publicKey(w http.ResponseWriter, r *http.Request) {
