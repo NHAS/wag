@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/NHAS/wag/config"
@@ -90,8 +91,8 @@ func (g *genconfig) Run() error {
 		fmt.Print("enter vpn subnet (default 10.1.2.1/24): ")
 		fmt.Scanf("%s", &c.Wireguard.Address)
 
-		tunnelPort := 80
-		fmt.Print("vpn tunnel port (default 80): ")
+		tunnelPort := 443
+		fmt.Print("vpn tunnel port (default 443): ")
 		fmt.Scanf("%d", &tunnelPort)
 
 		c.Webserver.Tunnel.Port = fmt.Sprintf("%d", tunnelPort)
@@ -121,6 +122,42 @@ func (g *genconfig) Run() error {
 
 		c.Acls.Groups = make(map[string][]string)
 		c.Acls.Policies = make(map[string]*config.Acl)
+
+		fmt.Print("set vpn tunnel domain url (e.g https://vpn.test:8080, or empty which will disable oidc and webauthn authentication methods): ")
+		fmt.Scanf("%s", &c.Authenticators.DomainURL)
+
+		u, err := url.Parse(c.Authenticators.DomainURL)
+		if err != nil {
+			return err
+		}
+
+		c.Authenticators.Methods = []string{"totp"}
+		if c.Authenticators.DomainURL != "" {
+
+			fmt.Print("enter OIDC issuer url (or empty to disable oidc): ")
+			fmt.Scanf("%s", &c.Authenticators.OIDC.IssuerURL)
+
+			if c.Authenticators.OIDC.IssuerURL != "" {
+				c.Authenticators.Methods = append(c.Authenticators.Methods, "oidc")
+
+				fmt.Print("enter OIDC ClientID: ")
+				fmt.Scanf("%s", &c.Authenticators.OIDC.ClientID)
+
+				fmt.Print("enter OIDC ClientSecret: ")
+				fmt.Scanf("%s", &c.Authenticators.OIDC.ClientSecret)
+
+				fmt.Print("enter OIDC groups claim name (default groups): ")
+				fmt.Scanf("%s", &c.Authenticators.OIDC.GroupsClaimName)
+
+				if c.Authenticators.OIDC.GroupsClaimName == "" {
+					c.Authenticators.OIDC.GroupsClaimName = "groups"
+				}
+			}
+
+			if u.Scheme == "https" {
+				c.Authenticators.Methods = append(c.Authenticators.Methods, "webauthn")
+			}
+		}
 
 	}
 

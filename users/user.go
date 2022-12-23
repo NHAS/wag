@@ -158,6 +158,11 @@ func (u *user) Delete() error {
 		}
 	}
 
+	err = router.RemoveUser(u.Username)
+	if err != nil {
+		return err
+	}
+
 	return data.DeleteUser(u.Username)
 }
 

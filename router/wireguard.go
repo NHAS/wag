@@ -85,7 +85,7 @@ func setupWireguard() error {
 
 	devices, err := data.GetAllDevices()
 	if err != nil {
-		return err
+		return errors.New("setup wireguard get all devices: " + err.Error())
 	}
 
 	for _, device := range devices {

@@ -19,8 +19,8 @@ import (
 var Version string
 
 type webserverDetails struct {
-	CertPath string
-	KeyPath  string
+	CertPath string `json:",omitempty"`
+	KeyPath  string `json:",omitempty"`
 }
 
 type usualWeb struct {
@@ -61,16 +61,16 @@ type Config struct {
 		Tunnel tunnelWeb
 	}
 	Authenticators struct {
-		DefaultMethod string
+		DefaultMethod string `json:",omitempty"`
 
-		Methods   []string
+		Methods   []string `json:",omitempty"`
 		DomainURL string
 
 		OIDC struct {
 			IssuerURL       string
 			ClientSecret    string
 			ClientID        string
-			GroupsClaimName string
+			GroupsClaimName string `json:",omitempty"`
 		}
 
 		//Not externally configurable

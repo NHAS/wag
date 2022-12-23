@@ -271,7 +271,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 func GetAllUsers() (users []UserModel, err error) {
 
-	rows, err := database.Query("SELECT username, mfa, mfa_type enforcing, locked FROM Users ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT username, mfa, mfa_type, enforcing, locked FROM Users ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}

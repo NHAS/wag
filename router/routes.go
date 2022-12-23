@@ -310,25 +310,25 @@ func setupXDP() error {
 
 	knownDevices, err := data.GetAllDevices()
 	if err != nil {
-		return err
+		return errors.New("xdp setup get all devices: " + err.Error())
 	}
 
 	users, err := data.GetAllUsers()
 	if err != nil {
-		return err
+		return errors.New("xdp setup get all users: " + err.Error())
 	}
 
 	for _, user := range users {
 
 		if err := AddUser(user.Username, config.GetEffectiveAcl(user.Username)); err != nil {
-			return err
+			return errors.New("xdp setup add user: " + err.Error())
 		}
 	}
 
 	for _, device := range knownDevices {
 		err := xdpAddDevice(device.Username, device.Address)
 		if err != nil {
-			return err
+			return errors.New("xdp setup add device to user: " + err.Error())
 		}
 	}
 
@@ -400,16 +400,6 @@ func xdpRemoveDevice(address string) error {
 	deviceTableErr := xdpObjects.Devices.LookupAndDelete(ip.To4(), deviceBytes)
 	if deviceTableErr != nil && !strings.Contains(deviceTableErr.Error(), ebpf.ErrKeyNotExist.Error()) {
 		finalError = errors.New(finalError.Error() + "removing from devices table failed: " + deviceTableErr.Error() + " ")
-	}
-
-	publicErr := xdpObjects.PublicTable.Delete(deviceStruct.user_id)
-	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from public table failed: " + deviceTableErr.Error() + " ")
-	}
-
-	mfaErr := xdpObjects.MfaTable.Delete(deviceStruct.user_id)
-	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + publicErr.Error() + " ")
 	}
 
 	if finalError.Error() == msg {
@@ -539,6 +529,33 @@ func AddUser(username string, acls config.Acl) error {
 	return nil
 }
 
+func RemoveUser(username string) error {
+
+	userid := sha1.Sum([]byte(username))
+
+	err := xdpObjects.AccountLocked.Delete(userid)
+	if err != nil {
+		return err
+	}
+
+	var finalError error
+	publicErr := xdpObjects.PublicTable.Delete(userid)
+	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from public table failed")
+	}
+
+	mfaErr := xdpObjects.MfaTable.Delete(userid)
+	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
+		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + publicErr.Error() + " ")
+	}
+
+	if finalError != nil {
+		return finalError
+	}
+
+	return nil
+}
+
 func RefreshConfiguration() []error {
 
 	users, err := data.GetAllUsers()
@@ -620,7 +637,21 @@ func Deauthenticate(address string) error {
 		return errors.New("IP address was not ipv4")
 	}
 
-	return xdpObjects.Devices.Delete(ip.To4())
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
+	if err != nil {
+		return err
+	}
+
+	var devicesStruct device
+	err = devicesStruct.Unpack(deviceBytes)
+	if err != nil {
+		return err
+	}
+
+	devicesStruct.lastPacketTime = 0
+	devicesStruct.sessionExpiry = 0
+
+	return xdpObjects.Devices.Update(ip.To4(), devicesStruct.Bytes(), ebpf.UpdateExist)
 }
 
 type FirewallRules struct {
