@@ -12,23 +12,30 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 
 # Requirements
-
-glibc 2.34 or higher  
-go1.16+
   
-`iptables` must be installed. 
+`iptables` must be installed.  
 Wag must be run as root, to manage `iptables` and the `wireguard` device.  
    
-Forwarding must be enabled in `sysctl`.
-
+Forwarding must be enabled in `sysctl`.  
+  
 ```
 sysctl -w net.ipv4.ip_forward=1
 ```
 
-Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard. 
+Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard.  
 
 # Setup instructions
+  
+  
+Binary release:  
+```
+curl -L $(curl -s https://api.github.com/repos/NHAS/wag/releases/latest | jq -M -r '.assets[0].browser_download_url') -o wag
+sudo ./wag gen-config
 
+sudo ./wag start -config <generated_config_name>
+```
+  
+From source (will require go1.19):  
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
