@@ -7,7 +7,7 @@ import (
 
 	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/data/migrations"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func TestMigrationFromNew(t *testing.T) {
@@ -26,7 +26,7 @@ func TestMigrationFromVersion1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
+	db, err := sql.Open("sqlite", "file::memory:?cache=shared")
 	if err != nil {
 		t.Fatal(err)
 	}
