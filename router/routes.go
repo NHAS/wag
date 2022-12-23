@@ -708,6 +708,8 @@ func GetRules() (map[string]FirewallRules, error) {
 		fwRule.Expiry = deviceStruct.sessionExpiry
 		fwRule.LastPacketTimestamp = deviceStruct.lastPacketTime
 
+		fwRule.IsAuthorized = IsAuthed(fwRule.IP.String())
+
 		var innerMapID ebpf.MapID
 
 		err = xdpObjects.PublicTable.Lookup(deviceStruct.user_id, &innerMapID)

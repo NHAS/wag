@@ -216,10 +216,45 @@ func TestBasicAuthorise(t *testing.T) {
 			Src:     net.ParseIP(out[0].Address),
 			Len:     ipv4.HeaderLen,
 		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("192.168.3.11"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("8.8.8.8"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("3.21.11.11"),
+			Src:     net.ParseIP(out[1].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("7.7.7.7"),
+			Src:     net.ParseIP(out[1].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("4.3.3.3"),
+			Src:     net.ParseIP(out[1].Address),
+			Len:     ipv4.HeaderLen,
+		},
 	}
 
 	expectedResults := map[string]uint32{
 		headers[0].String(): XDP_DROP,
+		headers[1].String(): XDP_PASS,
+		headers[2].String(): XDP_PASS,
+		headers[3].String(): XDP_DROP,
+		headers[4].String(): XDP_PASS,
+		headers[5].String(): XDP_DROP,
 	}
 
 	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
@@ -242,6 +277,9 @@ func TestBasicAuthorise(t *testing.T) {
 
 	}
 
+	m, err := GetRules()
+	log.Printf("%+v %v", m, err)
+
 	for i := range headers {
 		if headers[i].Src == nil || headers[i].Dst == nil {
 			t.Fatal("could not parse ip")
@@ -257,9 +295,8 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatalf("program failed %s", err)
 		}
 
-		if result(value) != result(expectedResults[headers[i].String()]) {
-			m, err := GetRules()
-			log.Printf("%+v %v", m, err)
+		if value != expectedResults[headers[i].String()] {
+
 			t.Fatalf("program did not %s packet instead did: %s", result(expectedResults[headers[i].String()]), result(value))
 		}
 	}
@@ -278,6 +315,10 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal("could not parse ip")
 		}
 
+		if out[0].Address != headers[i].Src.String() {
+			continue
+		}
+
 		packet, err := headers[i].Marshal()
 		if err != nil {
 			t.Fatal(err)
@@ -288,7 +329,7 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatalf("program failed %s", err)
 		}
 
-		if result(value) != "XDP_DROP" {
+		if value != XDP_DROP {
 			t.Fatalf("after deauthenticating, everything should be XDP_DROP instead %s", result(value))
 		}
 	}
