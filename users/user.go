@@ -203,7 +203,7 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
-	err = router.SetAuthorized(device)
+	err = router.SetAuthorized(device, u.Username)
 	if err != nil {
 		return fmt.Errorf("%s %s unable to add mfa routes: %s", u.Username, device, err)
 	}
@@ -232,6 +232,11 @@ func (u *user) GetMFAType() string {
 
 func CreateUser(username string) (user, error) {
 	ud, err := data.CreateUserDataAccount(username)
+	if err != nil {
+		return user{}, err
+	}
+
+	err = router.AddUser(username, config.GetEffectiveAcl(username))
 	if err != nil {
 		return user{}, err
 	}

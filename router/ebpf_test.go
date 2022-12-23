@@ -1,7 +1,9 @@
 package router
 
 import (
+	"crypto/sha1"
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"strings"
@@ -87,39 +89,41 @@ func TestAddNewDevices(t *testing.T) {
 		}
 	}
 
-	pubs := []data.Device{}
-	for _, device := range out {
-		if len(config.GetEffectiveAcl(device.Username).Allow) > 0 {
-			pubs = append(pubs, device)
-		}
-	}
+}
 
-	publicAcls, err := checkLPMMap(pubs, xdpObjects.PublicTable)
+func TestAddUser(t *testing.T) {
+
+	if err := setup("../config/test_in_memory_db.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
 	if err != nil {
-		t.Fatal("checking publictable:", err)
+		t.Fatal(err)
 	}
 
-	mfas := []data.Device{}
 	for _, device := range out {
-		if len(config.GetEffectiveAcl(device.Username).Mfa) > 0 {
-			mfas = append(mfas, device)
+		publicAcls, err := checkLPMMap(device.Username, xdpObjects.PublicTable)
+		if err != nil {
+			t.Fatal("checking publictable:", err)
 		}
-	}
 
-	mfaAcls, err := checkLPMMap(mfas, xdpObjects.MfaTable)
-	if err != nil {
-		t.Fatal("checking mfatable:", err)
-	}
+		mfaAcls, err := checkLPMMap(device.Username, xdpObjects.MfaTable)
+		if err != nil {
+			t.Fatal("checking mfatable:", err)
+		}
 
-	for _, device := range out {
 		acl := config.GetEffectiveAcl(device.Username)
-		if !sameStringSlice(acl.Allow, publicAcls[device.Address]) {
+
+		if !sameStringSlice(acl.Allow, publicAcls) {
 			t.Fatal("public allow list does not match configured acls")
 		}
 
-		if !sameStringSlice(acl.Mfa, mfaAcls[device.Address]) {
+		if !sameStringSlice(acl.Mfa, mfaAcls) {
 			t.Fatal("mfa allow list does not match configured acls")
 		}
+
 	}
 }
 
@@ -196,7 +200,7 @@ func TestBasicAuthorise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address)
+	err = SetAuthorized(out[0].Address, out[0].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +219,7 @@ func TestBasicAuthorise(t *testing.T) {
 	}
 
 	expectedResults := map[string]uint32{
-		headers[0].String(): 1,
+		headers[0].String(): XDP_DROP,
 	}
 
 	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
@@ -234,7 +238,7 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 		headers = append(headers, newHeader)
 
-		expectedResults[newHeader.String()] = 2
+		expectedResults[newHeader.String()] = XDP_PASS
 
 	}
 
@@ -254,6 +258,8 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 
 		if result(value) != result(expectedResults[headers[i].String()]) {
+			m, err := GetRules()
+			log.Printf("%+v %v", m, err)
 			t.Fatalf("program did not %s packet instead did: %s", result(expectedResults[headers[i].String()]), result(value))
 		}
 	}
@@ -300,7 +306,7 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address)
+	err = SetAuthorized(out[0].Address, out[0].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +426,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
 	}
 
-	err = SetAuthorized(out[0].Address)
+	err = SetAuthorized(out[0].Address, out[0].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -485,13 +491,13 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address)
+	err = SetAuthorized(out[0].Address, out[0].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if !IsAuthed(out[0].Address) {
-		t.Fatal("after setting user as authorized it should be.... authorized")
+		t.Fatal("after setting user device as authorized it should be.... authorized")
 	}
 
 	ip, _, err := net.ParseCIDR(config.GetEffectiveAcl(out[0].Username).Mfa[0])
@@ -553,7 +559,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address)
+	err = SetAuthorized(out[0].Address, out[0].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -649,58 +655,50 @@ func sameStringSlice(x, y []string) bool {
 	return len(diff) == 0
 }
 
-func checkLPMMap(devices []data.Device, m *ebpf.Map) (map[string][]string, error) {
+func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
 	var innerMapID ebpf.MapID
-	var ipBytes []byte
+	userid := sha1.Sum([]byte(username))
 
-	found := map[string][]string{}
-
-	iter := m.Iterate()
-	for iter.Next(&ipBytes, &innerMapID) {
-		ip := net.IP(ipBytes)
-
-		innerMap, err := ebpf.NewMapFromID(innerMapID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get map from id: %s", err)
-		}
-
-		var innerKey []byte
-		var val uint8
-		innerIter := innerMap.Iterate()
-		kv := Key{}
-		for innerIter.Next(&innerKey, &val) {
-			kv.Unpack(innerKey)
-
-			found[ip.String()] = append(found[ip.String()], kv.String())
-		}
-		innerMap.Close()
+	err := m.Lookup(userid, &innerMapID)
+	if err != nil {
+		return nil, err
 	}
 
-	if iter.Err() != nil {
-		return nil, fmt.Errorf("iterator reported an error: %s", iter.Err())
+	result := []string{}
+
+	innerMap, err := ebpf.NewMapFromID(innerMapID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get map from id: %s", err)
 	}
 
-	if len(found) != len(devices) {
-		return nil, fmt.Errorf("expected number of devices not found when iterating lpm map %d != %d", len(found), len(devices))
+	var innerKey []byte
+	var val uint8
+	innerIter := innerMap.Iterate()
+	kv := Key{}
+	for innerIter.Next(&innerKey, &val) {
+		kv.Unpack(innerKey)
+
+		result = append(result, kv.String())
 	}
 
-	for _, device := range devices {
-		if _, ok := found[device.Address]; !ok {
-			return nil, fmt.Errorf("%s not found even though it should have been added", device.Address)
-		}
+	if innerIter.Err() != nil {
+		return nil, innerIter.Err()
 	}
 
-	return found, nil
+	return result, innerMap.Close()
 }
+
+const XDP_DROP = 1
+const XDP_PASS = 2
 
 func result(code uint32) string {
 	switch code {
-	case 1:
+	case XDP_DROP:
 		return "XDP_DROP"
-	case 2:
+	case XDP_PASS:
 		return "XDP_PASS"
 	default:
-		return "XDP_UNKNOWN_UNUSED"
+		return fmt.Sprintf("XDP_UNKNOWN_UNUSED(%d)", code)
 	}
 }
 
@@ -722,7 +720,12 @@ func addDevices() ([]data.Device, error) {
 	}
 
 	for i := range devices {
-		err := xdpAddDevice(devices[i].Username, devices[i].Address)
+		err := AddUser(devices[i].Username, config.GetEffectiveAcl(devices[i].Username))
+		if err != nil {
+			return nil, err
+		}
+
+		err = xdpAddDevice(devices[i].Username, devices[i].Address)
 		if err != nil {
 			return nil, err
 		}
@@ -733,7 +736,11 @@ func addDevices() ([]data.Device, error) {
 func setup(what string) error {
 	err := config.Load(what)
 	if err != nil && !strings.Contains(err.Error(), "Configuration has already been loaded") {
+		return err
+	}
 
+	err = data.Load(config.Values().DatabaseLocation)
+	if err != nil {
 		return err
 	}
 

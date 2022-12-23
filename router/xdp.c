@@ -114,7 +114,6 @@ struct device
 
     __u32 device_lock;
 
-    // This struct is perfectly sized for a 64bit system, to exist without padding (40 bytes % 8 == 0)
 } __attribute__((__packed__));
 
 struct bpf_map_def SEC("maps") devices = {
@@ -209,14 +208,14 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
 
     // Find device
     struct device *current_device = bpf_map_lookup_elem(&devices, src_ip);
-    if (!current_device)
+    if (current_device == NULL)
     {
         return 0;
     }
 
     // Check if the account exists
-    __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, src_ip);
-    if (!isAccountLocked)
+    __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, current_device->user_id);
+    if (isAccountLocked == NULL)
     {
         return 0;
     }
@@ -224,33 +223,32 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     // Our userland defined inactivity timeout
     u32 index = 0;
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
-    if (!inactivity_timeout)
+    if (inactivity_timeout == NULL)
     {
         return 0;
     }
 
     __u64 currentTime = bpf_ktime_get_boot_ns();
 
-    // The inner map must be a LPM trie
+    // If the inactivity timeout is not disabled and users session has timed out
+    u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));
+
+    // // The inner map must be a LPM trie
     struct ip4_trie_key key = {
         .prefixlen = 32,
         .addr = *dst_ip,
     };
 
-    u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));
-
     // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
     // If the key is a match for the LPM in the public table
-    void *user_restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
-    if (user_restricted_routes && bpf_map_lookup_elem(user_restricted_routes, &key))
+    void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
+    if (restricted_routes != NULL && bpf_map_lookup_elem(restricted_routes, &key) != NULL)
     {
-        // If the inactivity timeout is not disabled and users session has timed out
 
-        // If the account is NOT locked and device isnt locked
-        if (!*isAccountLocked && current_device->device_lock != 0 &&
+        // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
+        if (!*isAccountLocked && !current_device->device_lock && !isTimedOut &&
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
-            (current_device->sessionExpiry == __UINT64_MAX__ || current_device->sessionExpiry > currentTime) &&
-            !isTimedOut)
+            (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry))
         {
 
             // Honestly, this susses me the fuck out
@@ -263,8 +261,8 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
         return 0;
     }
 
-    void *user_public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
-    if (user_public_routes && bpf_map_lookup_elem(user_public_routes, &key))
+    void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
+    if (public_routes && bpf_map_lookup_elem(public_routes, &key))
     {
         // Only update the lastpacket time if we're not expired
         if (!isTimedOut)
@@ -288,7 +286,6 @@ int xdp_wag_firewall(struct xdp_md *ctx)
 
     if (conntrack(&src_ip, &dst_ip) || conntrack(&dst_ip, &src_ip))
     {
-
         return XDP_PASS;
     }
 

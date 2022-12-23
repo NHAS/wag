@@ -137,6 +137,14 @@ func GetEffectiveAcl(username string) Acl {
 	return dereferencedAcl
 }
 
+// Used in authentication methods that can specify user groups directly (for the moment just oidc)
+func AddVirtualUser(username string, groups []string) {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	values.Acls.rGroupLookup[username] = groups
+}
+
 func load(path string) (c Config, err error) {
 	configFile, err := os.Open(path)
 	if err != nil {

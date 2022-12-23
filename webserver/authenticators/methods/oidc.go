@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/data"
 	"github.com/NHAS/wag/router"
 	"github.com/NHAS/wag/users"
@@ -124,6 +125,9 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens, state string, rp rp.RelyingParty, info oidc.UserInfo) {
+
+		groups := tokens.IDTokenClaims.GetClaim(config.Values().Authenticators.OIDC.GroupsClaimName).([]string)
+
 		// Will set enforcing on first use
 		err = user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuer, username string) error {
 
@@ -134,6 +138,8 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 			if info.GetPreferredUsername() != username {
 				return errors.New("returned username did not equal device associated username")
 			}
+
+			config.AddVirtualUser(username, groups)
 
 			return nil
 		})

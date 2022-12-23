@@ -84,7 +84,7 @@ func (d *device) Unpack(b []byte) error {
 
 	copy(d.user_id[:], b[16:36])
 
-	d.deviceLock = binary.LittleEndian.Uint32(b[16:])
+	d.deviceLock = binary.LittleEndian.Uint32(b[36:])
 
 	return nil
 }
@@ -313,6 +313,18 @@ func setupXDP() error {
 		return err
 	}
 
+	users, err := data.GetAllUsers()
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+
+		if err := AddUser(user.Username, config.GetEffectiveAcl(user.Username)); err != nil {
+			return err
+		}
+	}
+
 	for _, device := range knownDevices {
 		err := xdpAddDevice(device.Username, device.Address)
 		if err != nil {
@@ -348,21 +360,10 @@ func IsAuthed(address string) bool {
 		return false
 	}
 
-	ip = ip.To4()
-	//Unable to get a ipv4 address
-	if ip == nil {
-		return false
-	}
-
-	var isAccountLocked uint32
-	if xdpObjects.AccountLocked.Lookup([]byte(ip), &isAccountLocked) != nil {
-		return false
-	}
-
 	var deviceStruct device
-	deviceBytes := make([]byte, deviceStruct.Size())
 
-	if xdpObjects.Devices.Lookup([]byte(ip), deviceBytes) != nil {
+	deviceBytes, err := xdpObjects.Devices.LookupBytes([]byte(ip.To4()))
+	if err != nil {
 		return false
 	}
 
@@ -370,9 +371,14 @@ func IsAuthed(address string) bool {
 		return false
 	}
 
+	var isAccountLocked uint32
+	if xdpObjects.AccountLocked.Lookup(deviceStruct.user_id, &isAccountLocked) != nil {
+		return false
+	}
+
 	currentTime := GetTimeStamp()
 
-	sessionValid := deviceStruct.deviceLock != 0 && (deviceStruct.sessionExpiry > currentTime || deviceStruct.sessionExpiry == math.MaxUint64)
+	sessionValid := (deviceStruct.sessionExpiry > currentTime || deviceStruct.sessionExpiry == math.MaxUint64)
 
 	sessionActive := ((currentTime-deviceStruct.lastPacketTime) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
 
@@ -444,10 +450,17 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 	userid := sha1.Sum([]byte(username))
 	var innerMapID ebpf.MapID
 
+	//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
 	err := table.Lookup(userid, &innerMapID)
 	if err != nil {
 		return fmt.Errorf("error looking up table: %s", err)
 	}
+
+	innerMap, err := ebpf.NewMapFromID(innerMapID)
+	if err != nil {
+		return fmt.Errorf("inner map: %s", err)
+	}
+	defer innerMap.Close()
 
 	for _, destination := range destinations {
 
@@ -456,23 +469,17 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 			return err
 		}
 
-		innerMap, err := ebpf.NewMapFromID(innerMapID)
-		if err != nil {
-			return fmt.Errorf("inner map: %s", err)
-		}
-
 		err = innerMap.Put(k.Bytes(), uint8(1))
 		if err != nil {
 			return fmt.Errorf("inner map: %s", err)
 		}
-
-		innerMap.Close()
 
 	}
 
 	return nil
 }
 
+// If err != nil then user does not exist
 func xdpUserExists(userid [20]byte) error {
 	var locked uint32 // Unused
 	err := xdpObjects.AccountLocked.Lookup(userid, &locked)
@@ -483,11 +490,11 @@ func xdpUserExists(userid [20]byte) error {
 	return nil
 }
 
-func xdpAddUser(username string, acls config.Acl) error {
+func AddUser(username string, acls config.Acl) error {
 
 	userid := sha1.Sum([]byte(username))
 
-	if xdpUserExists(userid) != nil {
+	if xdpUserExists(userid) == nil {
 		return errors.New("user already exists")
 	}
 
@@ -496,7 +503,8 @@ func xdpAddUser(username string, acls config.Acl) error {
 		return err
 	}
 
-	addMap := func(table *ebpf.Map) error {
+	// Adds LPM trie to existing map (hashmap to map)
+	addMapTo := func(table *ebpf.Map) error {
 		inner, err := ebpf.NewMap(innerMapSpec)
 		if err != nil {
 			return fmt.Errorf("%s creating new map: %s", table.String(), err)
@@ -510,17 +518,15 @@ func xdpAddUser(username string, acls config.Acl) error {
 		return inner.Close()
 	}
 
-	err = addMap(xdpObjects.PublicTable)
+	err = addMapTo(xdpObjects.PublicTable)
 	if err != nil {
 		return err
 	}
 
-	err = addMap(xdpObjects.MfaTable)
+	err = addMapTo(xdpObjects.MfaTable)
 	if err != nil {
 		return err
 	}
-
-	//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
 
 	if err := xdpAddRoute(username, xdpObjects.MfaTable, acls.Mfa); err != nil {
 		return err
@@ -565,7 +571,7 @@ func RefreshConfiguration() []error {
 		}
 
 		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = xdpAddUser(user.Username, acls)
+		err = AddUser(user.Username, acls)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", user.Username, err.Error()))
 			continue
@@ -577,7 +583,7 @@ func RefreshConfiguration() []error {
 			continue
 		}
 
-		err = xdpAddUser(user.Username, acls)
+		err = AddUser(user.Username, acls)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", user.Username, err.Error()))
 			continue
@@ -588,11 +594,7 @@ func RefreshConfiguration() []error {
 	return errors
 }
 
-func SetAuthorized(internalAddress string) error {
-	storedDevice, err := data.GetDeviceByAddress(internalAddress)
-	if err != nil {
-		return err
-	}
+func SetAuthorized(internalAddress, username string) error {
 
 	var deviceStruct device
 	deviceStruct.lastPacketTime = GetTimeStamp()
@@ -602,9 +604,9 @@ func SetAuthorized(internalAddress string) error {
 		deviceStruct.sessionExpiry = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
 	}
 
-	deviceStruct.user_id = sha1.Sum([]byte(storedDevice.Username))
+	deviceStruct.user_id = sha1.Sum([]byte(username))
 
-	return xdpObjects.Devices.Update(net.ParseIP(storedDevice.Address).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
+	return xdpObjects.Devices.Update(net.ParseIP(internalAddress).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {
@@ -627,28 +629,12 @@ type FirewallRules struct {
 	Expiry              uint64
 	MFA                 []string
 	Public              []string
+	IP                  net.IP
 }
 
 func GetRules() (map[string]FirewallRules, error) {
 
 	result := make(map[string]FirewallRules)
-
-	authorizedDevices, err := GetAllAuthorised()
-	if err != nil {
-		return result, err
-	}
-
-	users, err := data.GetAllUsers()
-	if err != nil {
-		return nil, err
-	}
-
-	userlookup := map[string]string{}
-
-	for _, user := range users {
-		hash := sha1.Sum([]byte(user.Username))
-		userlookup[string(hash[:])] = user.Username // Yes I know, problems of my own design
-	}
 
 	iterateSubmap := func(innerMapID ebpf.MapID) (result []string, err error) {
 		innerMap, err := ebpf.NewMapFromID(innerMapID)
@@ -672,42 +658,43 @@ func GetRules() (map[string]FirewallRules, error) {
 		return
 	}
 
-	for _, address := range authorizedDevices {
-		fwRule := result[address]
-		fwRule.IsAuthorized = true
+	var deviceStruct device
+	deviceBytes := make([]byte, deviceStruct.Size())
+	ipBytes := make([]byte, 4)
+	iter := xdpObjects.Devices.Iterate()
 
-		ip := net.IP(address)
+	for iter.Next(&ipBytes, &deviceBytes) {
 
-		var (
-			currentDevice device
-			innerMapID    ebpf.MapID
-		)
-
-		deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
+		err := deviceStruct.Unpack(deviceBytes)
 		if err != nil {
 			return nil, err
 		}
 
-		err = currentDevice.Unpack(deviceBytes)
-		if err != nil {
-			return nil, err
-		}
+		res := hex.EncodeToString(deviceStruct.user_id[:])
 
-		err = xdpObjects.PublicTable.Lookup(currentDevice.user_id, &innerMapID)
+		fwRule := result[res]
+		fwRule.IP = net.IP(ipBytes)
+		fwRule.Expiry = deviceStruct.sessionExpiry
+		fwRule.LastPacketTimestamp = deviceStruct.lastPacketTime
+
+		var innerMapID ebpf.MapID
+
+		err = xdpObjects.PublicTable.Lookup(deviceStruct.user_id, &innerMapID)
 		if err == nil {
 			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
 				return nil, err
 			}
 		}
 
-		err = xdpObjects.MfaTable.Lookup(currentDevice.user_id, &innerMapID)
+		err = xdpObjects.MfaTable.Lookup(deviceStruct.user_id, &innerMapID)
 		if err == nil {
-			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
+			if fwRule.MFA, err = iterateSubmap(innerMapID); err != nil {
 				return nil, err
 			}
 		}
 
-		result[address] = fwRule
+		result[res] = fwRule
+
 	}
 
 	return result, nil

@@ -84,6 +84,11 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	err = AddUser("toaster", config.Acl{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	address, err := AddPeer(pk, "toaster")
 	if err != nil {
 		t.Fatal(err)
