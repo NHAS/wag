@@ -36,7 +36,8 @@ func (u *user) ResetMfa() error {
 		}
 	}
 
-	err = data.SetUserMfa(u.Username, "", authenticators.UnsetMFA)
+	// the MFA column is marked as "unique" so just set it as the username as that is also unique
+	err = data.SetUserMfa(u.Username, u.Username, authenticators.UnsetMFA)
 	if err != nil {
 		return err
 	}
@@ -219,6 +220,10 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 	}
 
 	return nil
+}
+
+func (u *user) Deauthenticate(device string) error {
+	return router.Deauthenticate(device)
 }
 
 func (u *user) MFA() (string, error) {

@@ -2,6 +2,7 @@ package methods
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"log"
 	"math/rand"
@@ -22,6 +23,11 @@ import (
 	httphelper "github.com/zitadel/oidc/pkg/http"
 	"github.com/zitadel/oidc/pkg/oidc"
 )
+
+type issuer struct {
+	Username string
+	Issuer   string
+}
 
 type Oidc struct {
 	provider rp.RelyingParty
@@ -101,7 +107,16 @@ func (o *Oidc) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "registering with oidc")
 
-	err = data.SetUserMfa(user.Username, o.provider.Issuer(), authenticators.OidcMFA)
+	// The MFA value column is set to unique (which is important for the totp and webauthn methods), so for this we need to be a bit hacky and make sure that we add the username which is also unique
+
+	issuer := issuer{
+		Username: user.Username,
+		Issuer:   o.provider.Issuer(),
+	}
+
+	value, _ := json.Marshal(issuer)
+
+	err = data.SetUserMfa(user.Username, string(value), authenticators.OidcMFA)
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
 		http.Error(w, "Unknown error", 500)
