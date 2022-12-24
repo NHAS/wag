@@ -142,7 +142,7 @@ async function loginUser(event) {
         try {
             credentialRequestOptions = await challenge.json();
         } catch (e) {
-            console.log("logging in failed")
+            console.log("logging in failed: ", e)
             document.getElementById("error").hidden = false;
             return
         }
@@ -158,7 +158,7 @@ async function loginUser(event) {
                 publicKey: credentialRequestOptions.publicKey
             });
         } catch (e) {
-            console.log("logging in failed")
+            console.log("logging in failed: ", e)
 
             document.getElementById("errorMsg").textContent = e.message;
             if (e.name == "InvalidStateError") {
@@ -206,15 +206,15 @@ async function loginUser(event) {
 
             let content = await finalise.json();
 
-            console.log("logging in failed")
+            console.log("logging in failed: ", content)
 
-            document.getElementById("errorMsg").textContent = content.message;
+            document.getElementById("errorMsg").textContent = content;
             document.getElementById("error").hidden = false;
 
             return
         }
     } catch (e) {
-        console.log("loggin user failed")
+        console.log("logging in failed: ", e)
         document.getElementById("errorMsg").textContent = e.message;
         document.getElementById("error").hidden = false;
         return

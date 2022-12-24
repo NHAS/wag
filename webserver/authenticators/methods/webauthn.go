@@ -300,6 +300,10 @@ func (wa *Webauthn) RegistrationHandler(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+func (wa *Webauthn) LogoutPath() string {
+	return "/"
+}
+
 // WebauthnUser represents the user model
 type WebauthnUser struct {
 	id          uint64

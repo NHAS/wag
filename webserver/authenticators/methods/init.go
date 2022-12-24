@@ -35,8 +35,10 @@ func resultMessage(err error) (string, int) {
 	}
 
 	msg := "Validation failed"
-	if strings.Contains(err.Error(), "locked") {
+	if strings.Contains(err.Error(), "account is locked") {
 		msg = "Account is locked contact: " + config.Values().HelpMail
+	} else if strings.Contains(err.Error(), "device is locked") {
+		msg = "Device is locked contact: " + config.Values().HelpMail
 	}
 	return msg, http.StatusBadRequest
 }
