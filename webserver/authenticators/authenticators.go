@@ -19,6 +19,8 @@ type Authenticator interface {
 	Type() string
 	FriendlyName() string
 
+	LogoutPath() string
+
 	RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 	AuthorisationEndpoint(w http.ResponseWriter, r *http.Request)
 

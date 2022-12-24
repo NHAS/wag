@@ -88,6 +88,7 @@ func Start(errChan chan<- error) error {
 	tunnel := http.NewServeMux()
 
 	tunnel.HandleFunc("/status/", status)
+	tunnel.HandleFunc("/logout/", logout)
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
 	for method, handler := range authenticators.MFA {
@@ -475,6 +476,37 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		logMsg = "overwrote"
 	}
 	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	clientTunnelIp := utils.GetIPFromRequest(r)
+
+	if !router.IsAuthed(clientTunnelIp.String()) {
+		http.NotFound(w, r)
+		return
+	}
+
+	user, err := users.GetUserFromAddress(clientTunnelIp)
+	if err != nil {
+		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
+		http.Error(w, "Bad request", 400)
+		return
+	}
+
+	user.Deauthenticate(clientTunnelIp.String())
+
+	method, ok := authenticators.MFA[user.GetMFAType()]
+	if !ok {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	}
+
+	http.Redirect(w, r, method.LogoutPath(), http.StatusTemporaryRedirect)
+
 }
 
 func status(w http.ResponseWriter, r *http.Request) {

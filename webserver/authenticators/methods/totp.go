@@ -218,3 +218,7 @@ func (t *Totp) RegistrationHandler(w http.ResponseWriter, r *http.Request, usern
 		log.Println(username, ip, "unable to render totp mfa template: ", err)
 	}
 }
+
+func (t *Totp) LogoutPath() string {
+	return "/"
+}
