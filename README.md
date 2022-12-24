@@ -12,7 +12,8 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 
 # Requirements
-  
+
+
 `iptables` must be installed.  
 Wag must be run as root, to manage `iptables` and the `wireguard` device.  
    
@@ -25,9 +26,10 @@ sysctl -w net.ipv4.ip_forward=1
 Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard.  
 
 # Setup instructions
+
+Both options require a kernel newer than 4.15+;
   
-  
-Binary release:  
+Binary release (requires glibc 2.31+):  
 ```
 curl -L $(curl -s https://api.github.com/repos/NHAS/wag/releases/latest | jq -M -r '.assets[0].browser_download_url') -o wag
 sudo ./wag gen-config
@@ -77,6 +79,9 @@ Usage of start:
 Usage of firewall:
   -list
         List firewall rules
+  -socket string
+        Wag socket to act on (default "/tmp/wag.sock")
+
 ``` 
 
 `registration`:  Deals with creating, deleting and listing the registration tokens
@@ -86,10 +91,16 @@ Usage of registration:
         Create a new enrolment token
   -del
         Delete existing enrolment token
+  -group value
+        Manually set user group (can supply multiple -group, or use -groups for , delimited group list, useful for OIDC)
+  -groups string
+        Set user groups manually, ',' delimited list of groups, useful for OIDC
   -list
         List tokens
   -overwrite string
         Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)
+  -socket string
+        Wag socket to act on (default "/tmp/wag.sock")
   -token string
         Manually set registration token (Optional)
   -username string
@@ -109,6 +120,8 @@ Usage of devices:
         Lock device access to mfa routes
   -mfa_sessions
         Get list of devices with active authorised sessions
+  -socket string
+        Wag control socket to act on (default "/tmp/wag.sock")
   -unlock
         Unlock device
   -username string
@@ -122,12 +135,14 @@ Usage of users:
         Delete user and all associated devices
   -list
         List users, if '-username' supply will filter by user
-  -lock
-        Locked account, disables all MFA on all devices and deauthenticates all active sessions
+  -lockaccount
+        Lock account disable authention from any device, deauthenticates user active sessions
   -reset-mfa
         Reset MFA details, invalids all session and set MFA to be shown
-  -unlock
-        Unlock a locked account
+  -socket string
+        Wag socket location, (default "/tmp/wag.sock")
+  -unlockaccount
+        Unlock a locked account, does not unlock specific device locks (use device -unlock -username <> for that)
   -username string
         Username to act upon
 ```
@@ -144,6 +159,8 @@ Usage of upgrade:
         Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary
   -path string
         File path to new wag executable
+  -socket string
+        Wag socket location, (default "/tmp/wag.sock")
 ```
 
 
@@ -203,6 +220,7 @@ The configuration file specifies how long a session can live for, before expirin
 `SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled  
   
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
+`Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
 `Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
@@ -243,6 +261,7 @@ Full config example
     "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
+    "Socket":"/tmp/wag.sock",
     "Issuer": "vpn.test",
     "DNS": ["1.1.1.1"],
     "Webserver": {
