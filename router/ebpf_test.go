@@ -69,7 +69,7 @@ func TestAddNewDevices(t *testing.T) {
 			t.Fatal("unpacking new device:", err)
 		}
 
-		if newDevice.lastPacketTime != 0 || newDevice.lastPacketTime != 0 {
+		if newDevice.lastPacketTime != 0 || newDevice.sessionExpiry != 0 {
 			t.Fatal("timers were not 0 immediately after device add")
 		}
 		found[ip.String()] = true
