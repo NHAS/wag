@@ -5,6 +5,7 @@
     "SessionInactivityTimeoutMinutes": 1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
+    "Socket": "/tmp/wag.sock",
     "Issuer": "vpn.test",
     "Webserver": {
         "Public": {

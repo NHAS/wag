@@ -81,6 +81,7 @@ func (g *users) Run() error {
 		}
 
 		fmt.Println("OK")
+
 	case "list":
 
 		users, err := ctl.ListUsers(g.username)

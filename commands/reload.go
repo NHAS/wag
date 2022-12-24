@@ -19,7 +19,7 @@ func Reload() *reload {
 		fs: flag.NewFlagSet("reload", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag socket to act on")
 
 	return gc
 }

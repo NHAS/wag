@@ -26,7 +26,7 @@ func Upgrade() *upgrade {
 		fs: flag.NewFlagSet("upgrade", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag socket to act on")
 
 	gc.fs.Bool("force", false, "Disable version compatiablity checks")
 	gc.fs.Bool("manual", false, "Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary")

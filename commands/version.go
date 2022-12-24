@@ -24,7 +24,7 @@ func VersionCmd() *version {
 	}
 
 	gc.fs.Bool("local", false, "do not connect to the running wag server, print local binary version information (useful for using with upgrade)")
-	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag socket to act on")
 
 	return gc
 }
