@@ -208,6 +208,11 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
+	err = router.RefreshUserAcls(u.Username)
+	if err != nil {
+		return fmt.Errorf("%s %s unable to refresh users acls: %s", u.Username, device, err)
+	}
+
 	err = router.SetAuthorized(device, u.Username)
 	if err != nil {
 		return fmt.Errorf("%s %s unable to add mfa routes: %s", u.Username, device, err)

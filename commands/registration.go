@@ -4,11 +4,23 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
+
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return "my string representation"
+}
+
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
 
 type registration struct {
 	fs *flag.FlagSet
@@ -18,7 +30,9 @@ type registration struct {
 	socket   string
 	action   string
 
-	overwrite string
+	groups       arrayFlags
+	groupsString string
+	overwrite    string
 }
 
 func Registration() *registration {
@@ -29,7 +43,10 @@ func Registration() *registration {
 	gc.fs.StringVar(&gc.token, "token", "", "Manually set registration token (Optional)")
 	gc.fs.StringVar(&gc.username, "username", "", "User to add device to")
 
-	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wagt socket to act on")
+	gc.fs.Var(&gc.groups, "group", "Manually set user group (can supply multiple -group, or use -groups for , delimited group list)")
+	gc.fs.StringVar(&gc.groupsString, "groups", "", "Set user groups manually, ',' delimited list of groups")
+
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag socket to act on")
 
 	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
 
@@ -61,6 +78,18 @@ func (g *registration) Check() error {
 		}
 	})
 
+	if len(g.groupsString) != 0 {
+		g.groups = append(g.groups, strings.Split(g.groupsString, ",")...)
+	}
+
+	for i := range g.groups {
+		if !strings.HasPrefix(g.groups[i], "group:") {
+			g.groups[i] = "group:" + g.groups[i]
+		}
+	}
+
+	log.Println(g.groups)
+
 	switch g.action {
 	case "add":
 		if g.username == "" {
@@ -87,7 +116,7 @@ func (g *registration) Run() error {
 	switch g.action {
 	case "add":
 
-		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite)
+		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.groups...)
 		if err != nil {
 			return err
 		}

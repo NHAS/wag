@@ -576,39 +576,51 @@ func RefreshConfiguration() []error {
 	}
 
 	for _, user := range users {
-
-		acls := config.GetEffectiveAcl(user.Username)
-
-		id := user.GetID()
-
-		err := xdpObjects.PublicTable.Delete(id)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: delete public table for %s: %s", user.Username, err.Error()))
-			continue
-		}
-
-		// Create inner tables for the public and mfa routes based on the current ACLs
-		err = AddUser(user.Username, acls)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: recreating public table for %s: %s", user.Username, err.Error()))
-			continue
-		}
-
-		err = xdpObjects.MfaTable.Delete(id)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: delete mfa table for %s: %s", user.Username, err.Error()))
-			continue
-		}
-
-		err = AddUser(user.Username, acls)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("acl refresh failed: recreate mfa table for %s: %s", user.Username, err.Error()))
-			continue
-		}
+		errors = append(errors, RefreshUserAcls(user.Username))
 
 	}
 
 	return errors
+}
+
+func RefreshUserAcls(username string) error {
+
+	id := sha1.Sum([]byte(username))
+
+	updateRoutes := func(table *ebpf.Map, routes []string) error {
+		inner, err := ebpf.NewMap(innerMapSpec)
+		if err != nil {
+			return fmt.Errorf("%s creating new map: %s", table.String(), err)
+		}
+
+		err = table.Put(id, uint32(inner.FD()))
+		if err != nil {
+			return fmt.Errorf("%s adding new map to public table: %s", table.String(), err)
+		}
+
+		err = xdpAddRoute(username, table, routes)
+		if err != nil {
+			return err
+		}
+
+		return inner.Close()
+	}
+
+	acls := config.GetEffectiveAcl(username)
+
+	err1 := updateRoutes(xdpObjects.PublicTable, acls.Allow)
+
+	err2 := updateRoutes(xdpObjects.MfaTable, acls.Mfa)
+
+	if err1 != nil {
+		return err1
+	}
+
+	if err2 != nil {
+		return err2
+	}
+
+	return nil
 }
 
 func SetAuthorized(internalAddress, username string) error {

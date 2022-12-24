@@ -33,6 +33,10 @@ func (o Oidc) state() string {
 	return hex.EncodeToString(b)
 }
 
+func (o *Oidc) LogoutPath() string {
+	return o.provider.GetEndSessionEndpoint()
+}
+
 func (o *Oidc) Init(settings map[string]string) error {
 	key := make([]byte, 32)
 	_, err := rand.Read(key)
@@ -126,13 +130,37 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens, state string, rp rp.RelyingParty, info oidc.UserInfo) {
 
-		groups := tokens.IDTokenClaims.GetClaim(config.Values().Authenticators.OIDC.GroupsClaimName).([]string)
+		groupsIntf, ok := tokens.IDTokenClaims.GetClaim(config.Values().Authenticators.OIDC.GroupsClaimName).([]interface{})
+		if !ok {
+			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
+
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+
+			return
+		}
+
+		groups := []string{}
+		for i := range groupsIntf {
+			conv, ok := groupsIntf[i].(string)
+			if !ok {
+				log.Println("Error, could not convert group claim to string, probably error in oidc idP configuration")
+				http.Error(w, "Server Error", http.StatusInternalServerError)
+				return
+			}
+			groups = append(groups, conv)
+		}
 
 		// Will set enforcing on first use
-		err = user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuer, username string) error {
+		err = user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuerString, username string) error {
 
-			if issuer != rp.Issuer() {
-				return errors.New("stored issuer " + issuer + " did not equal actual issuer: " + rp.Issuer())
+			var issuerDetails issuer
+			err := json.Unmarshal([]byte(issuerString), &issuerDetails)
+			if err != nil {
+				return err
+			}
+
+			if issuerDetails.Issuer != rp.Issuer() {
+				return errors.New("stored issuer " + issuerDetails.Issuer + " did not equal actual issuer: " + rp.Issuer())
 			}
 
 			if info.GetPreferredUsername() != username {
@@ -156,6 +184,8 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 			renderTemplate(w, resources.OIDCMFATemplate, msg, rp.GetEndSessionEndpoint())
 			return
 		}
+
+		log.Println(user.Username, clientTunnelIp, "used sso to login with groups: ", groups)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 

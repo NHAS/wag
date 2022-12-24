@@ -4,22 +4,30 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"time"
 )
 
-func GetRegistrationToken(token string) (username, overwrites string, err error) {
+func GetRegistrationToken(token string) (username, overwrites string, group []string, err error) {
 
 	minTime := time.After(1 * time.Second)
 
+	var groupsJson string
+
 	err = database.QueryRow(`
 		SELECT 
-			token, username, overwrite 
+			token, username, overwrite, groups 
 		FROM 
 			RegistrationTokens
 		WHERE
 			token = ?
-	`, token).Scan(&token, &username, &overwrites)
+	`, token).Scan(&token, &username, &overwrites, &groupsJson)
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal([]byte(groupsJson), &group)
 
 	<-minTime
 
@@ -57,20 +65,20 @@ func DeleteRegistrationToken(identifier string) error {
 }
 
 // Randomly generate a token for a specific username
-func GenerateToken(username, overwrite string) (token string, err error) {
+func GenerateToken(username, overwrite string, groups []string) (token string, err error) {
 	tokenBytes, err := generateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
 
 	token = hex.EncodeToString(tokenBytes)
-	err = AddRegistrationToken(token, username, overwrite)
+	err = AddRegistrationToken(token, username, overwrite, groups)
 
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func AddRegistrationToken(token, username, overwrite string) error {
+func AddRegistrationToken(token, username, overwrite string, groups []string) error {
 	if len(token) < 32 {
 		return errors.New("Registration token is too short")
 	}
@@ -89,6 +97,20 @@ func AddRegistrationToken(token, username, overwrite string) error {
 			}
 			return errors.New("failed to create registration token: " + err.Error())
 		}
+	}
+
+	if len(groups) != 0 {
+
+		result, _ := json.Marshal(groups)
+
+		_, err = database.Exec(`
+		INSERT INTO
+			RegistrationTokens (token, username, overwrite, groups)
+		VALUES
+			(?, ?, ?, ?)
+	`, token, username, overwrite, string(result))
+
+		return err
 	}
 
 	_, err = database.Exec(`

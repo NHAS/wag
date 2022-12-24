@@ -268,12 +268,25 @@ func (c *ctrlClient) Registrations() (out map[string]string, err error) {
 	return
 }
 
-func (c *ctrlClient) NewRegistration(token, username, overwrite string) (r control.RegistrationResult, err error) {
+func (c *ctrlClient) NewRegistration(token, username, overwrite string, groups ...string) (r control.RegistrationResult, err error) {
 
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("token", token)
 	form.Add("overwrite", overwrite)
+
+	for _, group := range groups {
+		if !strings.HasPrefix(group, "group:") {
+			return r, errors.New("group does not have 'group:' prefix: " + group)
+		}
+	}
+
+	groupsJson, err := json.Marshal(groups)
+	if err != nil {
+		return r, err
+	}
+
+	form.Add("groups", string(groupsJson))
 
 	response, err := c.httpClient.Post("http://unix/registration/create", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {

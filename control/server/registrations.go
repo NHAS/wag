@@ -5,7 +5,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
+	"github.com/NHAS/wag/config"
 	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/data"
 )
@@ -49,6 +51,27 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	overwrite := r.FormValue("overwrite")
 
+	groupsString := r.FormValue("groups")
+
+	var groups []string = nil
+	err = json.Unmarshal([]byte(groupsString), &groups)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	if len(groups) > 0 {
+
+		for _, group := range groups {
+			if !strings.HasPrefix(group, "group:") {
+				http.Error(w, "group did not have the 'group:' prefix '"+group+"'", 500)
+				return
+			}
+		}
+
+		config.AddVirtualUser(username, groups)
+	}
+
 	resp := control.RegistrationResult{Token: token, Username: username}
 
 	tokenType := "registration"
@@ -57,7 +80,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token != "" {
-		err := data.AddRegistrationToken(token, username, overwrite)
+		err := data.AddRegistrationToken(token, username, overwrite, groups)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -75,7 +98,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err = data.GenerateToken(username, overwrite)
+	token, err = data.GenerateToken(username, overwrite, groups)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

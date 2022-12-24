@@ -305,11 +305,15 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username, overwrites, err := data.GetRegistrationToken(key)
+	username, overwrites, groups, err := data.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
 		return
+	}
+
+	if len(groups) != 0 {
+		config.AddVirtualUser(username, groups)
 	}
 
 	var publickey, privatekey wgtypes.Key
