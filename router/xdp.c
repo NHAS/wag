@@ -112,7 +112,7 @@ struct device
     // Essentially allows us to compress all usernames, if collisions are a problem in the future we'll move to sha256 or xxhash
     char user_id[MAX_USERID_LENGTH];
 
-    __u32 device_lock;
+    __u32 PAD;
 
 } __attribute__((__packed__));
 
@@ -246,7 +246,7 @@ static __always_inline int conntrack(__u32 *src_ip, __u32 *dst_ip)
     {
 
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
-        if (!*isAccountLocked && !current_device->device_lock && !isTimedOut && current_device->sessionExpiry != 0 &&
+        if (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
             (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry))
         {

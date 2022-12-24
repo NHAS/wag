@@ -53,7 +53,7 @@ type device struct {
 	// Essentially allows us to compress all usernames, if collisions are a problem in the future we'll move to sha256 or xxhash
 	user_id [20]byte
 
-	deviceLock uint32
+	pad uint32
 }
 
 func (d device) Size() int {
@@ -69,7 +69,7 @@ func (d device) Bytes() []byte {
 
 	copy(output[16:36], d.user_id[:])
 
-	binary.LittleEndian.PutUint32(output[36:], d.deviceLock)
+	binary.LittleEndian.PutUint32(output[36:], d.pad)
 
 	return output
 }
@@ -84,7 +84,7 @@ func (d *device) Unpack(b []byte) error {
 
 	copy(d.user_id[:], b[16:36])
 
-	d.deviceLock = binary.LittleEndian.Uint32(b[36:])
+	d.pad = binary.LittleEndian.Uint32(b[36:])
 
 	return nil
 }
@@ -382,7 +382,7 @@ func IsAuthed(address string) bool {
 
 	sessionActive := ((currentTime-deviceStruct.lastPacketTime) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
 
-	return isAccountLocked == 0 && deviceStruct.deviceLock == 0 && sessionValid && sessionActive
+	return isAccountLocked == 0 && sessionValid && sessionActive
 }
 
 func xdpRemoveDevice(address string) error {
