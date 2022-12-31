@@ -63,7 +63,7 @@ func TestAddNewDevices(t *testing.T) {
 	for iter.Next(&ipBytes, &deviceBytes) {
 		ip := net.IP(ipBytes)
 
-		var newDevice device
+		var newDevice fwentry
 		err := newDevice.Unpack(deviceBytes)
 		if err != nil {
 			t.Fatal("unpacking new device:", err)
@@ -377,7 +377,7 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var beforeDevice device
+	var beforeDevice fwentry
 	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
 	if err != nil {
 		t.Fatal(err)
@@ -408,7 +408,7 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatalf("program did not %s packet instead did: %s", result(2), result(value))
 	}
 
-	var afterDevice device
+	var afterDevice fwentry
 	deviceBytes, err = xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
 	if err != nil {
 		t.Fatal(err)
@@ -609,7 +609,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	var maxSessionLifeDevice device
+	var maxSessionLifeDevice fwentry
 	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
 	if err != nil {
 		t.Fatal(err)
