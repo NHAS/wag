@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/NHAS/wag/config"
@@ -11,6 +12,8 @@ import (
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
 )
+
+var lock sync.RWMutex
 
 func Setup(error chan<- error, iptables bool) (err error) {
 

@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -33,7 +32,6 @@ const (
 )
 
 var (
-	lock sync.RWMutex
 
 	//Keep reference to xdpLink, otherwise it may be garbage collected
 	xdpLink      link.Link
@@ -284,6 +282,11 @@ func IsAuthed(address string) bool {
 	lock.RLock()
 	defer lock.RUnlock()
 
+	return isAuthed(address)
+
+}
+
+func isAuthed(address string) bool {
 	ip := net.ParseIP(address)
 	//Wasnt able to parse any IP address
 	if ip == nil {
@@ -493,6 +496,7 @@ func RemoveUser(username string) error {
 	return nil
 }
 
+// RefreshConfiguration updates acls on all users, and udates the inactivity timeout
 func RefreshConfiguration() []error {
 
 	lock.Lock()
@@ -516,17 +520,24 @@ func RefreshConfiguration() []error {
 	}
 
 	for _, user := range users {
-		errors = append(errors, RefreshUserAcls(user.Username))
+		errors = append(errors, refreshUserAcls(user.Username))
 
 	}
 
 	return errors
 }
 
+// Update FW routes for specific user
 func RefreshUserAcls(username string) error {
 
 	lock.Lock()
 	defer lock.Unlock()
+
+	return refreshUserAcls(username)
+}
+
+// Non-mutex guarded internal version
+func refreshUserAcls(username string) error {
 
 	id := sha1.Sum([]byte(username))
 
@@ -677,7 +688,7 @@ func GetRules() (map[string]FirewallRules, error) {
 		fwRule.Expiry = deviceStruct.sessionExpiry
 		fwRule.LastPacketTimestamp = deviceStruct.lastPacketTime
 
-		fwRule.IsAuthorized = IsAuthed(fwRule.IP.String())
+		fwRule.IsAuthorized = isAuthed(fwRule.IP.String())
 
 		var innerMapID ebpf.MapID
 
