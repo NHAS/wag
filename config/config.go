@@ -140,6 +140,7 @@ func GetEffectiveAcl(username string) Acl {
 }
 
 // Used in authentication methods that can specify user groups directly (for the moment just oidc)
+// Adds groups to username, even if user does not exist in the config.json file, so GetEffectiveAcls works
 func AddVirtualUser(username string, groups []string) {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()

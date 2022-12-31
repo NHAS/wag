@@ -92,8 +92,8 @@ func Start(errChan chan<- error) error {
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
 	for method, handler := range authenticators.MFA {
-		tunnel.HandleFunc("/authorise/"+method+"/", handler.AuthorisationEndpoint)
-		tunnel.HandleFunc("/register_mfa/"+method+"/", handler.RegistrationEndpoint)
+		tunnel.HandleFunc("/authorise/"+method+"/", handler.AuthorisationAPI)
+		tunnel.HandleFunc("/register_mfa/"+method+"/", handler.RegistrationAPI)
 
 	}
 	tunnel.HandleFunc("/authorise/", authorise)
@@ -240,7 +240,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mfaMethod.RegistrationHandler(w, r, user.Username, clientTunnelIp.String())
+	mfaMethod.RegistrationUI(w, r, user.Username, clientTunnelIp.String())
 }
 
 func authorise(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +277,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mfaMethod.PromptHandler(w, r, user.Username, clientTunnelIp.String())
+	mfaMethod.MFAPromptUI(w, r, user.Username, clientTunnelIp.String())
 }
 
 func reachability(w http.ResponseWriter, r *http.Request) {

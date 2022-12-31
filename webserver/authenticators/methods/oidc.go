@@ -82,7 +82,7 @@ func (o *Oidc) FriendlyName() string {
 	return "Single Sign On"
 }
 
-func (o *Oidc) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
@@ -126,7 +126,7 @@ func (o *Oidc) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 	rp.AuthURLHandler(o.state, o.provider)(w, r)
 }
 
-func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
@@ -154,6 +154,7 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Rather ugly way of converting []interface{} into []string{}
 		groups := []string{}
 		for i := range groupsIntf {
 			conv, ok := groupsIntf[i].(string)
@@ -210,10 +211,10 @@ func (o *Oidc) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
 	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), o.provider)(w, r)
 }
 
-func (o *Oidc) PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	rp.AuthURLHandler(o.state, o.provider)(w, r)
 }
 
-func (o *Oidc) RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
-	o.RegistrationEndpoint(w, r)
+func (o *Oidc) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+	o.RegistrationAPI(w, r)
 }

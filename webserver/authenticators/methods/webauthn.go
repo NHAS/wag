@@ -36,7 +36,7 @@ func (wa *Webauthn) FriendlyName() string {
 	return "Security Key"
 }
 
-func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
@@ -146,7 +146,7 @@ func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 			})
 
 		msg, status := resultMessage(err)
-		jsonResponse(w, msg, status)
+		jsonResponse(w, msg, status) // Send back an error message before we do the server side of handling it
 
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
@@ -163,7 +163,7 @@ func (wa *Webauthn) RegistrationEndpoint(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
@@ -288,13 +288,13 @@ func (wa *Webauthn) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (wa *Webauthn) PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := renderTemplate(w, resources.WebauthnMFAPromptTmpl, "", ""); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}
 }
 
-func (wa *Webauthn) RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := renderTemplate(w, resources.WebauthnMFATemplate, "", ""); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}

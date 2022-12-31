@@ -45,7 +45,7 @@ func (t *Totp) FriendlyName() string {
 	return "Time Based Code"
 }
 
-func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
@@ -134,7 +134,7 @@ func (t *Totp) RegistrationEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (t *Totp) AuthorisationEndpoint(w http.ResponseWriter, r *http.Request) {
+func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.NotFound(w, r)
 		return
@@ -207,13 +207,13 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticat
 	}
 }
 
-func (t *Totp) PromptHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := renderTemplate(w, resources.TotpMFAPromptTmpl, "", ""); err != nil {
 		log.Println(username, ip, "unable to render totp prompt template: ", err)
 	}
 }
 
-func (t *Totp) RegistrationHandler(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Totp) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := renderTemplate(w, resources.TotpMFATemplate, "", ""); err != nil {
 		log.Println(username, ip, "unable to render totp mfa template: ", err)
 	}
