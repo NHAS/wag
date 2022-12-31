@@ -135,6 +135,9 @@ func ServerDetails() (key wgtypes.Key, port int, err error) {
 // Remove a wireguard peer from xdp firewall and wg device
 func RemovePeer(publickey, address string) error {
 
+	lock.Lock()
+	defer lock.Unlock()
+
 	pubkey, err := wgtypes.ParseKey(publickey)
 	if err != nil {
 		return err
@@ -163,6 +166,9 @@ func RemovePeer(publickey, address string) error {
 
 // Takes the device to replace and returns the address of said device
 func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
+
+	lock.Lock()
+	defer lock.Unlock()
 
 	//As the api for managing wireguard has no "update public key" function we have to do it manually remove -> add
 	oldPublicKey, err := wgtypes.ParseKey(device.Publickey)
@@ -198,8 +204,11 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 
 }
 
-// AddPeer the device to wireguard and to database
+// AddPeer the device to wireguard
 func AddPeer(public wgtypes.Key, username string) (string, error) {
+
+	lock.Lock()
+	defer lock.Unlock()
 
 	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
 	if err != nil {
