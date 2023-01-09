@@ -204,7 +204,7 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 
 }
 
-// AddPeer the device to wireguard
+// AddPeer adds the device to wireguard
 func AddPeer(public wgtypes.Key, username string) (string, error) {
 
 	lock.Lock()
