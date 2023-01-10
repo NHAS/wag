@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NHAS/wag/control"
 	"github.com/NHAS/wag/control/wagctl"
 )
 
@@ -22,7 +23,7 @@ func Users() *users {
 	}
 
 	gc.fs.StringVar(&gc.username, "username", "", "Username to act upon")
-	gc.fs.StringVar(&gc.socket, "socket", "", "Wag socket location, defaults to ")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance control socket")
 
 	gc.fs.Bool("del", false, "Delete user and all associated devices")
 	gc.fs.Bool("list", false, "List users, if '-username' supply will filter by user")
