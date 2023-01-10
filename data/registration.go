@@ -13,7 +13,7 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 
 	minTime := time.After(1 * time.Second)
 
-	var groupsJson string
+	var groupsJson sql.NullString
 
 	err = database.QueryRow(`
 		SELECT 
@@ -27,7 +27,9 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 		return
 	}
 
-	err = json.Unmarshal([]byte(groupsJson), &group)
+	if groupsJson.Valid {
+		err = json.Unmarshal([]byte(groupsJson.String), &group)
+	}
 
 	<-minTime
 
