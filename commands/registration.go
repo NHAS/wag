@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/NHAS/wag/control"
@@ -46,7 +45,7 @@ func Registration() *registration {
 	gc.fs.Var(&gc.groups, "group", "Manually set user group (can supply multiple -group, or use -groups for , delimited group list)")
 	gc.fs.StringVar(&gc.groupsString, "groups", "", "Set user groups manually, ',' delimited list of groups")
 
-	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag socket to act on")
+	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance to act on")
 
 	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
 
@@ -87,8 +86,6 @@ func (g *registration) Check() error {
 			g.groups[i] = "group:" + g.groups[i]
 		}
 	}
-
-	log.Println(g.groups)
 
 	switch g.action {
 	case "add":
