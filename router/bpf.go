@@ -520,8 +520,10 @@ func RefreshConfiguration() []error {
 	}
 
 	for _, user := range users {
-		errors = append(errors, refreshUserAcls(user.Username))
-
+		err := refreshUserAcls(user.Username)
+		if err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	return errors

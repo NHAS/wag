@@ -53,7 +53,9 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		w.Header().Set("Content-Type", "text/plain")
 		for _, err := range errs {
-			w.Write([]byte(err.Error() + "\n"))
+			if err != nil {
+				w.Write([]byte(err.Error() + "\n"))
+			}
 		}
 		return
 	}
