@@ -80,7 +80,7 @@ func (g *genconfig) Run() error {
 		fmt.Print("external ip address or domain name (where wireguard clients will send data): ")
 		fmt.Scanf("%s", &c.ExternalAddress)
 		if c.ExternalAddress == "" {
-			fmt.Print("no exteranl address supplied, clients will not be able to talk back with the generated configuration")
+			fmt.Println("no external address supplied, clients will not be able to talk back with the generated configuration")
 		}
 
 		c.Webserver.Public.ListenAddress = ":8080"
