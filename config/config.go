@@ -73,7 +73,7 @@ type Config struct {
 			ClientSecret    string
 			ClientID        string
 			GroupsClaimName string `json:",omitempty"`
-		}
+		} `json:",omitempty"`
 
 		//Not externally configurable
 		Webauthn *webauthn.WebAuthn `json:"-"`
