@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+var uiTemplates = map[string]*template.Template{
+	"dashboard": template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/dashboard.html")),
+}
+
 func StartWebServer() {
 	//static := http.FileServer(http.FS(ui.StaticContent))
 	static := http.FileServer(http.Dir("ui"))

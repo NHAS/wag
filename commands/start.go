@@ -11,11 +11,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control/server"
-	"github.com/NHAS/wag/data"
-	"github.com/NHAS/wag/router"
-	"github.com/NHAS/wag/webserver"
+	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/internal/webserver"
+	"github.com/NHAS/wag/pkg/control/server"
 )
 
 type start struct {

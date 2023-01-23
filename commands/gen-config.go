@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/NHAS/wag/config"
+	"github.com/NHAS/wag/internal/config"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

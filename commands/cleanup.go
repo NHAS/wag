@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/NHAS/wag/config"
-	"github.com/NHAS/wag/control/server"
-	"github.com/NHAS/wag/router"
+	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/pkg/control/server"
 )
 
 type cleanup struct {

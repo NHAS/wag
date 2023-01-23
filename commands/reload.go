@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/NHAS/wag/control"
-	"github.com/NHAS/wag/control/wagctl"
+	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/control/wagctl"
 )
 
 type reload struct {
