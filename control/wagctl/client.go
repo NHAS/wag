@@ -20,6 +20,7 @@ type ctrlClient struct {
 	httpClient http.Client
 }
 
+// NewControlClient connects to the wag unix control socket specified by socketPath
 func NewControlClient(socketPath string) *ctrlClient {
 	return &ctrlClient{
 		httpClient: http.Client{
