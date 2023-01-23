@@ -1,0 +1,40 @@
+{{define "Content"}}
+
+
+<link href="/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h1 class="m-0 text-gray-900">Users</h6>
+            <p>
+                Manage Wag VPN user accounts
+            </p>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered data" id="userTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Groups</th>
+                        <th>Devices</th>
+                        <th>Enforcing MFA</th>
+                        <th>Account Locked</th>
+                        <th>Date Added</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<script src="/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/vendor/datatables/dataTables.select.min.js"></script>
+<script src="/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/js/default_table.js"></script>
+<script src="/js/users.js"></script>
+
+{{end}}

@@ -1,0 +1,291 @@
+{{define "Content"}}
+
+<!-- Page Heading -->
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+</div>
+
+<!-- Content Row -->
+<div class="row">
+
+    <div class="col-sm">
+
+        <div class="row">
+            {{if eq .UnenforcedMFA 0}}
+            <div class="col-sm mb-4">
+                <div class="card border-left-primary shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="/management/users/">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Manage Users</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{len .Users}}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-users fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{else}}
+            <div class="col-sm mb-4">
+                <div class="card border-left-danger shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="/management/users/?enforcing_mfa=false">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                        Manage MFA</div>
+                                    <div class="d-flex">
+                                        <div class="d-inline-block h5 font-weight-bold text-gray-800">
+                                            {{.UnenforcedMFA}}
+                                        </div>
+                                        <div class="d-inline-block ml-2 mt-1 small text-gray-900">
+                                            user{{if gt .UnenforcedMFA 1}}s{{end}} have not completed MFA registration
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-users fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+            {{if .LockedDevices}}
+            <div class="col-sm mb-4">
+                <div class="card  border-left-danger shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="/management/devices?locked=true">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                        Unlock Device{{if gt (len .LockedDevices) 1}}s{{end}}</div>
+                                    <div class="d-flex">
+                                        <div class="d-inline-block h5 font-weight-bold text-gray-800">
+                                            {{len .LockedDevices}}
+                                        </div>
+                                        <div class="d-inline-block ml-2 mt-1 small text-gray-900">
+                                            locked device{{if gt (len .LockedDevices) 1}}s{{end}}</div>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-desktop fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{else}}
+            <div class="col-sm mb-4">
+                <div class="card  border-left-primary shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="/management/devices">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Manage Devices</div>
+                                    <div class="d-inline-block h5 font-weight-bold text-gray-800">
+                                        {{len .Devices}}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-desktop fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{end}}
+
+        </div>
+
+        <div class="row">
+            <div class="col-sm mb-4">
+                <div class="card border-left-primary shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="/management/devices/?active=true">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        View Active Sessions</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{len .ActiveSessions}}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-check fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm mb-4">
+                <div
+                    class="card {{if .RegistrationTokens}} border-left-warning {{else}} border-left-primary {{end}} shadow-md h-100 py-2">
+                    <div class="card-body">
+                        <a href="#">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div
+                                        class="text-xs font-weight-bold {{if .RegistrationTokens}} text-warning {{else}} text-primary {{end}}text-uppercase mb-1">
+                                        Register Device</div>
+                                    <div class="d-flex  {{if not .RegistrationTokens}} invisible {{end}}">
+                                        <div class="d-inline-block h5 font-weight-bold text-gray-800">
+                                            {{len .RegistrationTokens}}
+                                        </div>
+                                        <div class="d-inline-block ml-2 mt-1 small text-gray-900">pending</div>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-key fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-sm">
+        <div class="card shadow-md mb-4">
+            <!-- Card Header - Dropdown -->
+            <div class="card-header d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Instance Details</h6>
+            </div>
+            <!-- Card Body -->
+            <div class="card-body table-responsive">
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <td>
+                                <strong>Port</strong>
+                            </td>
+                            <td>
+                                <strong>{{.Port}}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <strong>Public Key</strong>
+                            </td>
+                            <td>
+                                <strong>{{.PublicKey}}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <strong>External Address</strong>
+                            </td>
+                            <td>
+                                <strong>{{.ExternalAddress}}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <strong>Subnet</strong>
+                            </td>
+                            <td>
+                                <strong>{{.ExternalAddress}}</strong>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+
+
+    <div class="w-100"></div>
+
+    <div class="col-sm">
+        <div class="card shadow-md mb-4">
+            <!-- Card Header - Dropdown -->
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Active Peers</h6>
+            </div>
+            <!-- Card Body -->
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">IP</th>
+                                <th scope="col">Last Handshake</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>msmith</td>
+                                <td>54.61.148.5</td>
+                                <td>37 seconds ago</td>
+                            </tr>
+                            <tr>
+                                <td>jthorn</td>
+                                <td>121.199.95.97</td>
+                                <td>1 min</td>
+                            </tr>
+                            <tr>
+                                <td>lbird</td>
+                                <td>154.189.30.81</td>
+                                <td>10 seconds ago</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm">
+        <div class="card shadow-md mb-4">
+            <!-- Card Header - Dropdown -->
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Failed Login Attempts</h6>
+            </div>
+            <!-- Card Body -->
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">Peer IP</th>
+                                <th scope="col">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>msmith</td>
+                                <td>151.145.35.160</td>
+                                <td>Wed Jan 18 10:23:41 AM NZDT 2023</td>
+                            </tr>
+                            <tr>
+                                <td>falt</td>
+                                <td>154.189.30.81</td>
+                                <td>Tues Jan 17 9:23:11 AM NZDT 2023</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{end}}

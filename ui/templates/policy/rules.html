@@ -1,0 +1,40 @@
+{{define "Content"}}
+
+
+<link href="/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h1 class="m-0 text-gray-900">Access Control Lists</h6>
+            <p>
+                View, create and delete firewall policy rules. If a route is not explicitly allowed, it is blocked.
+            </p>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered data" id="policyTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Effects (Group/Username)</th>
+
+                        <th>MFA routes (Number) </th>
+                        <th>Public routes (Number)</th>
+
+                        <th>Edit</th>
+                        <th>Select</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<script src="/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/vendor/datatables/dataTables.select.min.js"></script>
+<script src="/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/js/default_table.js"></script>
+<script src="/js/policy.js"></script>
+
+{{end}}

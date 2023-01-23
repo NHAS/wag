@@ -1,0 +1,139 @@
+{{define "Content"}}
+
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Authentication Settings</h1>
+</div>
+
+
+<div class="row">
+    <div class="col-lg-6">
+
+        <div class="card shadow-md mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">General</h6>
+            </div>
+            <div class="card-body">
+                <form id="generalSettings">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="inputHelpMail">Help Mail</label>
+                            <input type="email" class="form-control" id="inputHelpMail">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="inputWgAddress">External Wireguard Address</label>
+                            <input type="text" class="form-control" id="inputWgAddress">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="dns">DNS</label>
+                        <input type="text" class="form-control" id="dns">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- Basic Card Example -->
+        <div class="card shadow-md mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Login</h6>
+            </div>
+            <div class="card-body">
+                <form id="loginSettings">
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="inputSessionLife">Session Life Time (Minutes)</label>
+                            <input type="number" class="form-control" id="inputSessionLife" value="60">
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="inputInactivity">Inactivity Timeout (Minutes)</label>
+                            <input type="number" class="form-control" id="inputInactivity" value="60">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="numAttempts">Max Authentication Attempts</label>
+                        <input type="number" class="form-control" id="numAttempts" placeholder="5">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-lg-6">
+
+        <div class="card shadow-md mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Authenticators</h6>
+            </div>
+            <div class="card-body">
+
+                <form id="authSettings">
+                    <div class="form-group">
+                        <p>Enabled authenticators:</p>
+                        <div class="form-check-inline">
+                            <div class="custom-control custom-switch ">
+                                <input type="checkbox" class="custom-control-input" id="totp">
+                                <label class="custom-control-label" for="totp">TOTP</label>
+                            </div>
+                        </div>
+                        <div class="form-check-inline">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="webauthn">
+                                <label class="custom-control-label" for="webauthn">Webauthn</label>
+                            </div>
+                        </div>
+                        <div class="form-check-inline">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="oidc">
+                                <label class="custom-control-label" for="oidc">OIDC</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group col-sm">
+                            <p><b>General</b></p>
+                            <label for="inputIssuer">Issuer</label>
+                            <input type="text" class="form-control" id="inputIssuer" placeholder="WAG">
+
+                            <label for="inputDomain">VPN Domain</label>
+                            <input type="url" class="form-control" id="inputInactivity"
+                                placeholder="https://your.vpn.tunnel.address">
+                        </div>
+                        <div class="form-group col-sm" id="oidcSettings">
+                            <p><b>OIDC</b></p>
+                            <label for="IdpUrl">Identity Provider URL</label>
+                            <input type="url" class="form-control" id="IdpUrl">
+
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="clientID">ClientID</label>
+                                    <input type="text" class="form-control" id="clientID">
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="clientSecret">ClientSecret</label>
+                                    <input type="password" class="form-control" id="clientSecret">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="groupsClaim">Groups Claim Name</label>
+                                <input type="text" class="form-control" id="groupsClaim"
+                                    placeholder="leave blank for default">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+
+</div>
+
+<script src="/js/authentication_settings.js"></script>
+
+
+{{end}}

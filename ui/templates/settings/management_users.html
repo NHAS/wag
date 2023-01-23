@@ -1,0 +1,39 @@
+{{define "Content"}}
+
+
+<link href="/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3 justify-content-between">
+
+        <h1 class="m-0 text-gray-900">Admin Users</h6>
+            <p>View admin user details. To add, lock, or delete a new user use the command line 'wag web' subcommand.
+            </p>
+    </div>
+
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered data" id="userTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Date Added</th>
+                        <th>Last Login</th>
+                        <th>Last Login IP</th>
+                        <th>Locked</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<script src="/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/vendor/datatables/dataTables.select.min.js"></script>
+<script src="/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="/js/default_table.js"></script>
+<script src="/js/management_users.js"></script>
+
+{{end}}
