@@ -99,9 +99,9 @@ func (g *genconfig) Run() error {
 
 		c.DatabaseLocation = "devices.db"
 
-		c.Issuer = "WAG"
+		c.Authenticators.Issuer = "WAG"
 		fmt.Print("name of organisation (name of 2fa entry, defaults to wag): ")
-		fmt.Scanf("%s", &c.Issuer)
+		fmt.Scanf("%s", &c.Authenticators.Issuer)
 
 		c.Wireguard.DevName = "wg0"
 		_, err = net.InterfaceByName(c.Wireguard.DevName)

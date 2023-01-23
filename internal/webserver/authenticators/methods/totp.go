@@ -72,7 +72,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      config.Values().Issuer,
+			Issuer:      config.Values().Authenticators.Issuer,
 			AccountName: user.Username,
 		})
 		if err != nil {

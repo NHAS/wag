@@ -64,7 +64,7 @@ func (g *start) Check() error {
 		return err
 	}
 
-	if len(config.Values().Issuer) == 0 {
+	if len(config.Values().Authenticators.Issuer) == 0 {
 		return errors.New("no issuer specified")
 	}
 

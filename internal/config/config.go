@@ -64,9 +64,9 @@ type Config struct {
 	}
 	Authenticators struct {
 		DefaultMethod string `json:",omitempty"`
-
-		Methods   []string `json:",omitempty"`
-		DomainURL string
+		Issuer        string
+		Methods       []string `json:",omitempty"`
+		DomainURL     string
 
 		OIDC struct {
 			IssuerURL       string
@@ -90,11 +90,10 @@ type Config struct {
 		External      bool       `json:"-"`
 		Range         *net.IPNet `json:"-"`
 		ServerAddress net.IP     `json:"-"`
+
+		DNS []string `json:",omitempty"`
 	}
 	DatabaseLocation string
-	Issuer           string
-
-	DNS []string `json:",omitempty"`
 
 	Acls Acls
 }
@@ -250,7 +249,7 @@ func load(path string) (c Config, err error) {
 	}
 
 	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	globalAcl.Allow = append(globalAcl.Allow, c.DNS...)
+	globalAcl.Allow = append(globalAcl.Allow, c.Wireguard.DNS...)
 
 	for _, acl := range c.Acls.Policies {
 
@@ -371,7 +370,7 @@ func load(path string) (c Config, err error) {
 			}
 
 			c.Authenticators.Webauthn, err = webauthn.New(&webauthn.Config{
-				RPDisplayName: c.Issuer,                              // Display Name for your site
+				RPDisplayName: c.Authenticators.Issuer,               // Display Name for your site
 				RPID:          strings.Split(tunnelURL.Host, ":")[0], // Generally the domain name for your site
 				RPOrigin:      c.Authenticators.DomainURL,            // The origin URL for WebAuthn requests
 			})

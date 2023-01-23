@@ -16,7 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/internal/webserver/resources"
-	"github.com/NHAS/wag/internal/webserver/session"
+	"github.com/NHAS/wag/pkg/session"
 	"github.com/NHAS/webauthn/protocol"
 	"github.com/NHAS/webauthn/webauthn"
 )

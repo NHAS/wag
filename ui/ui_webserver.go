@@ -8,21 +8,28 @@ import (
 	"time"
 )
 
-var uiTemplates = map[string]*template.Template{
-	"dashboard": template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/dashboard.html")),
+var uiTemplates map[string]*template.Template = map[string]*template.Template{
+	"dashboard":           template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/dashboard.html")),
+	"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html")),
+	"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html")),
+	"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html")),
+	"rules":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html")),
+	"general":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
+	"management_users":    template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
+	"change_password":     template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
+	"404":                 template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
 }
 
 func StartWebServer() {
-	//static := http.FileServer(http.FS(ui.StaticContent))
-	static := http.FileServer(http.Dir("ui"))
+
+	static := http.FileServer(http.FS(staticContent))
+
 	http.Handle("/css/", static)
 	http.Handle("/js/", static)
 	http.Handle("/vendor/", static)
 	http.Handle("/img/", static)
 
 	http.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
-
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/dashboard.html"))
 
 		d := Dashboard{
 			Page: Page{
@@ -36,7 +43,8 @@ func StartWebServer() {
 			LockedDevices:      []string{"noot"},
 			UnenforcedMFA:      0,
 		}
-		err := data.Execute(w, d)
+
+		err := uiTemplates["dashboard"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -45,15 +53,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/management/users/", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/users.html"))
-
 		d := Page{
 			Description: "Users Management Page",
 			Title:       "Users",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["users"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -87,15 +93,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/management/devices/", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/devices.html"))
-
 		d := Page{
 			Description: "Devices Management Page",
 			Title:       "Devices",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["devices"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -129,15 +133,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/management/registration_tokens/", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/management/registration_tokens.html"))
-
 		d := Page{
 			Description: "Registration Tokens Management Page",
 			Title:       "Registration",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["registration_tokens"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -169,15 +171,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/policy/rules.html"))
-
 		d := Page{
 			Description: "Firewall rules",
 			Title:       "Rules",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["rules"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -190,15 +190,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/settings/general", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/settings/general.html"))
-
 		d := Page{
 			Description: "Wag settings",
 			Title:       "Settings - General",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["general"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -207,15 +205,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/settings/management_users", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/settings/management_users.html"))
-
 		d := Page{
 			Description: "Wag settings",
 			Title:       "Settings - Admin Users",
 			User:        "Ben Bonk",
 		}
 
-		err := data.Execute(w, d)
+		err := uiTemplates["management_users"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -228,8 +224,13 @@ func StartWebServer() {
 
 	http.HandleFunc("/change_password", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/change_password.html"))
-		err := data.Execute(w, Page{Description: "Change Password", Title: "Change Password", User: "Ben Bonk"})
+		d := Page{
+			Description: "Change password page",
+			Title:       "Change password",
+			User:        "Ben Bonk",
+		}
+
+		err := uiTemplates["change_password"].Execute(w, d)
 
 		if err != nil {
 			log.Fatal(err)
@@ -238,8 +239,7 @@ func StartWebServer() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
-		data := template.Must(template.ParseFiles("ui/template.html", "ui/templates/404.html"))
-		err := data.Execute(w, Page{Description: "Dashboard", Title: "Dashboard", User: "Ben Bonk"})
+		err := uiTemplates["change_password"].Execute(w, Page{Description: "Not Found", Title: "Not Found", User: "Ben Bonk"})
 
 		if err != nil {
 			log.Fatal(err)
