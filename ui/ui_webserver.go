@@ -214,6 +214,11 @@ func StartWebServer(errs chan<- error) {
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
 
 		protectedRoutes.HandleFunc("/management/users/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -235,6 +240,10 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/management/users/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
 
 			users, err := ctrl.ListUsers("")
 			if err != nil {
@@ -270,6 +279,11 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/management/devices/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -291,6 +305,10 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/management/devices/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
 
 			allDevices, err := ctrl.ListDevice("")
 			if err != nil {
@@ -327,6 +345,11 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/management/registration_tokens/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -348,6 +371,10 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/management/registration_tokens/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
 
 			registrations, err := ctrl.Registrations()
 			if err != nil {
@@ -380,6 +407,11 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -401,6 +433,10 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/policy/rules/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
 
 			var data struct {
 				Data []PolicyData `json:"data"`
@@ -425,6 +461,11 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/settings/general", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -446,6 +487,11 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/settings/management_users", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
 			u, ok := r.Context().Value(adminKey).(AdminUser)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -467,7 +513,25 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/settings/management_users/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
 
+			adminUsers, err := ctrl.ListAdminUsers("")
+			if err != nil {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			b, err := json.Marshal(adminUsers)
+			if err != nil {
+				log.Println("unable to marshal management users data")
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(b)
 		})
 
 		protectedRoutes.HandleFunc("/change_password", changePassword)

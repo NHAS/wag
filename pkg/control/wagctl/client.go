@@ -100,6 +100,60 @@ func (c *ctrlClient) UnlockDevice(address string) error {
 	return c.simplepost("device/unlock", form)
 }
 
+func (c *ctrlClient) ListAdminUsers(username string) (users []data.AdminModel, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webadmin/list?username=" + url.QueryEscape(username))
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&users)
+
+	return
+}
+
+// Take device address to remove
+func (c *ctrlClient) AddAdminUser(username, password string) error {
+	form := url.Values{}
+	form.Add("username", username)
+	form.Add("password", password)
+
+	return c.simplepost("webadmin/add", form)
+}
+
+// Take device address to remove
+func (c *ctrlClient) DeleteAdminUser(username string) error {
+	form := url.Values{}
+	form.Add("username", username)
+
+	return c.simplepost("webadmin/delete", form)
+}
+
+func (c *ctrlClient) LockAdminUser(username string) error {
+	form := url.Values{}
+	form.Add("username", username)
+
+	return c.simplepost("webadmin/lock", form)
+}
+
+func (c *ctrlClient) UnlockAdminUser(username string) error {
+
+	form := url.Values{}
+	form.Add("username", username)
+
+	return c.simplepost("webadmin/unlock", form)
+}
+
 func (c *ctrlClient) ListUsers(username string) (users []data.UserModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/list?username=" + url.QueryEscape(username))

@@ -13,8 +13,8 @@ import (
 type webadmin struct {
 	fs *flag.FlagSet
 
-	username, socket string
-	action           string
+	username, password, socket string
+	action                     string
 }
 
 func Webadmin() *webadmin {
@@ -22,14 +22,16 @@ func Webadmin() *webadmin {
 		fs: flag.NewFlagSet("webadmin", flag.ContinueOnError),
 	}
 
-	gc.fs.StringVar(&gc.username, "username", "", "Username to act upon")
+	gc.fs.StringVar(&gc.username, "username", "", "Admin Username to act upon")
+	gc.fs.StringVar(&gc.password, "password", "", "Username to act upon")
 	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance control socket")
 
-	gc.fs.Bool("del", false, "Delete user and all associated devices")
+	gc.fs.Bool("add", false, "Add web administrator user (requires -password)")
+	gc.fs.Bool("del", false, "Delete admin user")
 	gc.fs.Bool("list", false, "List web administration users, if '-username' supply will filter by user")
 
-	gc.fs.Bool("lockaccount", false, "Lock account disable authention from any device, deauthenticates user active sessions")
-	gc.fs.Bool("unlockaccount", false, "Unlock a locked account, does not unlock specific device locks (use device -unlock -username <> for that)")
+	gc.fs.Bool("lockaccount", false, "Lock admin account disable login for this web administrator user")
+	gc.fs.Bool("unlockaccount", false, "Unlock a web administrator account")
 
 	return gc
 }
@@ -50,7 +52,7 @@ func (g *webadmin) PrintUsage() {
 func (g *webadmin) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "lockaccount", "unlockaccount", "del", "list":
+		case "lockaccount", "unlockaccount", "del", "list", "add":
 			g.action = strings.ToLower(f.Name)
 		}
 	})
@@ -61,6 +63,10 @@ func (g *webadmin) Check() error {
 			return errors.New("address must be supplied")
 		}
 	case "list":
+	case "add":
+		if g.username == "" || g.password == "" {
+			return errors.New("both username and password must be specified to add a user")
+		}
 	default:
 		return errors.New("Unknown flag: " + g.action)
 	}
@@ -72,9 +78,19 @@ func (g *webadmin) Run() error {
 	ctl := wagctl.NewControlClient(g.socket)
 
 	switch g.action {
+
+	case "add":
+
+		err := ctl.AddAdminUser(g.username, g.password)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("OK")
+
 	case "del":
 
-		err := ctl.DeleteUser(g.username)
+		err := ctl.DeleteAdminUser(g.username)
 		if err != nil {
 			return err
 		}
@@ -83,18 +99,18 @@ func (g *webadmin) Run() error {
 
 	case "list":
 
-		users, err := ctl.ListUsers(g.username)
+		users, err := ctl.ListAdminUsers(g.username)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("username,locked,enforcingmfa")
+		fmt.Println("username,locked,date_added,last_login,ip")
 		for _, user := range users {
-			fmt.Printf("%s,%t,%t\n", user.Username, user.Locked, user.Enforcing)
+			fmt.Printf("%s,%s,%s,%s,%s\n", user.Username, user.Locked, user.DateAdded, user.LastLogin, user.IP)
 		}
 	case "lockaccount":
 
-		err := ctl.LockUser(g.username)
+		err := ctl.LockAdminUser(g.username)
 		if err != nil {
 			return err
 		}
@@ -103,7 +119,7 @@ func (g *webadmin) Run() error {
 
 	case "unlockaccount":
 
-		err := ctl.UnlockUser(g.username)
+		err := ctl.UnlockAdminUser(g.username)
 		if err != nil {
 			return err
 		}

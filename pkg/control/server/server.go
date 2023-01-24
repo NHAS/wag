@@ -171,6 +171,12 @@ func StartControlSocket() error {
 	controlMux.HandleFunc("/users/delete", deleteUser)
 	controlMux.HandleFunc("/users/reset", resetMfaUser)
 
+	controlMux.HandleFunc("/webadmin/list", listAdminUsers)
+	controlMux.HandleFunc("/webadmin/lock", lockAdminUser)
+	controlMux.HandleFunc("/webadmin/unlock", unlockAdminUser)
+	controlMux.HandleFunc("/webadmin/delete", deleteAdminUser)
+	controlMux.HandleFunc("/webadmin/add", addAdminUser)
+
 	controlMux.HandleFunc("/firewall/list", firewallRules)
 
 	controlMux.HandleFunc("/config/reload", configReload)
