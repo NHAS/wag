@@ -20,6 +20,8 @@ var cmds = []commands.Command{
 	commands.Users(),
 	commands.Firewall(),
 
+	commands.Webadmin(),
+
 	commands.VersionCmd(),
 
 	commands.Upgrade(),
