@@ -72,7 +72,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		config.AddVirtualUser(username, groups)
 	}
 
-	resp := control.RegistrationResult{Token: token, Username: username}
+	resp := control.RegistrationResult{Token: token, Username: username, Groups: groups}
 
 	tokenType := "registration"
 	if overwrite != "" {

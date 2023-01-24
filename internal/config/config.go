@@ -59,8 +59,9 @@ type Config struct {
 	MaxSessionLifetimeMinutes       int
 	SessionInactivityTimeoutMinutes int
 	Webserver                       struct {
-		Public usualWeb
-		Tunnel tunnelWeb
+		Public     usualWeb
+		Management usualWeb
+		Tunnel     tunnelWeb
 	}
 	Authenticators struct {
 		DefaultMethod string `json:",omitempty"`
@@ -93,6 +94,7 @@ type Config struct {
 
 		DNS []string `json:",omitempty"`
 	}
+
 	DatabaseLocation string
 
 	Acls Acls

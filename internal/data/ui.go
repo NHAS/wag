@@ -67,3 +67,27 @@ func CompareAdminKeys(username, password string) error {
 
 	return nil
 }
+
+func SetAdminPassword(username, password string) error {
+	salt, err := generateSalt()
+	if err != nil {
+		return err
+	}
+
+	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+
+	_, err = database.Exec(`
+	UPDATE 
+		AdminUsers
+	SET
+		passwd_hash = ?
+	WHERE
+		username = ?
+	`, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), username)
+
+	if err != nil {
+		return errors.New("Unable to set admin password hash: " + err.Error())
+	}
+
+	return nil
+}

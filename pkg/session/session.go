@@ -7,18 +7,24 @@ import (
 	"sync"
 )
 
-var (
-	sessions map[string]interface{} = make(map[string]interface{})
+type SessionManager struct {
+	sessions map[string]interface{}
 	mu       sync.RWMutex
-)
+}
+
+func NewSessionManager() *SessionManager {
+	var sm SessionManager
+	sm.sessions = make(map[string]interface{})
+	return &sm
+}
 
 // GetUser returns a *User by the user's username
-func GetSession(sessionID string) (interface{}, error) {
+func (sm *SessionManager) GetSession(sessionID string) (interface{}, error) {
 
-	mu.Lock()
-	defer mu.Unlock()
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	session, ok := sessions[sessionID]
+	session, ok := sm.sessions[sessionID]
 	if !ok {
 		return nil, fmt.Errorf("error getting session '%s': does not exist", sessionID)
 	}
@@ -26,21 +32,21 @@ func GetSession(sessionID string) (interface{}, error) {
 	return session, nil
 }
 
-func DeleteSession(sessionID string) {
-	mu.Lock()
-	defer mu.Unlock()
+func (sm *SessionManager) DeleteSession(sessionID string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
-	delete(sessions, sessionID)
+	delete(sm.sessions, sessionID)
 }
 
 // PutUser stores a new user by the user's username
-func StartSession(data interface{}) string {
+func (sm *SessionManager) StartSession(data interface{}) string {
 
-	mu.Lock()
-	defer mu.Unlock()
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	sessionId, _ := random(32)
-	sessions[sessionId] = data
+	sm.sessions[sessionId] = data
 
 	return sessionId
 }

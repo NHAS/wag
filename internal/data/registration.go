@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/NHAS/wag/pkg/control"
 )
 
 func GetRegistrationToken(token string) (username, overwrites string, group []string, err error) {
@@ -37,20 +39,26 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 }
 
 // Returns list of tokens in a map of token : username
-func GetRegistrationTokens() (map[string]string, error) {
-	rows, err := database.Query("SELECT token, username, overwrite from RegistrationTokens ORDER by ROWID DESC")
+func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
+	rows, err := database.Query("SELECT token, username, overwrite, group FROM RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]string)
 	for rows.Next() {
-		var token, username, overwrites string
-		err = rows.Scan(&token, &username, &overwrites)
+		var groupsJson sql.NullString
+
+		var registration control.RegistrationResult
+		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson)
 		if err != nil {
 			return nil, err
 		}
-		result[token] = username + "," + overwrites
+
+		if groupsJson.Valid {
+			err = json.Unmarshal([]byte(groupsJson.String), &registration.Groups)
+		}
+
+		result = append(result, registration)
 	}
 
 	return result, nil

@@ -8,7 +8,12 @@ type Page struct {
 
 type Dashboard struct {
 	Page
-	Users, LockedDevices, Devices, ActiveSessions, RegistrationTokens []string
+	NumUsers           int
+	LockedDevices      int
+	Devices            int
+	RegistrationTokens int
+
+	ActiveSessions int
 
 	Port, UnenforcedMFA int
 	PublicKey           string
@@ -39,4 +44,10 @@ type TokensData struct {
 	Username   string `json:"username"`
 	Groups     string `json:"groups"`
 	Overwrites string `json:"overwrites"`
+}
+
+type PolicyData struct {
+	Effects         string `json:"effects"`
+	NumPublicRoutes int    `json:"public_routes"`
+	NumbMfaRoutes   int    `json:"mfa_routes"`
 }

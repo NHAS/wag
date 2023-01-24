@@ -19,8 +19,8 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                        Manage Users</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{len .Users}}</div>
+                                        Manage User{{if gt .NumUsers 1}}s{{end}}</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{.NumUsers}}</div>
                                 </div>
                                 <div class="col-auto">
                                     <i class="fas fa-users fa-2x text-gray-300"></i>
@@ -58,7 +58,7 @@
             </div>
             {{end}}
 
-            {{if .LockedDevices}}
+            {{if eq .LockedDevices 0}}
             <div class="col-sm mb-4">
                 <div class="card  border-left-danger shadow-md h-100 py-2">
                     <div class="card-body">
@@ -66,13 +66,13 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                        Unlock Device{{if gt (len .LockedDevices) 1}}s{{end}}</div>
+                                        Unlock Device{{if gt .LockedDevices 1}}s{{end}}</div>
                                     <div class="d-flex">
                                         <div class="d-inline-block h5 font-weight-bold text-gray-800">
-                                            {{len .LockedDevices}}
+                                            {{.LockedDevices}}
                                         </div>
                                         <div class="d-inline-block ml-2 mt-1 small text-gray-900">
-                                            locked device{{if gt (len .LockedDevices) 1}}s{{end}}</div>
+                                            locked device{{if gt .LockedDevices 1}}s{{end}}</div>
                                     </div>
                                 </div>
                                 <div class="col-auto">
@@ -91,9 +91,9 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                        Manage Devices</div>
+                                        Manage Device{{if gt .Devices 1}}s{{end}}</div>
                                     <div class="d-inline-block h5 font-weight-bold text-gray-800">
-                                        {{len .Devices}}
+                                        {{.Devices}}
                                     </div>
                                 </div>
                                 <div class="col-auto">
@@ -130,17 +130,17 @@
 
             <div class="col-sm mb-4">
                 <div
-                    class="card {{if .RegistrationTokens}} border-left-warning {{else}} border-left-primary {{end}} shadow-md h-100 py-2">
+                    class="card {{if gt .RegistrationTokens 0}} border-left-warning {{else}} border-left-primary {{end}} shadow-md h-100 py-2">
                     <div class="card-body">
                         <a href="#">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div
-                                        class="text-xs font-weight-bold {{if .RegistrationTokens}} text-warning {{else}} text-primary {{end}}text-uppercase mb-1">
+                                        class="text-xs font-weight-bold {{if gt .RegistrationTokens 0}} text-warning {{else}} text-primary {{end}}text-uppercase mb-1">
                                         Register Device</div>
-                                    <div class="d-flex  {{if not .RegistrationTokens}} invisible {{end}}">
+                                    <div class="d-flex {{if eq .RegistrationTokens 0}} invisible {{end}}">
                                         <div class="d-inline-block h5 font-weight-bold text-gray-800">
-                                            {{len .RegistrationTokens}}
+                                            {{.RegistrationTokens}}
                                         </div>
                                         <div class="d-inline-block ml-2 mt-1 small text-gray-900">pending</div>
                                     </div>

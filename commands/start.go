@@ -16,6 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/webserver"
 	"github.com/NHAS/wag/pkg/control/server"
+	"github.com/NHAS/wag/ui"
 )
 
 type start struct {
@@ -152,6 +153,8 @@ func (g *start) Run() error {
 	if err != nil {
 		return fmt.Errorf("unable to start webserver: %v", err)
 	}
+
+	ui.StartWebServer(error)
 
 	go func() {
 		cancel := make(chan os.Signal, 1)

@@ -22,9 +22,11 @@ import (
 )
 
 type Webauthn struct {
+	sessions *session.SessionManager
 }
 
 func (wa *Webauthn) Init(settings map[string]string) error {
+	wa.sessions = session.NewSessionManager()
 	return nil
 }
 
@@ -77,7 +79,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 		http.SetCookie(w, &http.Cookie{
 			Name:  "registration",
-			Value: session.StartSession(sessionData),
+			Value: wa.sessions.StartSession(sessionData),
 			Path:  "/",
 		})
 
@@ -112,7 +114,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				sessionData, err := session.GetSession(cookie.Value)
+				sessionData, err := wa.sessions.GetSession(cookie.Value)
 				if err != nil {
 					return err
 				}
@@ -140,7 +142,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				session.DeleteSession(cookie.Value)
+				wa.sessions.DeleteSession(cookie.Value)
 
 				return nil
 			})
@@ -214,7 +216,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 		http.SetCookie(w, &http.Cookie{
 			Name:  "authentication",
-			Value: session.StartSession(sessionData),
+			Value: wa.sessions.StartSession(sessionData),
 			Path:  "/",
 		})
 
@@ -238,7 +240,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				sessionData, err := session.GetSession(cookie.Value)
+				sessionData, err := wa.sessions.GetSession(cookie.Value)
 				if err != nil {
 					return err
 				}

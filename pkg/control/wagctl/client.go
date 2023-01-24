@@ -153,20 +153,22 @@ func (c *ctrlClient) ResetUserMFA(username string) error {
 	return c.simplepost("users/reset", form)
 }
 
-func (c *ctrlClient) Sessions() (string, error) {
+func (c *ctrlClient) Sessions() (out []string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/sessions")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	result, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(result), nil
+	err = json.Unmarshal(result, &out)
+
+	return
 }
 
 func (c *ctrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
@@ -245,7 +247,7 @@ func (c *ctrlClient) GetBPFVersion() (string, error) {
 	return string(result), nil
 }
 
-func (c *ctrlClient) Registrations() (out map[string]string, err error) {
+func (c *ctrlClient) Registrations() (result []control.RegistrationResult, err error) {
 
 	response, err := c.httpClient.Get("http://unix/registration/list")
 	if err != nil {
@@ -262,7 +264,7 @@ func (c *ctrlClient) Registrations() (out map[string]string, err error) {
 		return nil, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
 		return nil, errors.New("unable to decode json: " + err.Error())
 	}
 
