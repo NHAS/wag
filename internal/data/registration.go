@@ -38,9 +38,9 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 	return
 }
 
-// Returns list of tokens in a map of token : username
+// Returns list of tokens
 func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
-	rows, err := database.Query("SELECT token, username, overwrite, group FROM RegistrationTokens ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT token, username, overwrite, groups FROM RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +56,7 @@ func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
 
 		if groupsJson.Valid {
 			err = json.Unmarshal([]byte(groupsJson.String), &registration.Groups)
+			return
 		}
 
 		result = append(result, registration)

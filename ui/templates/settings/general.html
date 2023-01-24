@@ -17,16 +17,16 @@
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label for="inputHelpMail">Help Mail</label>
-                            <input type="email" class="form-control" id="inputHelpMail">
+                            <input type="email" class="form-control" id="inputHelpMail" value="{{.HelpMail}}">
                         </div>
                         <div class="form-group col-md-6">
                             <label for="inputWgAddress">External Wireguard Address</label>
-                            <input type="text" class="form-control" id="inputWgAddress">
+                            <input type="text" class="form-control" id="inputWgAddress" value="{{.ExternalAddress}}">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="dns">DNS</label>
-                        <input type="text" class="form-control" id="dns">
+                        <input type="text" class="form-control" id="dns" value="{{.DNS}}">
                     </div>
                     <button type="submit" class="btn btn-primary">Save</button>
                 </form>
@@ -44,16 +44,18 @@
                     <div class="form-row">
                         <div class="form-group col-md-6">
                             <label for="inputSessionLife">Session Life Time (Minutes)</label>
-                            <input type="number" class="form-control" id="inputSessionLife" value="60">
+                            <input type="number" class="form-control" id="inputSessionLife"
+                                value="{{.SessionLifeTimeMinutes}}">
                         </div>
                         <div class="form-group col-md-6">
                             <label for="inputInactivity">Inactivity Timeout (Minutes)</label>
-                            <input type="number" class="form-control" id="inputInactivity" value="60">
+                            <input type="number" class="form-control" id="inputInactivity"
+                                value="{{.InactivityTimeoutMinutes}}">
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="numAttempts">Max Authentication Attempts</label>
-                        <input type="number" class="form-control" id="numAttempts" placeholder="5">
+                        <input type="number" class="form-control" id="numAttempts" placeholder="{{.Lockout}}">
                     </div>
                     <button type="submit" class="btn btn-primary">Save</button>
                 </form>
@@ -74,19 +76,22 @@
                         <p>Enabled authenticators:</p>
                         <div class="form-check-inline">
                             <div class="custom-control custom-switch ">
-                                <input type="checkbox" class="custom-control-input" id="totp">
+                                <input type="checkbox" class="custom-control-input" id="totp" {{if .TotpEnabled}}
+                                    checked {{end}}>
                                 <label class="custom-control-label" for="totp">TOTP</label>
                             </div>
                         </div>
                         <div class="form-check-inline">
                             <div class="custom-control custom-switch">
-                                <input type="checkbox" class="custom-control-input" id="webauthn">
+                                <input type="checkbox" class="custom-control-input" id="webauthn" {{if
+                                    .WebauthnEnabled}} checked {{end}}>
                                 <label class="custom-control-label" for="webauthn">Webauthn</label>
                             </div>
                         </div>
                         <div class="form-check-inline">
                             <div class="custom-control custom-switch">
-                                <input type="checkbox" class="custom-control-input" id="oidc">
+                                <input type="checkbox" class="custom-control-input" id="oidc" {{if .OidcEnabled}}
+                                    checked {{end}}>
                                 <label class="custom-control-label" for="oidc">OIDC</label>
                             </div>
                         </div>
@@ -95,31 +100,30 @@
                         <div class="form-group col-sm">
                             <p><b>General</b></p>
                             <label for="inputIssuer">Issuer</label>
-                            <input type="text" class="form-control" id="inputIssuer" placeholder="WAG">
+                            <input type="text" class="form-control" id="inputIssuer" value="{{.Issuer}}">
 
                             <label for="inputDomain">VPN Domain</label>
-                            <input type="url" class="form-control" id="inputInactivity"
-                                placeholder="https://your.vpn.tunnel.address">
+                            <input type="url" class="form-control" id="inputInactivity" value="{{.Domain}}">
                         </div>
-                        <div class="form-group col-sm" id="oidcSettings">
+                        <div class="form-group col-sm" id="oidcSettings" {{if not .OidcEnabled}} style="display:none"
+                            {{end}}>
                             <p><b>OIDC</b></p>
                             <label for="IdpUrl">Identity Provider URL</label>
-                            <input type="url" class="form-control" id="IdpUrl">
+                            <input type="url" class="form-control" id="IdpUrl" value="{{.OidcIdpURL}}">
 
                             <div class="form-row">
                                 <div class="form-group col-md-6">
                                     <label for="clientID">ClientID</label>
-                                    <input type="text" class="form-control" id="clientID">
+                                    <input type="text" class="form-control" id="clientID" value="{{.OidcClientID}}">
                                 </div>
                                 <div class="form-group col-md-6">
                                     <label for="clientSecret">ClientSecret</label>
-                                    <input type="password" class="form-control" id="clientSecret">
+                                    <input type="password" class="form-control" id="clientSecret" placeholder="*******">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="groupsClaim">Groups Claim Name</label>
-                                <input type="text" class="form-control" id="groupsClaim"
-                                    placeholder="leave blank for default">
+                                <input type="text" class="form-control" id="groupsClaim" value="{{.OidcGroupsClaim}}">
                             </div>
                         </div>
                     </div>

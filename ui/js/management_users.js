@@ -1,7 +1,7 @@
 
 
 $(function () {
-  let table = $('#userTable').DataTable({
+  let table = $('#adminUsersTable').DataTable({
     columns: [
       { 'data': "username" },
       { 'data': "data_added" },

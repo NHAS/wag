@@ -44,7 +44,8 @@
                                             {{.UnenforcedMFA}}
                                         </div>
                                         <div class="d-inline-block ml-2 mt-1 small text-gray-900">
-                                            user{{if gt .UnenforcedMFA 1}}s{{end}} have not completed MFA registration
+                                            user{{if gt .UnenforcedMFA 1}}s have{{else}} has{{end}} not completed MFA
+                                            registration
                                         </div>
                                     </div>
                                 </div>
@@ -58,7 +59,7 @@
             </div>
             {{end}}
 
-            {{if eq .LockedDevices 0}}
+            {{if gt .LockedDevices 0}}
             <div class="col-sm mb-4">
                 <div class="card  border-left-danger shadow-md h-100 py-2">
                     <div class="card-body">
@@ -117,7 +118,7 @@
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                         View Active Sessions</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{len .ActiveSessions}}</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{.ActiveSessions}}</div>
                                 </div>
                                 <div class="col-auto">
                                     <i class="fas fa-check fa-2x text-gray-300"></i>
@@ -199,7 +200,7 @@
                                 <strong>Subnet</strong>
                             </td>
                             <td>
-                                <strong>{{.ExternalAddress}}</strong>
+                                <strong>{{.Subnet}}</strong>
                             </td>
                         </tr>
                     </tbody>

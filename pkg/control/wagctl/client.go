@@ -16,13 +16,13 @@ import (
 	"github.com/NHAS/wag/pkg/control"
 )
 
-type ctrlClient struct {
+type CtrlClient struct {
 	httpClient http.Client
 }
 
 // NewControlClient connects to the wag unix control socket specified by socketPath
-func NewControlClient(socketPath string) *ctrlClient {
-	return &ctrlClient{
+func NewControlClient(socketPath string) *CtrlClient {
+	return &CtrlClient{
 		httpClient: http.Client{
 			Transport: &http.Transport{
 				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -33,7 +33,7 @@ func NewControlClient(socketPath string) *ctrlClient {
 	}
 }
 
-func (c *ctrlClient) simplepost(path string, form url.Values) error {
+func (c *CtrlClient) simplepost(path string, form url.Values) error {
 
 	response, err := c.httpClient.Post("http://unix/"+path, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -53,7 +53,7 @@ func (c *ctrlClient) simplepost(path string, form url.Values) error {
 }
 
 // List devices, if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
-func (c *ctrlClient) ListDevice(username string) (d []data.Device, err error) {
+func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *ctrlClient) ListDevice(username string) (d []data.Device, err error) {
 }
 
 // Take device address to remove
-func (c *ctrlClient) DeleteDevice(address string) error {
+func (c *CtrlClient) DeleteDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
@@ -84,7 +84,7 @@ func (c *ctrlClient) DeleteDevice(address string) error {
 	return c.simplepost("device/delete", form)
 }
 
-func (c *ctrlClient) LockDevice(address string) error {
+func (c *CtrlClient) LockDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
@@ -92,7 +92,7 @@ func (c *ctrlClient) LockDevice(address string) error {
 	return c.simplepost("device/lock", form)
 }
 
-func (c *ctrlClient) UnlockDevice(address string) error {
+func (c *CtrlClient) UnlockDevice(address string) error {
 
 	form := url.Values{}
 	form.Add("address", address)
@@ -100,7 +100,7 @@ func (c *ctrlClient) UnlockDevice(address string) error {
 	return c.simplepost("device/unlock", form)
 }
 
-func (c *ctrlClient) ListAdminUsers(username string) (users []data.AdminModel, err error) {
+func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -123,7 +123,7 @@ func (c *ctrlClient) ListAdminUsers(username string) (users []data.AdminModel, e
 }
 
 // Take device address to remove
-func (c *ctrlClient) AddAdminUser(username, password string) error {
+func (c *CtrlClient) AddAdminUser(username, password string) error {
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("password", password)
@@ -132,21 +132,21 @@ func (c *ctrlClient) AddAdminUser(username, password string) error {
 }
 
 // Take device address to remove
-func (c *ctrlClient) DeleteAdminUser(username string) error {
+func (c *CtrlClient) DeleteAdminUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
 	return c.simplepost("webadmin/delete", form)
 }
 
-func (c *ctrlClient) LockAdminUser(username string) error {
+func (c *CtrlClient) LockAdminUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
 	return c.simplepost("webadmin/lock", form)
 }
 
-func (c *ctrlClient) UnlockAdminUser(username string) error {
+func (c *CtrlClient) UnlockAdminUser(username string) error {
 
 	form := url.Values{}
 	form.Add("username", username)
@@ -154,7 +154,7 @@ func (c *ctrlClient) UnlockAdminUser(username string) error {
 	return c.simplepost("webadmin/unlock", form)
 }
 
-func (c *ctrlClient) ListUsers(username string) (users []data.UserModel, err error) {
+func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -177,21 +177,21 @@ func (c *ctrlClient) ListUsers(username string) (users []data.UserModel, err err
 }
 
 // Take device address to remove
-func (c *ctrlClient) DeleteUser(username string) error {
+func (c *CtrlClient) DeleteUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
 	return c.simplepost("users/delete", form)
 }
 
-func (c *ctrlClient) LockUser(username string) error {
+func (c *CtrlClient) LockUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
 
 	return c.simplepost("users/lock", form)
 }
 
-func (c *ctrlClient) UnlockUser(username string) error {
+func (c *CtrlClient) UnlockUser(username string) error {
 
 	form := url.Values{}
 	form.Add("username", username)
@@ -199,7 +199,7 @@ func (c *ctrlClient) UnlockUser(username string) error {
 	return c.simplepost("users/unlock", form)
 }
 
-func (c *ctrlClient) ResetUserMFA(username string) error {
+func (c *CtrlClient) ResetUserMFA(username string) error {
 
 	form := url.Values{}
 	form.Add("username", username)
@@ -207,7 +207,7 @@ func (c *ctrlClient) ResetUserMFA(username string) error {
 	return c.simplepost("users/reset", form)
 }
 
-func (c *ctrlClient) Sessions() (out []string, err error) {
+func (c *CtrlClient) Sessions() (out []string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/sessions")
 	if err != nil {
@@ -225,7 +225,7 @@ func (c *ctrlClient) Sessions() (out []string, err error) {
 	return
 }
 
-func (c *ctrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
+func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
 
 	response, err := c.httpClient.Get("http://unix/firewall/list")
 	if err != nil {
@@ -250,7 +250,7 @@ func (c *ctrlClient) FirewallRules() (rules map[string]router.FirewallRules, err
 	return
 }
 
-func (c *ctrlClient) ConfigReload() error {
+func (c *CtrlClient) ConfigReload() error {
 
 	response, err := c.httpClient.Post("http://unix/config/reload", "text/plain", nil)
 	if err != nil {
@@ -269,7 +269,7 @@ func (c *ctrlClient) ConfigReload() error {
 	return nil
 }
 
-func (c *ctrlClient) GetVersion() (string, error) {
+func (c *CtrlClient) GetVersion() (string, error) {
 
 	response, err := c.httpClient.Get("http://unix/version")
 	if err != nil {
@@ -285,7 +285,7 @@ func (c *ctrlClient) GetVersion() (string, error) {
 	return string(result), nil
 }
 
-func (c *ctrlClient) GetBPFVersion() (string, error) {
+func (c *CtrlClient) GetBPFVersion() (string, error) {
 
 	response, err := c.httpClient.Get("http://unix/version/bpf")
 	if err != nil {
@@ -301,7 +301,7 @@ func (c *ctrlClient) GetBPFVersion() (string, error) {
 	return string(result), nil
 }
 
-func (c *ctrlClient) Registrations() (result []control.RegistrationResult, err error) {
+func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err error) {
 
 	response, err := c.httpClient.Get("http://unix/registration/list")
 	if err != nil {
@@ -325,7 +325,7 @@ func (c *ctrlClient) Registrations() (result []control.RegistrationResult, err e
 	return
 }
 
-func (c *ctrlClient) NewRegistration(token, username, overwrite string, groups ...string) (r control.RegistrationResult, err error) {
+func (c *CtrlClient) NewRegistration(token, username, overwrite string, groups ...string) (r control.RegistrationResult, err error) {
 
 	form := url.Values{}
 	form.Add("username", username)
@@ -367,7 +367,7 @@ func (c *ctrlClient) NewRegistration(token, username, overwrite string, groups .
 	return
 }
 
-func (c *ctrlClient) DeleteRegistration(id string) (err error) {
+func (c *CtrlClient) DeleteRegistration(id string) (err error) {
 
 	form := url.Values{}
 	form.Add("id", id)
@@ -375,7 +375,7 @@ func (c *ctrlClient) DeleteRegistration(id string) (err error) {
 	return c.simplepost("registration/delete", form)
 }
 
-func (c *ctrlClient) Shutdown(cleanup bool) (err error) {
+func (c *CtrlClient) Shutdown(cleanup bool) (err error) {
 
 	form := url.Values{}
 	form.Add("cleanup", fmt.Sprintf("%t", cleanup))
@@ -383,7 +383,7 @@ func (c *ctrlClient) Shutdown(cleanup bool) (err error) {
 	return c.simplepost("shutdown", form)
 }
 
-func (c *ctrlClient) PinBPF() (err error) {
+func (c *CtrlClient) PinBPF() (err error) {
 
 	response, err := c.httpClient.Get("http://unix/ebpf/pin")
 	if err != nil {
@@ -403,7 +403,7 @@ func (c *ctrlClient) PinBPF() (err error) {
 	return
 }
 
-func (c *ctrlClient) UnpinBPF() (err error) {
+func (c *CtrlClient) UnpinBPF() (err error) {
 
 	response, err := c.httpClient.Get("http://unix/ebpf/unpin")
 	if err != nil {

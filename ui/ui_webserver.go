@@ -30,7 +30,7 @@ var (
 	}
 
 	sessions = session.NewSessionManager()
-	ctrl     = wagctl.NewControlClient(config.Values().Socket)
+	ctrl     *wagctl.CtrlClient
 )
 
 type AdminContextKey string
@@ -110,11 +110,6 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func populateDashboard(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	u, ok := r.Context().Value(adminKey).(AdminUser)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -124,7 +119,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	allUsers, err := ctrl.ListUsers("")
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		log.Println("errror getting users: ", err)
+		log.Println("error getting users: ", err)
 		return
 	}
 
@@ -138,7 +133,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	allDevices, err := ctrl.ListDevice("")
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		log.Println("errror getting devices: ", err)
+		log.Println("error getting devices: ", err)
 		return
 	}
 
@@ -153,21 +148,21 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	registrations, err := ctrl.Registrations()
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		log.Println("errror getting registrations: ", err)
+		log.Println("error getting registrations: ", err)
 		return
 	}
 
 	session, err := ctrl.Sessions()
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		log.Println("errror getting sessions: ", err)
+		log.Println("error getting sessions: ", err)
 		return
 	}
 
 	pubkey, port, err := router.ServerDetails()
 	if err != nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		log.Println("errror getting server details: ", err)
+		log.Println("error getting server details: ", err)
 		return
 	}
 
@@ -181,6 +176,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		Port:            port,
 		PublicKey:       pubkey.String(),
 		ExternalAddress: config.Values().ExternalAddress,
+		Subnet:          config.Values().Wireguard.Range.String(),
 
 		NumUsers:           len(allUsers),
 		ActiveSessions:     len(session),
@@ -193,11 +189,19 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	err = uiTemplates["dashboard"].Execute(w, d)
 
 	if err != nil {
-		log.Println("unable to render dashboard page")
+		log.Println("unable to render dashboard page: ", err)
 		return
 	}
 }
 func StartWebServer(errs chan<- error) {
+
+	if config.Values().Webserver.Management.ListenAddress == "" {
+		log.Println("Management web interface disabled as listen address not defined")
+		return
+	}
+
+	ctrl = wagctl.NewControlClient(config.Values().Socket)
+
 	go func() {
 
 		static := http.FileServer(http.FS(staticContent))
@@ -387,6 +391,8 @@ func StartWebServer(errs chan<- error) {
 				Data []TokensData `json:"data"`
 			}
 
+			data.Data = []TokensData{}
+
 			for _, reg := range registrations {
 				data.Data = append(data.Data, TokensData{
 					Username:   reg.Username,
@@ -472,10 +478,26 @@ func StartWebServer(errs chan<- error) {
 				return
 			}
 
-			d := Page{
-				Description: "Wag settings",
-				Title:       "Settings - General",
-				User:        u.Username,
+			c := config.Values()
+
+			d := GeneralSettings{
+				Page: Page{
+					Description: "Wag settings",
+					Title:       "Settings - General",
+					User:        u.Username,
+				},
+
+				ExternalAddress:          c.ExternalAddress,
+				Lockout:                  c.Lockout,
+				Issuer:                   c.Authenticators.Issuer,
+				Domain:                   c.Authenticators.DomainURL,
+				InactivityTimeoutMinutes: c.SessionInactivityTimeoutMinutes,
+				SessionLifeTimeMinutes:   c.MaxSessionLifetimeMinutes,
+				HelpMail:                 c.HelpMail,
+				DNS:                      strings.Join(c.Wireguard.DNS, ","),
+				TotpEnabled:              true,
+				OidcEnabled:              false,
+				WebauthnEnabled:          false,
 			}
 
 			err := uiTemplates["general"].Execute(w, d)
@@ -523,6 +545,12 @@ func StartWebServer(errs chan<- error) {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
+
+			var data struct {
+				Data []data.AdminModel `json:"data"`
+			}
+
+			data.Data = adminUsers
 
 			b, err := json.Marshal(adminUsers)
 			if err != nil {

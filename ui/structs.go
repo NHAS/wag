@@ -15,9 +15,31 @@ type Dashboard struct {
 
 	ActiveSessions int
 
+	Subnet string
+
 	Port, UnenforcedMFA int
 	PublicKey           string
 	ExternalAddress     string
+}
+
+type GeneralSettings struct {
+	Page
+	OidcIdpURL      string
+	OidcClientID    string
+	OidcGroupsClaim string
+
+	Issuer string
+	Domain string
+
+	Lockout                  int
+	InactivityTimeoutMinutes int
+	SessionLifeTimeMinutes   int
+
+	ExternalAddress string
+	HelpMail        string
+	DNS             string
+
+	OidcEnabled, WebauthnEnabled, TotpEnabled bool
 }
 
 type UsersData struct {
