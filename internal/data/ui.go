@@ -215,3 +215,21 @@ func SetAdminPassword(username, password string) error {
 
 	return nil
 }
+
+func SetLastLoginInformation(username, ip string) error {
+	_, err := database.Exec(`
+	UPDATE 
+		AdminUsers
+	SET
+		last_login = ?,
+		ip = ?
+	WHERE
+		username = ?
+	`, time.Now().Format(time.RFC3339), ip, username)
+
+	if err != nil {
+		return errors.New("Unable to set last login time: " + err.Error())
+	}
+
+	return nil
+}

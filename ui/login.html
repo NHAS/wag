@@ -18,15 +18,26 @@
 
 <body class="text-center" id="loginBody">
 
-    <form class="form-signin" action="/login" method="POST">
+    <form class="form-signin" action="/login" method="POST" autocomplete="off">
+
         <img class="mb-4" src="/img/WagLogo.png" alt="" width="122" height="122">
         <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
         <label for="username" class="sr-only">Username</label>
+
         <input type="text" id="username" class="form-control" placeholder="Username" required autofocus name="username">
         <label for="password" class="sr-only">Password</label>
+
         <input type="password" id="password" class="form-control" placeholder="Password" required name="password">
         <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+
+        {{if .ErrorMessage}}
+        <div class="alert alert-danger mt-2" role="alert">
+            {{.ErrorMessage}}
+        </div>
+        {{end}}
     </form>
+
+
 
 
     <!-- Bootstrap core JavaScript-->

@@ -81,6 +81,8 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			log.Println("unable to render login template:", err)
+			uiTemplates["error"].Execute(w, nil)
+
 			return
 		}
 	case "POST":
@@ -88,25 +90,23 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("bad form value: ", err)
 
-			err := uiTemplates["login"].Execute(w, nil)
+			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
 
-			if err != nil {
-				log.Println("unable to render login template:", err)
-				return
-			}
 			return
 		}
 
 		err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
 		if err != nil {
+			log.Println("password login failed: ", err)
+
+			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
+			return
+		}
+
+		if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
 			log.Println("unable to login: ", err)
 
-			err := uiTemplates["login"].Execute(w, nil)
-
-			if err != nil {
-				log.Println("unable to render login template:", err)
-				return
-			}
+			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
 			return
 		}
 
@@ -658,50 +658,79 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		d := Page{
-			Description: "Change password page",
-			Title:       "Change password",
-			User:        u.Username,
+		d := ChangePassword{
+			Page: Page{
+				Description: "Change password page",
+				Title:       "Change password",
+				User:        u.Username,
+			},
 		}
 
 		err := uiTemplates["change_password"].Execute(w, d)
 
 		if err != nil {
-			log.Println("unable to render change password page")
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			log.Println("unable to render change password page: ", err)
+			uiTemplates["error"].Execute(w, nil)
 			return
 		}
 
 		return
 	case "POST":
+
+		d := ChangePassword{
+			Page: Page{
+				Description: "Change password page",
+				Title:       "Change password",
+				User:        u.Username,
+			},
+			Type:    0,
+			Message: "Success!",
+		}
+
 		err := r.ParseForm()
 		if err != nil {
-			log.Println("bad form")
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			log.Println("bad form: ", err)
+
+			d.Message = "Error"
+			d.Type = 1
+
+			uiTemplates["change_password"].Execute(w, d)
 			return
 		}
 
 		err = data.CompareAdminKeys(u.Username, r.FormValue("current_password"))
 		if err != nil {
 			log.Println("bad password for admin")
-			http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
+
+			d.Message = "Current password is incorrect"
+			d.Type = 1
+
+			uiTemplates["change_password"].Execute(w, d)
 			return
 		}
 
 		if r.FormValue("password1") != r.FormValue("password2") {
 			log.Println("passwords do not match")
-			http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
+
+			d.Message = "New passwords do not match"
+			d.Type = 1
+
+			uiTemplates["change_password"].Execute(w, d)
 			return
 		}
 
-		err = data.SetAdminPassword(u.Username, r.FormValue("current_password"))
+		err = data.SetAdminPassword(u.Username, r.FormValue("password2"))
 		if err != nil {
 			log.Println("unable to set new admin password for ", u.Username)
-			http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
+
+			d.Message = "Error"
+			d.Type = 1
+
+			uiTemplates["change_password"].Execute(w, d)
 			return
 		}
 
-		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
+		uiTemplates["change_password"].Execute(w, ChangePassword{Message: "Success!", Type: 0})
 
 	}
 

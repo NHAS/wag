@@ -2,7 +2,7 @@
 
 // Call the dataTables jQuery plugin
 $(function () {
-  makeTable('#tokensTable',
+  let table = makeTable('#tokensTable',
     [
       { 'data': "token" },
       { 'data': "username" },
@@ -20,9 +20,19 @@ $(function () {
         }
       },
       {
+        text: 'Select All',
+        className: 'btn btn-primary shadow-sm',
+        action: function () {
+          table.rows().select();
+        }
+      },
+      {
         text: 'Delete',
         className: 'btn btn-danger shadow-sm',
-        action: function (e, dt, node, config) {
+        action: function (e, dt) {
+          var count = table.rows({ selected: true }).data();
+          console.log(count)
+
           dt.ajax.reload();
         }
       },

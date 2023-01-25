@@ -42,6 +42,16 @@ type GeneralSettings struct {
 	OidcEnabled, WebauthnEnabled, TotpEnabled bool
 }
 
+type Login struct {
+	ErrorMessage string
+}
+
+type ChangePassword struct {
+	Page
+	Message string
+	Type    int
+}
+
 type UsersData struct {
 	Username  string `json:"username"`
 	Devices   int    `json:"devices"`
