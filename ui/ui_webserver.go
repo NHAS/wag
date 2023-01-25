@@ -737,5 +737,32 @@ func registratioTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	case "POST":
 
+		var b struct {
+			Username   string
+			Token      string
+			Overwrites string
+			Groups     string
+		}
+
+		defer r.Body.Close()
+		err := json.NewDecoder(r.Body).Decode(&b)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		var groups []string
+		if len(b.Groups) > 0 {
+			groups = strings.Split(b.Groups, ",")
+		}
+
+		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, groups...)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		w.Write([]byte("OK"))
+
 	}
 }
