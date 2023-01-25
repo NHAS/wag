@@ -33,10 +33,22 @@ $(function () {
         text: 'Delete',
         className: 'btn btn-danger shadow-sm',
         action: function (e, dt) {
-          var count = table.rows({ selected: true }).data();
-          console.log(count)
+          var tokens = table.rows({ selected: true }).data().pluck('token').toArray();
 
-          dt.ajax.reload();
+          fetch("/management/registration_tokens/data", {
+            method: "DELETE",
+            mode: 'same-origin',
+            cache: 'no-cache',
+            credentials: 'same-origin',
+            redirect: 'follow',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(tokens)
+          }).then(f => {
+            dt.ajax.reload();
+          })
+
         }
       },
 
@@ -44,8 +56,6 @@ $(function () {
   );
 
   $("#createToken").click(function () {
-
-
     let data = {
       "username": $('#recipient-name').val(),
       "token": $('#token').val(),

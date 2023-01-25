@@ -735,6 +735,21 @@ func registratioTokens(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
 		return
+
+	case "DELETE":
+
+		var tokens []string
+
+		err := json.NewDecoder(r.Body).Decode(&tokens)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		for _, token := range tokens {
+			ctrl.DeleteRegistration(token)
+		}
+
 	case "POST":
 
 		var b struct {
