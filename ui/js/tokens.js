@@ -13,10 +13,12 @@ $(function () {
     "/management/registration_tokens/data",
     [
       {
+
         text: '<i class="fas fa-plus fa-sm text-white-50 mr-2"></i>New',
         className: 'btn btn-primary shadow-sm',
-        action: function (e, dt, node, config) {
-          dt.ajax.reload();
+        attr: {
+          'data-toggle': 'modal',
+          'data-target': '#tokensModal'
         }
       },
       {

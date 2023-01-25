@@ -415,44 +415,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/registration_tokens/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
-				http.NotFound(w, r)
-				return
-			}
-
-			registrations, err := ctrl.Registrations()
-			if err != nil {
-				log.Println("error getting registrations: ", err)
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			var data struct {
-				Data []TokensData `json:"data"`
-			}
-
-			data.Data = []TokensData{}
-
-			for _, reg := range registrations {
-				data.Data = append(data.Data, TokensData{
-					Username:   reg.Username,
-					Token:      reg.Token,
-					Groups:     strings.Join(reg.Groups, ","),
-					Overwrites: reg.Overwrites,
-				})
-			}
-
-			b, err := json.Marshal(data)
-			if err != nil {
-				log.Println("unable to marshal registration_tokens data: ", err)
-				http.Error(w, "Server error", 500)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
-		})
+		protectedRoutes.HandleFunc("/management/registration_tokens/data", registratioTokens)
 
 		protectedRoutes.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -734,4 +697,45 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+}
+
+func registratioTokens(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+
+		registrations, err := ctrl.Registrations()
+		if err != nil {
+			log.Println("error getting registrations: ", err)
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+
+		var data struct {
+			Data []TokensData `json:"data"`
+		}
+
+		data.Data = []TokensData{}
+
+		for _, reg := range registrations {
+			data.Data = append(data.Data, TokensData{
+				Username:   reg.Username,
+				Token:      reg.Token,
+				Groups:     strings.Join(reg.Groups, ","),
+				Overwrites: reg.Overwrites,
+			})
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			log.Println("unable to marshal registration_tokens data: ", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+		return
+	case "POST":
+
+	}
 }
