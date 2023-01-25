@@ -26,6 +26,7 @@ var (
 		"management_users":    template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
 		"change_password":     template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
 		"404":                 template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
+		"error":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
 		"login":               template.Must(template.ParseFS(templatesContent, "login.html")),
 	}
 
@@ -86,12 +87,26 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
 			log.Println("bad form value: ", err)
+
+			err := uiTemplates["login"].Execute(w, nil)
+
+			if err != nil {
+				log.Println("unable to render login template:", err)
+				return
+			}
 			return
 		}
 
 		err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
 		if err != nil {
 			log.Println("unable to login: ", err)
+
+			err := uiTemplates["login"].Execute(w, nil)
+
+			if err != nil {
+				log.Println("unable to render login template:", err)
+				return
+			}
 			return
 		}
 
@@ -118,8 +133,10 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	allUsers, err := ctrl.ListUsers("")
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		log.Println("error getting users: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 
@@ -132,8 +149,10 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	allDevices, err := ctrl.ListDevice("")
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		log.Println("error getting devices: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 
@@ -147,22 +166,28 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	registrations, err := ctrl.Registrations()
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		log.Println("error getting registrations: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 
 	session, err := ctrl.Sessions()
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		log.Println("error getting sessions: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 
 	pubkey, port, err := router.ServerDetails()
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		log.Println("error getting server details: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 
@@ -190,6 +215,9 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println("unable to render dashboard page: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		uiTemplates["error"].Execute(w, nil)
 		return
 	}
 }
@@ -238,7 +266,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["users"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to render users page")
+				log.Println("unable to render users page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -274,7 +305,9 @@ func StartWebServer(errs chan<- error) {
 
 			b, err := json.Marshal(m)
 			if err != nil {
-				log.Println("unable to marshal users data")
+				log.Println("unable to marshal users data: ", err)
+				http.Error(w, "Server error", 500)
+
 				return
 			}
 
@@ -303,7 +336,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["devices"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to render devices page")
+				log.Println("unable to render devices page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -340,7 +376,9 @@ func StartWebServer(errs chan<- error) {
 			b, err := json.Marshal(jsonDevices)
 			if err != nil {
 
-				log.Println("unable to marshal devices data")
+				log.Println("unable to marshal devices data: ", err)
+				http.Error(w, "Server error", 500)
+
 				return
 			}
 
@@ -369,7 +407,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["registration_tokens"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to render registration_tokens page")
+				log.Println("unable to render registration_tokens page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -404,7 +445,8 @@ func StartWebServer(errs chan<- error) {
 
 			b, err := json.Marshal(data)
 			if err != nil {
-				log.Println("unable to marshal registration_tokens data")
+				log.Println("unable to marshal registration_tokens data: ", err)
+				http.Error(w, "Server error", 500)
 				return
 			}
 
@@ -433,7 +475,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["rules"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to render rules page")
+				log.Println("unable to render rules page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -458,7 +503,8 @@ func StartWebServer(errs chan<- error) {
 
 			b, err := json.Marshal(data)
 			if err != nil {
-				log.Println("unable to marshal rules data")
+				log.Println("unable to marshal rules data: ", err)
+				http.Error(w, "Server error", 500)
 				return
 			}
 
@@ -503,7 +549,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["general"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to settings general")
+				log.Println("unable to render general: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -529,7 +578,10 @@ func StartWebServer(errs chan<- error) {
 			err := uiTemplates["management_users"].Execute(w, d)
 
 			if err != nil {
-				log.Println("unable to settings management_users")
+				log.Println("unable to render management_users: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
 				return
 			}
 		})
@@ -552,9 +604,10 @@ func StartWebServer(errs chan<- error) {
 
 			data.Data = adminUsers
 
-			b, err := json.Marshal(adminUsers)
+			b, err := json.Marshal(data)
 			if err != nil {
-				log.Println("unable to marshal management users data")
+				log.Println("unable to marshal management users data: ", err)
+				http.Error(w, "Server error", 500)
 				return
 			}
 
@@ -564,8 +617,30 @@ func StartWebServer(errs chan<- error) {
 
 		protectedRoutes.HandleFunc("/change_password", changePassword)
 
+		protectedRoutes.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+
+			cookie, err := r.Cookie("admin")
+			if err != nil {
+				log.Println("attempted to get admin page without admin cookie")
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			sessions.DeleteSession(cookie.Value)
+
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		})
+
 		protectedRoutes.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
+			err := uiTemplates["404"].Execute(w, nil)
+
+			if err != nil {
+				log.Println("unable to render 404 page:", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
+				return
+			}
 		})
 
 		errs <- http.ListenAndServe(config.Values().Webserver.Management.ListenAddress, allRoutes)

@@ -4,7 +4,7 @@ $(function () {
   let table = $('#adminUsersTable').DataTable({
     columns: [
       { 'data': "username" },
-      { 'data': "data_added" },
+      { 'data': "date_added" },
       { 'data': "last_login" },
       { 'data': "ip" },
       { 'data': "locked" },

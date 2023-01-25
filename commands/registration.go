@@ -140,9 +140,9 @@ func (g *registration) Run() error {
 			return err
 		}
 
-		fmt.Println("token,username")
-		for token, username := range tokens {
-			fmt.Printf("%s,%s\n", token, username)
+		fmt.Println("token,username,overwrites,groups")
+		for _, token := range tokens {
+			fmt.Printf("%s,%s,%s,%s\n", token.Token, token.Username, token.Overwrites, token.Groups)
 		}
 	}
 
