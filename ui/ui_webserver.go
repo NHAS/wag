@@ -287,16 +287,12 @@ func StartWebServer(errs chan<- error) {
 				return
 			}
 
-			var m struct {
-				Data []UsersData `json:"data"`
-			}
-
-			m.Data = []UsersData{}
+			data := []UsersData{}
 
 			for _, u := range users {
 				devices, _ := ctrl.ListDevice(u.Username)
 
-				m.Data = append(m.Data, UsersData{
+				data = append(data, UsersData{
 					Username:  u.Username,
 					Enforcing: u.Enforcing,
 					Locked:    u.Locked,
@@ -305,7 +301,7 @@ func StartWebServer(errs chan<- error) {
 				})
 			}
 
-			b, err := json.Marshal(m)
+			b, err := json.Marshal(data)
 			if err != nil {
 				log.Println("unable to marshal users data: ", err)
 				http.Error(w, "Server error", 500)
@@ -359,16 +355,12 @@ func StartWebServer(errs chan<- error) {
 				return
 			}
 
-			var jsonDevices struct {
-				Data []DevicesData `json:"data"`
-			}
-
-			jsonDevices.Data = []DevicesData{}
+			data := []DevicesData{}
 
 			lockout := config.Values().Lockout
 
 			for _, dev := range allDevices {
-				jsonDevices.Data = append(jsonDevices.Data, DevicesData{
+				data = append(data, DevicesData{
 					Owner:        dev.Username,
 					Locked:       dev.Attempts >= lockout,
 					InternalIP:   dev.Address,
@@ -377,7 +369,7 @@ func StartWebServer(errs chan<- error) {
 				})
 			}
 
-			b, err := json.Marshal(jsonDevices)
+			b, err := json.Marshal(data)
 			if err != nil {
 
 				log.Println("unable to marshal devices data: ", err)
@@ -419,7 +411,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/registration_tokens/data", registratioTokens)
+		protectedRoutes.HandleFunc("/management/registration_tokens/data", registrationTokens)
 
 		protectedRoutes.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -456,12 +448,10 @@ func StartWebServer(errs chan<- error) {
 				return
 			}
 
-			var data struct {
-				Data []PolicyData `json:"data"`
-			}
+			data := []PolicyData{}
 
 			for k, v := range config.Values().Acls.Policies {
-				data.Data = append(data.Data, PolicyData{
+				data = append(data, PolicyData{
 					Effects:         k,
 					NumPublicRoutes: len(v.Allow),
 					NumbMfaRoutes:   len(v.Mfa),
@@ -565,13 +555,7 @@ func StartWebServer(errs chan<- error) {
 				return
 			}
 
-			var data struct {
-				Data []data.AdminModel `json:"data"`
-			}
-
-			data.Data = adminUsers
-
-			b, err := json.Marshal(data)
+			b, err := json.Marshal(adminUsers)
 			if err != nil {
 				log.Println("unable to marshal management users data: ", err)
 				http.Error(w, "Server error", 500)
@@ -703,7 +687,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func registratioTokens(w http.ResponseWriter, r *http.Request) {
+func registrationTokens(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
@@ -714,14 +698,10 @@ func registratioTokens(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var data struct {
-			Data []TokensData `json:"data"`
-		}
-
-		data.Data = []TokensData{}
+		data := []TokensData{}
 
 		for _, reg := range registrations {
-			data.Data = append(data.Data, TokensData{
+			data = append(data, TokensData{
 				Username:   reg.Username,
 				Token:      reg.Token,
 				Groups:     strings.Join(reg.Groups, ","),

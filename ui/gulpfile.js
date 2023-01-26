@@ -55,18 +55,16 @@ function modules() {
   // Bootstrap SCSS
   var bootstrapSCSS = gulp.src('./node_modules/bootstrap/scss/**/*')
     .pipe(gulp.dest('./vendor/bootstrap/scss'));
-  // ChartJS
-  var chartJS = gulp.src('./node_modules/chart.js/dist/*.js')
-    .pipe(gulp.dest('./vendor/chart.js'));
-  // dataTables
-  var dataTables = gulp.src([
-    './node_modules/datatables.net/js/*.js',
-    './node_modules/datatables.net-bs4/js/*.js',
-    './node_modules/datatables.net-bs4/css/*.css',
-    './node_modules/datatables.net-select/js/*.js',
-    './node_modules/datatables.net-buttons/js/*.js'
-  ])
-    .pipe(gulp.dest('./vendor/datatables'));
+
+  // Bootstrap Table
+  var bootstrapTableJS = gulp.src(['./node_modules/bootstrap-table/dist/bootstrap-table.min.js',
+    './node_modules/bootstrap-table/dist/bootstrap-table-locale-all.min.js'])
+    .pipe(gulp.dest('./vendor/bootstrap-table/js'));
+
+  var bootstrapTableCSS = gulp.src('./node_modules/bootstrap-table/dist/bootstrap-table.min.css')
+    .pipe(gulp.dest('./vendor/bootstrap-table/css'));
+
+
   // Font Awesome
   var fontAwesome = gulp.src('./node_modules/@fortawesome/**/*')
     .pipe(gulp.dest('./vendor'));
@@ -79,7 +77,7 @@ function modules() {
     '!./node_modules/jquery/dist/core.js'
   ])
     .pipe(gulp.dest('./vendor/jquery'));
-  return merge(bootstrapJS, bootstrapSCSS, chartJS, dataTables, fontAwesome, jquery, jqueryEasing);
+  return merge(bootstrapJS, bootstrapSCSS, bootstrapTableJS, bootstrapTableCSS, fontAwesome, jquery, jqueryEasing);
 }
 
 // CSS task
