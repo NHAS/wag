@@ -291,6 +291,8 @@ func StartWebServer(errs chan<- error) {
 				Data []UsersData `json:"data"`
 			}
 
+			m.Data = []UsersData{}
+
 			for _, u := range users {
 				devices, _ := ctrl.ListDevice(u.Username)
 
@@ -360,6 +362,8 @@ func StartWebServer(errs chan<- error) {
 			var jsonDevices struct {
 				Data []DevicesData `json:"data"`
 			}
+
+			jsonDevices.Data = []DevicesData{}
 
 			lockout := config.Values().Lockout
 
