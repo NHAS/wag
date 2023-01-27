@@ -5,7 +5,7 @@
 
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h1 class="m-0 text-gray-900">Access Control Lists</h6>
+        <h1 class="m-0 text-gray-900">Rules</h6>
             <p>
                 View, create and delete firewall policy rules. If a route is not explicitly allowed, it is blocked.
             </p>
@@ -19,10 +19,11 @@
                 <i class="fa fa-trash"></i> Delete
             </button>
         </div>
-        <table id="table" data-toolbar="#toolbar" data-search="true" data-show-refresh="true" data-show-columns="true"
-            data-show-columns-toggle-all="true" data-minimum-count-columns="2" data-show-pagination-switch="true"
-            data-pagination="true" data-id-field="effects" data-page-list="[10, 25, 50, 100, all]"
-            data-side-pagination="client" data-url="/policy/rules/data" data-response-handler="responseHandler">
+        <table id="policiesTable" data-toolbar="#toolbar" data-search="true" data-show-refresh="true"
+            data-show-columns="true" data-show-columns-toggle-all="true" data-minimum-count-columns="2"
+            data-show-pagination-switch="true" data-pagination="true" data-id-field="effects"
+            data-page-list="[10, 25, 50, 100, all]" data-side-pagination="client" data-url="/policy/rules/data"
+            data-response-handler="responseHandler">
         </table>
     </div>
 </div>
@@ -30,6 +31,7 @@
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
 <script src="/vendor/bootstrap-table/js/bootstrap-table-locale-all.min.js"></script>
+
 <script src="/js/default_table.js"></script>
 <script src="/js/policy.js"></script>
 

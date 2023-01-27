@@ -46,11 +46,6 @@ $(function () {
       title: 'Last Endpoint Address',
       sortable: true,
       align: 'center'
-    }, {
-      field: 'last_handshake_time',
-      title: 'Last Handshake Time',
-      sortable: true,
-      align: 'center'
     }
   ])
 

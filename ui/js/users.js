@@ -28,7 +28,8 @@ $(function () {
       field: 'groups',
       title: 'Groups',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      formatter: groupsFormatter
     }, {
       field: 'devices',
       title: 'Devices',
@@ -108,7 +109,25 @@ $(function () {
       })
     })
   })
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('enforcing_mfa') == 'false') {
+    table.bootstrapTable('filterBy', {
+      enforcing_mfa: false
+    })
+  }
+
 })
+
+function groupsFormatter(values) {
+  let result = ""
+
+  values.forEach(function (e) {
+    result += '<a href="#" class="badge badge-pill badge-primary">' + e + '</a>'
+  });
+
+  return result
+}
 
 function action(onUsers, action, table) {
   let data = {

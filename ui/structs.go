@@ -53,12 +53,12 @@ type ChangePassword struct {
 }
 
 type UsersData struct {
-	Username  string `json:"username"`
-	Devices   int    `json:"devices"`
-	Enforcing bool   `json:"enforcing_mfa"`
-	Locked    bool   `json:"locked"`
-	DateAdded string `json:"date_added"`
-	Groups    string `json:"groups"`
+	Username  string   `json:"username"`
+	Devices   int      `json:"devices"`
+	Enforcing bool     `json:"enforcing_mfa"`
+	Locked    bool     `json:"locked"`
+	DateAdded string   `json:"date_added"`
+	Groups    []string `json:"groups"`
 }
 
 type DevicesData struct {
@@ -66,9 +66,8 @@ type DevicesData struct {
 	Locked     bool   `json:"is_locked"`
 	InternalIP string `json:"internal_ip"`
 
-	PublicKey         string `json:"public_key"`
-	LastEndpoint      string `json:"last_endpoint"`
-	LastHandShakeTime string `json:"last_handshake_time"`
+	PublicKey    string `json:"public_key"`
+	LastEndpoint string `json:"last_endpoint"`
 }
 
 type TokensData struct {

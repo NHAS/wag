@@ -16,7 +16,7 @@ function responseHandler(res) {
 
 $(function () {
 
-  let table = createTable('#policyTable', [
+  let table = createTable('#policiesTable', [
     {
       field: 'state',
       checkbox: true,
@@ -40,6 +40,7 @@ $(function () {
   ])
 
   var $remove = $('#remove')
+  var $new = $('#new')
 
   table.on('check.bs.table uncheck.bs.table ' +
     'check-all.bs.table uncheck-all.bs.table',
@@ -58,6 +59,11 @@ $(function () {
       values: ids
     })
     $remove.prop('disabled', true)
+  })
+
+  $new.on("click", function () {
+    var ids = getIdSelections(table)
+
   })
 
 });

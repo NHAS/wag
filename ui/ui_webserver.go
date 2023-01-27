@@ -711,12 +711,14 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		for _, u := range users {
 			devices, _ := ctrl.ListDevice(u.Username)
 
+			groups := append([]string{"*"}, config.Values().Acls.Groups[u.Username]...)
+
 			data = append(data, UsersData{
 				Username:  u.Username,
 				Enforcing: u.Enforcing,
 				Locked:    u.Locked,
 				Devices:   len(devices),
-				Groups:    strings.Join(config.Values().Acls.Groups[u.Username], ","),
+				Groups:    groups,
 			})
 		}
 
