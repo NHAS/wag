@@ -274,44 +274,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/users/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
-				http.NotFound(w, r)
-				return
-			}
-
-			users, err := ctrl.ListUsers("")
-			if err != nil {
-				log.Println("error getting users: ", err)
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			data := []UsersData{}
-
-			for _, u := range users {
-				devices, _ := ctrl.ListDevice(u.Username)
-
-				data = append(data, UsersData{
-					Username:  u.Username,
-					Enforcing: u.Enforcing,
-					Locked:    u.Locked,
-					Devices:   len(devices),
-					Groups:    strings.Join(config.Values().Acls.Groups[u.Username], ","),
-				})
-			}
-
-			b, err := json.Marshal(data)
-			if err != nil {
-				log.Println("unable to marshal users data: ", err)
-				http.Error(w, "Server error", 500)
-
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
-		})
+		protectedRoutes.HandleFunc("/management/users/data", manageUsers)
 
 		protectedRoutes.HandleFunc("/management/devices/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -342,45 +305,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/devices/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
-				http.NotFound(w, r)
-				return
-			}
-
-			allDevices, err := ctrl.ListDevice("")
-			if err != nil {
-				log.Println("error getting devices: ", err)
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			data := []DevicesData{}
-
-			lockout := config.Values().Lockout
-
-			for _, dev := range allDevices {
-				data = append(data, DevicesData{
-					Owner:        dev.Username,
-					Locked:       dev.Attempts >= lockout,
-					InternalIP:   dev.Address,
-					PublicKey:    dev.Publickey,
-					LastEndpoint: dev.Endpoint.String(),
-				})
-			}
-
-			b, err := json.Marshal(data)
-			if err != nil {
-
-				log.Println("unable to marshal devices data: ", err)
-				http.Error(w, "Server error", 500)
-
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
-		})
+		protectedRoutes.HandleFunc("/management/devices/data", devicesMgmt)
 
 		protectedRoutes.HandleFunc("/management/registration_tokens/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -733,6 +658,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		for _, token := range tokens {
 			ctrl.DeleteRegistration(token)
 		}
+		w.Write([]byte("OK"))
 
 	case "POST":
 
@@ -763,5 +689,169 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 
 		w.Write([]byte("OK"))
 
+	default:
+		http.NotFound(w, r)
 	}
+
+}
+
+func manageUsers(w http.ResponseWriter, r *http.Request) {
+
+	switch r.Method {
+	case "GET":
+		users, err := ctrl.ListUsers("")
+		if err != nil {
+			log.Println("error getting users: ", err)
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+
+		data := []UsersData{}
+
+		for _, u := range users {
+			devices, _ := ctrl.ListDevice(u.Username)
+
+			data = append(data, UsersData{
+				Username:  u.Username,
+				Enforcing: u.Enforcing,
+				Locked:    u.Locked,
+				Devices:   len(devices),
+				Groups:    strings.Join(config.Values().Acls.Groups[u.Username], ","),
+			})
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			log.Println("unable to marshal users data: ", err)
+			http.Error(w, "Server error", 500)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+	case "PUT":
+		var action struct {
+			Action    string   `json:"action"`
+			Usernames []string `json:"usernames"`
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&action)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		for _, username := range action.Usernames {
+			switch action.Action {
+			case "lock":
+				ctrl.LockUser(username)
+			case "unlock":
+				ctrl.UnlockUser(username)
+			default:
+				http.Error(w, "invalid action", 400)
+				return
+			}
+		}
+
+		w.Write([]byte("OK"))
+
+	case "DELETE":
+		var usernames []string
+
+		err := json.NewDecoder(r.Body).Decode(&usernames)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		for _, user := range usernames {
+			ctrl.DeleteUser(user)
+		}
+		w.Write([]byte("OK"))
+	default:
+		http.NotFound(w, r)
+	}
+
+}
+
+func devicesMgmt(w http.ResponseWriter, r *http.Request) {
+
+	switch r.Method {
+	case "GET":
+		allDevices, err := ctrl.ListDevice("")
+		if err != nil {
+			log.Println("error getting devices: ", err)
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+
+		data := []DevicesData{}
+
+		lockout := config.Values().Lockout
+
+		for _, dev := range allDevices {
+			data = append(data, DevicesData{
+				Owner:        dev.Username,
+				Locked:       dev.Attempts >= lockout,
+				InternalIP:   dev.Address,
+				PublicKey:    dev.Publickey,
+				LastEndpoint: dev.Endpoint.String(),
+			})
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+
+			log.Println("unable to marshal devices data: ", err)
+			http.Error(w, "Server error", 500)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+	case "PUT":
+		var action struct {
+			Action    string   `json:"action"`
+			Addresses []string `json:"addresses"`
+		}
+
+		err := json.NewDecoder(r.Body).Decode(&action)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		for _, address := range action.Addresses {
+			switch action.Action {
+			case "lock":
+				ctrl.LockDevice(address)
+			case "unlock":
+				ctrl.UnlockDevice(address)
+			default:
+				http.Error(w, "invalid action", 400)
+				return
+			}
+		}
+
+		w.Write([]byte("OK"))
+
+	case "DELETE":
+		var addresses []string
+
+		err := json.NewDecoder(r.Body).Decode(&addresses)
+		if err != nil {
+			http.Error(w, "Bad request", 400)
+			return
+		}
+
+		for _, address := range addresses {
+			ctrl.DeleteDevice(address)
+		}
+		w.Write([]byte("OK"))
+	default:
+		http.NotFound(w, r)
+	}
+
 }

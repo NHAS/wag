@@ -105,7 +105,7 @@ $(function () {
       }
 
       response.text().then(txt => {
-        console.log(txt)
+
         $("#formIssue").text(txt)
         $("#formIssue").show()
       })
