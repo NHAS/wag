@@ -22,6 +22,7 @@ var (
 		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html")),
 		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html")),
 		"rules":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html")),
+		"groups":              template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html")),
 		"general":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
 		"management_users":    template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
 		"change_password":     template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
@@ -432,6 +433,58 @@ func StartWebServer(errs chan<- error) {
 					PublicRoutes: v.Allow,
 					MfaRoutes:    v.Mfa,
 				})
+			}
+
+			b, err := json.Marshal(data)
+			if err != nil {
+				log.Println("unable to marshal rules data: ", err)
+				http.Error(w, "Server error", 500)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(b)
+		})
+
+		protectedRoutes.HandleFunc("/policy/groups/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			u, ok := r.Context().Value(adminKey).(AdminUser)
+			if !ok {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			d := Page{
+				Description: "Groups",
+				Title:       "Groups",
+				User:        u.Username,
+			}
+
+			err := uiTemplates["groups"].Execute(w, d)
+
+			if err != nil {
+				log.Println("unable to render groups page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
+				return
+			}
+		})
+
+		protectedRoutes.HandleFunc("/policy/groups/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			data := []GroupData{}
+
+			for k, v := range config.Values().Acls.Groups {
+				data = append(data, GroupData{Group: k, Members: v})
 			}
 
 			b, err := json.Marshal(data)

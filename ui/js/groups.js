@@ -24,32 +24,25 @@ function operateFormatter(value, row, index) {
 
 window.operateEvents = {
   'click .edit': function (e, value, row, index) {
-    $("#ruleModalLabel").text("Edit Rule")
+    $("#groupModalLabel").text("Edit Group")
 
 
-    $("#effects").val(row.effects)
+    $("#group").val(row.effects)
     $("#effects").prop("disabled", true)
 
-    let mfa_routes_content = ""
-    if (row.mfa_routes != null) {
-      mfa_routes_content = row.mfa_routes.join("\n")
+    let members_content = ""
+    if (row.members != null) {
+      members_content = row.members.join("\n")
     }
-    $("#mfa_routes").val(mfa_routes_content)
-
-    let public_routes_content = ""
-    if (row.public_routes != null) {
-      public_routes_content = row.public_routes.join("\n")
-    }
-    $("#public_routes").val(public_routes_content)
-
+    $("#members").val(members_content)
 
     $("#action").val("edit")
 
-    $("#ruleModal").modal("show")
+    $("#groupModal").modal("show")
   }
 }
 
-function rulesFormatter(values) {
+function membersFormatter(values) {
   if (values == null) {
     return '0'
   }
@@ -60,29 +53,22 @@ function rulesFormatter(values) {
 
 $(function () {
 
-  let table = createTable('#policiesTable', [
+  let table = createTable('#groupsTable', [
     {
       field: 'state',
       checkbox: true,
       align: 'center',
     }, {
-      title: 'Effects (Group/Username)',
-      field: 'effects',
+      title: 'Group',
+      field: 'group',
       align: 'center',
       sortable: true,
     }, {
-      field: 'mfa_routes',
-      title: 'MFA Routes (Number)',
+      title: 'Members (Number)',
+      field: 'members',
       sortable: true,
       align: 'center',
-      formatter: rulesFormatter
-
-    }, {
-      field: 'public_routes',
-      title: 'Public Routes (Number)',
-      sortable: true,
-      align: 'center',
-      formatter: rulesFormatter
+      formatter: membersFormatter
 
     }, {
       field: 'edit',
@@ -111,24 +97,23 @@ $(function () {
   $remove.on("click", function () {
     var ids = getIdSelections(table)
     table.bootstrapTable('remove', {
-      field: 'effects',
+      field: 'group',
       values: ids
     })
     $remove.prop('disabled', true)
   })
 
   $new.on("click", function () {
-    $("#ruleModalLabel").text("New Rule")
+    $("#groupModalLabel").text("New Group")
 
-    $("#effects").prop("disabled", false)
-    $("#effects").val("")
+    $("#group").prop("disabled", false)
+    $("#group").val("")
 
     $("#action").val("new")
 
-    $("#mfa_routes").val("")
-    $("#public_routes").val("")
+    $("#members").val("")
 
-    $("#ruleModal").modal("show")
+    $("#groupModal").modal("show")
   })
 
   $save.on("click", function () {
