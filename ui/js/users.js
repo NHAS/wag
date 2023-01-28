@@ -123,7 +123,7 @@ function groupsFormatter(values) {
   let result = ""
 
   values.forEach(function (e) {
-    result += '<a href="#" class="badge badge-pill badge-primary">' + e + '</a>'
+    result += '<a href="/policy/groups/' + e + '" class="badge badge-pill badge-primary">' + e + '</a>'
   });
 
   return result

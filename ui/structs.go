@@ -78,7 +78,7 @@ type TokensData struct {
 }
 
 type PolicyData struct {
-	Effects         string `json:"effects"`
-	NumPublicRoutes int    `json:"public_routes"`
-	NumbMfaRoutes   int    `json:"mfa_routes"`
+	Effects      string   `json:"effects"`
+	PublicRoutes []string `json:"public_routes"`
+	MfaRoutes    []string `json:"mfa_routes"`
 }

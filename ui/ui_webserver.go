@@ -25,6 +25,7 @@ var (
 		"general":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
 		"management_users":    template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
 		"change_password":     template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
+		"firewall":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/firewall_state.html")),
 		"404":                 template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
 		"error":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
 		"login":               template.Must(template.ParseFS(templatesContent, "login.html")),
@@ -245,6 +246,56 @@ func StartWebServer(errs chan<- error) {
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
 
+		protectedRoutes.HandleFunc("/diag/firewall", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			u, ok := r.Context().Value(adminKey).(AdminUser)
+			if !ok {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			rules, err := ctrl.FirewallRules()
+			if err != nil {
+				log.Println("error getting firewall rules data", err)
+				http.Error(w, "Server Error", 500)
+				return
+			}
+
+			result, err := json.MarshalIndent(rules, "", "    ")
+			if err != nil {
+				log.Println("error marshalling data", err)
+				http.Error(w, "Server Error", 500)
+				return
+			}
+
+			d := struct {
+				Page
+				XDPState string
+			}{
+				Page: Page{
+					Description: "Firewall state page",
+					Title:       "Firewall",
+					User:        u.Username,
+				},
+				XDPState: string(result),
+			}
+
+			err = uiTemplates["firewall"].Execute(w, d)
+
+			if err != nil {
+				log.Println("unable to render firewall page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
+				return
+			}
+
+		})
+
 		protectedRoutes.HandleFunc("/management/users/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
 				http.NotFound(w, r)
@@ -377,9 +428,9 @@ func StartWebServer(errs chan<- error) {
 
 			for k, v := range config.Values().Acls.Policies {
 				data = append(data, PolicyData{
-					Effects:         k,
-					NumPublicRoutes: len(v.Allow),
-					NumbMfaRoutes:   len(v.Mfa),
+					Effects:      k,
+					PublicRoutes: v.Allow,
+					MfaRoutes:    v.Mfa,
 				})
 			}
 
