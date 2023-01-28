@@ -17,19 +17,21 @@ import (
 
 var (
 	uiTemplates map[string]*template.Template = map[string]*template.Template{
-		"dashboard":           template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/dashboard.html")),
-		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html")),
-		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html")),
-		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html")),
-		"rules":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html")),
-		"groups":              template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html")),
-		"general":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
-		"management_users":    template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
-		"change_password":     template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
-		"firewall":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/firewall_state.html")),
-		"404":                 template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
-		"error":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
-		"login":               template.Must(template.ParseFS(templatesContent, "login.html")),
+		"dashboard": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/dashboard.html")),
+
+		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html", "templates/management/registration_token_modal.html")),
+		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html", "templates/management/registration_token_modal.html")),
+		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html", "templates/management/registration_token_modal.html")),
+
+		"rules":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html")),
+		"groups":           template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html")),
+		"general":          template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
+		"management_users": template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
+		"change_password":  template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
+		"firewall":         template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/firewall_state.html")),
+		"404":              template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
+		"error":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
+		"login":            template.Must(template.ParseFS(templatesContent, "login.html")),
 	}
 
 	sessions = session.NewSessionManager()

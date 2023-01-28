@@ -11,8 +11,9 @@
                     Registered wireguard devices
                 </p>
                 <div>
-                    <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i
-                            class="fas fa-plus fa-sm text-white-50 mr-2"></i>New Registration Token</a>
+                    <button id="new" class="btn btn-primary" data-toggle='modal' data-target='#tokensModal'>
+                        <i class="fa fa-plus"></i>New Registration Token
+                    </button>
                 </div>
             </div>
     </div>
@@ -36,6 +37,9 @@
         </table>
     </div>
 </div>
+
+{{block "registrationTokenModal" .}}
+{{end}}
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
 <script src="/vendor/bootstrap-table/js/bootstrap-table-locale-all.min.js"></script>

@@ -2,13 +2,13 @@
 
 function getIdSelections(table) {
   return $.map(table.bootstrapTable('getSelections'), function (row) {
-    return row.effects
+    return row.group
   })
 }
 
 function responseHandler(res) {
   $.each(res.rows, function (i, row) {
-    row.state = $.inArray(row.effects, selections) !== -1
+    row.state = $.inArray(row.group, selections) !== -1
   })
   return res
 }
@@ -27,8 +27,8 @@ window.operateEvents = {
     $("#groupModalLabel").text("Edit Group")
 
 
-    $("#group").val(row.effects)
-    $("#effects").prop("disabled", true)
+    $("#group").val(row.group)
+    $("#group").prop("disabled", true)
 
     let members_content = ""
     if (row.members != null) {
