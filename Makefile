@@ -4,10 +4,10 @@ LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 
 ID=$(shell id -u)
 
-debug: .generate_ebpf
+debug: .generate_ebpf .build_ui
 	go build -ldflags="$(LDFLAGS)"
 
-release: .generate_ebpf
+release: .generate_ebpf .build_ui
 	go build -ldflags="$(LDFLAGS_RELEASE)"
 
 docker:
@@ -15,3 +15,6 @@ docker:
 
 .generate_ebpf:
 	BPF_CLANG=clang BPF_CFLAGS='-O2 -g -Wall -Werror' go generate ./...
+
+.build_ui:
+	cd ui; npm install; gulp build
