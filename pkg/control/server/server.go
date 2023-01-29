@@ -65,6 +65,29 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
+func aclReload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	errs := router.RefreshConfiguration()
+	if len(errs) > 0 {
+		w.WriteHeader(500)
+		w.Header().Set("Content-Type", "text/plain")
+		for _, err := range errs {
+			if err != nil {
+				w.Write([]byte(err.Error() + "\n"))
+			}
+		}
+		return
+	}
+
+	log.Println("ACLs reloaded")
+
+	w.Write([]byte("OK!"))
+}
+
 func version(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
@@ -179,7 +202,8 @@ func StartControlSocket() error {
 
 	controlMux.HandleFunc("/firewall/list", firewallRules)
 
-	controlMux.HandleFunc("/config/reload", configReload)
+	controlMux.HandleFunc("/config/full_reload", configReload)
+	controlMux.HandleFunc("/config/acl_reload", aclReload)
 
 	controlMux.HandleFunc("/version", version)
 	controlMux.HandleFunc("/version/bpf", bpfVersion)

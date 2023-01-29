@@ -496,7 +496,7 @@ func RemoveUser(username string) error {
 	return nil
 }
 
-// RefreshConfiguration updates acls on all users, and udates the inactivity timeout
+// RefreshConfiguration updates acls on all users, and updates the inactivity timeout
 func RefreshConfiguration() []error {
 
 	lock.Lock()

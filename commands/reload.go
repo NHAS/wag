@@ -45,5 +45,5 @@ func (g *reload) Check() error {
 
 func (g *reload) Run() error {
 
-	return wagctl.NewControlClient(g.socket).ConfigReload()
+	return wagctl.NewControlClient(g.socket).FullConfigReload()
 }

@@ -250,9 +250,28 @@ func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err
 	return
 }
 
-func (c *CtrlClient) ConfigReload() error {
+func (c *CtrlClient) FullConfigReload() error {
 
-	response, err := c.httpClient.Post("http://unix/config/reload", "text/plain", nil)
+	response, err := c.httpClient.Post("http://unix/config/full_reload", "text/plain", nil)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) AclReload() error {
+
+	response, err := c.httpClient.Post("http://unix/config/acl_reload", "text/plain", nil)
 	if err != nil {
 		return err
 	}
