@@ -87,7 +87,7 @@ $(function () {
   table.on('check.bs.table uncheck.bs.table ' +
     'check-all.bs.table uncheck-all.bs.table',
     function () {
-      $remove.prop('disabled', !table.bootstrapTable('getSelections').length)
+      $("#removeStart").prop('disabled', !table.bootstrapTable('getSelections').length)
 
       // save your data, here just save the current page
       selections = getIdSelections(table)
@@ -100,7 +100,6 @@ $(function () {
       field: 'group',
       values: ids
     })
-    $remove.prop('disabled', true)
   })
 
   $new.on("click", function () {

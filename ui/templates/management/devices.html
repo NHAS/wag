@@ -12,7 +12,7 @@
                 </p>
                 <div>
                     <button id="new" class="btn btn-primary" data-toggle='modal' data-target='#tokensModal'>
-                        <i class="fa fa-plus"></i>New Registration Token
+                        <i class="fa fa-plus"></i> New Registration Token
                     </button>
                 </div>
             </div>
@@ -25,7 +25,7 @@
             <button id="unlock" class="btn btn-primary" disabled>
                 <i class="fa fa-unlock"></i> Unlock
             </button>
-            <button id="remove" class="btn btn-danger" disabled>
+            <button id="removeStart" class="btn btn-danger" disabled data-toggle='modal' data-target='#deleteModal'>
                 <i class="fa fa-trash"></i> Delete
             </button>
         </div>
@@ -39,6 +39,9 @@
 </div>
 
 {{block "registrationTokenModal" .}}
+{{end}}
+
+{{block "deleteConfirmationModal" .}}
 {{end}}
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>

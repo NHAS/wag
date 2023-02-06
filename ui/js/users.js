@@ -58,7 +58,7 @@ $(function () {
     function () {
       let enableModifications = !table.bootstrapTable('getSelections').length;
 
-      $remove.prop('disabled', enableModifications)
+      $("#removeStart").prop('disabled', enableModifications)
       $lock.prop('disabled', enableModifications)
       $unlock.prop('disabled', enableModifications)
 
@@ -83,8 +83,6 @@ $(function () {
       field: 'username',
       values: ids
     })
-    $remove.prop('disabled', true)
-
 
     fetch("/management/users/data", {
       method: 'DELETE',

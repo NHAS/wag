@@ -20,12 +20,13 @@ var (
 	uiTemplates map[string]*template.Template = map[string]*template.Template{
 		"dashboard": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/dashboard.html")),
 
-		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html", "templates/management/registration_token_modal.html")),
-		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html", "templates/management/registration_token_modal.html")),
-		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html", "templates/management/registration_token_modal.html")),
+		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
+		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
+		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
 
-		"rules":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html")),
-		"groups":           template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html")),
+		"rules":  template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html", "templates/delete_modal.html")),
+		"groups": template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html", "templates/delete_modal.html")),
+
 		"general":          template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
 		"management_users": template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
 		"change_password":  template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
