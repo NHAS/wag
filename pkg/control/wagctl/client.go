@@ -1,6 +1,7 @@
 package wagctl
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -269,9 +270,178 @@ func (c *CtrlClient) FullConfigReload() error {
 	return nil
 }
 
-func (c *CtrlClient) AclReload() error {
+func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 
-	response, err := c.httpClient.Post("http://unix/config/acl_reload", "text/plain", nil)
+	response, err := c.httpClient.Get("http://unix/config/policies/list")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = json.NewDecoder(response.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+// Add wag rule
+func (c *CtrlClient) AddPolicies(policies []control.PolicyData) error {
+
+	data, err := json.Marshal(policies)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/policies/create", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+// Edit wag rule
+func (c *CtrlClient) EditPolicies(policy control.PolicyData) error {
+
+	data, err := json.Marshal(policy)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/policy/edit", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) RemovePolicies(policyNames []string) error {
+
+	data, err := json.Marshal(policyNames)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/policies/delete", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/group/list")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	err = json.NewDecoder(response.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+// Add wag group/s
+func (c *CtrlClient) AddGroup(group control.GroupData) error {
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		return err
+	}
+
+	if !strings.HasPrefix(group.Group, "group:") {
+		return errors.New("group did not have the 'group:' prefix")
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/group/create", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+// Edit wag group members
+func (c *CtrlClient) EditGroup(group control.GroupData) error {
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		return err
+	}
+
+	if !strings.HasPrefix(group.Group, "group:") {
+		return errors.New("group did not have the 'group:' prefix")
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/group/edit", "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) RemoveGroup(groupNames []string) error {
+
+	data, err := json.Marshal(groupNames)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/group/delete", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

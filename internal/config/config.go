@@ -4,15 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/fsops"
 	"github.com/NHAS/webauthn/webauthn"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -44,8 +47,9 @@ type Acl struct {
 }
 
 type Acls struct {
-	Groups       map[string][]string
-	rGroupLookup map[string][]string
+	Groups map[string][]string
+	//Username -> groups name
+	rGroupLookup map[string]map[string]bool
 	Policies     map[string]*Acl
 }
 
@@ -105,6 +109,140 @@ var (
 	values     Config
 )
 
+func AddAcl(effects string, Rule Acl) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	_, ok := values.Acls.Policies[effects]
+	if ok {
+		return fmt.Errorf("%s was already defined", effects)
+	}
+
+	values.Acls.Policies[effects] = &Rule
+
+	return save()
+}
+
+func EditAcl(effects string, Rule Acl) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	_, ok := values.Acls.Policies[effects]
+	if !ok {
+		return fmt.Errorf("%s acl was not defined", effects)
+	}
+
+	values.Acls.Policies[effects] = &Rule
+
+	return save()
+}
+
+func DeleteAcl(effects string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	_, ok := values.Acls.Policies[effects]
+	if !ok {
+		return fmt.Errorf("%s was not defined", effects)
+	}
+
+	delete(values.Acls.Policies, effects)
+
+	return save()
+}
+
+func AddGroup(group string, members []string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	if !strings.HasPrefix(group, "group:") {
+		return errors.New("group did not have group prefix")
+	}
+
+	_, ok := values.Acls.Groups[group]
+	if ok {
+		return fmt.Errorf("%s was already defined", group)
+	}
+
+	values.Acls.Groups[group] = members
+
+	for _, member := range members {
+		if values.Acls.rGroupLookup[member] == nil {
+			values.Acls.rGroupLookup[member] = make(map[string]bool)
+		}
+
+		values.Acls.rGroupLookup[member][group] = true
+	}
+
+	return save()
+}
+
+func EditGroup(group string, newMembers []string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	members, ok := values.Acls.Groups[group]
+	if !ok {
+		return fmt.Errorf("%s was not defined", group)
+	}
+
+	for _, member := range members {
+		delete(values.Acls.rGroupLookup[member], group)
+	}
+
+	values.Acls.Groups[group] = newMembers
+
+	for _, member := range newMembers {
+		if values.Acls.rGroupLookup[member] == nil {
+			values.Acls.rGroupLookup[member] = make(map[string]bool)
+		}
+
+		values.Acls.rGroupLookup[member][group] = true
+	}
+
+	return save()
+}
+
+func DeleteGroup(group string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	members, ok := values.Acls.Groups[group]
+	if !ok {
+		return fmt.Errorf("%s not defined", group)
+	}
+
+	if group == "*" {
+		return fmt.Errorf("cannot delete default group")
+	}
+
+	delete(values.Acls.Groups, group)
+
+	for _, member := range members {
+		delete(values.Acls.rGroupLookup[member], group)
+	}
+
+	return save()
+}
+
+func save() error {
+
+	backupPath := values.path + "." + time.Now().Format("20060102150405") + ".bak"
+	err := fsops.CopyFile(values.path, backupPath)
+	if err != nil {
+		return errors.New("could not create backup of config, cannot save current: " + err.Error())
+	}
+
+	val, err := json.MarshalIndent(values, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	fs, _ := os.Stat(values.path)
+
+	return ioutil.WriteFile(values.path, val, fs.Mode())
+}
+
 func Values() Config {
 	valuesLock.RLock()
 	defer valuesLock.RUnlock()
@@ -129,9 +267,9 @@ func GetEffectiveAcl(username string) Acl {
 	}
 
 	//This may get expensive if the user belongs to a large number of
-	for _, groups := range values.Acls.rGroupLookup[username] {
+	for group := range values.Acls.rGroupLookup[username] {
 		//If the user belongs to a series of groups, grab those, and add their rules
-		if acl, ok := values.Acls.Policies[groups]; ok {
+		if acl, ok := values.Acls.Policies[group]; ok {
 			dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
 			dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
 		}
@@ -146,7 +284,9 @@ func AddVirtualUser(username string, groups []string) {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
 
-	values.Acls.rGroupLookup[username] = groups
+	for _, group := range groups {
+		values.Acls.rGroupLookup[username][group] = true
+	}
 }
 
 func load(path string) (c Config, err error) {
@@ -227,7 +367,7 @@ func load(path string) (c Config, err error) {
 		return c, errors.New("no policies set under acls.Policies")
 	}
 
-	c.Acls.rGroupLookup = map[string][]string{}
+	c.Acls.rGroupLookup = map[string]map[string]bool{}
 
 	for group, members := range c.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
@@ -235,7 +375,11 @@ func load(path string) (c Config, err error) {
 		}
 
 		for _, user := range members {
-			c.Acls.rGroupLookup[user] = append(c.Acls.rGroupLookup[user], group)
+			if c.Acls.rGroupLookup[user] == nil {
+				c.Acls.rGroupLookup[user] = make(map[string]bool)
+			}
+
+			c.Acls.rGroupLookup[user][group] = true
 		}
 	}
 

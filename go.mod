@@ -11,6 +11,7 @@ require (
 	github.com/mdlayher/netlink v1.7.1
 	github.com/pquerna/otp v1.4.0
 	github.com/zitadel/oidc v1.12.0
+	golang.org/x/crypto v0.5.0
 	golang.org/x/net v0.5.0
 	golang.org/x/sys v0.4.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
@@ -31,7 +32,6 @@ require (
 	github.com/mdlayher/socket v0.4.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/text v0.6.0 // indirect

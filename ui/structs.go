@@ -77,17 +77,6 @@ type TokensData struct {
 	Overwrites string `json:"overwrites"`
 }
 
-type PolicyData struct {
-	Effects      string   `json:"effects"`
-	PublicRoutes []string `json:"public_routes"`
-	MfaRoutes    []string `json:"mfa_routes"`
-}
-
-type GroupData struct {
-	Group   string   `json:"group"`
-	Members []string `json:"members"`
-}
-
 type WgDevicesData struct {
 	PublicKey         string `json:"public_key"`
 	Address           string `json:"address"`

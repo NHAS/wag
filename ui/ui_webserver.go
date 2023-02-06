@@ -12,6 +12,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/control/wagctl"
 	"github.com/NHAS/wag/pkg/session"
 )
@@ -497,30 +498,78 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/policy/rules/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
+			switch r.Method {
+			case "GET":
+				data, err := ctrl.GetPolicies()
+				if err != nil {
+					log.Println("unable to get policies: ", err)
+					http.Error(w, "Server error", 500)
+					return
+				}
+
+				b, err := json.Marshal(data)
+				if err != nil {
+					log.Println("unable to marshal policies data: ", err)
+					http.Error(w, "Server error", 500)
+					return
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(b)
+				return
+			case "DELETE":
+				var policiesToRemove []string
+				err := json.NewDecoder(r.Body).Decode(&policiesToRemove)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group names to remove: ", err)
+					return
+				}
+
+				if err := ctrl.RemovePolicies(policiesToRemove); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error removing groups: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			case "PUT":
+				var group control.GroupData
+				err := json.NewDecoder(r.Body).Decode(&group)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group data to edit new group/s: ", err)
+					return
+				}
+
+				if err := ctrl.EditGroup(group); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error editing group: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			case "POST":
+				var group control.GroupData
+				err := json.NewDecoder(r.Body).Decode(&group)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group data to add new group: ", err)
+					return
+				}
+
+				if err := ctrl.AddGroup(group); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error adding group: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			default:
 				http.NotFound(w, r)
 				return
 			}
 
-			data := []PolicyData{}
-
-			for k, v := range config.Values().Acls.Policies {
-				data = append(data, PolicyData{
-					Effects:      k,
-					PublicRoutes: v.Allow,
-					MfaRoutes:    v.Mfa,
-				})
-			}
-
-			b, err := json.Marshal(data)
-			if err != nil {
-				log.Println("unable to marshal rules data: ", err)
-				http.Error(w, "Server error", 500)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
 		})
 
 		protectedRoutes.HandleFunc("/policy/groups/", func(w http.ResponseWriter, r *http.Request) {
@@ -553,26 +602,77 @@ func StartWebServer(errs chan<- error) {
 		})
 
 		protectedRoutes.HandleFunc("/policy/groups/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
+			switch r.Method {
+			case "GET":
+				data, err := ctrl.GetGroups()
+				if err != nil {
+					log.Println("unable to marshal rules data: ", err)
+					http.Error(w, "Server error", 500)
+					return
+				}
+				b, err := json.Marshal(data)
+				if err != nil {
+					log.Println("unable to marshal groups data: ", err)
+					http.Error(w, "Server error", 500)
+					return
+				}
+
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(b)
+				return
+			case "DELETE":
+				var groupsToRemove []string
+				err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group names to remove: ", err)
+					return
+				}
+
+				if err := ctrl.RemoveGroup(groupsToRemove); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error removing groups: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			case "PUT":
+				var group control.GroupData
+				err := json.NewDecoder(r.Body).Decode(&group)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group data to edit new group/s: ", err)
+					return
+				}
+
+				if err := ctrl.EditGroup(group); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error editing group: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			case "POST":
+				var group control.GroupData
+				err := json.NewDecoder(r.Body).Decode(&group)
+				if err != nil {
+					http.Error(w, "Bad Request", 400)
+					log.Println("error decoding group data to add new group: ", err)
+					return
+				}
+
+				if err := ctrl.AddGroup(group); err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Println("error adding group: ", err)
+					return
+				}
+
+				w.Write([]byte("OK"))
+			default:
 				http.NotFound(w, r)
 				return
 			}
 
-			data := []GroupData{}
-
-			for k, v := range config.Values().Acls.Groups {
-				data = append(data, GroupData{Group: k, Members: v})
-			}
-
-			b, err := json.Marshal(data)
-			if err != nil {
-				log.Println("unable to marshal rules data: ", err)
-				http.Error(w, "Server error", 500)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.Write(b)
 		})
 
 		protectedRoutes.HandleFunc("/settings/general", func(w http.ResponseWriter, r *http.Request) {

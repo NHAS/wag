@@ -7,4 +7,15 @@ type RegistrationResult struct {
 	Overwrites string
 }
 
+type PolicyData struct {
+	Effects      string   `json:"effects"`
+	PublicRoutes []string `json:"public_routes"`
+	MfaRoutes    []string `json:"mfa_routes"`
+}
+
+type GroupData struct {
+	Group   string   `json:"group"`
+	Members []string `json:"members"`
+}
+
 const DefaultWagSocket = "/tmp/wag.sock"

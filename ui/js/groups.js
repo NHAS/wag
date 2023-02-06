@@ -84,6 +84,14 @@ $(function () {
   var $new = $('#new')
   var $save = $('#saveRule')
 
+  $(".modal").on("hidden.bs.modal", function () {
+    $("#formIssue").text("")
+    $("#formIssue").hide()
+    $("#action").val("")
+
+  });
+
+
   table.on('check.bs.table uncheck.bs.table ' +
     'check-all.bs.table uncheck-all.bs.table',
     function () {
@@ -100,9 +108,35 @@ $(function () {
       field: 'group',
       values: ids
     })
+
+    fetch("/policy/groups/data", {
+      method: 'DELETE',
+      mode: 'same-origin',
+      cache: 'no-cache',
+      credentials: 'same-origin',
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(ids)
+    }).then((response) => {
+      if (response.status == 200) {
+        $("#ruleModal").modal("hide")
+        table.bootstrapTable('refresh')
+        return
+      }
+
+      response.text().then(txt => {
+
+        $("#formIssue").text(txt)
+        $("#formIssue").show()
+      })
+    })
+
   })
 
   $new.on("click", function () {
+    //Only pop up the modal which does the actual work
     $("#groupModalLabel").text("New Group")
 
     $("#group").prop("disabled", false)
@@ -116,15 +150,27 @@ $(function () {
   })
 
   $save.on("click", function () {
+    /*
+    type GroupData struct {
+    Group   string   `json:"group"`
+    Members []string `json:"members"`
+    }
+    */
+
+    let currentGroupName = $('#group').val();
+
     let data = {
-      "username": $('#recipient-name').val(),
-      "token": $('#token').val(),
-      "overwrites": $('#overwrite').val(),
-      "groups": $('#groups').val()
+      "group": currentGroupName.startsWith("group:") ? currentGroupName : `group:${currentGroupName}`,
+      "members": $('#members').val().split("\n").filter(element => element),
     }
 
-    fetch("/management/registration_tokens/data", {
-      method: 'POST',
+    let method = "POST";
+    if ($('#action').val() == "edit") {
+      method = "PUT"
+    }
+
+    fetch("/policy/groups/data", {
+      method: method,
       mode: 'same-origin',
       cache: 'no-cache',
       credentials: 'same-origin',
@@ -135,7 +181,7 @@ $(function () {
       body: JSON.stringify(data)
     }).then((response) => {
       if (response.status == 200) {
-        $("#ruleModal").modal("hide")
+        $("#groupModal").modal("hide")
         table.bootstrapTable('refresh')
         return
       }
