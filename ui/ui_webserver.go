@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -28,10 +29,13 @@ var (
 		"general":          template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/general.html")),
 		"management_users": template.Must(template.ParseFS(templatesContent, "template.html", "templates/settings/management_users.html")),
 		"change_password":  template.Must(template.ParseFS(templatesContent, "template.html", "templates/change_password.html")),
-		"firewall":         template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/firewall_state.html")),
-		"404":              template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
-		"error":            template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
-		"login":            template.Must(template.ParseFS(templatesContent, "login.html")),
+
+		"firewall": template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/firewall_state.html")),
+		"wg":       template.Must(template.ParseFS(templatesContent, "template.html", "templates/diagnostics/wireguard_peers.html")),
+
+		"404":   template.Must(template.ParseFS(templatesContent, "template.html", "templates/404.html")),
+		"error": template.Must(template.ParseFS(templatesContent, "template.html", "templates/error.html")),
+		"login": template.Must(template.ParseFS(templatesContent, "login.html")),
 	}
 
 	sessions = session.NewSessionManager()
@@ -248,6 +252,76 @@ func StartWebServer(errs chan<- error) {
 		allRoutes.Handle("/", setAuth(protectedRoutes))
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
+
+		protectedRoutes.HandleFunc("/diag/wg", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			u, ok := r.Context().Value(adminKey).(AdminUser)
+			if !ok {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			d := Page{
+				Description: "Wireguard Devices",
+				Title:       "wg",
+				User:        u.Username,
+			}
+
+			err := uiTemplates["wg"].Execute(w, d)
+
+			if err != nil {
+				log.Println("unable to render wg devices page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				uiTemplates["error"].Execute(w, nil)
+				return
+			}
+		})
+
+		protectedRoutes.HandleFunc("/diag/wg/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			peers, err := router.ListPeers()
+			if err != nil {
+				log.Println("unable to list wg peers: ", err)
+				http.Error(w, "Server error", 500)
+				return
+			}
+
+			data := []WgDevicesData{}
+
+			for _, peer := range peers {
+				ip := "-"
+				if len(peer.AllowedIPs) > 0 {
+					ip = peer.AllowedIPs[0].String()
+				}
+
+				data = append(data, WgDevicesData{
+					PublicKey:         peer.PublicKey.String(),
+					Address:           ip,
+					EndpointAddress:   peer.Endpoint.String(),
+					LastHandshakeTime: peer.LastHandshakeTime.Format(time.RFC1123),
+				})
+			}
+
+			result, err := json.Marshal(data)
+			if err != nil {
+				log.Println("unable to marshal peers data: ", err)
+				http.Error(w, "Server error", 500)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(result)
+
+		})
 
 		protectedRoutes.HandleFunc("/diag/firewall", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {

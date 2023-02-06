@@ -87,3 +87,10 @@ type GroupData struct {
 	Group   string   `json:"group"`
 	Members []string `json:"members"`
 }
+
+type WgDevicesData struct {
+	PublicKey         string `json:"public_key"`
+	Address           string `json:"address"`
+	EndpointAddress   string `json:"last_endpoint"`
+	LastHandshakeTime string `json:"last_handshake_time"`
+}
