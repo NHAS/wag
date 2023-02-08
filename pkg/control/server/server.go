@@ -12,8 +12,6 @@ import (
 	"github.com/NHAS/wag/internal/router"
 )
 
-var socket string
-
 func firewallRules(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)

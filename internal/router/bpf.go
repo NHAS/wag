@@ -634,18 +634,34 @@ func Deauthenticate(address string) error {
 }
 
 type FirewallRules struct {
-	IsAuthorized        bool
 	LastPacketTimestamp uint64
 	Expiry              uint64
 	MFA                 []string
 	Public              []string
-	IP                  net.IP
+	Devices             []fwDevice
+}
+
+type fwDevice struct {
+	IP         string
+	Authorized bool
 }
 
 func GetRules() (map[string]FirewallRules, error) {
 
 	lock.RLock()
 	defer lock.RUnlock()
+
+	users, err := data.GetAllUsers()
+	if err != nil {
+		return nil, errors.New("fw rule get all users: " + err.Error())
+	}
+
+	// This is less than optimal, but I'd prefer to be using something of static length in the ebpf code, and sha1 is a decent compression algorithm as well
+	hashToUsername := make(map[string]string)
+	for _, user := range users {
+		hash := sha1.Sum([]byte(user.Username))
+		hashToUsername[hex.EncodeToString(hash[:])] = user.Username
+	}
 
 	result := make(map[string]FirewallRules)
 
@@ -683,14 +699,12 @@ func GetRules() (map[string]FirewallRules, error) {
 			return nil, err
 		}
 
-		res := hex.EncodeToString(deviceStruct.user_id[:])
+		res := hashToUsername[hex.EncodeToString(deviceStruct.user_id[:])]
 
 		fwRule := result[res]
-		fwRule.IP = net.IP(ipBytes)
+		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String())})
 		fwRule.Expiry = deviceStruct.sessionExpiry
 		fwRule.LastPacketTimestamp = deviceStruct.lastPacketTime
-
-		fwRule.IsAuthorized = isAuthed(fwRule.IP.String())
 
 		var innerMapID ebpf.MapID
 
