@@ -21,6 +21,8 @@ type Dashboard struct {
 	Port, UnenforcedMFA int
 	PublicKey           string
 	ExternalAddress     string
+
+	LogItems []string
 }
 
 type GeneralSettings struct {

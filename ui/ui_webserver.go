@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -44,6 +46,8 @@ var (
 	ctrl     *wagctl.CtrlClient
 
 	WagVersion string
+
+	LogQueue = NewQueue(40)
 )
 
 type AdminContextKey string
@@ -222,6 +226,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		Devices:            len(allDevices),
 		LockedDevices:      lockedDevices,
 		UnenforcedMFA:      unenforcedMFA,
+		LogItems:           LogQueue.ReadAll(),
 	}
 
 	err = uiTemplates["dashboard"].Execute(w, d)
@@ -250,6 +255,8 @@ func StartWebServer(errs chan<- error) {
 		errs <- err
 		return
 	}
+
+	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
 
 	go func() {
 

@@ -224,16 +224,15 @@
                 <div class="table-responsive">
                     <table class="table">
                         <tbody>
+                            {{range $line := .LogItems}}
                             <tr>
-                                <td>2023/01/28 13:42:57 attempted to get admin page without session</td>
+                                <td>{{$line}}</td>
                             </tr>
+                            {{else}}
                             <tr>
-                                <td>2023/01/28 13:42:57 attempted to get admin page without session</td>
-
+                                <td>No Recent Log Items</td>
                             </tr>
-                            <tr>
-                                <td>2023/01/28 13:42:57 attempted to get admin page without session</td>
-                            </tr>
+                            {{end}}
                         </tbody>
                     </table>
                 </div>
