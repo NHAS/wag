@@ -42,6 +42,8 @@ var (
 
 	sessions = session.NewSessionManager()
 	ctrl     *wagctl.CtrlClient
+
+	WagVersion string
 )
 
 type AdminContextKey string
@@ -206,6 +208,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 			Description: "Dashboard",
 			Title:       "Dashboard",
 			User:        u.Username,
+			WagVersion:  WagVersion,
 		},
 
 		Port:            port,
@@ -231,6 +234,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
 func StartWebServer(errs chan<- error) {
 
 	if config.Values().Webserver.Management.ListenAddress == "" {
@@ -239,6 +243,13 @@ func StartWebServer(errs chan<- error) {
 	}
 
 	ctrl = wagctl.NewControlClient(config.Values().Socket)
+
+	var err error
+	WagVersion, err = ctrl.GetVersion()
+	if err != nil {
+		errs <- err
+		return
+	}
 
 	go func() {
 
@@ -271,6 +282,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Wireguard Devices",
 				Title:       "wg",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["wg"].Execute(w, d)
@@ -359,6 +371,7 @@ func StartWebServer(errs chan<- error) {
 					Description: "Firewall state page",
 					Title:       "Firewall",
 					User:        u.Username,
+					WagVersion:  WagVersion,
 				},
 				XDPState: string(result),
 			}
@@ -391,6 +404,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Users Management Page",
 				Title:       "Users",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["users"].Execute(w, d)
@@ -422,6 +436,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Devices Management Page",
 				Title:       "Devices",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["devices"].Execute(w, d)
@@ -453,6 +468,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Registration Tokens Management Page",
 				Title:       "Registration",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["registration_tokens"].Execute(w, d)
@@ -484,6 +500,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Firewall rules",
 				Title:       "Rules",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["rules"].Execute(w, d)
@@ -534,7 +551,7 @@ func StartWebServer(errs chan<- error) {
 
 				w.Write([]byte("OK"))
 			case "PUT":
-				var group control.GroupData
+				var group control.PolicyData
 				err := json.NewDecoder(r.Body).Decode(&group)
 				if err != nil {
 					http.Error(w, "Bad Request", 400)
@@ -542,7 +559,7 @@ func StartWebServer(errs chan<- error) {
 					return
 				}
 
-				if err := ctrl.EditGroup(group); err != nil {
+				if err := ctrl.EditPolicies(group); err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Println("error editing group: ", err)
 					return
@@ -550,15 +567,15 @@ func StartWebServer(errs chan<- error) {
 
 				w.Write([]byte("OK"))
 			case "POST":
-				var group control.GroupData
-				err := json.NewDecoder(r.Body).Decode(&group)
+				var policy control.PolicyData
+				err := json.NewDecoder(r.Body).Decode(&policy)
 				if err != nil {
 					http.Error(w, "Bad Request", 400)
 					log.Println("error decoding group data to add new group: ", err)
 					return
 				}
 
-				if err := ctrl.AddGroup(group); err != nil {
+				if err := ctrl.AddPolicy(policy); err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Println("error adding group: ", err)
 					return
@@ -588,6 +605,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Groups",
 				Title:       "Groups",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["groups"].Execute(w, d)
@@ -694,6 +712,7 @@ func StartWebServer(errs chan<- error) {
 					Description: "Wag settings",
 					Title:       "Settings - General",
 					User:        u.Username,
+					WagVersion:  WagVersion,
 				},
 
 				ExternalAddress:          c.ExternalAddress,
@@ -736,6 +755,7 @@ func StartWebServer(errs chan<- error) {
 				Description: "Wag settings",
 				Title:       "Settings - Admin Users",
 				User:        u.Username,
+				WagVersion:  WagVersion,
 			}
 
 			err := uiTemplates["management_users"].Execute(w, d)
@@ -813,15 +833,17 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	d := ChangePassword{
+		Page: Page{
+			Description: "Change password page",
+			Title:       "Change password",
+			User:        u.Username,
+			WagVersion:  WagVersion,
+		},
+	}
+
 	switch r.Method {
 	case "GET":
-		d := ChangePassword{
-			Page: Page{
-				Description: "Change password page",
-				Title:       "Change password",
-				User:        u.Username,
-			},
-		}
 
 		err := uiTemplates["change_password"].Execute(w, d)
 
@@ -833,16 +855,8 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 		return
 	case "POST":
-
-		d := ChangePassword{
-			Page: Page{
-				Description: "Change password page",
-				Title:       "Change password",
-				User:        u.Username,
-			},
-			Type:    0,
-			Message: "Success!",
-		}
+		d.Type = 0
+		d.Message = "Success!"
 
 		err := r.ParseForm()
 		if err != nil {

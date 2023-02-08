@@ -98,6 +98,14 @@ $(function () {
   var $new = $('#new')
   var $save = $('#saveRule')
 
+  $(".modal").on("hidden.bs.modal", function () {
+    $("#formIssue").text("")
+    $("#formIssue").hide()
+    $("#action").val("")
+
+  });
+
+
   table.on('check.bs.table uncheck.bs.table ' +
     'check-all.bs.table uncheck-all.bs.table',
     function () {
@@ -132,14 +140,18 @@ $(function () {
 
   $save.on("click", function () {
     let data = {
-      "username": $('#recipient-name').val(),
-      "token": $('#token').val(),
-      "overwrites": $('#overwrite').val(),
-      "groups": $('#groups').val()
+      "effects": $('#effects').val(),
+      "mfa_routes": $('#mfa_routes').val().split("\n").filter(element => element),
+      "public_routes": $('#public_routes').val().split("\n").filter(element => element),
     }
 
-    fetch("/management/registration_tokens/data", {
-      method: 'POST',
+    let method = "POST";
+    if ($('#action').val() == "edit") {
+      method = "PUT"
+    }
+
+    fetch("/policy/rules/data", {
+      method: method,
       mode: 'same-origin',
       cache: 'no-cache',
       credentials: 'same-origin',

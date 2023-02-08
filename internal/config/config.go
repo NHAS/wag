@@ -118,6 +118,11 @@ func AddAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s was already defined", effects)
 	}
 
+	err := validateAcl(&Rule)
+	if err != nil {
+		return fmt.Errorf("policy was invalid: %s", err)
+	}
+
 	values.Acls.Policies[effects] = &Rule
 
 	return save()
@@ -130,6 +135,11 @@ func EditAcl(effects string, Rule Acl) error {
 	_, ok := values.Acls.Policies[effects]
 	if !ok {
 		return fmt.Errorf("%s acl was not defined", effects)
+	}
+
+	err := validateAcl(&Rule)
+	if err != nil {
+		return fmt.Errorf("policy was invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -255,27 +265,35 @@ func GetEffectiveAcl(username string) Acl {
 	valuesLock.RLock()
 	defer valuesLock.RUnlock()
 
-	var dereferencedAcl Acl
-	if ptrAcl, ok := values.Acls.Policies["*"]; ok {
-		dereferencedAcl = *ptrAcl
+	var resultingACLs Acl
+	//Add the server address by default
+	resultingACLs.Allow = []string{values.Wireguard.ServerAddress.String() + "/32"}
+
+	// Add dns servers if defined
+	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
+	resultingACLs.Allow = append(resultingACLs.Allow, values.Wireguard.DNS...)
+
+	if allPolicy, ok := values.Acls.Policies["*"]; ok {
+		resultingACLs.Allow = append(resultingACLs.Allow, allPolicy.Allow...)
+		resultingACLs.Mfa = append(resultingACLs.Mfa, allPolicy.Mfa...)
 	}
 
 	//If the user has any user specific rules, add those
 	if acl, ok := values.Acls.Policies[username]; ok {
-		dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
-		dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
+		resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
+		resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
 	}
 
 	//This may get expensive if the user belongs to a large number of
 	for group := range values.Acls.rGroupLookup[username] {
 		//If the user belongs to a series of groups, grab those, and add their rules
 		if acl, ok := values.Acls.Policies[group]; ok {
-			dereferencedAcl.Allow = append(dereferencedAcl.Allow, acl.Allow...)
-			dereferencedAcl.Mfa = append(dereferencedAcl.Mfa, acl.Mfa...)
+			resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
+			resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
 		}
 	}
 
-	return dereferencedAcl
+	return resultingACLs
 }
 
 // Used in authentication methods that can specify user groups directly (for the moment just oidc)
@@ -367,11 +385,23 @@ func load(path string) (c Config, err error) {
 		return c, errors.New("no policies set under acls.Policies")
 	}
 
+	newDnsEntries := []string{}
+	for _, entry := range c.Wireguard.DNS {
+		newAddresses, err := parseAddress(entry)
+		if err != nil {
+			return c, err
+		}
+		// For the first new address, replace the domain entry in the Allow'd acls with an IP
+		newDnsEntries = append(newDnsEntries, newAddresses...)
+	}
+
+	c.Wireguard.DNS = newDnsEntries
+
 	c.Acls.rGroupLookup = map[string]map[string]bool{}
 
 	for group, members := range c.Acls.Groups {
 		if !strings.HasPrefix(group, "group:") {
-			return c, fmt.Errorf("Group does not have 'group:' prefix: %s", group)
+			return c, fmt.Errorf("group does not have 'group:' prefix: %s", group)
 		}
 
 		for _, user := range members {
@@ -383,59 +413,9 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	globalAcl, ok := c.Acls.Policies["*"]
-	if !ok {
-		//If there is no default policy default make an empy one so we can add the vpn server address
-		c.Acls.Policies["*"] = &Acl{}
-		globalAcl = c.Acls.Policies["*"]
-	}
-
-	if c.Wireguard.ServerAddress != nil {
-		globalAcl.Allow = append(globalAcl.Allow, c.Wireguard.ServerAddress.String()+"/32")
-	}
-
-	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	globalAcl.Allow = append(globalAcl.Allow, c.Wireguard.DNS...)
-
 	for _, acl := range c.Acls.Policies {
-
-		for i := 0; i < len(acl.Allow); i++ {
-			newAddress, err := parseAddress(acl.Allow[i])
-			if err != nil {
-				return c, err
-			}
-
-			// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
-			for ii := range newAddress {
-
-				// For the first new address, replace the domain entry in the Allow'd acls with an IP
-				if ii == 0 {
-					acl.Allow[i] = newAddress[ii]
-					continue
-				}
-
-				acl.Allow = append(acl.Allow, newAddress[ii])
-			}
-
-		}
-
-		for i := 0; i < len(acl.Mfa); i++ {
-			newAddress, err := parseAddress(acl.Mfa[i])
-			if err != nil {
-				return c, err
-			}
-
-			// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
-			for ii := range newAddress {
-
-				// For the first new address, replace the domain entry in the Mfa'd acls with an IP
-				if ii == 0 {
-					acl.Mfa[i] = newAddress[ii]
-					continue
-				}
-
-				acl.Mfa = append(acl.Mfa, newAddress[ii])
-			}
+		if err := validateAcl(acl); err != nil {
+			return c, err
 		}
 	}
 
@@ -533,7 +513,7 @@ func load(path string) (c Config, err error) {
 	}
 
 	if c.Authenticators.DefaultMethod != "" {
-		_, ok = resultMFAMap[c.Authenticators.DefaultMethod]
+		_, ok := resultMFAMap[c.Authenticators.DefaultMethod]
 		if !ok {
 			return c, errors.New("default mfa method invalid: " + c.Authenticators.DefaultMethod + " valid methods: " + strings.Join(c.Authenticators.Methods, ","))
 		}
@@ -547,6 +527,49 @@ func load(path string) (c Config, err error) {
 	authenticators.MFA = resultMFAMap
 
 	return c, nil
+}
+
+func validateAcl(acl *Acl) error {
+	for i := 0; i < len(acl.Allow); i++ {
+		newAddress, err := parseAddress(acl.Allow[i])
+		if err != nil {
+			return err
+		}
+
+		// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
+		for ii := range newAddress {
+
+			// For the first new address, replace the domain entry in the Allow'd acls with an IP
+			if ii == 0 {
+				acl.Allow[i] = newAddress[ii]
+				continue
+			}
+
+			acl.Allow = append(acl.Allow, newAddress[ii])
+		}
+
+	}
+
+	for i := 0; i < len(acl.Mfa); i++ {
+		newAddress, err := parseAddress(acl.Mfa[i])
+		if err != nil {
+			return err
+		}
+
+		// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
+		for ii := range newAddress {
+
+			// For the first new address, replace the domain entry in the Mfa'd acls with an IP
+			if ii == 0 {
+				acl.Mfa[i] = newAddress[ii]
+				continue
+			}
+
+			acl.Mfa = append(acl.Mfa, newAddress[ii])
+		}
+	}
+
+	return nil
 }
 
 func Load(path string) error {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/router"
@@ -69,11 +70,19 @@ func policies(w http.ResponseWriter, r *http.Request) {
 
 	data := []control.PolicyData{}
 
-	for k, v := range config.Values().Acls.Policies {
+	accessOrder := []string{}
+	policies := config.Values().Acls.Policies
+	for k := range policies {
+		accessOrder = append(accessOrder, k)
+	}
+
+	sort.Strings(accessOrder)
+	//Stable output for the display or usage, gross because of unordered maps in golang thanks golang
+	for _, policyName := range accessOrder {
 		data = append(data, control.PolicyData{
-			Effects:      k,
-			PublicRoutes: v.Allow,
-			MfaRoutes:    v.Mfa,
+			Effects:      policyName,
+			PublicRoutes: policies[policyName].Allow,
+			MfaRoutes:    policies[policyName].Mfa,
 		})
 	}
 
@@ -83,25 +92,23 @@ func policies(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func newPolicies(w http.ResponseWriter, r *http.Request) {
+func newPolicy(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.NotFound(w, r)
 		return
 	}
 
-	var data []control.PolicyData
+	var acl control.PolicyData
 
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&acl); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 
 	}
 
-	for _, acl := range data {
-		if err := config.AddAcl(acl.Effects, config.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes}); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
+	if err := config.AddAcl(acl.Effects, config.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes}); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
 
 	if err := aclReload(); err != nil {
@@ -175,10 +182,18 @@ func groups(w http.ResponseWriter, r *http.Request) {
 
 	data := []control.GroupData{}
 
-	for k, v := range config.Values().Acls.Groups {
+	accessOrder := []string{}
+	groups := config.Values().Acls.Groups
+	for k := range groups {
+		accessOrder = append(accessOrder, k)
+	}
+
+	sort.Strings(accessOrder)
+	//Stable output for the display or usage, gross because of unordered maps in golang thanks golang
+	for _, groupName := range accessOrder {
 		data = append(data, control.GroupData{
-			Group:   k,
-			Members: v,
+			Group:   groupName,
+			Members: groups[groupName],
 		})
 	}
 

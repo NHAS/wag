@@ -287,14 +287,14 @@ func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 }
 
 // Add wag rule
-func (c *CtrlClient) AddPolicies(policies []control.PolicyData) error {
+func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 
 	data, err := json.Marshal(policies)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/policies/create", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/policy/create", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ type Page struct {
 	Description string
 	Title       string
 	User        string
+	WagVersion  string
 }
 
 type Dashboard struct {

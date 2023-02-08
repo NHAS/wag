@@ -43,7 +43,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if config.Version == "" {
-		config.Version = "UNKNOWN"
+		config.Version = "DEBUG (git tag not injected)"
 	}
 
 	w.Write([]byte(config.Version))
@@ -155,7 +155,7 @@ func StartControlSocket() error {
 
 	controlMux.HandleFunc("/config/policies/list", policies)
 	controlMux.HandleFunc("/config/policy/edit", editPolicy)
-	controlMux.HandleFunc("/config/policies/create", newPolicies)
+	controlMux.HandleFunc("/config/policy/create", newPolicy)
 	controlMux.HandleFunc("/config/policies/delete", deletePolicies)
 
 	controlMux.HandleFunc("/config/group/list", groups)
