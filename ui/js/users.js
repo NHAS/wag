@@ -13,6 +13,33 @@ function responseHandler(res) {
   return res
 }
 
+function devicesFormatter(value, row) {
+  let a = document.createElement('a')
+  a.href = '/management/devices/?owner=' + encodeURIComponent(row.username)
+  a.innerText = value
+
+  return a.outerHTML
+}
+
+function groupsFormatter(values) {
+
+  let result = ""
+
+  values.forEach(function (e) {
+
+    let a = document.createElement('a')
+    a.className = "badge badge-primary"
+    a.href = '/policy/groups/?group=' + encodeURIComponent(e)
+    a.innerText = e
+
+
+    result += a.outerHTML + "\n"
+  });
+
+  return result
+}
+
+
 $(function () {
   let table = createTable("#table", [
     {
@@ -34,7 +61,8 @@ $(function () {
       field: 'devices',
       title: 'Devices',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      formatter: devicesFormatter
     }, {
       field: 'enforcing_mfa',
       title: 'Enforcing MFA',
@@ -77,6 +105,7 @@ $(function () {
     action(ids, "unlock", table)
   })
 
+
   $remove.on("click", function () {
     var ids = getIdSelections(table)
     table.bootstrapTable('remove', {
@@ -108,24 +137,30 @@ $(function () {
     })
   })
 
+  $('#clearFilter').on("click", function () {
+    table.bootstrapTable('filterBy', {})
+    $('#clearFilter').hide()
+  })
+
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('enforcing_mfa') == 'false') {
-    table.bootstrapTable('filterBy', {
-      enforcing_mfa: false
-    })
+  if (urlParams.toString().length > 0) {
+    $('#clearFilter').show()
+
+    let filter = {}
+
+    if (urlParams.has('enforcing_mfa')) {
+      filter.enforcing_mfa = urlParams.get('enforcing_mfa') == "true"
+    }
+
+    if (urlParams.has('username')) {
+      filter.username = urlParams.get('username')
+    }
+
+    table.bootstrapTable('filterBy', filter)
   }
 
 })
 
-function groupsFormatter(values) {
-  let result = ""
-
-  values.forEach(function (e) {
-    result += '<a href="/policy/groups/' + e + '" class="badge badge-pill badge-primary">' + e + '</a>'
-  });
-
-  return result
-}
 
 function action(onUsers, action, table) {
   let data = {

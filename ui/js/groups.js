@@ -121,15 +121,15 @@ $(function () {
       body: JSON.stringify(ids)
     }).then((response) => {
       if (response.status == 200) {
-        $("#ruleModal").modal("hide")
+        $("#deleteModal").modal("hide")
         table.bootstrapTable('refresh')
         return
       }
 
       response.text().then(txt => {
 
-        $("#formIssue").text(txt)
-        $("#formIssue").show()
+        $("#deleteIssue").text(txt)
+        $("#deleteIssue").show()
       })
     })
 
@@ -193,5 +193,24 @@ $(function () {
       })
     })
   })
+
+  $('#clearFilter').on("click", function () {
+    table.bootstrapTable('filterBy', {})
+    $('#clearFilter').hide()
+  })
+
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.toString().length > 0) {
+    $('#clearFilter').show()
+
+    let filter = {}
+
+    if (urlParams.has('group')) {
+      filter.group = urlParams.get('group')
+    }
+
+    table.bootstrapTable('filterBy', filter)
+  }
 
 });

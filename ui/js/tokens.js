@@ -13,6 +13,28 @@ function responseHandler(res) {
   return res
 }
 
+function groupsFormatter(values) {
+
+  if (values == null) {
+    return "";
+  }
+
+  let result = ""
+  console.log(values)
+  values.forEach(function (e) {
+
+    let a = document.createElement('a')
+    a.className = "badge badge-primary"
+    a.href = '/policy/groups/?group=' + encodeURIComponent(e)
+    a.innerText = e
+
+
+    result += a.outerHTML + "\n"
+  });
+
+  return result
+}
+
 $(function () {
 
   let table = createTable("#tokensTable", [
@@ -34,7 +56,8 @@ $(function () {
       field: 'groups',
       title: 'Groups',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      formatter: groupsFormatter
     }, {
       field: 'overwrites',
       title: 'Overwrites',
@@ -76,4 +99,46 @@ $(function () {
       })
     })
   })
+
+
+  $("#createToken").on("click", function () {
+    let data = {
+      "username": $('#recipient-name').val(),
+      "token": $('#token').val(),
+      "overwrites": $('#overwrite').val(),
+      "groups": $('#groups').val()
+    }
+
+    fetch("/management/registration_tokens/data", {
+      method: 'POST',
+      mode: 'same-origin',
+      cache: 'no-cache',
+      credentials: 'same-origin',
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    }).then((response) => {
+      if (response.status == 200) {
+        $("#tokensModal").modal("hide")
+        tokensTable.bootstrapTable('refresh')
+        return
+      }
+
+      response.text().then(txt => {
+
+        $("#formIssue").text(txt)
+        $("#formIssue").show()
+      })
+    })
+
+  })
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("pop_modal")) {
+    $("#tokensModal").modal("show")
+  }
+
+
 });

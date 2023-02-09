@@ -27,6 +27,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 
 	username := r.FormValue("username")
 
+	var devices []data.Device
 	if username != "" {
 
 		user, err := users.GetUser(username)
@@ -35,28 +36,23 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		devices, err := user.GetDevices()
+		devices, err = user.GetDevices()
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
 
-		b, err := json.Marshal(devices)
+	} else {
+
+		devices, err = data.GetAllDevices()
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(b)
-
-		return
 	}
 
-	devices, err := data.GetAllDevices()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	for i := range devices {
+		devices[i].Active = router.IsAuthed(devices[i].Address)
 	}
 
 	b, err := json.Marshal(devices)

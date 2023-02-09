@@ -17,6 +17,7 @@ type Device struct {
 	Username  string
 	Endpoint  *net.UDPAddr
 	Attempts  int
+	Active    bool
 }
 
 func stringToUDPaddr(address string) (r *net.UDPAddr) {

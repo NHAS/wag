@@ -63,7 +63,7 @@
             <div class="col-sm mb-4">
                 <div class="card  border-left-danger shadow-md h-100 py-2">
                     <div class="card-body">
-                        <a href="/management/devices?locked=true">
+                        <a href="/management/devices?is_locked=true">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
@@ -133,7 +133,7 @@
                 <div
                     class="card {{if gt .RegistrationTokens 0}} border-left-warning {{else}} border-left-primary {{end}} shadow-md h-100 py-2">
                     <div class="card-body">
-                        <a href="/management/registration_tokens">
+                        <a href="/management/registration_tokens/?pop_modal=true">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div

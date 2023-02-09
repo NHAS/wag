@@ -11,9 +11,9 @@
                     Registered wireguard devices
                 </p>
                 <div>
-                    <button id="new" class="btn btn-primary" data-toggle='modal' data-target='#tokensModal'>
+                    <a class="btn btn-primary" href="/management/registration_tokens/?pop_modal=true">
                         <i class="fa fa-plus"></i> New Registration Token
-                    </button>
+                    </a>
                 </div>
             </div>
     </div>
@@ -28,6 +28,9 @@
             <button id="removeStart" class="btn btn-danger" disabled data-toggle='modal' data-target='#deleteModal'>
                 <i class="fa fa-trash"></i> Delete
             </button>
+            <button id="clearFilter" class="btn btn-secondary" style="display:none">
+                <i class="fa fa-eye"></i> Clear Filter
+            </button>
         </div>
         <table id="devicesTable" data-toolbar="#toolbar" data-search="true" data-show-refresh="true"
             data-show-columns="true" data-show-columns-toggle-all="true" data-minimum-count-columns="2"
@@ -37,9 +40,6 @@
         </table>
     </div>
 </div>
-
-{{block "registrationTokenModal" .}}
-{{end}}
 
 {{block "deleteConfirmationModal" .}}
 {{end}}

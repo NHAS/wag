@@ -23,9 +23,9 @@ var (
 	uiTemplates map[string]*template.Template = map[string]*template.Template{
 		"dashboard": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/dashboard.html")),
 
-		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
-		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
-		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html", "templates/management/registration_token_modal.html", "templates/delete_modal.html")),
+		"users":               template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/users.html", "templates/delete_modal.html")),
+		"devices":             template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/devices.html", "templates/delete_modal.html")),
+		"registration_tokens": template.Must(template.ParseFS(templatesContent, "template.html", "templates/management/registration_tokens.html", "templates/delete_modal.html")),
 
 		"rules":  template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/rules.html", "templates/delete_modal.html")),
 		"groups": template.Must(template.ParseFS(templatesContent, "template.html", "templates/policy/groups.html", "templates/delete_modal.html")),
@@ -163,6 +163,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		if u.Enforcing {
 			unenforcedMFA++
 		}
+
 	}
 
 	allDevices, err := ctrl.ListDevice("")
@@ -176,24 +177,20 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	lockout := config.Values().Lockout
 	lockedDevices := 0
+	activeSessions := 0
 	for _, d := range allDevices {
 		if d.Attempts >= lockout {
 			lockedDevices++
+		}
+
+		if d.Active {
+			activeSessions++
 		}
 	}
 
 	registrations, err := ctrl.Registrations()
 	if err != nil {
 		log.Println("error getting registrations: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
-		return
-	}
-
-	session, err := ctrl.Sessions()
-	if err != nil {
-		log.Println("error getting sessions: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
 		uiTemplates["error"].Execute(w, nil)
@@ -223,7 +220,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		Subnet:          config.Values().Wireguard.Range.String(),
 
 		NumUsers:           len(allUsers),
-		ActiveSessions:     len(session),
+		ActiveSessions:     activeSessions,
 		RegistrationTokens: len(registrations),
 		Devices:            len(allDevices),
 		LockedDevices:      lockedDevices,
@@ -934,7 +931,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			data = append(data, TokensData{
 				Username:   reg.Username,
 				Token:      reg.Token,
-				Groups:     strings.Join(reg.Groups, ","),
+				Groups:     reg.Groups,
 				Overwrites: reg.Overwrites,
 			})
 		}
@@ -1016,7 +1013,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		for _, u := range users {
 			devices, _ := ctrl.ListDevice(u.Username)
 
-			groups := append([]string{"*"}, config.Values().Acls.Groups[u.Username]...)
+			groups := append([]string{"*"}, config.Values().Acls.GetUserGroups(u.Username)...)
 
 			data = append(data, UsersData{
 				Username:  u.Username,
@@ -1106,6 +1103,7 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 				InternalIP:   dev.Address,
 				PublicKey:    dev.Publickey,
 				LastEndpoint: dev.Endpoint.String(),
+				Active:       dev.Active,
 			})
 		}
 

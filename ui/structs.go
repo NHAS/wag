@@ -67,6 +67,7 @@ type UsersData struct {
 type DevicesData struct {
 	Owner      string `json:"owner"`
 	Locked     bool   `json:"is_locked"`
+	Active     bool   `json:"active"`
 	InternalIP string `json:"internal_ip"`
 
 	PublicKey    string `json:"public_key"`
@@ -74,10 +75,10 @@ type DevicesData struct {
 }
 
 type TokensData struct {
-	Token      string `json:"token"`
-	Username   string `json:"username"`
-	Groups     string `json:"groups"`
-	Overwrites string `json:"overwrites"`
+	Token      string   `json:"token"`
+	Username   string   `json:"username"`
+	Groups     []string `json:"groups"`
+	Overwrites string   `json:"overwrites"`
 }
 
 type WgDevicesData struct {

@@ -14,6 +14,13 @@ function responseHandler(res) {
   return res
 }
 
+function ownersFormatter(values, row) {
+  let a = document.createElement('a')
+  a.href = '/management/users/?username=' + encodeURIComponent(row.owner)
+  a.innerText = row.owner
+
+  return a.outerHTML
+}
 
 $(function () {
   let table = createTable('#devicesTable', [
@@ -26,6 +33,12 @@ $(function () {
       field: 'owner',
       align: 'center',
       sortable: true,
+      formatter: ownersFormatter
+    }, {
+      field: 'active',
+      title: 'Active',
+      sortable: true,
+      align: 'center'
     }, {
       field: 'is_locked',
       title: 'Locked',
@@ -109,6 +122,32 @@ $(function () {
       })
     })
   })
+
+  $('#clearFilter').on("click", function () {
+    table.bootstrapTable('filterBy', {})
+    $('#clearFilter').hide()
+  })
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.toString().length > 0) {
+    $('#clearFilter').show()
+
+    let filter = {}
+
+    if (urlParams.has('owner')) {
+      filter.owner = urlParams.get('owner')
+    }
+
+    if (urlParams.has('is_locked')) {
+      filter.is_locked = urlParams.get('is_locked') == "true"
+    }
+
+    if (urlParams.has('active')) {
+      filter.active = urlParams.get('active') == "true"
+    }
+
+    table.bootstrapTable('filterBy', filter)
+  }
 
 });
 

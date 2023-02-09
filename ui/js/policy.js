@@ -122,6 +122,31 @@ $(function () {
       field: 'effects',
       values: ids
     })
+
+    fetch("/policy/rules/data", {
+      method: 'DELETE',
+      mode: 'same-origin',
+      cache: 'no-cache',
+      credentials: 'same-origin',
+      redirect: 'follow',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(ids)
+    }).then((response) => {
+      if (response.status == 200) {
+        $("#deleteModal").modal("hide")
+        table.bootstrapTable('refresh')
+        return
+      }
+
+      response.text().then(txt => {
+
+        $("#deleteIssue").text(txt)
+        $("#deleteIssue").show()
+      })
+    })
+
   })
 
   $new.on("click", function () {

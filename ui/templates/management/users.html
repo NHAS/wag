@@ -11,9 +11,9 @@
                     Manage Wag VPN user accounts
                 </p>
                 <div>
-                    <button id="new" class="btn btn-primary" data-toggle='modal' data-target='#tokensModal'>
-                        <i class="fa fa-plus"></i>New Registration Token
-                    </button>
+                    <a class="btn btn-primary" href="/management/registration_tokens/?pop_modal=true">
+                        <i class="fa fa-plus"></i> New Registration Token
+                    </a>
                 </div>
             </div>
     </div>
@@ -29,6 +29,9 @@
             </button>
             <button id="removeStart" class="btn btn-danger" disabled data-toggle='modal' data-target='#deleteModal'>
                 <i class="fa fa-trash"></i> Delete
+            </button>
+            <button id="clearFilter" class="btn btn-secondary" style="display:none">
+                <i class="fa fa-eye"></i> Clear Filter
             </button>
         </div>
         <table id="table" data-toolbar="#toolbar" data-search="true" data-show-refresh="true" data-show-columns="true"
