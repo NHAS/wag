@@ -2,7 +2,7 @@ package ui
 
 import "embed"
 
-//go:embed js/* css/* vendor/* img/*
+//go:embed js/* css/* vendor/* img/* fonts/*
 var staticContent embed.FS
 
 //go:embed templates/*

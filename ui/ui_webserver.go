@@ -268,6 +268,7 @@ func StartWebServer(errs chan<- error) {
 		allRoutes.Handle("/js/", static)
 		allRoutes.Handle("/vendor/", static)
 		allRoutes.Handle("/img/", static)
+		allRoutes.Handle("/fonts/", static)
 		allRoutes.Handle("/", setAuth(protectedRoutes))
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
