@@ -1,0 +1,123 @@
+@font-face {
+  font-family: 'icomoon';
+  src: url('/fonts/icomoon.eot?epr1rs');
+  src: url('/fonts/icomoon.eot?epr1rs#iefix') format('embedded-opentype'),
+    url('/fonts/icomoon.ttf?epr1rs') format('truetype'),
+    url('/fonts/icomoon.woff?epr1rs') format('woff'),
+    url('/fonts/icomoon.svg?epr1rs#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="icon-"],
+[class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: never;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-key:before {
+  content: "\e900";
+}
+
+.icon-plus:before {
+  content: "\f067";
+}
+
+.icon-cog:before {
+  content: "\f013";
+}
+
+.icon-gear:before {
+  content: "\f013";
+}
+
+.icon-lock:before {
+  content: "\f023";
+}
+
+.icon-pencil:before {
+  content: "\f040";
+}
+
+.icon-chevron-left:before {
+  content: "\f053";
+}
+
+.icon-chevron-right:before {
+  content: "\f054";
+}
+
+.icon-eye:before {
+  content: "\f06e";
+}
+
+.icon-unlock:before {
+  content: "\f09c";
+}
+
+.icon-wrench:before {
+  content: "\f0ad";
+}
+
+.icon-group:before {
+  content: "\f0c0";
+}
+
+.icon-users:before {
+  content: "\f0c0";
+}
+
+.icon-bars:before {
+  content: "\f0c9";
+}
+
+.icon-navicon:before {
+  content: "\f0c9";
+}
+
+.icon-reorder:before {
+  content: "\f0c9";
+}
+
+.icon-dashboard:before {
+  content: "\f0e4";
+}
+
+.icon-tachometer:before {
+  content: "\f0e4";
+}
+
+.icon-angle-left:before {
+  content: "\f104";
+}
+
+.icon-angle-right:before {
+  content: "\f105";
+}
+
+.icon-angle-up:before {
+  content: "\f106";
+}
+
+.icon-angle-down:before {
+  content: "\f107";
+}
+
+.icon-desktop:before {
+  content: "\f108";
+}
+
+.icon-trash:before {
+  content: "\f1f8";
+}

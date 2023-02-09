@@ -17,4 +17,4 @@ docker:
 	BPF_CLANG=clang BPF_CFLAGS='-O2 -g -Wall -Werror' go generate ./...
 
 .build_ui:
-	cd ui; npm install; gulp build
+	cd ui/src; npm install; gulp build

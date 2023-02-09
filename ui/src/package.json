@@ -1,0 +1,32 @@
+{
+    "title": "Wag UI",
+    "name": "wag-ui",
+    "version": "1.0.0",
+    "description": "Wag UI",
+    "license": "MIT",
+    "author": "NHAS",
+    "contributors": [
+        "David Miller (https://davidmiller.io/)",
+        "NHAS"
+    ],
+    "dependencies": {
+        "bootstrap": "4.6.0",
+        "bootstrap-table": "^1.21.2",
+        "jquery": "3.6.0",
+        "jquery.easing": "^1.4.1",
+        "sass": "^1.57.1"
+    },
+    "devDependencies": {
+        "del": "6.0.0",
+        "gulp": "4.0.2",
+        "gulp-autoprefixer": "8.0.0",
+        "gulp-clean-css": "4.3.0",
+        "gulp-header": "2.0.9",
+        "gulp-plumber": "^1.2.1",
+        "gulp-rename": "2.0.0",
+        "gulp-sass": "5.1.0",
+        "gulp-uglify": "3.0.2",
+        "merge-stream": "2.0.0",
+        "sass": "^1.57.1"
+    }
+}
