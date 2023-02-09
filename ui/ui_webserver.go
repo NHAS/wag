@@ -113,7 +113,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 
 		err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
 		if err != nil {
-			log.Println("password login failed: ", err)
+			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
 
 			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
 			return
@@ -131,6 +131,8 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 			Value: sessions.StartSession(AdminUser{Username: r.Form.Get("username")}),
 			Path:  "/",
 		})
+
+		log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
 
 		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
 
@@ -915,6 +917,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func registrationTokens(w http.ResponseWriter, r *http.Request) {
+
 	switch r.Method {
 	case "GET":
 
@@ -1050,6 +1053,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			switch action.Action {
 			case "lock":
 				ctrl.LockUser(username)
+
 			case "unlock":
 				ctrl.UnlockUser(username)
 			default:
@@ -1073,6 +1077,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			ctrl.DeleteUser(user)
 		}
 		w.Write([]byte("OK"))
+
 	default:
 		http.NotFound(w, r)
 	}
@@ -1154,6 +1159,7 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			ctrl.DeleteDevice(address)
 		}
 		w.Write([]byte("OK"))
+
 	default:
 		http.NotFound(w, r)
 	}

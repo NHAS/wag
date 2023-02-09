@@ -19,8 +19,6 @@ func aclReload() error {
 		return errs[0]
 	}
 
-	log.Println("ACLs reloaded")
-
 	return nil
 }
 
@@ -48,16 +46,7 @@ func configReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Config reloaded")
-
-	w.Write([]byte("OK!"))
-}
-
-func configRevisions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
+	log.Println("Config fully reloaded")
 
 	w.Write([]byte("OK!"))
 }
@@ -116,6 +105,8 @@ func newPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("new policy '%s' added", acl.Effects)
+
 	w.Write([]byte("OK!"))
 }
 
@@ -142,6 +133,8 @@ func editPolicy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Printf("policy '%s' edited", data.Effects)
 
 	w.Write([]byte("OK!"))
 }
@@ -170,6 +163,8 @@ func deletePolicies(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Printf("policy '%s' deleted", policyNames)
 
 	w.Write([]byte("OK!"))
 }
@@ -227,6 +222,8 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("new group '%s' added", data.Group)
+
 	w.Write([]byte("OK!"))
 }
 
@@ -253,6 +250,8 @@ func editGroup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Printf("group '%s' edited", data.Group)
 
 	w.Write([]byte("OK!"))
 }
@@ -281,6 +280,8 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	log.Printf("group/s '%s' deleted", groupNames)
 
 	w.Write([]byte("OK!"))
 }
