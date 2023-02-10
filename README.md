@@ -184,7 +184,6 @@ Usage of upgrade:
         Wag socket location, (default "/tmp/wag.sock")
 ```
 
-
 # User guide
 
 ## Installing wag
@@ -359,13 +358,28 @@ Full config example
 - Modern kernel 4.15+ at least (needs ebpf and xdp)
 
 
-# Testing
+# Development 
+
+## Testing
 ```sh
 cd router
 sudo go test -v .
 ```
 
 Sudo is required to load the eBPF program into the kernel.
+
+## Building a release
+
+
+If you havent built the release docker image (used because it has a stable version of glibc)
+```
+cd builder
+sudo docker build -t wag_builder .
+cd ..
+
+make docker
+```
+
 
 # Unoffical Docker
 
