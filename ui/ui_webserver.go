@@ -241,8 +241,8 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 func StartWebServer(errs chan<- error) {
 
-	if config.Values().Webserver.Management.ListenAddress == "" {
-		log.Println("Management web interface disabled as listen address not defined")
+	if !config.Values().ManagementUI.Enabled {
+		log.Println("Management Web UI is disabled")
 		return
 	}
 
@@ -829,7 +829,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		errs <- http.ListenAndServe(config.Values().Webserver.Management.ListenAddress, allRoutes)
+		errs <- http.ListenAndServe(config.Values().ManagementUI.ListenAddress, allRoutes)
 
 	}()
 }

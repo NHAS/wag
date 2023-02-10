@@ -95,11 +95,11 @@ func GenerateToken(username, overwrite string, groups []string) (token string, e
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
 func AddRegistrationToken(token, username, overwrite string, groups []string) error {
 	if len(token) < 32 {
-		return errors.New("Registration token is too short")
+		return errors.New("registration token is too short")
 	}
 
 	if !allowedTokenCharacters.Match([]byte(token)) {
-		return errors.New("Registration token contains illegal characters (allowed characters a-z A-Z - . _ )")
+		return errors.New("registration token contains illegal characters (allowed characters a-z A-Z - . _ )")
 	}
 
 	var err error

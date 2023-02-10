@@ -158,7 +158,7 @@ func GetMFASecret(username string) (string, error) {
 
 	// The webauthn "secret" needs to be used, but isnt returned to the client
 	if enforcing.Valid && mfaType != "webauthn" {
-		return "", errors.New("MFA is set to enforcing, cannot reveal totp secret.")
+		return "", errors.New("MFA is set to enforcing, cannot reveal totp secret")
 	}
 
 	return url, nil

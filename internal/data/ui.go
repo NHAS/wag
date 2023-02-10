@@ -13,7 +13,7 @@ import (
 
 type AdminModel struct {
 	Username  string `json:"username"`
-	Locked    string `json:"locked"`
+	Attempts  int    `json:"attempts"`
 	DateAdded string `json:"date_added"`
 	LastLogin string `json:"last_login"`
 	IP        string `json:"ip"`
@@ -50,18 +50,30 @@ func CreateAdminUser(username, password string) error {
 
 func CompareAdminKeys(username, password string) error {
 
+	// Do increment of attempts first to stop race conditions
+	_, err := database.Exec(`UPDATE 
+	AdminUsers 
+	SET 
+		attempts = attempts + 1 
+	WHERE 
+		attempts <= ? AND username = ?`,
+		5, username)
+	if err != nil {
+		return err
+	}
+
 	var (
-		locked              sql.NullString
+		attempts            int
 		b64PasswordHashSalt string
 	)
-	err := database.QueryRow(`
+	err = database.QueryRow(`
 	SELECT 
-		passwd_hash, locked
+		passwd_hash, attempts
 	FROM 
 		AdminUsers
 	WHERE
 		username = ?
-`, username).Scan(&b64PasswordHashSalt, &locked)
+`, username).Scan(&b64PasswordHashSalt, &attempts)
 	if err != nil {
 		return err
 	}
@@ -77,7 +89,7 @@ func CompareAdminKeys(username, password string) error {
 		return errors.New("passwords did not match")
 	}
 
-	if locked.Valid {
+	if attempts > 5 {
 		return errors.New("account locked")
 	}
 
@@ -91,10 +103,10 @@ func SetAdminUserLock(username string) error {
 	UPDATE 
 		AdminUsers
 	SET
-		locked = ?
+		attempts = ?
 	WHERE
 		username = ?
-	`, time.Now().Format(time.RFC3339), username)
+	`, 6, username)
 
 	if err != nil {
 		return errors.New("Unable to lock admin account: " + err.Error())
@@ -109,10 +121,10 @@ func SetAdminUserUnlock(username string) error {
 	UPDATE 
 		AdminUsers
 	SET
-		locked = ?
+		attempts = ?
 	WHERE
 		username = ?
-	`, nil, username)
+	`, 0, username)
 
 	if err != nil {
 		return errors.New("Unable to unlock admin account: " + err.Error())
@@ -139,23 +151,21 @@ func GetAdminUser(username string) (a AdminModel, err error) {
 
 	var (
 		LastLogin sql.NullString
-		Locked    sql.NullString
 		IP        sql.NullString
 	)
 
 	err = database.QueryRow(`
 	SELECT 
-		username, locked, last_login, ip, date_added
+		username, attempts, last_login, ip, date_added
 	FROM 
 		AdminUsers
 	WHERE
-		username = ?`, username).Scan(&a.Username, &Locked, &LastLogin, &IP, &a.DateAdded)
+		username = ?`, username).Scan(&a.Username, &a.Attempts, &LastLogin, &IP, &a.DateAdded)
 	if err != nil {
 		return
 	}
 
 	a.LastLogin = LastLogin.String
-	a.Locked = Locked.String
 	a.IP = IP.String
 
 	return
@@ -163,7 +173,7 @@ func GetAdminUser(username string) (a AdminModel, err error) {
 
 func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 
-	rows, err := database.Query("SELECT username, locked, last_login, ip, date_added FROM AdminUsers ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT username, attempts, last_login, ip, date_added FROM AdminUsers ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -172,17 +182,15 @@ func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 
 		var (
 			LastLogin sql.NullString
-			Locked    sql.NullString
 			IP        sql.NullString
 			au        AdminModel
 		)
-		err = rows.Scan(&au.Username, &Locked, &LastLogin, &IP, &au.DateAdded)
+		err = rows.Scan(&au.Username, &au.Attempts, &LastLogin, &IP, &au.DateAdded)
 		if err != nil {
 			return nil, err
 		}
 
 		au.LastLogin = LastLogin.String
-		au.Locked = Locked.String
 		au.IP = IP.String
 
 		adminUsers = append(adminUsers, au)

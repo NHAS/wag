@@ -104,9 +104,9 @@ func (g *webadmin) Run() error {
 			return err
 		}
 
-		fmt.Println("username,locked,date_added,last_login,ip")
+		fmt.Println("username,attempts,date_added,last_login,ip")
 		for _, user := range users {
-			fmt.Printf("%s,%s,%s,%s,%s\n", user.Username, user.Locked, user.DateAdded, user.LastLogin, user.IP)
+			fmt.Printf("%s,%d,%s,%s,%s\n", user.Username, user.Attempts, user.DateAdded, user.LastLogin, user.IP)
 		}
 	case "lockaccount":
 

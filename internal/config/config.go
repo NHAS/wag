@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/url"
@@ -71,11 +70,17 @@ type Config struct {
 	ExternalAddress                 string
 	MaxSessionLifetimeMinutes       int
 	SessionInactivityTimeoutMinutes int
-	Webserver                       struct {
-		Public     usualWeb
-		Management usualWeb
-		Tunnel     tunnelWeb
+
+	ManagementUI struct {
+		usualWeb
+		Enabled bool
+	} `json:",omitempty"`
+
+	Webserver struct {
+		Public usualWeb
+		Tunnel tunnelWeb
 	}
+
 	Authenticators struct {
 		DefaultMethod string `json:",omitempty"`
 		Issuer        string
@@ -259,7 +264,7 @@ func save() error {
 
 	fs, _ := os.Stat(values.path)
 
-	return ioutil.WriteFile(values.path, val, fs.Mode())
+	return os.WriteFile(values.path, val, fs.Mode())
 }
 
 func Values() Config {
@@ -319,14 +324,14 @@ func AddVirtualUser(username string, groups []string) {
 func load(path string) (c Config, err error) {
 	configFile, err := os.Open(path)
 	if err != nil {
-		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
+		return c, fmt.Errorf("unable to load configuration file from %s: %v", path, err)
 	}
 	dec := json.NewDecoder(configFile)
 	dec.DisallowUnknownFields()
 
 	err = dec.Decode(&c)
 	if err != nil {
-		return c, fmt.Errorf("Unable to load configuration file from %s: %v", path, err)
+		return c, fmt.Errorf("unable to load configuration file from %s: %v", path, err)
 	}
 
 	if c.Socket == "" {
@@ -340,11 +345,11 @@ func load(path string) (c Config, err error) {
 
 		addresses, err := i.Addrs()
 		if err != nil {
-			return c, fmt.Errorf("Unable to get address for interface %s: %v", c.Wireguard.DevName, err)
+			return c, fmt.Errorf("unable to get address for interface %s: %v", c.Wireguard.DevName, err)
 		}
 
 		if len(addresses) < 1 {
-			return c, errors.New("Wireguard interface does not have an ip address")
+			return c, errors.New("wireguard interface does not have an ip address")
 		}
 
 		addr := addresses[0].String()
@@ -357,12 +362,12 @@ func load(path string) (c Config, err error) {
 
 		c.Wireguard.ServerAddress = net.ParseIP(addr)
 		if c.Wireguard.ServerAddress == nil {
-			return c, fmt.Errorf("Unable to find server address from tunnel interface:  '%s'", addr)
+			return c, fmt.Errorf("unable to find server address from tunnel interface:  '%s'", addr)
 		}
 
 		_, c.Wireguard.Range, err = net.ParseCIDR(addresses[0].String())
 		if err != nil {
-			return c, errors.New("Unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
+			return c, errors.New("unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
 		}
 
 	} else {
@@ -497,7 +502,7 @@ func load(path string) (c Config, err error) {
 			}
 
 			if !c.Webserver.Tunnel.SupportsTLS() {
-				return c, errors.New("Tunnel does not support TLS (no cert/key given)")
+				return c, errors.New("tunnel does not support TLS (no cert/key given)")
 			}
 
 			if tunnelURL.Scheme != "https" {
