@@ -3,6 +3,7 @@
 .sidebar,
 .topbar {
   .nav-item {
+
     // Customize Dropdown Arrows for Navbar
     &.dropdown {
       .dropdown-toggle {
@@ -14,18 +15,22 @@
           border: 0;
           font-weight: 900;
           content: '\e909';
-          font-family: 'Font Awesome 5 Free';
+          font-family: 'icomoon';
         }
       }
+
       &.show {
         .dropdown-toggle::after {
           content: '\e908';
+          font-family: 'icomoon';
         }
       }
     }
+
     // Counter for nav links and nav link image sizing
     .nav-link {
       position: relative;
+
       .badge-counter {
         position: absolute;
         transform: scale(0.7);
@@ -33,6 +38,7 @@
         right: .25rem;
         margin-top: -.25rem;
       }
+
       .img-profile {
         height: 2rem;
         width: 2rem;

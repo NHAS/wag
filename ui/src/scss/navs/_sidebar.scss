@@ -101,6 +101,7 @@
         &::after {
             font-weight: 900;
             content: '\e90a';
+            font-family: 'icomoon';
             margin-right: 0.1rem;
         }
 
@@ -119,6 +120,7 @@
 
         #sidebarToggle::after {
             content: '\e909';
+            font-family: 'icomoon';
             margin-left: 0.25rem;
         }
 
@@ -171,13 +173,16 @@
         margin-bottom: 1rem;
         padding: 1rem;
         background-color: fade-out($black, 0.9);
+
         .sidebar-card-illustration {
             height: 3rem;
             display: block;
         }
+
         .sidebar-card-title {
             font-weight: bold;
         }
+
         p {
             font-size: 0.75rem;
             color: fade-out($white, 0.5);
@@ -242,10 +247,12 @@
                         border: 0;
                         font-weight: 900;
                         content: '\e908';
+                        font-family: 'icomoon';
                     }
 
                     &.collapsed::after {
                         content: '\e909';
+                        font-family: 'icomoon';
                     }
                 }
             }
