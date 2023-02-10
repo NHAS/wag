@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,9 +63,12 @@ func (a Acls) GetUserGroups(username string) (result []string) {
 }
 
 type Config struct {
-	path                            string
-	Socket                          string `json:",omitempty"`
-	Proxied                         bool
+	path   string
+	Socket string `json:",omitempty"`
+
+	Proxied     bool
+	ExposePorts []string
+
 	HelpMail                        string
 	Lockout                         int
 	ExternalAddress                 string
@@ -505,6 +509,34 @@ func load(path string) (c Config, err error) {
 	c.Wireguard.DNS, err = validateDns(c.Wireguard.DNS)
 	if err != nil {
 		return c, err
+	}
+
+	if c.Proxied && len(c.ExposePorts) == 0 {
+		return c, errors.New("you have set 'Proxied' mode which disables adding the tunnel port to iptables but not defined any ExposedPorts (iptables rules added on the wag vpn host) thus clients would not be able to access the MFA portal")
+	}
+
+	for _, port := range c.ExposePorts {
+		parts := strings.Split(port, "/")
+		if len(parts) < 2 {
+			return c, errors.New(port + " is not in a valid port format. E.g 80/tcp")
+		}
+
+		if c.Proxied {
+			_, port, _ := net.SplitHostPort(c.Webserver.Public.ListenAddress)
+			if port == parts[0] {
+				return c, errors.New("you have tried to expose the vpn service (with ExposedPorts) while also having 'Proxied' set to true, this will cause wag to respect X-Forwarded-For from an external source which will result in a security vulnerablity, as such this is an error")
+			}
+		}
+
+		switch strings.ToLower(parts[1]) {
+		case "tcp", "udp":
+			_, err := strconv.Atoi(parts[0])
+			if err != nil {
+				return c, errors.New(parts[0] + " is not in a valid port number. E.g 80/tcp")
+			}
+		default:
+			return c, errors.New(port + " invalid protocol (supports tcp/udp)")
+		}
 	}
 
 	c.Acls.rGroupLookup = map[string]map[string]bool{}
