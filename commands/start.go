@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -65,53 +64,9 @@ func (g *start) Check() error {
 		return err
 	}
 
-	if len(config.Values().Authenticators.Issuer) == 0 {
-		return errors.New("no issuer specified")
-	}
-
-	if len(config.Values().ExternalAddress) == 0 {
-		return errors.New("Invalid ExternalAddress is empty")
-	}
-
-	if net.ParseIP(config.Values().ExternalAddress) == nil {
-
-		addresses, err := net.LookupIP(config.Values().ExternalAddress)
-		if err != nil {
-			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " unable to lookup as domain")
-		}
-
-		if len(addresses) == 0 {
-			return errors.New("Invalid ExternalAddress: " + config.Values().ExternalAddress + " not IPv4 or IPv6 external addresses found")
-		}
-	}
-
-	if config.Values().Lockout == 0 {
-		return errors.New("lockout policy unconfigured")
-	}
-
-	if config.Values().MaxSessionLifetimeMinutes == 0 {
-		return errors.New("session max lifetime policy is not set (may be disabled by setting it to -1)")
-	}
-
-	if config.Values().SessionInactivityTimeoutMinutes == 0 {
-		return errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
-	}
-
 	err = data.Load(config.Values().DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
-	}
-
-	if config.Values().Webserver.Tunnel.Port == "" {
-		return fmt.Errorf("tunnel listener port is not set (Tunnel.ListenAddress.Port)")
-	}
-
-	if config.Values().Webserver.Public.ListenAddress == "" {
-		return fmt.Errorf("public listen address is not set (Public.ListenAddress)")
-	}
-
-	if config.Values().HelpMail == "" {
-		return fmt.Errorf("no help email address specified")
 	}
 
 	return nil

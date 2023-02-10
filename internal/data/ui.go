@@ -6,10 +6,13 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/crypto/argon2"
 )
+
+const minPasswordLength = 14
 
 type AdminModel struct {
 	Username  string `json:"username"`
@@ -30,8 +33,8 @@ func generateSalt() ([]byte, error) {
 }
 
 func CreateAdminUser(username, password string) error {
-	if len(password) < 16 {
-		return errors.New("password is too short for administrative console (passwords must be greater than 16 characters)")
+	if len(password) < minPasswordLength {
+		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
 	salt, err := generateSalt()
@@ -204,8 +207,8 @@ func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 }
 
 func SetAdminPassword(username, password string) error {
-	if len(password) < 16 {
-		return errors.New("password is too short for administrative console (passwords must be greater than 16 characters)")
+	if len(password) < minPasswordLength {
+		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
 	salt, err := generateSalt()

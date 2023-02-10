@@ -123,6 +123,63 @@ var (
 	values     Config
 )
 
+func SetSessionInactivityTimeoutMinutes(SessionInactivityTimeoutMinutes int) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	values.SessionInactivityTimeoutMinutes = SessionInactivityTimeoutMinutes
+
+	return save()
+}
+
+func SetSessionLifetimeMinutes(SessionLifetimeMinutes int) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	values.MaxSessionLifetimeMinutes = SessionLifetimeMinutes
+
+	return save()
+}
+
+func SetHelpMail(HelpMail string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	if HelpMail == "" {
+		return errors.New("help mail was not set")
+	}
+
+	values.HelpMail = HelpMail
+
+	return save()
+}
+
+func SetExternalAddress(ExternalAddress string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	if err := validExternalAddresses(ExternalAddress); err != nil {
+		return err
+	}
+
+	values.ExternalAddress = ExternalAddress
+
+	return save()
+}
+
+func SetLockout(lockout int) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	if values.Lockout <= 0 {
+		return errors.New("lockout cannot be less than or equal to 0")
+	}
+
+	values.Lockout = lockout
+
+	return save()
+}
+
 func AddAcl(effects string, Rule Acl) error {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
@@ -399,6 +456,39 @@ func load(path string) (c Config, err error) {
 		return c, errors.New("no policies set under acls.Policies")
 	}
 
+	if len(c.Authenticators.Issuer) == 0 {
+		return c, errors.New("no issuer specified")
+	}
+
+	err = validExternalAddresses(c.ExternalAddress)
+	if err != nil {
+		return c, err
+	}
+
+	if c.Lockout <= 0 {
+		return c, errors.New("lockout policy unconfigured")
+	}
+
+	if c.HelpMail == "" {
+		return c, fmt.Errorf("no help email address specified")
+	}
+
+	if c.MaxSessionLifetimeMinutes == 0 {
+		return c, errors.New("session max lifetime policy is not set (may be disabled by setting it to -1)")
+	}
+
+	if c.SessionInactivityTimeoutMinutes == 0 {
+		return c, errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
+	}
+
+	if c.Webserver.Tunnel.Port == "" {
+		return c, fmt.Errorf("tunnel listener port is not set (Tunnel.ListenAddress.Port)")
+	}
+
+	if c.Webserver.Public.ListenAddress == "" {
+		return c, fmt.Errorf("public listen address is not set (Public.ListenAddress)")
+	}
+
 	newDnsEntries := []string{}
 	for _, entry := range c.Wireguard.DNS {
 		newAddresses, err := parseAddress(entry)
@@ -541,6 +631,26 @@ func load(path string) (c Config, err error) {
 	authenticators.MFA = resultMFAMap
 
 	return c, nil
+}
+
+func validExternalAddresses(ExternalAddress string) error {
+	if len(ExternalAddress) == 0 {
+		return errors.New("invalid ExternalAddress is empty")
+	}
+
+	if net.ParseIP(ExternalAddress) == nil {
+
+		addresses, err := net.LookupIP(ExternalAddress)
+		if err != nil {
+			return errors.New("invalid ExternalAddress: " + ExternalAddress + " unable to lookup as domain")
+		}
+
+		if len(addresses) == 0 {
+			return errors.New("invalid ExternalAddress: " + ExternalAddress + " not IPv4 or IPv6 external addresses found")
+		}
+	}
+
+	return nil
 }
 
 func validateAcl(acl *Acl) error {
