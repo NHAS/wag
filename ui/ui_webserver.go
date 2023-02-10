@@ -264,11 +264,13 @@ func StartWebServer(errs chan<- error) {
 		protectedRoutes := http.NewServeMux()
 		allRoutes := http.NewServeMux()
 		allRoutes.HandleFunc("/login", doLogin)
-		allRoutes.Handle("/css/", static)
+
 		allRoutes.Handle("/js/", static)
-		allRoutes.Handle("/vendor/", static)
+		allRoutes.Handle("/css/", static)
 		allRoutes.Handle("/img/", static)
 		allRoutes.Handle("/fonts/", static)
+		allRoutes.Handle("/vendor/", static)
+
 		allRoutes.Handle("/", setAuth(protectedRoutes))
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
