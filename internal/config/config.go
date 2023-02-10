@@ -41,12 +41,12 @@ func (wb webserverDetails) SupportsTLS() bool {
 }
 
 type Acl struct {
-	Mfa   []string
-	Allow []string
+	Mfa   []string `json:",omitempty"`
+	Allow []string `json:",omitempty"`
 }
 
 type Acls struct {
-	Groups map[string][]string
+	Groups map[string][]string `json:",omitempty"`
 	//Username -> groups name
 	rGroupLookup map[string]map[string]bool
 	Policies     map[string]*Acl

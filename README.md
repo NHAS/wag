@@ -37,7 +37,7 @@ sudo ./wag gen-config
 sudo ./wag start -config <generated_config_name>
 ```
   
-From source (will require go1.19):  
+From source (will require go1.19, npm, clang, llvm-strip):  
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
@@ -58,7 +58,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`,  `upgrade`, `gen-config`
+Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `upgrade`, `gen-config`
   
 `start`: starts the wag server  
 ```
@@ -147,6 +147,27 @@ Usage of users:
         Username to act upon
 ```
 
+`webadmin`: Manages the administrative users for the web UI
+```
+Usage of webadmin:
+  -add
+        Add web administrator user (requires -password)
+  -del
+        Delete admin user
+  -list
+        List web administration users, if '-username' supply will filter by user
+  -lockaccount
+        Lock admin account disable login for this web administrator user
+  -password string
+        Username to act upon
+  -socket string
+        Wag instance control socket (default "/tmp/wag.sock")
+  -unlockaccount
+        Unlock a web administrator account
+  -username string
+        Admin Username to act upon
+```
+
 `upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online  
 Note, this will not restart the server after shutdown, you will manually need to start the server after with your preferred service manager (`systemctl start wag`)
 ```
@@ -171,7 +192,6 @@ Usage of upgrade:
 1. Copy `wag`, `config.json` to `/opt/wag`
 2. Generate a wireguard private key with `wg genkey` set `PrivateKey` in the example config to it
 3. Copy (or link) `wag.service` to `/etc/systemd/system/` and start/enable the service
-
 
 ## Creating new registration tokens
 
@@ -221,8 +241,6 @@ The configuration file specifies how long a session can live for, before expirin
   
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
-`Issuer`: TOTP issuer, the name that will get added to the TOTP app  
-`DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
   
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
@@ -234,6 +252,7 @@ The configuration file specifies how long a session can live for, before expirin
 `WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
   
 `Authenticators`: Object that contains configurations for the authentication methods wag provides  
+`Authenticators.Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `Authenticators.DomainURL`: Full url of the vpn authentication endpoint, required for `webauthn` and `oidc`
 `Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`)    
 `Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn","oidc"]
@@ -250,7 +269,14 @@ The configuration file specifies how long a session can live for, before expirin
 `Wireguard.PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
 `Wireguard.Address`: Subnet the VPN is responsible for  
 `Wireguard.MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
-`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
+`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds
+`Wireguard.DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
+   
+`ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it
+`ManagementUI.Enabled`: Enable the web UI
+`ManagementUI.ListenAddress`: Listen address to expose the management UI on
+`ManagementUI.CertPath`: TLS Certificate path for management endpoint  
+`ManagementUI.KeyPath`: TLS key for the management endpoint  
   
 Full config example
 ```json
@@ -262,8 +288,6 @@ Full config example
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "devices.db",
     "Socket":"/tmp/wag.sock",
-    "Issuer": "vpn.test",
-    "DNS": ["1.1.1.1"],
     "Webserver": {
         "Public": {
             "ListenAddress": "192.168.121.61:8080"
@@ -272,13 +296,18 @@ Full config example
             "Port": "8080"
         }
     },
+    "ManagementUI": {
+        "ListenAddress": "127.0.0.1:4433",
+        "Enabled": true
+    },
     "Authenticators": {
+        "Issuer": "vpn.test",
         "DomainURL": "https://vpn.test:8080",
         "DefaultMethod":"webauthn",
         "Methods":["totp","webauthn", "oidc"],
         "OIDC": {
             "IssuerURL": "http://localhost:8080/",
-            "ClientSecret": "",
+            "ClientSecret": "<OMITTED>",
             "ClientID": "account",
             "GroupsClaimName": "groups"
         }
@@ -289,7 +318,8 @@ Full config example
         "PrivateKey": "AN EXAMPLE KEY",
         "Address": "192.168.1.1/24",
         "MTU": 1420,
-        "PersistentKeepAlive": 25
+        "PersistentKeepAlive": 25,
+        "DNS": ["1.1.1.1"]
     },
     "Acls": {
         "Groups": {
