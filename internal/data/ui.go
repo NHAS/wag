@@ -30,6 +30,9 @@ func generateSalt() ([]byte, error) {
 }
 
 func CreateAdminUser(username, password string) error {
+	if len(password) < 16 {
+		return errors.New("password is too short for administrative console (passwords must be greater than 16 characters)")
+	}
 
 	salt, err := generateSalt()
 	if err != nil {
@@ -201,6 +204,10 @@ func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 }
 
 func SetAdminPassword(username, password string) error {
+	if len(password) < 16 {
+		return errors.New("password is too short for administrative console (passwords must be greater than 16 characters)")
+	}
+
 	salt, err := generateSalt()
 	if err != nil {
 		return err
