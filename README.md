@@ -271,9 +271,9 @@ The configuration file specifies how long a session can live for, before expirin
 `Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds
 `Wireguard.DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
    
-`ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it
-`ManagementUI.Enabled`: Enable the web UI
-`ManagementUI.ListenAddress`: Listen address to expose the management UI on
+`ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  
+`ManagementUI.Enabled`: Enable the web UI  
+`ManagementUI.ListenAddress`: Listen address to expose the management UI on  
 `ManagementUI.CertPath`: TLS Certificate path for management endpoint  
 `ManagementUI.KeyPath`: TLS key for the management endpoint  
   
