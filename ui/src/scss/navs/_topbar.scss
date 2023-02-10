@@ -11,13 +11,6 @@
       background-color: $gray-300;
     }
   }
-  .navbar-search {
-    width: 25rem;
-    input {
-      font-size: 0.85rem;
-      height: auto;
-    }
-  }
   .topbar-divider {
     width: 0;
     border-right: 1px solid $border-color;
@@ -42,7 +35,7 @@
     position: static;
     .dropdown-menu {
       width: calc(100% - #{$grid-gutter-width});
-      right: $grid-gutter-width / 2;
+      right: calc($grid-gutter-width / 2);
     }
   }
   .dropdown-list {

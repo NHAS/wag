@@ -100,8 +100,7 @@
 
         &::after {
             font-weight: 900;
-            content: '\f104';
-            font-family: 'Font Awesome 5 Free';
+            content: '\e90a';
             margin-right: 0.1rem;
         }
 
@@ -119,8 +118,7 @@
         overflow: hidden;
 
         #sidebarToggle::after {
-            content: '\f105';
-            font-family: 'Font Awesome 5 Free';
+            content: '\e909';
             margin-left: 0.25rem;
         }
 
@@ -243,12 +241,11 @@
                         vertical-align: 0;
                         border: 0;
                         font-weight: 900;
-                        content: '\f107';
-                        font-family: 'Font Awesome 5 Free';
+                        content: '\e908';
                     }
 
                     &.collapsed::after {
-                        content: '\f105';
+                        content: '\e909';
                     }
                 }
             }

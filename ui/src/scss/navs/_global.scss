@@ -13,13 +13,13 @@
           vertical-align: 0;
           border: 0;
           font-weight: 900;
-          content: '\f105';
+          content: '\e909';
           font-family: 'Font Awesome 5 Free';
         }
       }
       &.show {
         .dropdown-toggle::after {
-          content: '\f107';
+          content: '\e908';
         }
       }
     }

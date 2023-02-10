@@ -22,14 +22,14 @@
       padding-right: 1.725rem;
       line-height: 51px;
       font-weight: 900;
-      content: '\f107';
+      content: '\e908';
       font-family: 'Font Awesome 5 Free';
       color: $gray-400;
     }
     &.collapsed {
       border-radius: $card-border-radius;
       &::after {
-        content: '\f105';
+        content: '\e909';
       }
     }
   }

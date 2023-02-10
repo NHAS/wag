@@ -32,11 +32,11 @@ function clean() {
 // Bring third party dependencies from node_modules into vendor directory
 function modules() {
   // Bootstrap JS
-  var bootstrapJS = gulp.src('./node_modules/bootstrap/dist/js/*')
+  var bootstrapJS = gulp.src('./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js')
     .pipe(gulp.dest('../vendor/bootstrap/js'));
   // Bootstrap SCSS
   var bootstrapSCSS = gulp.src('./node_modules/bootstrap/scss/**/*')
-    .pipe(gulp.dest('../vendor/bootstrap/scss'));
+    .pipe(gulp.dest('./vendor/bootstrap/scss'));
 
   // Bootstrap Table
   var bootstrapTableJS = gulp.src(['./node_modules/bootstrap-table/dist/bootstrap-table.min.js',
@@ -46,11 +46,12 @@ function modules() {
   var bootstrapTableCSS = gulp.src('./node_modules/bootstrap-table/dist/bootstrap-table.min.css')
     .pipe(gulp.dest('../vendor/bootstrap-table/css'));
 
-  var jqueryEasing = gulp.src('./node_modules/jquery.easing/*.min.js')
+    var jqueryEasing = gulp.src('./node_modules/jquery.easing/*.min.js')
     .pipe(gulp.dest('../vendor/jquery-easing'));
+
   // jQuery
   var jquery = gulp.src([
-    './node_modules/jquery/dist/*.min.*',
+    './node_modules/jquery/dist/jquery.min.js',
     '!./node_modules/jquery/dist/core.js'
   ])
     .pipe(gulp.dest('../vendor/jquery'));
