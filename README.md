@@ -371,7 +371,7 @@ Sudo is required to load the eBPF program into the kernel.
 ## Building a release
 
 
-If you havent built the release docker image (used because it has a stable version of glibc)
+If you havent build the release docker image (used because it has a stable version of glibc) do the following:
 ```
 cd builder
 sudo docker build -t wag_builder .
@@ -379,6 +379,13 @@ cd ..
 
 make docker
 ```
+
+## External contributions
+
+If you're looking to add your own features, or bug fixes to wag (thank you!). Please make sure that you've written a test for your changes if possible.  
+There are a few `_test.go` files around that give example on how to do this.  
+
+Then open a pull request and we can discuss it there.  
 
 
 # Unoffical Docker
