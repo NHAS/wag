@@ -229,7 +229,7 @@ The configuration file specifies how long a session can live for, before expirin
 
 # Configuration file reference
   
-`Proxied`: Respect the `X-Forward-For` directive, must ensure that you are securing the X-Forward-For directive in your reverse proxy  
+`Proxied`: Respect the `X-Forward-For` directive, must ensure that you are setting the `X-Forward-For` directive in your reverse proxy as wag relies on the client IP for authentication in the VPN tunnel  
 `HelpMail`: The email address that is shown on the prompt page  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
   
