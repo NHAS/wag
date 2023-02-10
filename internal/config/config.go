@@ -262,6 +262,9 @@ func AddGroup(group string, members []string) error {
 		return fmt.Errorf("%s was already defined", group)
 	}
 
+	if values.Acls.Groups == nil {
+		values.Acls.Groups = make(map[string][]string)
+	}
 	values.Acls.Groups[group] = members
 
 	for _, member := range members {
