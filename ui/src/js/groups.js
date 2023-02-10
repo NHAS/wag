@@ -16,7 +16,7 @@ function responseHandler(res) {
 function operateFormatter(value, row, index) {
   return [
     '<a class="edit" href="javascript:void(0)" title="Edit">',
-    '<i class="icon-pen"></i>',
+    '<i class="icon-pencil"></i>',
     '</a>  '
   ].join('')
 }
