@@ -99,6 +99,17 @@ func CompareAdminKeys(username, password string) error {
 		return errors.New("account locked")
 	}
 
+	_, err = database.Exec(`UPDATE 
+		AdminUsers 
+	SET 
+		attempts = 0 
+	WHERE 
+		username = ?`,
+		0, username)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
