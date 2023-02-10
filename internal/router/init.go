@@ -113,7 +113,7 @@ func TearDown() {
 		return
 	}
 
-	err = ipt.Delete("filter", "FORWARD", "-i", config.Values().Wireguard.DevName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	err = ipt.Delete("filter", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
