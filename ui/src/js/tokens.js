@@ -122,7 +122,7 @@ $(function () {
     }).then((response) => {
       if (response.status == 200) {
         $("#tokensModal").modal("hide")
-        tokensTable.bootstrapTable('refresh')
+        table.bootstrapTable('refresh')
         return
       }
 
