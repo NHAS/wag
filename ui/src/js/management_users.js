@@ -23,8 +23,8 @@ $(function () {
       sortable: true,
       align: 'center',
     }, {
-      field: 'locked',
-      title: 'Locked',
+      field: 'attempts',
+      title: 'Login Attempts (>5 locked)',
       align: 'center',
       sortable: true,
     }

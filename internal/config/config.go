@@ -123,6 +123,19 @@ var (
 	values     Config
 )
 
+func SetDNS(entries []string) error {
+	valuesLock.Lock()
+	defer valuesLock.Unlock()
+
+	newDnsServers, err := validateDns(entries)
+	if err != nil {
+		return err
+	}
+	values.Wireguard.DNS = newDnsServers
+
+	return save()
+}
+
 func SetSessionInactivityTimeoutMinutes(SessionInactivityTimeoutMinutes int) error {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
@@ -308,7 +321,7 @@ func DeleteGroup(group string) error {
 
 func save() error {
 
-	backupPath := values.path + "." + time.Now().Format("20060102150405") + ".bak"
+	backupPath := time.Now().Format("20060102150405") + "_config_backup.json.bak"
 	err := fsops.CopyFile(values.path, backupPath)
 	if err != nil {
 		return errors.New("could not create backup of config, cannot save current: " + err.Error())
@@ -489,17 +502,10 @@ func load(path string) (c Config, err error) {
 		return c, fmt.Errorf("public listen address is not set (Public.ListenAddress)")
 	}
 
-	newDnsEntries := []string{}
-	for _, entry := range c.Wireguard.DNS {
-		newAddresses, err := parseAddress(entry)
-		if err != nil {
-			return c, err
-		}
-		// For the first new address, replace the domain entry in the Allow'd acls with an IP
-		newDnsEntries = append(newDnsEntries, newAddresses...)
+	c.Wireguard.DNS, err = validateDns(c.Wireguard.DNS)
+	if err != nil {
+		return c, err
 	}
-
-	c.Wireguard.DNS = newDnsEntries
 
 	c.Acls.rGroupLookup = map[string]map[string]bool{}
 
@@ -631,6 +637,18 @@ func load(path string) (c Config, err error) {
 	authenticators.MFA = resultMFAMap
 
 	return c, nil
+}
+
+func validateDns(input []string) (newDnsEntries []string, err error) {
+	for _, entry := range input {
+		newAddresses, err := parseAddress(entry)
+		if err != nil {
+			return nil, err
+		}
+		newDnsEntries = append(newDnsEntries, newAddresses...)
+	}
+
+	return
 }
 
 func validExternalAddresses(ExternalAddress string) error {

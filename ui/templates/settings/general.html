@@ -31,8 +31,11 @@
                     </div>
                     <div class="form-group">
                         <label for="dns">DNS</label>
-                        <textarea class="form-control" id="dns" name="dns" rows="3" value="{{.DNS}}"></textarea>
+                        <textarea class="form-control" id="dns" name="dns" rows="3">{{.DNS}}</textarea>
                     </div>
+
+                    <div id="generalSettingsIssue" role="alert" style="display:none"></div>
+
                     <button type="submit" class="btn btn-primary">Save</button>
                 </form>
             </div>
@@ -63,8 +66,11 @@
                     <div class="form-group">
                         <label for="numAttempts">Max Authentication Attempts</label>
                         <input type="number" class="form-control" id="numAttempts" name="numAttempts"
-                            placeholder="{{.Lockout}}">
+                            value="{{.Lockout}}">
                     </div>
+
+                    <div id="loginSettingsIssue" role="alert" style="display:none"></div>
+
                     <button type="submit" class="btn btn-primary">Save</button>
                 </form>
             </div>
@@ -74,7 +80,7 @@
 
 </div>
 
-<script src="/js/authentication_settings.min.js"></script>
+<script src="/js/settings.min.js"></script>
 
 
 {{end}}

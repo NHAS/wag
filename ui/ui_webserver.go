@@ -731,7 +731,7 @@ func StartWebServer(errs chan<- error) {
 				InactivityTimeoutMinutes: c.SessionInactivityTimeoutMinutes,
 				SessionLifeTimeMinutes:   c.MaxSessionLifetimeMinutes,
 				HelpMail:                 c.HelpMail,
-				DNS:                      strings.Join(c.Wireguard.DNS, ","),
+				DNS:                      strings.Join(c.Wireguard.DNS, "\n"),
 				TotpEnabled:              true,
 				OidcEnabled:              false,
 				WebauthnEnabled:          false,
@@ -746,6 +746,86 @@ func StartWebServer(errs chan<- error) {
 				uiTemplates["error"].Execute(w, nil)
 				return
 			}
+		})
+
+		protectedRoutes.HandleFunc("/settings/general/data", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" {
+				http.NotFound(w, r)
+				return
+			}
+
+			_, ok := r.Context().Value(adminKey).(AdminUser)
+			if !ok {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			switch r.URL.Query().Get("type") {
+			case "general":
+
+				var general = struct {
+					HelpMail        string   `json:"help_mail"`
+					ExternalAddress string   `json:"external_address"`
+					DNS             []string `json:"dns"`
+				}{}
+
+				if err := json.NewDecoder(r.Body).Decode(&general); err != nil {
+					http.Error(w, "Bad Request", 400)
+					return
+				}
+
+				if err := config.SetHelpMail(general.HelpMail); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				if err := config.SetExternalAddress(general.ExternalAddress); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				if err := config.SetDNS(general.DNS); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				w.Write([]byte("OK"))
+				return
+			case "login":
+
+				var login = struct {
+					SessionLifetime   int `json:"session_lifetime"`
+					InactivityTimeout int `json:"session_inactivity"`
+					Lockout           int `json:"lockout"`
+				}{}
+
+				if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
+					http.Error(w, "Bad Request", 400)
+					return
+				}
+
+				if err := config.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				if err := config.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				if err := config.SetLockout(login.Lockout); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+
+				w.Write([]byte("OK"))
+				return
+			default:
+				http.NotFound(w, r)
+				return
+			}
+
 		})
 
 		protectedRoutes.HandleFunc("/settings/management_users", func(w http.ResponseWriter, r *http.Request) {

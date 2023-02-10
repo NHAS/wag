@@ -105,7 +105,7 @@ func CompareAdminKeys(username, password string) error {
 		attempts = 0 
 	WHERE 
 		username = ?`,
-		0, username)
+		username)
 	if err != nil {
 		return err
 	}
