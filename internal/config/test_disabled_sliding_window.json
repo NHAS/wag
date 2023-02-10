@@ -5,7 +5,6 @@
     "SessionInactivityTimeoutMinutes": -1,
     "ExternalAddress": "192.168.121.61",
     "DatabaseLocation": "file::memory:",
-    "Issuer": "192.168.121.61",
     "Webserver": {
         "Public": {
             "ListenAddress": ":8081"
@@ -13,6 +12,9 @@
         "Tunnel": {
             "Port": "8080"
         }
+    },
+    "Authenticators": {
+        "Issuer": "192.168.121.61"
     },
     "Wireguard": {
         "DevName": "wg0",

@@ -90,6 +90,13 @@ func setupWireguard() error {
 
 	for _, device := range devices {
 		pk, _ := wgtypes.ParseKey(device.Publickey)
+		var psk *wgtypes.Key = nil
+
+		testKey, err := wgtypes.ParseKey(device.PresharedKey)
+		if device.PresharedKey != "unset" && err == nil {
+			psk = &testKey
+		}
+
 		keepalive := time.Duration(time.Duration(config.Values().Wireguard.PersistentKeepAlive)) * time.Second
 
 		_, network, _ := net.ParseCIDR(device.Address + "/32")
@@ -100,6 +107,7 @@ func setupWireguard() error {
 			ReplaceAllowedIPs:           true,
 			AllowedIPs:                  []net.IPNet{*network},
 			Endpoint:                    device.Endpoint,
+			PresharedKey:                psk,
 		})
 	}
 
@@ -218,14 +226,19 @@ func ListPeers() ([]wgtypes.Peer, error) {
 }
 
 // AddPeer adds the device to wireguard
-func AddPeer(public wgtypes.Key, username string) (string, error) {
+func AddPeer(public wgtypes.Key, username string) (address string, psk string, err error) {
 
 	lock.Lock()
 	defer lock.Unlock()
 
 	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
 	if err != nil {
-		return "", err
+		return "", "", err
+	}
+
+	preshared_key, err := wgtypes.GenerateKey()
+	if err != nil {
+		return "", "", err
 	}
 
 	//Poor selection algorithm
@@ -247,12 +260,12 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 
 	newAddress, err = incrementIP(newAddress.String(), config.Values().Wireguard.Range.String())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	_, network, err := net.ParseCIDR(newAddress.String() + "/32")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	var c wgtypes.Config
@@ -261,16 +274,17 @@ func AddPeer(public wgtypes.Key, username string) (string, error) {
 			PublicKey:         public,
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        []net.IPNet{*network},
+			PresharedKey:      &preshared_key,
 		},
 	}
 
 	err = xdpAddDevice(username, newAddress.String())
 	if err != nil {
 
-		return "", err
+		return "", "", err
 	}
 
-	return newAddress.String(), ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	return newAddress.String(), preshared_key.String(), ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
 }
 
 func GetPeerRealIp(address string) (string, error) {

@@ -68,14 +68,27 @@ func (u *user) SetDevicePublicKey(publickey, address string) (err error) {
 	return data.UpdateDevicePublicKey(u.Username, address, key)
 }
 
+func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err error) {
+	device, err := data.GetDeviceByAddress(address)
+	if err != nil {
+		return "", err
+	}
+
+	if device.PresharedKey == "unset" {
+		device.PresharedKey = ""
+	}
+
+	return device.PresharedKey, nil
+}
+
 func (u *user) AddDevice(publickey wgtypes.Key) (device data.Device, err error) {
 
-	address, err := router.AddPeer(publickey, u.Username)
+	address, psk, err := router.AddPeer(publickey, u.Username)
 	if err != nil {
 		return data.Device{}, err
 	}
 
-	return data.AddDevice(u.Username, address, publickey.String())
+	return data.AddDevice(u.Username, address, publickey.String(), psk)
 }
 
 func (u *user) DeleteDevice(address string) (err error) {

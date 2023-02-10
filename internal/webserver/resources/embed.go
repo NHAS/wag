@@ -10,8 +10,9 @@ import (
 var interfaceTemplate string
 
 type Interface struct {
-	ClientPrivateKey string
-	ClientAddress    string
+	ClientPrivateKey   string
+	ClientAddress      string
+	ClientPresharedKey string
 
 	ServerAddress     string
 	ServerPublicKey   string

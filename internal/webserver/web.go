@@ -401,13 +401,21 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		keyStr = ""
 	}
 
+	presharedKey, err := user.GetDevicePresharedKey(address)
+	if err != nil {
+		log.Println(username, remoteAddr, "unable access device preshared key: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
 	i := resources.Interface{
-		ClientPrivateKey:  keyStr,
-		ClientAddress:     address,
-		ServerAddress:     fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
-		ServerPublicKey:   wgPublicKey.String(),
-		CapturedAddresses: append(acl.Allow, acl.Mfa...),
-		DNS:               config.Values().Wireguard.DNS,
+		ClientPrivateKey:   keyStr,
+		ClientAddress:      address,
+		ServerAddress:      fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
+		ServerPublicKey:    wgPublicKey.String(),
+		CapturedAddresses:  append(acl.Allow, acl.Mfa...),
+		DNS:                config.Values().Wireguard.DNS,
+		ClientPresharedKey: presharedKey,
 	}
 
 	if r.URL.Query().Get("type") == "mobile" {

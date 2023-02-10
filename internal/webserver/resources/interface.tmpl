@@ -9,6 +9,9 @@ Address = {{.ClientAddress}}
 
 [Peer]
 Endpoint =  {{.ServerAddress}}
+{{- if .ClientPresharedKey }}
+PresharedKey = {{.ClientPresharedKey | Unescape}}
+{{- end}}
 PublicKey = {{.ServerPublicKey | Unescape}}
 AllowedIPs = {{StringsJoin .CapturedAddresses ", "}}
 PersistentKeepAlive = 10

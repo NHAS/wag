@@ -362,7 +362,7 @@ Full config example
 
 ## Testing
 ```sh
-cd router
+cd internal/router
 sudo go test -v .
 ```
 

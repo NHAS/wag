@@ -89,7 +89,7 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	address, err := AddPeer(pk, "toaster")
+	address, _, err := AddPeer(pk, "toaster")
 	if err != nil {
 		t.Fatal(err)
 	}

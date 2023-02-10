@@ -12,12 +12,13 @@ import (
 )
 
 type Device struct {
-	Address   string
-	Publickey string
-	Username  string
-	Endpoint  *net.UDPAddr
-	Attempts  int
-	Active    bool
+	Address      string
+	Publickey    string
+	Username     string
+	PresharedKey string
+	Endpoint     *net.UDPAddr
+	Attempts     int
+	Active       bool
 }
 
 func stringToUDPaddr(address string) (r *net.UDPAddr) {
@@ -62,7 +63,7 @@ func GetDevice(username, id string) (device Device, err error) {
 								username = ? 
 									AND 
 								(address = $2 OR publickey = $2)`,
-		username, id).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts)
+		username, id).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts, &device.PresharedKey)
 
 	if err != nil {
 		return Device{}, err
@@ -94,7 +95,7 @@ func SetDeviceAuthenticationAttempts(username, address string, attempts int) err
 
 func GetAllDevices() (devices []Device, err error) {
 
-	rows, err := database.Query("SELECT address, publickey, username, endpoint, attempts FROM Devices ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT address, publickey, username, endpoint, attempts, preshared_key FROM Devices ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func GetAllDevices() (devices []Device, err error) {
 			endpoint sql.NullString
 			d        Device
 		)
-		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &d.Attempts)
+		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &d.Attempts, &d.PresharedKey)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +122,7 @@ func GetAllDevices() (devices []Device, err error) {
 
 }
 
-func AddDevice(username, address, publickey string) (Device, error) {
+func AddDevice(username, address, publickey, preshared_key string) (Device, error) {
 	if net.ParseIP(address) == nil {
 		return Device{}, errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
 	}
@@ -129,10 +130,10 @@ func AddDevice(username, address, publickey string) (Device, error) {
 	//Leaves enforcing null
 	_, err := database.Exec(`
 	INSERT INTO
-		Devices (address, username, publickey)
+		Devices (address, username, publickey, preshared_key)
 	VALUES
-		(?, ?, ?)
-`, address, username, publickey)
+		(?, ?, ?, ?)
+`, address, username, publickey, preshared_key)
 
 	return Device{
 		Address:   address,
@@ -186,7 +187,7 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 								Devices 
 							WHERE 
 								address = ?`,
-		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts)
+		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts, &device.PresharedKey)
 
 	if err != nil {
 		return Device{}, err
@@ -214,7 +215,7 @@ func GetDevicesByUser(username string) (devices []Device, err error) {
 		var d Device
 		//Devices(address string primary key,
 		//username string not null, publickey string not null unique, endpoint string, attempts integer not null
-		err = rows.Scan(&d.Address, &d.Username, &d.Publickey, &endpoint, &d.Attempts)
+		err = rows.Scan(&d.Address, &d.Username, &d.Publickey, &endpoint, &d.Attempts, &d.PresharedKey)
 		if err != nil {
 			return nil, err
 		}
