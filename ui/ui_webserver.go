@@ -160,7 +160,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	unenforcedMFA := 0
 	for _, u := range allUsers {
-		if u.Enforcing {
+		if !u.Enforcing {
 			unenforcedMFA++
 		}
 
