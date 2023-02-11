@@ -226,6 +226,17 @@ Which can then be written to a config file.
 To authenticate the user should browse to the servers vpn address, in the example, case `192.168.1.1:8080`, where they will be prompted for their 2fa code.  
 The configuration file specifies how long a session can live for, before expiring.  
 
+## Signing in to the Management console
+
+Make sure that you have `ManagementUI.Enabled` set as `true`, then do the following from the console:
+
+```
+sudo ./wag webadmin -add -username <your_username> -password <your-password-here>
+```
+Then browse to your management listening address and enter your credentials.
+
+The web interface itself cannot add administrative users.
+
 
 # Configuration file reference
   
