@@ -54,6 +54,10 @@ type Acls struct {
 }
 
 func (a Acls) GetUserGroups(username string) (result []string) {
+	if values.Acls.rGroupLookup == nil {
+		return []string{}
+	}
+
 	result = make([]string, 0, len(values.Acls.rGroupLookup[username]))
 	for group := range values.Acls.rGroupLookup[username] {
 		result = append(result, group)
@@ -394,6 +398,10 @@ func AddVirtualUser(username string, groups []string) {
 	defer valuesLock.Unlock()
 
 	for _, group := range groups {
+		if values.Acls.rGroupLookup[username] == nil {
+			values.Acls.rGroupLookup[username] = make(map[string]bool)
+		}
+
 		values.Acls.rGroupLookup[username][group] = true
 	}
 }

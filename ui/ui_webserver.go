@@ -912,6 +912,8 @@ func StartWebServer(errs chan<- error) {
 		errs <- http.ListenAndServe(config.Values().ManagementUI.ListenAddress, allRoutes)
 
 	}()
+
+	log.Println("Started Managemnt UI:\n\tListening:", config.Values().ManagementUI.ListenAddress)
 }
 
 func changePassword(w http.ResponseWriter, r *http.Request) {

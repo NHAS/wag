@@ -60,7 +60,7 @@ func (g *users) Check() error {
 	switch g.action {
 	case "del", "unlockaccount", "lockaccount", "reset-mfa":
 		if g.username == "" {
-			return errors.New("address must be supplied")
+			return errors.New("username must be supplied")
 		}
 	case "list":
 	default:
