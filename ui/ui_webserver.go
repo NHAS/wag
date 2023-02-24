@@ -1150,12 +1150,11 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			groups := append([]string{"*"}, config.Values().Acls.GetUserGroups(u.Username)...)
 
 			data = append(data, UsersData{
-				Username:  u.Username,
-				Enforcing: u.Enforcing,
-				Locked:    u.Locked,
-				Devices:   len(devices),
-				Groups:    groups,
-				MFAType:   u.MfaType,
+				Username: u.Username,
+				Locked:   u.Locked,
+				Devices:  len(devices),
+				Groups:   groups,
+				MFAType:  u.MfaType,
 			})
 		}
 

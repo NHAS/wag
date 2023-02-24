@@ -58,7 +58,6 @@ type ChangePassword struct {
 type UsersData struct {
 	Username  string   `json:"username"`
 	Devices   int      `json:"devices"`
-	Enforcing bool     `json:"enforcing_mfa"`
 	Locked    bool     `json:"locked"`
 	DateAdded string   `json:"date_added"`
 	MFAType   string   `json:"mfa_type"`

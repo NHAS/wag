@@ -21,6 +21,19 @@ function devicesFormatter(value, row) {
   return a.outerHTML
 }
 
+
+function mfaFormatter(value) {
+  if (value === "unset") {
+    let p = document.createElement('p')
+    p.className = "badge badge-primary"
+    p.innerText = value
+
+    return p.outerHTML
+  }
+
+  return value
+}
+
 function groupsFormatter(values) {
 
   let result = ""
@@ -67,12 +80,8 @@ $(function () {
       field: 'mfa_type',
       title: 'MFA Method',
       sortable: true,
-      align: 'center'
-    }, {
-      field: 'enforcing_mfa',
-      title: 'Enforcing MFA',
-      sortable: true,
       align: 'center',
+      formatter: mfaFormatter
     }, {
       field: 'locked',
       title: 'Locked',
@@ -96,6 +105,7 @@ $(function () {
       $("#removeStart").prop('disabled', enableModifications)
       $lock.prop('disabled', enableModifications)
       $unlock.prop('disabled', enableModifications)
+      $resetMFA.prop('disabled', enableModifications)
 
       // save your data, here just save the current page
       selections = getIdSelections(table)
@@ -112,7 +122,7 @@ $(function () {
     action(ids, "unlock", table)
   })
 
-  $unlock.on("click", function () {
+  $resetMFA.on("click", function () {
     var ids = getIdSelections(table)
     action(ids, "resetMFA", table)
   })
