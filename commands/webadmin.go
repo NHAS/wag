@@ -23,7 +23,7 @@ func Webadmin() *webadmin {
 	}
 
 	gc.fs.StringVar(&gc.username, "username", "", "Admin Username to act upon")
-	gc.fs.StringVar(&gc.password, "password", "", "Username to act upon")
+	gc.fs.StringVar(&gc.password, "password", "", "Password to set")
 	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance control socket")
 
 	gc.fs.Bool("add", false, "Add web administrator user (requires -password)")
