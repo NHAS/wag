@@ -2,7 +2,9 @@ package ui
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
@@ -256,6 +258,27 @@ func StartWebServer(errs chan<- error) {
 	}
 
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
+
+	//https://blog.cloudflare.com/exposing-go-on-the-internet/
+	tlsConfig := &tls.Config{
+		// Causes servers to use Go's default ciphersuite preferences,
+		// which are tuned to avoid attacks. Does nothing on clients.
+		PreferServerCipherSuites: true,
+		// Only use curves which have assembly implementations
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+			tls.X25519, // Go 1.8 only
+		},
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		},
+	}
 
 	go func() {
 
@@ -909,8 +932,34 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		errs <- http.ListenAndServe(config.Values().ManagementUI.ListenAddress, allRoutes)
+		if config.Values().ManagementUI.SupportsTLS() {
 
+			go func() {
+
+				srv := &http.Server{
+					Addr:         config.Values().ManagementUI.ListenAddress,
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+					IdleTimeout:  120 * time.Second,
+					TLSConfig:    tlsConfig,
+					Handler:      setSecurityHeaders(allRoutes),
+				}
+
+				errs <- fmt.Errorf("TLS management listener failed: %v", srv.ListenAndServeTLS(config.Values().ManagementUI.CertPath, config.Values().ManagementUI.KeyPath))
+			}()
+		} else {
+			go func() {
+				srv := &http.Server{
+					Addr:         config.Values().ManagementUI.ListenAddress,
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+					IdleTimeout:  120 * time.Second,
+					Handler:      setSecurityHeaders(allRoutes),
+				}
+
+				errs <- fmt.Errorf("webserver management listener failed: %v", srv.ListenAndServe())
+			}()
+		}
 	}()
 
 	log.Println("Started Managemnt UI:\n\tListening:", config.Values().ManagementUI.ListenAddress)
