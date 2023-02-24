@@ -25,7 +25,7 @@ function devicesFormatter(value, row) {
 function mfaFormatter(value) {
   if (value === "unset") {
     let p = document.createElement('p')
-    p.className = "badge badge-primary"
+    p.className = "badge badge-danger"
     p.innerText = value
 
     return p.outerHTML
@@ -169,8 +169,8 @@ $(function () {
 
     let filter = {}
 
-    if (urlParams.has('enforcing_mfa')) {
-      filter.enforcing_mfa = urlParams.get('enforcing_mfa') == "true"
+    if (urlParams.has('enforcing_mfa') && urlParams.get('enforcing_mfa') == "false") {
+      filter.mfa_type = "unset"
     }
 
     if (urlParams.has('username')) {
