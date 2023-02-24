@@ -37,7 +37,7 @@ sudo ./wag gen-config
 sudo ./wag start -config <generated_config_name>
 ```
   
-From source (will require go1.19, npm, clang, llvm-strip):  
+From source (will require `go1.19`, `npm`, `gulp`, `clang` and `llvm-strip`):  
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
