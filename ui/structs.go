@@ -61,6 +61,7 @@ type UsersData struct {
 	Enforcing bool     `json:"enforcing_mfa"`
 	Locked    bool     `json:"locked"`
 	DateAdded string   `json:"date_added"`
+	MFAType   string   `json:"mfa_type"`
 	Groups    []string `json:"groups"`
 }
 

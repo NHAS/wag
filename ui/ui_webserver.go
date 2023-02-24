@@ -1155,6 +1155,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 				Locked:    u.Locked,
 				Devices:   len(devices),
 				Groups:    groups,
+				MFAType:   u.MfaType,
 			})
 		}
 

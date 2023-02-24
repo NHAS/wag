@@ -64,6 +64,11 @@ $(function () {
       align: 'center',
       formatter: devicesFormatter
     }, {
+      field: 'mfa_type',
+      title: 'MFA Method',
+      sortable: true,
+      align: 'center'
+    }, {
       field: 'enforcing_mfa',
       title: 'Enforcing MFA',
       sortable: true,
@@ -80,6 +85,8 @@ $(function () {
   var $remove = $('#remove')
   var $lock = $('#lock')
   var $unlock = $('#unlock')
+  var $resetMFA = $('#resetMFA')
+
 
   table.on('check.bs.table uncheck.bs.table ' +
     'check-all.bs.table uncheck-all.bs.table',
@@ -105,6 +112,10 @@ $(function () {
     action(ids, "unlock", table)
   })
 
+  $unlock.on("click", function () {
+    var ids = getIdSelections(table)
+    action(ids, "resetMFA", table)
+  })
 
   $remove.on("click", function () {
     var ids = getIdSelections(table)
