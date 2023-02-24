@@ -1181,17 +1181,32 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		var errs []string
 		for _, username := range action.Usernames {
+			var err error
 			switch action.Action {
 			case "lock":
-				ctrl.LockUser(username)
+				err = ctrl.LockUser(username)
 
 			case "unlock":
-				ctrl.UnlockUser(username)
+				err = ctrl.UnlockUser(username)
+
+			case "resetMFA":
+				err = ctrl.ResetUserMFA(username)
+
 			default:
 				http.Error(w, "invalid action", 400)
 				return
 			}
+
+			if err != nil {
+				errs = append(errs, err.Error())
+			}
+		}
+
+		if len(errs) > 0 {
+			http.Error(w, fmt.Sprintf("%d/%d failed with errors:\n%s", len(errs), len(action.Usernames), strings.Join(errs, "\n")), 400)
+			return
 		}
 
 		w.Write([]byte("OK"))
