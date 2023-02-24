@@ -288,7 +288,7 @@ func resetAdminUser(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	err = data.SetAdminUserPassword(username, password)
+	err = data.SetAdminPassword(username, password)
 	if err != nil {
 		http.Error(w, "unable to set admin user password: "+err.Error(), 404)
 		return
