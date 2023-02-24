@@ -29,6 +29,7 @@ func Webadmin() *webadmin {
 	gc.fs.Bool("add", false, "Add web administrator user (requires -password)")
 	gc.fs.Bool("del", false, "Delete admin user")
 	gc.fs.Bool("list", false, "List web administration users, if '-username' supply will filter by user")
+	gc.fs.Bool("reset", false, "Reset admin user account password (requires -password and -username)")
 
 	gc.fs.Bool("lockaccount", false, "Lock admin account disable login for this web administrator user")
 	gc.fs.Bool("unlockaccount", false, "Unlock a web administrator account")
@@ -52,7 +53,7 @@ func (g *webadmin) PrintUsage() {
 func (g *webadmin) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
-		case "lockaccount", "unlockaccount", "del", "list", "add":
+		case "lockaccount", "unlockaccount", "del", "list", "add", "reset":
 			g.action = strings.ToLower(f.Name)
 		}
 	})
@@ -63,9 +64,9 @@ func (g *webadmin) Check() error {
 			return errors.New("address must be supplied")
 		}
 	case "list":
-	case "add":
+	case "add", "reset":
 		if g.username == "" || g.password == "" {
-			return errors.New("both username and password must be specified to add a user")
+			return errors.New("both username and password must be specified for this command")
 		}
 	default:
 		return errors.New("Unknown flag: " + g.action)
@@ -82,6 +83,14 @@ func (g *webadmin) Run() error {
 	case "add":
 
 		err := ctl.AddAdminUser(g.username, g.password)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("OK")
+
+	case "reset":
+		err := ctl.SetAdminUserPassword(g.username, g.password)
 		if err != nil {
 			return err
 		}

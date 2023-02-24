@@ -132,6 +132,15 @@ func (c *CtrlClient) AddAdminUser(username, password string) error {
 	return c.simplepost("webadmin/add", form)
 }
 
+// Set an existing admin users password
+func (c *CtrlClient) SetAdminUserPassword(username, password string) error {
+	form := url.Values{}
+	form.Add("username", username)
+	form.Add("password", password)
+
+	return c.simplepost("webadmin/reset", form)
+}
+
 // Take device address to remove
 func (c *CtrlClient) DeleteAdminUser(username string) error {
 	form := url.Values{}

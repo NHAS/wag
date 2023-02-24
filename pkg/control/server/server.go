@@ -144,6 +144,7 @@ func StartControlSocket() error {
 	controlMux.HandleFunc("/webadmin/lock", lockAdminUser)
 	controlMux.HandleFunc("/webadmin/unlock", unlockAdminUser)
 	controlMux.HandleFunc("/webadmin/delete", deleteAdminUser)
+	controlMux.HandleFunc("/webadmin/reset", resetAdminUser)
 	controlMux.HandleFunc("/webadmin/add", addAdminUser)
 
 	controlMux.HandleFunc("/firewall/list", firewallRules)

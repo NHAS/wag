@@ -273,6 +273,32 @@ func deleteAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
+func resetAdminUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	err = data.SetAdminUserPassword(username, password)
+	if err != nil {
+		http.Error(w, "unable to set admin user password: "+err.Error(), 404)
+		return
+	}
+
+	log.Println(username, "admin password reset")
+
+	w.Write([]byte("OK"))
+}
+
 func addAdminUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.NotFound(w, r)
