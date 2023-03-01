@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/fsops"
@@ -210,9 +211,14 @@ func AddAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s was already defined", effects)
 	}
 
-	err := validateAcl(&Rule)
+	err := routetypes.ValidateRules(Rule.Allow)
 	if err != nil {
-		return fmt.Errorf("policy was invalid: %s", err)
+		return fmt.Errorf("Public rules were invalid: %s", err)
+	}
+
+	err = routetypes.ValidateRules(Rule.Mfa)
+	if err != nil {
+		return fmt.Errorf("MFA rules were invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -229,9 +235,14 @@ func EditAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s acl was not defined", effects)
 	}
 
-	err := validateAcl(&Rule)
+	err := routetypes.ValidateRules(Rule.Allow)
 	if err != nil {
-		return fmt.Errorf("policy was invalid: %s", err)
+		return fmt.Errorf("Public rules were invalid: %s", err)
+	}
+
+	err = routetypes.ValidateRules(Rule.Mfa)
+	if err != nil {
+		return fmt.Errorf("MFA rules were invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -567,8 +578,15 @@ func load(path string) (c Config, err error) {
 	}
 
 	for _, acl := range c.Acls.Policies {
-		if err := validateAcl(acl); err != nil {
-			return c, err
+
+		err := routetypes.ValidateRules(acl.Allow)
+		if err != nil {
+			return c, fmt.Errorf("Public rules were invalid: %s", err)
+		}
+
+		err = routetypes.ValidateRules(acl.Mfa)
+		if err != nil {
+			return c, fmt.Errorf("MFA rules were invalid: %s", err)
 		}
 	}
 
@@ -708,49 +726,6 @@ func validExternalAddresses(ExternalAddress string) error {
 
 		if len(addresses) == 0 {
 			return errors.New("invalid ExternalAddress: " + ExternalAddress + " not IPv4 or IPv6 external addresses found")
-		}
-	}
-
-	return nil
-}
-
-func validateAcl(acl *Acl) error {
-	for i := 0; i < len(acl.Allow); i++ {
-		newAddress, err := parseAddress(acl.Allow[i])
-		if err != nil {
-			return err
-		}
-
-		// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
-		for ii := range newAddress {
-
-			// For the first new address, replace the domain entry in the Allow'd acls with an IP
-			if ii == 0 {
-				acl.Allow[i] = newAddress[ii]
-				continue
-			}
-
-			acl.Allow = append(acl.Allow, newAddress[ii])
-		}
-
-	}
-
-	for i := 0; i < len(acl.Mfa); i++ {
-		newAddress, err := parseAddress(acl.Mfa[i])
-		if err != nil {
-			return err
-		}
-
-		// If we get some new addresses it the entry was a domain that was subsequently resolved to some ipv4 addresses
-		for ii := range newAddress {
-
-			// For the first new address, replace the domain entry in the Mfa'd acls with an IP
-			if ii == 0 {
-				acl.Mfa[i] = newAddress[ii]
-				continue
-			}
-
-			acl.Mfa = append(acl.Mfa, newAddress[ii])
 		}
 	}
 
