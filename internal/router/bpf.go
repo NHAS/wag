@@ -18,6 +18,7 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/routetypes"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -37,10 +38,22 @@ var (
 	xdpLink      link.Link
 	xdpObjects   bpfObjects
 	innerMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
-		Name:      "inner_map",
-		Type:      ebpf.LPMTrie,
-		KeySize:   8, // 4 bytes for prefix, 4 bytes for u32 (ipv4)
-		ValueSize: 1, // quasi bool
+		Name: "inner_map",
+		Type: ebpf.LPMTrie,
+
+		// 4 byte prefix length
+		// 2 byte, rule type;
+		// 4 byte, ipv4 addr;
+		// 2 byte, protocol;
+		// 2 byte, port;
+		// 2 byte for padding (must be a multiple of 8) https://docs.kernel.org/bpf/map_lpm_trie.html
+		KeySize: 16,
+
+		// if ANY type this is a 2 byte proto type where 0 means all protocols
+		//    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port
+		//    SINGLE type, no meaning 1 byte for yes or no
+		ValueSize: 8,
+
 		// This flag is required for dynamically sized inner maps.
 		// Added in linux 5.10.
 		Flags: unix.BPF_F_NO_PREALLOC,
@@ -119,9 +132,9 @@ func attachXDP() error {
 				continue
 			}
 			return fmt.Errorf("could not attach XDP program: %s", err)
-		} else {
-			return nil
 		}
+
+		return nil
 	}
 
 	return nil
@@ -387,14 +400,16 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 
 	for _, destination := range destinations {
 
-		k, err := parseIP(destination)
+		binaryRules, err := routetypes.ParseRule(destination)
 		if err != nil {
 			return err
 		}
 
-		err = innerMap.Put(k.Bytes(), uint8(1))
-		if err != nil {
-			return fmt.Errorf("inner map: %s", err)
+		for _, br := range binaryRules {
+			err = innerMap.Put(br.Key, br.Value)
+			if err != nil {
+				return fmt.Errorf("inner map: %s", err)
+			}
 		}
 
 	}
@@ -673,10 +688,10 @@ func GetRules() (map[string]FirewallRules, error) {
 
 		var (
 			innerKey []byte
-			val      uint8
+			val      []byte
 		)
 		innerIter := innerMap.Iterate()
-		kv := Key{}
+		kv := routetypes.Key{}
 		for innerIter.Next(&innerKey, &val) {
 			kv.Unpack(innerKey)
 			result = append(result, kv.String())
@@ -727,23 +742,6 @@ func GetRules() (map[string]FirewallRules, error) {
 	}
 
 	return result, nil
-}
-
-func parseIP(address string) (Key, error) {
-	address = strings.TrimSpace(address)
-
-	ip, netmask, err := net.ParseCIDR(address)
-	if err != nil {
-		out := net.ParseIP(address)
-		if out != nil {
-			return Key{32, out}, nil
-		}
-
-		return Key{}, errors.New("could not parse ip from input: " + address)
-	}
-
-	ones, _ := netmask.Mask.Size()
-	return Key{uint32(ones), ip}, nil
 }
 
 func GetBPFHash() string {
