@@ -239,7 +239,6 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
 
         if (udph + 1 > (struct udphdr *)data_end)
         {
-            bpf_printk("failed udp header length check: %d %d", udph, data_end);
             return 0;
         }
 
@@ -256,7 +255,6 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
 
         if (tcph + 1 > (struct tcphdr *)data_end)
         {
-            bpf_printk("failed tcp header length check");
 
             return 0;
         }
@@ -271,7 +269,6 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
 
         if (icmph + 1 > (struct icmphdr *)data_end)
         {
-            bpf_printk("failed icmp header length check");
             return 0;
         }
 
@@ -339,12 +336,6 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
     // If the key is a match for the LPM in the public table
     void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
-
-    __u8 *ptr = (__u8 *)key;
-    for (int i = 0; i < sizeof(struct ip4_trie_key); i++)
-    {
-        bpf_printk("%d", *(ptr + i));
-    }
 
     void *mfa_result = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, key) : NULL;
     if (mfa_result != NULL)
