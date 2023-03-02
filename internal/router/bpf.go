@@ -41,12 +41,11 @@ var (
 		Name: "inner_map",
 		Type: ebpf.LPMTrie,
 
-		// 4 byte prefix length
 		// 2 byte, rule type;
-		// 4 byte, ipv4 addr;
 		// 2 byte, protocol;
 		// 2 byte, port;
 		// 2 byte for padding (must be a multiple of 8) https://docs.kernel.org/bpf/map_lpm_trie.html
+		// 4 byte, ipv4 addr;
 		KeySize: 16,
 
 		// if ANY type this is a 2 byte proto type where 0 means all protocols

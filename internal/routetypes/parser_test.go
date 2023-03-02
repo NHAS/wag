@@ -132,6 +132,12 @@ func TestParseSimpleSingles(t *testing.T) {
 		IP:        net.IPv4(1, 2, 1, 2),
 	}
 
+	for _, rule := range br {
+		if len(rule.Key) != 16 {
+			t.Fatal("rules generated key was not 16 bytes, ", rule.Key)
+		}
+	}
+
 	if err := checkKey(br[0], expected); err != nil {
 		t.Fatal(err)
 	}

@@ -167,37 +167,44 @@ func TestRoutePriority(t *testing.T) {
 	}
 
 	headers := []ipv4.Header{
+
 		{
 			Version: 4,
 			Dst:     net.ParseIP("8.8.8.8"),
 			Src:     net.ParseIP(out[0].Address),
 			Len:     ipv4.HeaderLen,
 		},
-		// {
-		// 	Version: 4,
-		// 	Dst:     net.ParseIP("11.11.11.11"),
-		// 	Src:     net.ParseIP(out[0].Address),
-		// 	Len:     ipv4.HeaderLen,
-		// },
-		// {
-		// 	Version: 4,
-		// 	Dst:     net.ParseIP("1.1.1.1"),
-		// 	Src:     net.ParseIP(out[0].Address),
-		// 	Len:     ipv4.HeaderLen,
-		// },
-		// {
-		// 	Version: 4,
-		// 	Dst:     net.ParseIP(out[0].Address),
-		// 	Src:     net.ParseIP("1.1.1.1"),
-		// 	Len:     ipv4.HeaderLen,
-		// },
+		{
+			Version: 4,
+			Dst:     net.ParseIP("11.11.11.11"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP("1.1.1.1"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
+		{
+			Version: 4,
+			Dst:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP("1.1.1.1"),
+			Len:     ipv4.HeaderLen,
+		}, {
+			Version: 4,
+			Dst:     net.ParseIP("192.168.1.1"),
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		},
 	}
 
 	expectedResults := map[string]uint32{
 		headers[0].String(): XDP_DROP,
-		// headers[1].String(): XDP_PASS,
-		// headers[2].String(): XDP_PASS,
-		// headers[3].String(): XDP_PASS,
+		headers[1].String(): XDP_PASS,
+		headers[2].String(): XDP_PASS,
+		headers[3].String(): XDP_PASS,
+		headers[4].String(): XDP_PASS,
 	}
 
 	for i := range headers {
@@ -706,6 +713,170 @@ func TestDisablingMaxLifetime(t *testing.T) {
 
 }
 
+func TestLookupDifferentKeyTypesInMap(t *testing.T) {
+	if err := setup("../config/test_port_based_rules.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userPublicRoutes, err := getInnerMap(out[0].Username, xdpObjects.PublicTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check negative case
+	err = userPublicRoutes.Lookup([]byte("3470239uy4skljhd"), nil)
+	if err == nil {
+		t.Fatal("searched garbage string, should not match")
+	}
+
+	/*
+	   "Allow": [
+	       "1.1.0.0/16",
+	       "2.2.2.2",
+	       "3.3.3.3 33/tcp",
+	       "4.4.4.4 43/udp",
+	       "5.5.5.5 55/any",
+	       "6.6.6.6 100-150/tcp"
+	   ]
+	*/
+
+	printInner := func(key routetypes.Key, value []byte) (err error) {
+		log.Println("looked up:", key.Bytes(), value, key)
+		log.Println("contains: ")
+
+		var innerKey []byte
+		val := make([]byte, 8)
+		innerIter := userPublicRoutes.Iterate()
+		for innerIter.Next(&innerKey, &val) {
+			var k routetypes.Key
+
+			k.Unpack(innerKey)
+
+			log.Println(innerKey, val, k)
+		}
+
+		if innerIter.Err() != nil {
+			return innerIter.Err()
+		}
+
+		return
+	}
+
+	invalid := routetypes.Key{
+		Prefixlen: 64,
+		RuleType:  routetypes.ANY,
+		IP:        net.IPv4(7, 7, 7, 7),
+	}
+
+	b := make([]byte, 8)
+	err = userPublicRoutes.Lookup(invalid.Bytes(), &b)
+	if err == nil {
+
+		printInner(invalid, b)
+
+		t.Fatal("searched non-existant route, should not match")
+	}
+
+	subnet16Any := routetypes.Key{
+		Prefixlen: 96,
+		RuleType:  routetypes.ANY,
+		IP:        net.IPv4(1, 1, 1, 1),
+	}
+
+	err = userPublicRoutes.Lookup(subnet16Any.Bytes(), &b)
+	if err != nil {
+
+		printInner(subnet16Any, b)
+
+		t.Fatal(err)
+	}
+
+	ipAny := routetypes.Key{
+		Prefixlen: 96,
+		RuleType:  routetypes.ANY,
+		IP:        net.IPv4(2, 2, 2, 2),
+	}
+
+	err = userPublicRoutes.Lookup(ipAny.Bytes(), &b)
+	if err != nil {
+
+		printInner(ipAny, b)
+
+		t.Fatal(err)
+	}
+
+	anyProto := routetypes.Key{
+		Prefixlen: 96,
+		RuleType:  routetypes.ANY,
+		IP:        net.IPv4(5, 5, 5, 5),
+	}
+
+	err = userPublicRoutes.Lookup(anyProto.Bytes(), &b)
+	if err != nil {
+
+		printInner(anyProto, b)
+
+		t.Fatal(err)
+	}
+
+	var a routetypes.Any
+	if a.Unpack(b) != nil {
+		t.Fatal("error unpacking")
+	}
+
+	if a.Port != 55 {
+		t.Fatal("wrong port")
+	}
+
+	single33tcp := routetypes.Key{
+		Prefixlen: 96,
+		RuleType:  routetypes.SINGLE,
+		IP:        net.IPv4(3, 3, 3, 3),
+		Port:      33,
+		Protocol:  routetypes.TCP,
+	}
+
+	err = userPublicRoutes.Lookup(single33tcp.Bytes(), &b)
+	if err != nil {
+
+		printInner(single33tcp, b)
+
+		t.Fatal(err)
+	}
+
+	rangeTcp100to150 := routetypes.Key{
+		Prefixlen: 96,
+		RuleType:  routetypes.RANGE,
+		IP:        net.IPv4(6, 6, 6, 6),
+	}
+
+	err = userPublicRoutes.Lookup(rangeTcp100to150.Bytes(), &b)
+	if err != nil {
+
+		printInner(rangeTcp100to150, b)
+
+		t.Fatal(err)
+	}
+
+	var r routetypes.Range
+	r.Unpack(b)
+
+	if r.LowerPort != 100 || r.UpperPort != 150 {
+		t.Fatal("ports wrong")
+	}
+
+	if r.Proto != routetypes.TCP {
+		t.Fatal("wrong range proto")
+	}
+
+}
+
 // https://stackoverflow.com/questions/36000487/check-for-equality-on-slices-without-order
 func sameStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
@@ -731,7 +902,7 @@ func sameStringSlice(x, y []string) bool {
 	return len(diff) == 0
 }
 
-func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
+func getInnerMap(username string, m *ebpf.Map) (*ebpf.Map, error) {
 	var innerMapID ebpf.MapID
 	userid := sha1.Sum([]byte(username))
 
@@ -740,12 +911,22 @@ func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
 		return nil, err
 	}
 
-	result := []string{}
-
 	innerMap, err := ebpf.NewMapFromID(innerMapID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get map from id: %s", err)
 	}
+
+	return innerMap, nil
+}
+
+func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
+
+	innerMap, err := getInnerMap(username, m)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []string{}
 
 	var innerKey []byte
 	var val uint8

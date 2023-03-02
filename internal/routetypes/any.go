@@ -23,9 +23,8 @@ type Any struct {
 
 func (a Any) Bytes() []byte {
 	output := make([]byte, 8)
-	binary.LittleEndian.PutUint16(output[0:2], a.Proto)
-
-	binary.LittleEndian.PutUint16(output[2:], a.Port)
+	binary.BigEndian.PutUint16(output[0:2], a.Proto)
+	binary.BigEndian.PutUint16(output[2:], a.Port)
 
 	return output
 }
@@ -35,8 +34,8 @@ func (a *Any) Unpack(b []byte) error {
 		return errors.New("too short")
 	}
 
-	a.Proto = binary.LittleEndian.Uint16(b[0:2])
-	a.Port = binary.LittleEndian.Uint16(b[2:])
+	a.Proto = binary.BigEndian.Uint16(b[0:2])
+	a.Port = binary.BigEndian.Uint16(b[2:])
 
 	return nil
 }

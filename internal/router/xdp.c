@@ -5,6 +5,7 @@
 #include <linux/icmp.h>
 #include <linux/in.h>
 #include <linux/types.h>
+#include <linux/bpf_common.h>
 
 #include "bpf_endian.h"
 #include "common.h"
@@ -162,7 +163,9 @@ struct bpf_map_def SEC("maps") account_locked = {
 struct ip4_trie_key
 {
     __u32 prefixlen; // first member must be u32
-    __u16 rule_type; // rest can be arbitrary
+
+    // rest can be arbitrary
+    __u16 rule_type;
 
     __u16 proto;
     __u16 port;
@@ -255,9 +258,9 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
 
         if (tcph + 1 > (struct tcphdr *)data_end)
         {
-
             return 0;
         }
+
         ip_info->dst_port = tcph->dest;
         ip_info->src_port = tcph->source;
 
@@ -340,6 +343,7 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     void *mfa_result = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, key) : NULL;
     if (mfa_result != NULL)
     {
+        bpf_printk("match mfa");
 
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
         if (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
@@ -369,6 +373,8 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     if (public_result != NULL)
     {
 
+        bpf_printk("match pub");
+
         if (!validate_rule(key, public_result))
         {
             return 0;
@@ -384,7 +390,6 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
 
     return 0;
 }
-
 static __always_inline int conntrack(struct ip *ip_info)
 {
 
@@ -405,6 +410,8 @@ static __always_inline int conntrack(struct ip *ip_info)
         address = ip_info->src_ip;
         port = ip_info->src_port;
     }
+
+    bpf_printk("dst port: %d", __bpf_ntohs(port));
 
     // Check if the account exists
     __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, current_device->user_id);
@@ -429,10 +436,7 @@ static __always_inline int conntrack(struct ip *ip_info)
     struct ip4_trie_key key = {0};
     key.proto = ip_info->proto;
 
-    key.port = port;
-    key.addr = address;
-
-    key.prefixlen = 96;
+    key.prefixlen = 64;
 
     key.rule_type = ANY;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
@@ -440,17 +444,26 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 1;
     }
 
+    bpf_printk("failed any");
+
     key.rule_type = RANGE;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
     {
         return 1;
     }
 
+    bpf_printk("failed range");
+
+    key.port = port;
+    key.addr = address;
+
     key.rule_type = SINGLE;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
     {
         return 1;
     }
+
+    bpf_printk("failed single");
 
     return 0;
 }

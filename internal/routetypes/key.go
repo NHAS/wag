@@ -37,7 +37,9 @@ type Key struct {
 	Prefixlen uint32 //4
 
 	RuleType uint16 //2
-	Protocol uint16 //2
+
+	// Both of these are big endian
+	Protocol uint16 //2,
 	Port     uint16 //2
 
 	IP net.IP // 4
@@ -49,8 +51,8 @@ func (l Key) Bytes() []byte {
 
 	binary.LittleEndian.PutUint16(output[4:], l.RuleType)
 
-	binary.LittleEndian.PutUint16(output[6:], l.Protocol)
-	binary.LittleEndian.PutUint16(output[8:], l.Port)
+	binary.BigEndian.PutUint16(output[6:], l.Protocol)
+	binary.BigEndian.PutUint16(output[8:], l.Port)
 
 	// Padding goes here
 
@@ -66,8 +68,9 @@ func (l *Key) Unpack(b []byte) error {
 
 	l.Prefixlen = binary.LittleEndian.Uint32(b)
 	l.RuleType = binary.LittleEndian.Uint16(b[4:])
-	l.Protocol = binary.LittleEndian.Uint16(b[6:])
-	l.Port = binary.LittleEndian.Uint16(b[8:])
+
+	l.Protocol = binary.BigEndian.Uint16(b[6:])
+	l.Port = binary.BigEndian.Uint16(b[8:])
 	//Ignore padding
 	l.IP = b[12:16]
 
