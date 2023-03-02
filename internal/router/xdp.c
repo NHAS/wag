@@ -343,8 +343,6 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     void *mfa_result = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, key) : NULL;
     if (mfa_result != NULL)
     {
-        bpf_printk("match mfa");
-
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
         if (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
@@ -372,8 +370,6 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     void *public_result = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, key) : NULL;
     if (public_result != NULL)
     {
-
-        bpf_printk("match pub");
 
         if (!validate_rule(key, public_result))
         {
@@ -411,8 +407,6 @@ static __always_inline int conntrack(struct ip *ip_info)
         port = ip_info->src_port;
     }
 
-    bpf_printk("dst port: %d", __bpf_ntohs(port));
-
     // Check if the account exists
     __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, current_device->user_id);
     if (isAccountLocked == NULL)
@@ -434,9 +428,9 @@ static __always_inline int conntrack(struct ip *ip_info)
     u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));
 
     struct ip4_trie_key key = {0};
-    key.proto = ip_info->proto;
 
-    key.prefixlen = 64;
+    key.addr = address;
+    key.prefixlen = 96;
 
     key.rule_type = ANY;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
@@ -444,26 +438,21 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 1;
     }
 
-    bpf_printk("failed any");
-
     key.rule_type = RANGE;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
     {
         return 1;
     }
 
-    bpf_printk("failed range");
-
+    // Do not add port and proto for the other two, they contain that information in their values, rather than their keys
     key.port = port;
-    key.addr = address;
+    key.proto = ip_info->proto;
 
     key.rule_type = SINGLE;
     if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
     {
         return 1;
     }
-
-    bpf_printk("failed single");
 
     return 0;
 }
