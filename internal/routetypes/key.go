@@ -69,7 +69,7 @@ func (l *Key) Unpack(b []byte) error {
 	l.Prefixlen = binary.LittleEndian.Uint32(b)
 	l.RuleType = binary.LittleEndian.Uint16(b[4:])
 
-	l.Protocol = binary.BigEndian.Uint16(b[6:])
+	l.Protocol = binary.LittleEndian.Uint16(b[6:])
 	l.Port = binary.BigEndian.Uint16(b[8:])
 	//Ignore padding
 	l.IP = b[12:16]
