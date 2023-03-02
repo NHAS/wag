@@ -321,9 +321,11 @@ static __always_inline int validate_rule(__u8 rule_type, __u16 port, __u16 proto
     {
         struct range *range_rule = (struct range *)table_result;
 
+#ifdef __DEBUG__
         bpf_printk("l %d r %d", (range_rule->proto == 0 || range_rule->proto == proto), (port >= range_rule->lower_port && port <= range_rule->upper_port));
         bpf_printk("rule u %d l %d proto %d", __bpf_htons(range_rule->lower_port), __bpf_htons(range_rule->upper_port), range_rule->proto);
         bpf_printk("input port %d proto %d", __bpf_htons(port), proto);
+#endif
 
         return (range_rule->proto == 0 || range_rule->proto == proto) && (port >= range_rule->lower_port && port <= range_rule->upper_port);
     }
