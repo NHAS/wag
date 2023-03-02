@@ -41,5 +41,10 @@ func (a *Any) Unpack(b []byte) error {
 }
 
 func (a Any) String() string {
-	return fmt.Sprintf("proto %d, %d", a.Proto, a.Port)
+
+	if a.Proto == ICMP {
+		return "icmp"
+	}
+
+	return fmt.Sprintf("%d/any", a.Port)
 }

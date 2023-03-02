@@ -46,5 +46,5 @@ func (r *Range) Unpack(b []byte) error {
 }
 
 func (r Range) String() string {
-	return fmt.Sprintf("proto %d, %d-%d", r.Proto, r.LowerPort, r.UpperPort)
+	return fmt.Sprintf("%d-%d/%s", r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 }

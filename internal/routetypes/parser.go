@@ -109,7 +109,7 @@ func parseService(ip net.IP, maskLength uint32, service string) (BinaryRule, err
 
 			val := Any{
 				Proto: ICMP,
-				Port:  1,
+				Port:  0,
 			}
 
 			return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil

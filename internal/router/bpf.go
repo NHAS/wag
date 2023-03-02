@@ -693,7 +693,20 @@ func GetRules() (map[string]FirewallRules, error) {
 		kv := routetypes.Key{}
 		for innerIter.Next(&innerKey, &val) {
 			kv.Unpack(innerKey)
-			result = append(result, kv.String())
+			additional := ""
+			switch kv.RuleType {
+			case routetypes.ANY:
+				var a routetypes.Any
+				a.Unpack(val)
+
+				additional = a.String()
+			case routetypes.RANGE:
+				var r routetypes.Range
+				r.Unpack(val)
+
+				additional = r.String()
+			}
+			result = append(result, kv.String()+" "+additional)
 		}
 
 		innerMap.Close()
