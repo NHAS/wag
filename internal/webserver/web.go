@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
@@ -408,13 +409,19 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dnsWithOutSubnet := config.Values().Wireguard.DNS
+
+	for i := 0; i < len(dnsWithOutSubnet); i++ {
+		dnsWithOutSubnet[i] = strings.TrimSuffix(dnsWithOutSubnet[i], "/32")
+	}
+
 	i := resources.Interface{
 		ClientPrivateKey:   keyStr,
 		ClientAddress:      address,
 		ServerAddress:      fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:    wgPublicKey.String(),
 		CapturedAddresses:  append(acl.Allow, acl.Mfa...),
-		DNS:                config.Values().Wireguard.DNS,
+		DNS:                dnsWithOutSubnet,
 		ClientPresharedKey: presharedKey,
 	}
 
