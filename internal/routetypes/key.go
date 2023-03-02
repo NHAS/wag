@@ -75,7 +75,12 @@ func (l *Key) Unpack(b []byte) error {
 }
 
 func (l Key) String() string {
-	return fmt.Sprintf("%s/%d %s %d/%s", l.IP.String(), l.Prefixlen-64, lookupRuleType(l.RuleType), l.Port, lookupProtocol(l.Protocol))
+
+	var serviceInfo string
+	if l.RuleType == SINGLE {
+		serviceInfo = fmt.Sprintf(" %d/%s", l.Port, lookupProtocol(l.Protocol))
+	}
+	return fmt.Sprintf("%s/%d %s", l.IP.String(), l.Prefixlen-64, lookupRuleType(l.RuleType)) + serviceInfo
 }
 
 func lookupRuleType(t uint16) string {

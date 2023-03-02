@@ -394,7 +394,7 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 
 	innerMap, err := ebpf.NewMapFromID(innerMapID)
 	if err != nil {
-		return fmt.Errorf("inner map: %s", err)
+		return fmt.Errorf("getting inner map from ID: %s", err)
 	}
 	defer innerMap.Close()
 
@@ -408,7 +408,7 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 		for _, br := range binaryRules {
 			err = innerMap.Put(br.Key, br.Value)
 			if err != nil {
-				return fmt.Errorf("inner map: %s", err)
+				return fmt.Errorf("error putting value in inner map: %s (key size: %d, value size: %d)", err, len(br.Key), len(br.Value))
 			}
 		}
 

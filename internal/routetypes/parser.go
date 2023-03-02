@@ -112,7 +112,7 @@ func parseService(ip net.IP, maskLength uint32, service string) (BinaryRule, err
 				Port:  1,
 			}
 
-			return BinaryRule{ip, key.Bytes(), val.Bytes()}, nil
+			return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
 
 		default:
 			return BinaryRule{}, errors.New("malformed port/service declaration: " + service)
@@ -123,7 +123,8 @@ func parseService(ip net.IP, maskLength uint32, service string) (BinaryRule, err
 	portRange := strings.Split(parts[0], "-")
 	proto := strings.ToLower(parts[1])
 	if len(portRange) == 1 {
-		return parseSinglePort(ip, maskLength, parts[0], proto)
+		br, err := parseSinglePort(ip, maskLength, parts[0], proto)
+		return br, err
 	}
 
 	return parsePortRange(ip, maskLength, portRange[0], portRange[1], proto)
@@ -159,7 +160,7 @@ func parsePortRange(ip net.IP, maskLength uint32, lowerPort, upperPort, proto st
 			UpperPort: uint16(upperPortNum),
 		}
 
-		return BinaryRule{ip, key.Bytes(), val.Bytes()}, nil
+		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
 
 	case "tcp", "udp":
 
@@ -180,7 +181,7 @@ func parsePortRange(ip net.IP, maskLength uint32, lowerPort, upperPort, proto st
 			UpperPort: uint16(upperPortNum),
 		}
 
-		return BinaryRule{ip, key.Bytes(), val.Bytes()}, nil
+		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
 	}
 
 	return BinaryRule{}, errors.New("unknown service: " + proto)
@@ -207,7 +208,7 @@ func parseSinglePort(ip net.IP, maskLength uint32, port, proto string) (BinaryRu
 			Port:  uint16(portNumber),
 		}
 
-		return BinaryRule{ip, key.Bytes(), val.Bytes()}, nil
+		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
 
 	case "tcp", "udp":
 
@@ -224,7 +225,7 @@ func parseSinglePort(ip net.IP, maskLength uint32, port, proto string) (BinaryRu
 			IP:        ip,
 		}
 
-		return BinaryRule{ip, key.Bytes(), make([]byte, 8)}, nil
+		return BinaryRule{IP: ip, Key: key.Bytes(), Value: make([]byte, 8)}, nil
 	}
 
 	return BinaryRule{}, errors.New("unknown service: " + port + "/" + proto)

@@ -11,6 +11,10 @@ func checkKey(br BinaryRule, expectedKey Key) error {
 	var (
 		k Key
 	)
+
+	if len(expectedKey.Bytes()) != len(br.Key) {
+		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(br.Key))
+	}
 	if err := k.Unpack(br.Key); err != nil {
 		return fmt.Errorf("could not unpack key: %s", err)
 	}
@@ -75,7 +79,7 @@ func TestParseEasyRules(t *testing.T) {
 	expected := Key{
 		IP:        net.IPv4(1, 1, 1, 1),
 		RuleType:  ANY,
-		Prefixlen: 48,
+		Prefixlen: 96,
 	}
 
 	expectedValue := Any{
@@ -121,7 +125,7 @@ func TestParseSimpleSingles(t *testing.T) {
 	}
 
 	expected := Key{
-		Prefixlen: 80,
+		Prefixlen: 96,
 		RuleType:  SINGLE,
 		Protocol:  TCP,
 		Port:      43,
@@ -139,7 +143,7 @@ func TestParseSimpleSingles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected.Prefixlen = 48
+	expected.Prefixlen = 96
 	expected.RuleType = ANY
 
 	expected.Protocol = 0
@@ -158,7 +162,7 @@ func TestParseSimpleSingles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected.Prefixlen = 48
+	expected.Prefixlen = 96
 	expected.RuleType = ANY
 
 	expected.Protocol = 0
@@ -188,7 +192,7 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	expected := Key{
-		Prefixlen: 48,
+		Prefixlen: 96,
 		RuleType:  RANGE,
 		IP:        net.IPv4(1, 3, 1, 3),
 	}
@@ -213,7 +217,7 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	expected = Key{
-		Prefixlen: 48,
+		Prefixlen: 96,
 		RuleType:  RANGE,
 		IP:        net.IPv4(1, 4, 1, 4),
 	}
@@ -233,7 +237,7 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	expected = Key{
-		Prefixlen: 80,
+		Prefixlen: 96,
 		RuleType:  SINGLE,
 		Port:      55,
 		Protocol:  TCP,
@@ -245,7 +249,7 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	expected = Key{
-		Prefixlen: 80,
+		Prefixlen: 96,
 		RuleType:  SINGLE,
 		Port:      66,
 		Protocol:  UDP,

@@ -593,7 +593,7 @@ func StartWebServer(errs chan<- error) {
 
 				if err := ctrl.EditPolicies(group); err != nil {
 					http.Error(w, err.Error(), 500)
-					log.Println("error editing group: ", err)
+					log.Println("error editing policy: ", err)
 					return
 				}
 
