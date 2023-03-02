@@ -307,32 +307,36 @@ struct range
 // if ANY type this is a 2 byte proto type where 0 means all protocols. [2 bytes proto][6 empty]
 //    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port. [2 bytes proto][2 bytes lower][2 bytes upper][2 bytes empty]
 //    SINGLE type, no meaning 1 byte for yes or no. [all empty]
-static __always_inline int validate_rule(struct ip4_trie_key *key, void *table_result)
+static __always_inline int validate_rule(__u8 rule_type, __u16 port, __u16 proto, void *table_result)
 {
-    switch (key->rule_type)
+    switch (rule_type)
     {
     case ANY:
     {
         struct any *any_rule = (struct any *)table_result;
         // if the port is 0, then this is any port
-        return (any_rule->proto == 0 || any_rule->proto == key->proto) && (any_rule->port == 0 || any_rule->port == key->port);
+        return (any_rule->proto == 0 || any_rule->proto == proto) && (any_rule->port == 0 || any_rule->port == port);
     }
     case RANGE:
     {
         struct range *range_rule = (struct range *)table_result;
-        return (range_rule->proto == 0 || range_rule->proto == key->proto) && (key->port > range_rule->lower_port && key->port < range_rule->upper_port);
-    }
-    default:
-    {
 
+        bpf_printk("l %d r %d", (range_rule->proto == 0 || range_rule->proto == proto), (port >= range_rule->lower_port && port <= range_rule->upper_port));
+        bpf_printk("rule u %d l %d proto %d", __bpf_htons(range_rule->lower_port), __bpf_htons(range_rule->upper_port), range_rule->proto);
+        bpf_printk("input port %d proto %d", __bpf_htons(port), proto);
+
+        return (range_rule->proto == 0 || range_rule->proto == proto) && (port >= range_rule->lower_port && port <= range_rule->upper_port);
+    }
+    case SINGLE:
         // Single rule is done via the LPM itself. E.g the port and protocol are stored along with the IPv4 address so no active checking needs to happen here. If its a single then by its very nature we've matched.
         // Just doing an additional check for the NULL just to be 100% sure
         return (table_result != NULL);
     }
-    }
+
+    return 0;
 }
 
-static __always_inline int check(struct ip4_trie_key *key, struct device *current_device, __u64 currentTime, u8 isTimedOut, __u32 *isAccountLocked)
+static __always_inline int check(struct ip4_trie_key *key, struct device *current_device, __u64 currentTime, u8 isTimedOut, __u32 isAccountLocked, __u16 port, __u16 proto)
 {
     // The inner maps must be a LPM trie
 
@@ -344,12 +348,12 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     if (mfa_result != NULL)
     {
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
-        if (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
+        if (!isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
             (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry))
         {
 
-            if (!validate_rule(key, mfa_result))
+            if (!validate_rule(key->rule_type, port, proto, mfa_result))
             {
                 return 0;
             }
@@ -371,7 +375,7 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
     if (public_result != NULL)
     {
 
-        if (!validate_rule(key, public_result))
+        if (!validate_rule(key->rule_type, port, proto, public_result))
         {
             return 0;
         }
@@ -381,6 +385,7 @@ static __always_inline int check(struct ip4_trie_key *key, struct device *curren
         {
             current_device->lastPacketTime = currentTime;
         }
+
         return 1;
     }
 
@@ -433,13 +438,13 @@ static __always_inline int conntrack(struct ip *ip_info)
     key.prefixlen = 96;
 
     key.rule_type = ANY;
-    if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
+    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
     {
         return 1;
     }
 
     key.rule_type = RANGE;
-    if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
+    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
     {
         return 1;
     }
@@ -449,7 +454,7 @@ static __always_inline int conntrack(struct ip *ip_info)
     key.proto = ip_info->proto;
 
     key.rule_type = SINGLE;
-    if (check(&key, current_device, currentTime, isTimedOut, isAccountLocked))
+    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
     {
         return 1;
     }

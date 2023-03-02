@@ -51,7 +51,7 @@ func (l Key) Bytes() []byte {
 
 	binary.LittleEndian.PutUint16(output[4:], l.RuleType)
 
-	binary.BigEndian.PutUint16(output[6:], l.Protocol)
+	binary.LittleEndian.PutUint16(output[6:], l.Protocol) // Da fuck?
 	binary.BigEndian.PutUint16(output[8:], l.Port)
 
 	// Padding goes here

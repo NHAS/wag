@@ -25,7 +25,7 @@ type Range struct {
 
 func (r Range) Bytes() []byte {
 	output := make([]byte, 8)
-	binary.BigEndian.PutUint16(output[0:2], r.Proto)
+	binary.LittleEndian.PutUint16(output[0:2], r.Proto)
 
 	binary.BigEndian.PutUint16(output[2:], r.LowerPort)
 	binary.BigEndian.PutUint16(output[4:], r.UpperPort)
@@ -38,7 +38,7 @@ func (r *Range) Unpack(b []byte) error {
 		return errors.New("too short")
 	}
 
-	r.Proto = binary.BigEndian.Uint16(b[0:2])
+	r.Proto = binary.LittleEndian.Uint16(b[0:2])
 	r.LowerPort = binary.BigEndian.Uint16(b[2:4])
 	r.UpperPort = binary.BigEndian.Uint16(b[4:6])
 
