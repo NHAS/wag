@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "functional": "c",
+        "udp.h": "c",
+        "common.h": "c",
+        "*.tcc": "c",
+        "condition_variable": "c",
+        "list": "c",
+        "string_view": "c",
+        "type_traits": "c",
+        "variant": "c",
+        "*.inc": "c",
+        "algorithm": "c",
+        "inet.h": "c",
+        "bpf_endian.h": "c"
+    }
+}
