@@ -187,7 +187,6 @@ struct bpf_map_def SEC("maps") account_locked = {
 struct ip4_trie_key
 {
     __u32 prefixlen; // first member must be u32
-
     __u32 addr;
 } __attribute__((__packed__));
 
@@ -438,12 +437,11 @@ static __always_inline int conntrack(struct ip *ip_info)
         current_device->lastPacketTime = currentTime;
     }
 
-    struct callback_ctx data = {
-        .port = port,
-        .proto = ip_info->proto,
+    struct callback_ctx data = {0};
+    data.port = port;
+    data.proto = ip_info->proto;
 
-        .result = 0,
-    };
+    data.result = 0;
 
     bpf_for_each_map_elem(policy_rules, validate_policy, &data, 0);
 

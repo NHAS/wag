@@ -73,13 +73,9 @@ var (
 		//    SINGLE type, no meaning 1 byte for yes or no
 		ValueSize: 8,
 
-		// This flag is required for dynamically sized inner maps.
-		// Added in linux 5.10.
-		Flags: unix.BPF_F_NO_PREALLOC,
-
 		// We set this to 200 now, but this inner map spec gets copied
 		// and altered later.
-		MaxEntries: 2000,
+		MaxEntries: 1024,
 	}
 
 	mapsLookup = map[string]**ebpf.Map{
@@ -114,9 +110,12 @@ func loadXDP() error {
 	spec.Maps["policies"].InnerMap = policyMapSpec
 	spec.Maps["public_table"].InnerMap = routesMapSpec
 	spec.Maps["mfa_table"].InnerMap = routesMapSpec
-
 	// Load pre-compiled programs into the kernel.
-	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
+	if err = spec.LoadAndAssign(&xdpObjects, &ebpf.CollectionOptions{Programs: ebpf.ProgramOptions{
+		LogDisabled: false,
+		LogLevel:    (ebpf.LogLevelBranch | ebpf.LogLevelInstruction),
+	}}); err != nil {
+		fmt.Println()
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
