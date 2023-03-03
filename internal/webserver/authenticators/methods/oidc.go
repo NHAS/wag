@@ -163,7 +163,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Server Error", http.StatusInternalServerError)
 				return
 			}
-			groups = append(groups, conv)
+			groups = append(groups, "group:"+conv)
 		}
 
 		// Will set enforcing on first use
