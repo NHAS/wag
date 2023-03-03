@@ -41,17 +41,12 @@ var (
 		Name: "routes_map",
 		Type: ebpf.LPMTrie,
 
-		// 2 byte, rule type;
-		// 2 byte, protocol;
-		// 2 byte, port;
-		// 2 byte for padding (must be a multiple of 8) https://docs.kernel.org/bpf/map_lpm_trie.html
+		// 4 byte, prefix length;
 		// 4 byte, ipv4 addr;
-		KeySize: 16,
+		KeySize: 8,
 
-		// if ANY type this is a 2 byte proto type where 0 means all protocols
-		//    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port
-		//    SINGLE type, no meaning 1 byte for yes or no
-		ValueSize: 8,
+		//We're allowing 100 policies per route, each policy is 8 bytes
+		ValueSize: 8 * 100,
 
 		// This flag is required for dynamically sized inner maps.
 		// Added in linux 5.10.
@@ -59,27 +54,10 @@ var (
 
 		// We set this to 200 now, but this inner map spec gets copied
 		// and altered later.
-		MaxEntries: 2000,
-	}
-
-	policyMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
-		Name: "policies_map",
-		Type: ebpf.Array,
-
-		KeySize: 4,
-
-		// if ANY type this is a 2 byte proto type where 0 means all protocols
-		//    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port
-		//    SINGLE type, no meaning 1 byte for yes or no
-		ValueSize: 8,
-
-		// We set this to 200 now, but this inner map spec gets copied
-		// and altered later.
 		MaxEntries: 1024,
 	}
 
 	mapsLookup = map[string]**ebpf.Map{
-		"policies":        &xdpObjects.Policies,
 		"account_locked":  &xdpObjects.AccountLocked,
 		"devices":         &xdpObjects.bpfMaps.Devices,
 		"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
@@ -107,7 +85,6 @@ func loadXDP() error {
 		return fmt.Errorf("loading spec: %s", err)
 	}
 
-	spec.Maps["policies"].InnerMap = policyMapSpec
 	spec.Maps["public_table"].InnerMap = routesMapSpec
 	spec.Maps["mfa_table"].InnerMap = routesMapSpec
 	// Load pre-compiled programs into the kernel.
@@ -115,7 +92,13 @@ func loadXDP() error {
 		LogDisabled: false,
 		LogLevel:    (ebpf.LogLevelBranch | ebpf.LogLevelInstruction),
 	}}); err != nil {
-		fmt.Println()
+
+		ve, ok := err.(*ebpf.VerifierError)
+		if !ok {
+			return fmt.Errorf("loading objects: %s", err)
+		}
+
+		fmt.Println(strings.Join(ve.Log, "\n"))
 		return fmt.Errorf("loading objects: %s", err)
 	}
 

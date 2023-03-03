@@ -131,7 +131,8 @@ A massive oversimplifcation of what is in this file.
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 */
 
-#define MAX_MAP_ENTRIES 1200
+#define MAX_FILTERS 100
+#define MAX_MAP_ENTRIES 1024
 #define MAX_USERID_LENGTH 20 // Length of sha1 hash
 
 // These definitions are used for searching the trie structure to determine the type of rule we've got.
@@ -226,14 +227,6 @@ struct bpf_map_def SEC("maps") inactivity_timeout_minutes = {
     .map_flags = 0,
 };
 
-struct bpf_map_def SEC("maps") policies = {
-    .type = BPF_MAP_TYPE_ARRAY_OF_MAPS,
-    .max_entries = 1024,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u32),
-    .map_flags = 0,
-};
-
 /*
 Attempt to parse the IPv4 source address from the packet.
 Returns 0 if there is no IPv4 header field; otherwise returns non-zero.
@@ -317,16 +310,7 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     return 1;
 }
 
-struct callback_ctx
-{
-    __u16 proto;
-    __u16 port;
-
-    __u16 result;
-};
-
-static __u64 validate_policy(void *map, __u32 *key, struct policy *policy,
-                             struct callback_ctx *data)
+static __always_inline __u64 validate_policy(struct policy *policy, __u16 proto, __u16 port, __u16 *result)
 {
 
     if (policy->policy_type == STOP)
@@ -337,16 +321,18 @@ static __u64 validate_policy(void *map, __u32 *key, struct policy *policy,
     switch (policy->policy_type)
     {
     case SINGLE:
-        data->result = (policy->lower_port == 0 || policy->lower_port == data->port) && (policy->proto == 0 || policy->proto == data->proto);
+        *result = (policy->lower_port == 0 || policy->lower_port == port) && (policy->proto == 0 || policy->proto == proto);
         break;
     case RANGE:
-        data->result = (policy->lower_port <= data->port && policy->upper_port >= data->port) && (policy->proto == 0 || policy->proto == data->proto);
+        *result = (policy->lower_port <= port && policy->upper_port >= port) && (policy->proto == 0 || policy->proto == proto);
         break;
     }
 
     // if we have a match stop searching
-    return data->result;
+    return *result;
 }
+
+typedef struct policy policy_arr[];
 
 static __always_inline int conntrack(struct ip *ip_info)
 {
@@ -400,8 +386,8 @@ static __always_inline int conntrack(struct ip *ip_info)
     // If the key is a match for the LPM in the public table
     void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
 
-    __u32 *policyIndex = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
-    if (policyIndex != NULL)
+    policy_arr *policies = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
+    if (policies != NULL)
     {
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
         if (isAccountLocked || isTimedOut || current_device->sessionExpiry != 0 ||
@@ -416,16 +402,10 @@ static __always_inline int conntrack(struct ip *ip_info)
     else
     {
         void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
-        policyIndex = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
+        policies = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
     }
 
-    if (policyIndex == NULL)
-    {
-        return 0;
-    }
-
-    void *policy_rules = bpf_map_lookup_elem(&policies, policyIndex);
-    if (policy_rules == NULL)
+    if (policies == NULL)
     {
         return 0;
     }
@@ -437,15 +417,16 @@ static __always_inline int conntrack(struct ip *ip_info)
         current_device->lastPacketTime = currentTime;
     }
 
-    struct callback_ctx data = {0};
-    data.port = port;
-    data.proto = ip_info->proto;
+    __u16 result = 0;
+    for (__u16 i = 0; i < MAX_FILTERS; i++)
+    {
+        if (validate_policy(&(*policies)[i], ip_info->proto, port, &result))
+        {
+            break;
+        }
+    }
 
-    data.result = 0;
-
-    bpf_for_each_map_elem(policy_rules, validate_policy, &data, 0);
-
-    return data.result;
+    return result;
 }
 
 SEC("xdp")

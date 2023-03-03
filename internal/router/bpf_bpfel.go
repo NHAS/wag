@@ -65,7 +65,6 @@ type bpfMapSpecs struct {
 	Devices                  *ebpf.MapSpec `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.MapSpec `ebpf:"inactivity_timeout_minutes"`
 	MfaTable                 *ebpf.MapSpec `ebpf:"mfa_table"`
-	Policies                 *ebpf.MapSpec `ebpf:"policies"`
 	PublicTable              *ebpf.MapSpec `ebpf:"public_table"`
 }
 
@@ -92,7 +91,6 @@ type bpfMaps struct {
 	Devices                  *ebpf.Map `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.Map `ebpf:"inactivity_timeout_minutes"`
 	MfaTable                 *ebpf.Map `ebpf:"mfa_table"`
-	Policies                 *ebpf.Map `ebpf:"policies"`
 	PublicTable              *ebpf.Map `ebpf:"public_table"`
 }
 
@@ -102,7 +100,6 @@ func (m *bpfMaps) Close() error {
 		m.Devices,
 		m.InactivityTimeoutMinutes,
 		m.MfaTable,
-		m.Policies,
 		m.PublicTable,
 	)
 }
