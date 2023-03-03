@@ -35,10 +35,10 @@ const (
 var (
 
 	//Keep reference to xdpLink, otherwise it may be garbage collected
-	xdpLink      link.Link
-	xdpObjects   bpfObjects
-	innerMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
-		Name: "inner_map",
+	xdpLink       link.Link
+	xdpObjects    bpfObjects
+	routesMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
+		Name: "routes_map",
 		Type: ebpf.LPMTrie,
 
 		// 2 byte, rule type;
@@ -62,7 +62,28 @@ var (
 		MaxEntries: 2000,
 	}
 
+	policyMapSpec *ebpf.MapSpec = &ebpf.MapSpec{
+		Name: "policies_map",
+		Type: ebpf.Array,
+
+		KeySize: 4,
+
+		// if ANY type this is a 2 byte proto type where 0 means all protocols
+		//    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port
+		//    SINGLE type, no meaning 1 byte for yes or no
+		ValueSize: 8,
+
+		// This flag is required for dynamically sized inner maps.
+		// Added in linux 5.10.
+		Flags: unix.BPF_F_NO_PREALLOC,
+
+		// We set this to 200 now, but this inner map spec gets copied
+		// and altered later.
+		MaxEntries: 2000,
+	}
+
 	mapsLookup = map[string]**ebpf.Map{
+		"policies":        &xdpObjects.Policies,
 		"account_locked":  &xdpObjects.AccountLocked,
 		"devices":         &xdpObjects.bpfMaps.Devices,
 		"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
@@ -90,8 +111,9 @@ func loadXDP() error {
 		return fmt.Errorf("loading spec: %s", err)
 	}
 
-	spec.Maps["public_table"].InnerMap = innerMapSpec
-	spec.Maps["mfa_table"].InnerMap = innerMapSpec
+	spec.Maps["policies"].InnerMap = policyMapSpec
+	spec.Maps["public_table"].InnerMap = routesMapSpec
+	spec.Maps["mfa_table"].InnerMap = routesMapSpec
 
 	// Load pre-compiled programs into the kernel.
 	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
@@ -380,7 +402,8 @@ func xdpAddDevice(username, address string) error {
 	return xdpObjects.Devices.Put(ip.To4(), deviceStruct.Bytes())
 }
 
-func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error {
+// Takes the LPM table and associates a route to a policy
+func xdpAddRoute(username string, table *ebpf.Map, ruleDefinitions []string) error {
 
 	userid := sha1.Sum([]byte(username))
 	var innerMapID ebpf.MapID
@@ -391,23 +414,23 @@ func xdpAddRoute(username string, table *ebpf.Map, destinations []string) error 
 		return fmt.Errorf("error looking up table: %s", err)
 	}
 
-	innerMap, err := ebpf.NewMapFromID(innerMapID)
+	lpmInner, err := ebpf.NewMapFromID(innerMapID)
 	if err != nil {
 		return fmt.Errorf("getting inner map from ID: %s", err)
 	}
-	defer innerMap.Close()
+	defer lpmInner.Close()
 
-	for _, destination := range destinations {
+	for _, destination := range ruleDefinitions {
 
-		binaryRules, err := routetypes.ParseRule(destination)
+		rules, err := routetypes.ParseRule(destination)
 		if err != nil {
 			return err
 		}
 
-		for _, br := range binaryRules {
-			err = innerMap.Put(br.Key, br.Value)
+		for _, key := range rules.Keys {
+			_, err = lpmInner.BatchUpdate([]routetypes.Key{key}, rules.Values, nil)
 			if err != nil {
-				return fmt.Errorf("error putting value in inner map: %s (key size: %d, value size: %d)", err, len(br.Key), len(br.Value))
+				return fmt.Errorf("error putting value in inner map: %s", err)
 			}
 		}
 
@@ -446,7 +469,7 @@ func AddUser(username string, acls config.Acl) error {
 
 	// Adds LPM trie to existing map (hashmap to map)
 	addMapTo := func(table *ebpf.Map) error {
-		inner, err := ebpf.NewMap(innerMapSpec)
+		inner, err := ebpf.NewMap(routesMapSpec)
 		if err != nil {
 			return fmt.Errorf("%s creating new map: %s", table.String(), err)
 		}
@@ -558,7 +581,7 @@ func refreshUserAcls(username string) error {
 	id := sha1.Sum([]byte(username))
 
 	updateRoutes := func(table *ebpf.Map, routes []string) error {
-		inner, err := ebpf.NewMap(innerMapSpec)
+		inner, err := ebpf.NewMap(routesMapSpec)
 		if err != nil {
 			return fmt.Errorf("%s creating new map: %s", table.String(), err)
 		}
@@ -691,22 +714,11 @@ func GetRules() (map[string]FirewallRules, error) {
 		)
 		innerIter := innerMap.Iterate()
 		kv := routetypes.Key{}
+		p := routetypes.Policy{}
 		for innerIter.Next(&innerKey, &val) {
 			kv.Unpack(innerKey)
-			additional := ""
-			switch kv.RuleType {
-			case routetypes.ANY:
-				var a routetypes.Any
-				a.Unpack(val)
-
-				additional = a.String()
-			case routetypes.RANGE:
-				var r routetypes.Range
-				r.Unpack(val)
-
-				additional = r.String()
-			}
-			result = append(result, kv.String()+" "+additional)
+			p.Unpack(val)
+			result = append(result, kv.String()+" "+p.String())
 		}
 
 		innerMap.Close()

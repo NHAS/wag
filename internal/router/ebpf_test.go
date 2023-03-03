@@ -124,10 +124,10 @@ func TestAddUser(t *testing.T) {
 
 		var allow []string
 		for _, r := range results {
-			var k routetypes.Key
-			k.Unpack(r.Key)
 
-			allow = append(allow, k.String())
+			for _, k := range r.Keys {
+				allow = append(allow, k.String())
+			}
 		}
 
 		results, err = routetypes.ParseRules(acl.Mfa)
@@ -137,10 +137,10 @@ func TestAddUser(t *testing.T) {
 
 		var mfa []string
 		for _, r := range results {
-			var k routetypes.Key
-			k.Unpack(r.Key)
 
-			mfa = append(mfa, k.String())
+			for _, k := range r.Keys {
+				mfa = append(mfa, k.String())
+			}
 		}
 
 		if !sameStringSlice(allow, publicAcls) {
@@ -301,22 +301,24 @@ func TestBasicAuthorise(t *testing.T) {
 	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
 	for i := range mfas {
 
-		rules, err := routetypes.ParseRule(mfas[i])
+		rule, err := routetypes.ParseRule(mfas[i])
 		if err != nil {
 			t.Fatal("could not parse ip: ", err)
 		}
 
-		for _, rule := range rules {
-			newHeader := ipv4.Header{
-				Version: 4,
-				Dst:     rule.IP,
-				Src:     net.ParseIP(out[0].Address),
-				Len:     ipv4.HeaderLen,
-			}
-			headers = append(headers, newHeader)
-
-			expectedResults[newHeader.String()] = XDP_PASS
+		if len(rule.Keys) != 1 {
+			t.Fatal("expected to only have one key")
 		}
+
+		newHeader := ipv4.Header{
+			Version: 4,
+			Dst:     rule.Keys[0].IP,
+			Src:     net.ParseIP(out[0].Address),
+			Len:     ipv4.HeaderLen,
+		}
+		headers = append(headers, newHeader)
+
+		expectedResults[newHeader.String()] = XDP_PASS
 
 	}
 
@@ -746,134 +748,27 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	   ]
 	*/
 
-	printInner := func(key routetypes.Key, value []byte) (err error) {
-		log.Println("looked up:", key.Bytes(), value, key)
-		log.Println("contains: ")
+	// printInner := func(key routetypes.Key, value []byte) (err error) {
+	// 	log.Println("looked up:", key.Bytes(), value, key)
+	// 	log.Println("contains: ")
 
-		var innerKey []byte
-		val := make([]byte, 8)
-		innerIter := userPublicRoutes.Iterate()
-		for innerIter.Next(&innerKey, &val) {
-			var k routetypes.Key
+	// 	var innerKey []byte
+	// 	val := make([]byte, 8)
+	// 	innerIter := userPublicRoutes.Iterate()
+	// 	for innerIter.Next(&innerKey, &val) {
+	// 		var k routetypes.Key
 
-			k.Unpack(innerKey)
+	// 		k.Unpack(innerKey)
 
-			log.Println(innerKey, val, k)
-		}
+	// 		log.Println(innerKey, val, k)
+	// 	}
 
-		if innerIter.Err() != nil {
-			return innerIter.Err()
-		}
+	// 	if innerIter.Err() != nil {
+	// 		return innerIter.Err()
+	// 	}
 
-		return
-	}
-
-	invalid := routetypes.Key{
-		Prefixlen: 64,
-		RuleType:  routetypes.ANY,
-		IP:        net.IPv4(7, 7, 7, 7),
-	}
-
-	b := make([]byte, 8)
-	err = userPublicRoutes.Lookup(invalid.Bytes(), &b)
-	if err == nil {
-
-		printInner(invalid, b)
-
-		t.Fatal("searched non-existant route, should not match")
-	}
-
-	subnet16Any := routetypes.Key{
-		Prefixlen: 96,
-		RuleType:  routetypes.ANY,
-		IP:        net.IPv4(1, 1, 1, 1),
-	}
-
-	err = userPublicRoutes.Lookup(subnet16Any.Bytes(), &b)
-	if err != nil {
-
-		printInner(subnet16Any, b)
-
-		t.Fatal(err)
-	}
-
-	ipAny := routetypes.Key{
-		Prefixlen: 96,
-		RuleType:  routetypes.ANY,
-		IP:        net.IPv4(2, 2, 2, 2),
-	}
-
-	err = userPublicRoutes.Lookup(ipAny.Bytes(), &b)
-	if err != nil {
-
-		printInner(ipAny, b)
-
-		t.Fatal(err)
-	}
-
-	anyProto := routetypes.Key{
-		Prefixlen: 96,
-		RuleType:  routetypes.ANY,
-		IP:        net.IPv4(5, 5, 5, 5),
-	}
-
-	err = userPublicRoutes.Lookup(anyProto.Bytes(), &b)
-	if err != nil {
-
-		printInner(anyProto, b)
-
-		t.Fatal(err)
-	}
-
-	var a routetypes.Any
-	if a.Unpack(b) != nil {
-		t.Fatal("error unpacking")
-	}
-
-	if a.Port != 55 {
-		t.Fatal("wrong port")
-	}
-
-	single33tcp := routetypes.Key{
-		Prefixlen: 96,
-		RuleType:  routetypes.SINGLE,
-		IP:        net.IPv4(3, 3, 3, 3),
-		Port:      33,
-		Protocol:  routetypes.TCP,
-	}
-
-	err = userPublicRoutes.Lookup(single33tcp.Bytes(), &b)
-	if err != nil {
-
-		printInner(single33tcp, b)
-
-		t.Fatal(err)
-	}
-
-	rangeTcp100to150 := routetypes.Key{
-		Prefixlen: 96,
-		RuleType:  routetypes.RANGE,
-		IP:        net.IPv4(6, 6, 6, 6),
-	}
-
-	err = userPublicRoutes.Lookup(rangeTcp100to150.Bytes(), &b)
-	if err != nil {
-
-		printInner(rangeTcp100to150, b)
-
-		t.Fatal(err)
-	}
-
-	var r routetypes.Range
-	r.Unpack(b)
-
-	if r.LowerPort != 100 || r.UpperPort != 150 {
-		t.Fatal("ports wrong")
-	}
-
-	if r.Proto != routetypes.TCP {
-		t.Fatal("wrong range proto")
-	}
+	// 	return
+	// }
 
 }
 

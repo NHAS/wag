@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -14,71 +16,122 @@ const (
 	UDP  = 17 // User Datagram
 )
 
-type BinaryRule struct {
-	Key   []byte
-	Value []byte
-	IP    net.IP
+var (
+	reverseLookup = map[string]int{}
+	allRules      []Rule
+
+	rulesLck sync.RWMutex
+)
+
+type Rule struct {
+	Index int
+
+	Keys []Key
+	// Every policy is added for every key.
+	// I.e if we have 2 keys, 1.1.1.1 and 1.1.2.2 and three policies then each ip will have 3 polices inserted
+	Values []Policy
 }
 
-func ParseRules(rules []string) (result []BinaryRule, err error) {
+func ResetAndReparseRules(rules []string) (result []Rule, err error) {
+
+	rulesLck.Lock()
+	defer rulesLck.Unlock()
+
+	allRules = make([]Rule, len(rules))
+	reverseLookup = map[string]int{}
 
 	for _, rule := range rules {
-		r, err := ParseRule(rule)
+		r, err := parseRule(rule)
 		if err != nil {
 			return nil, err
 		}
 
-		result = append(result, r...)
+		result = append(result, r)
 	}
 
 	return
 }
 
-func ParseRule(rule string) (rules []BinaryRule, err error) {
+func ParseRules(rules []string) (result []Rule, err error) {
+	rulesLck.Lock()
+	defer rulesLck.Unlock()
+
+	for _, rule := range rules {
+		r, err := parseRule(rule)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, r)
+	}
+
+	return
+}
+
+func ParseRule(rule string) (rules Rule, err error) {
+	rulesLck.Lock()
+	defer rulesLck.Unlock()
+
+	return parseRule(rule)
+}
+
+func parseRule(rule string) (rules Rule, err error) {
 
 	ruleParts := strings.Fields(rule)
 	if len(ruleParts) < 1 {
-		return nil, errors.New("could not split correct number of rules")
+		return rules, errors.New("could not split correct number of rules")
+	}
+
+	sort.Strings(ruleParts[1:])
+	lookupString := strings.Join(ruleParts, " ")
+
+	if index, ok := reverseLookup[lookupString]; ok {
+
+		return allRules[index], nil
 	}
 
 	resultingAddresses, err := parseAddress(ruleParts[0])
 	if err != nil {
-		return nil, err
+		return rules, err
 	}
 
 	for _, ip := range resultingAddresses {
 
 		maskLength, _ := ip.Mask.Size()
 
+		rules.Keys = append(rules.Keys,
+			Key{
+				Prefixlen: uint32(maskLength),
+				IP:        ip.IP,
+			},
+		)
+
 		if len(ruleParts) == 1 {
 			// If the user has only defined one address and no ports this counts as an any/any rule
 
-			key := Key{
-				Prefixlen: 64 + uint32(maskLength),
-				RuleType:  ANY,
-				IP:        ip.IP,
-			}
-
-			val := Any{
-				Proto: ANY,
-				Port:  ANY,
-			}
-
-			rules = append(rules, BinaryRule{IP: ip.IP, Key: key.Bytes(), Value: val.Bytes()})
+			rules.Values = append(rules.Values, Policy{
+				PolicyType: SINGLE,
+				Proto:      ANY,
+				LowerPort:  ANY,
+			})
 
 		} else {
+
 			for _, field := range ruleParts[1:] {
-				br, err := parseService(ip.IP, uint32(maskLength), field)
+				policy, err := parseService(field)
 				if err != nil {
-					return nil, err
+					return rules, err
 				}
 
-				rules = append(rules, br)
-
+				rules.Values = append(rules.Values, policy)
 			}
 		}
 
 	}
+
+	rules.Index = len(allRules)
+	allRules = append(allRules, rules)
+	reverseLookup[lookupString] = rules.Index
 
 	return
 }
@@ -94,28 +147,21 @@ func ValidateRules(rules []string) error {
 	return nil
 }
 
-func parseService(ip net.IP, maskLength uint32, service string) (BinaryRule, error) {
+func parseService(service string) (Policy, error) {
 	parts := strings.Split(service, "/")
 	if len(parts) == 1 {
 		// are declarations like `icmp` which dont have a port
 		switch parts[0] {
 		case "icmp":
 
-			key := Key{
-				Prefixlen: 64 + maskLength,
-				RuleType:  ANY,
-				IP:        ip,
-			}
-
-			val := Any{
-				Proto: ICMP,
-				Port:  0,
-			}
-
-			return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
+			return Policy{
+				PolicyType: SINGLE,
+				Proto:      ICMP,
+				LowerPort:  0,
+			}, nil
 
 		default:
-			return BinaryRule{}, errors.New("malformed port/service declaration: " + service)
+			return Policy{}, errors.New("malformed port/service declaration: " + service)
 		}
 
 	}
@@ -123,44 +169,38 @@ func parseService(ip net.IP, maskLength uint32, service string) (BinaryRule, err
 	portRange := strings.Split(parts[0], "-")
 	proto := strings.ToLower(parts[1])
 	if len(portRange) == 1 {
-		br, err := parseSinglePort(ip, maskLength, parts[0], proto)
+		br, err := parseSinglePort(parts[0], proto)
 		return br, err
 	}
 
-	return parsePortRange(ip, maskLength, portRange[0], portRange[1], proto)
+	return parsePortRange(portRange[0], portRange[1], proto)
 }
 
-func parsePortRange(ip net.IP, maskLength uint32, lowerPort, upperPort, proto string) (BinaryRule, error) {
+func parsePortRange(lowerPort, upperPort, proto string) (Policy, error) {
 	lowerPortNum, err := strconv.Atoi(lowerPort)
 	if err != nil {
-		return BinaryRule{}, errors.New("could not convert lower port defintion to number: " + lowerPort)
+		return Policy{}, errors.New("could not convert lower port defintion to number: " + lowerPort)
 	}
 
 	upperPortNum, err := strconv.Atoi(upperPort)
 	if err != nil {
-		return BinaryRule{}, errors.New("could not convert upper port defintion to number: " + upperPort)
+		return Policy{}, errors.New("could not convert upper port defintion to number: " + upperPort)
 	}
 
 	if lowerPortNum > upperPortNum {
-		return BinaryRule{}, errors.New("lower port cannot be higher than upper power: lower: " + lowerPort + " upper: " + upperPort)
+		return Policy{}, errors.New("lower port cannot be higher than upper power: lower: " + lowerPort + " upper: " + upperPort)
 	}
 
 	switch proto {
 	case "any":
 
-		key := Key{
-			Prefixlen: 64 + maskLength,
-			RuleType:  RANGE,
-			IP:        ip,
-		}
+		return Policy{
+			PolicyType: RANGE,
+			Proto:      ANY,
 
-		val := Range{
-			Proto:     ANY,
 			LowerPort: uint16(lowerPortNum),
 			UpperPort: uint16(upperPortNum),
-		}
-
-		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
+		}, nil
 
 	case "tcp", "udp":
 
@@ -169,46 +209,33 @@ func parsePortRange(ip net.IP, maskLength uint32, lowerPort, upperPort, proto st
 			service = UDP
 		}
 
-		key := Key{
-			Prefixlen: 64 + maskLength,
-			RuleType:  RANGE,
-			IP:        ip,
-		}
+		return Policy{
+			PolicyType: RANGE,
 
-		val := Range{
 			Proto:     uint16(service),
 			LowerPort: uint16(lowerPortNum),
 			UpperPort: uint16(upperPortNum),
-		}
-
-		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
+		}, nil
 	}
 
-	return BinaryRule{}, errors.New("unknown service: " + proto)
+	return Policy{}, errors.New("unknown service: " + proto)
 
 }
 
-func parseSinglePort(ip net.IP, maskLength uint32, port, proto string) (BinaryRule, error) {
+func parseSinglePort(port, proto string) (Policy, error) {
 	portNumber, err := strconv.Atoi(port)
 	if err != nil {
-		return BinaryRule{}, errors.New("could not convert port defintion to number: " + port)
+		return Policy{}, errors.New("could not convert port defintion to number: " + port)
 	}
 
 	switch proto {
 	case "any":
 
-		key := Key{
-			Prefixlen: 64 + maskLength,
-			RuleType:  ANY,
-			IP:        ip,
-		}
-
-		val := Any{
-			Proto: 0,
-			Port:  uint16(portNumber),
-		}
-
-		return BinaryRule{IP: ip, Key: key.Bytes(), Value: val.Bytes()}, nil
+		return Policy{
+			PolicyType: SINGLE,
+			Proto:      ANY,
+			LowerPort:  uint16(portNumber),
+		}, nil
 
 	case "tcp", "udp":
 
@@ -217,18 +244,14 @@ func parseSinglePort(ip net.IP, maskLength uint32, port, proto string) (BinaryRu
 			service = UDP
 		}
 
-		key := Key{
-			Prefixlen: 64 + maskLength,
-			RuleType:  SINGLE,
-			Protocol:  uint16(service),
-			Port:      uint16(portNumber),
-			IP:        ip,
-		}
-
-		return BinaryRule{IP: ip, Key: key.Bytes(), Value: make([]byte, 8)}, nil
+		return Policy{
+			PolicyType: SINGLE,
+			Proto:      uint16(service),
+			LowerPort:  uint16(portNumber),
+		}, nil
 	}
 
-	return BinaryRule{}, errors.New("unknown service: " + port + "/" + proto)
+	return Policy{}, errors.New("unknown service: " + port + "/" + proto)
 }
 
 func parseAddress(address string) (resultAddresses []net.IPNet, err error) {

@@ -15,103 +15,127 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 /*
 A massive oversimplifcation of what is in this file.
 
-┌─────────────────────────────────────┐                      ┌───────────────────────────────────┐    ┌───────────────────────────────┐
-│                User                 │◄───┐                 │           Devices                 │    │      Inactivity Timeout       │
-│                                     │    │                 │            map                    │    │                               │
-├─────────────────────────────────────┤    │                 │     key: ipv4 (u32)               │    │       uint64 (minutes)        │
-│           Public Routes LPM         │    │                 │     val: sizeof(struct device)    │    │                               │
-│              key uint32             │    │                 │                                   │    └───────────────────────────────┘
-├─────────────────────────────────────┤    │                 └───────────────────────────────────┘
-│           MFA Routes LPM            │    │
-│              key uint32             │    │                     ┌────────────────────────────┐
-├─────────────────────────────────────┤    │                     │     device   struct        │
-│           AccountLocked             │    │                     │                            │
-│               uint32                │    └─────────────────────┼─ userid         char[20]   │
-└─────────────────────────────────────┘                          │  sessionExpiry  uint64     │
-                                                                 │  lastPacketTime uint64     │
-                                                                 │  deviceLock     uint32     │
-                                                                 └────────────────────────────┘
+       ┌───────────────────────────────┐             ┌───────────────────────────────────┐
+       │      Inactivity Timeout       │             │           Devices                 │
+       │                               │             │            map                    │
+       │       uint64 (minutes)        │             │     key: ipv4 (u32)               │
+       │                               │             │     val: sizeof(struct device)    │
+       └───────────────────────────────┘             │                 │                 │
+                                                     └─────────────────┼─────────────────┘
+                                                                       │
+                                                         ┌─────────────▼──────────────┐
+                                                         │     device   struct        │
+    ┌─────────────────────────────────────┐              │                            │
+    │                User                 │◄─────────────┼─ userid         char[20]   │
+    │                                     │              │  sessionExpiry  uint64     │
+    ├─────────────────────────────────────┤              │  lastPacketTime uint64     │
+    │           AccountLocked             │              │  deviceLock     uint32     │
+    │               uint32                │              └────────────────────────────┘
+    ├─────────────────────────────────────┤
+    │           Public Routes LPM         │
+    │              key uint32             │             ┌──────────────────────────────┐
+    │         value policy_id (uint32) ───┼──────┐      │   Policies (array of maps)   │
+    │                                     │      │      │                              │
+    ├─────────────────────────────────────┤      ├──────┼────►index uint32             │
+    │           MFA Routes LPM            │      │      │     policy array             │
+    │              key uint32             │      │      │              │               │
+    │         value policy_id (uint32) ───┼──────┘      └──────────────┼───────────────┘
+    │                                     │                            │
+    └─────────────────────────────────────┘                            │
+                                                        ┌──────────────▼───────────────┐       ┌─────────────────────────────┐
+                                                        │         Policy (array)       │       │        policy struct        │
+                                                        │                              │       │     policy_type uint16      │
+                                                        │         index uint32         │       │     lower_port  uint16      │
+                                                        │ policy sizeof(struct policy)─┼───────►     upper_port  uint16      │
+                                                        │                              │       │     proto       uint16      │
+                                                        └──────────────────────────────┘       │                             │
+                                                                                               └─────────────────────────────┘
 
-    ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-    │                                                          Packet Flow                                                           │
-    │                                                                                                                                │
-    │                                                                                                                                │
-    │                                                                                                                                │
-    │                                                     │                                                                          │
-    │                                        Input Packet │                                                                          │
-    │                                                     │                                                                          │
-    │                                             ┌───────▼───────┐                                                                  │
-    │                                             │               │                                                       ┌────────┐ │
-    │                                             │  Decode IPv4  │                  if packet not ipv4                   │        │ │
-    │                                             │               │  ─────────────────────────────────────────────────────►  DROP  │ │
-    │                                             │    Header     │                                                       │        │ │
-    │                                             │               │                                                       └────────┘ │
-    │                                             └───────┬───────┘                                                                  │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                                          src : u32  │                                                                          │
-    │                                          dst : u32  │                                                                          │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                                        ┌────────────▼─────────────┐                                                            │
-    │                                        │                          │                                                            │
-    │                                        │       Lookup Device      │                                                            │
-    │                                        │                          │                                                ┌────────┐  │
-    │                                        │  device = (              │               not_found(device)                │        │  │
-    │                                        │     valid(Devices[src])  │ ───────────────────────────────────────────────►  DROP  │  │
-    │                                        │           or             │                                                │        │  │
-    │                                        │     valid(Devices[dst])  │                                                └────────┘  │
-    │                                        │  )                       │                                                            │
-    │                                        │                          │                                                            │
-    │                                        └────────────┬─────────────┘                                                            │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                                  userid : char[20]  │  device found                                                            │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                                         ┌───────────▼─────────────┐                                                            │
-    │                                         │        Lookup User      │                                                            │
-    │                                         │                         │                                                ┌────────┐  │
-    │                                         │    user = users(        │                 not_found(userid)              │        │  │
-    │                                         │      userid             │ ───────────────────────────────────────────────►  DROP  │  │
-    │                                         │    )                    │                                                │        │  │
-    │                                         │                         │                                                └────────┘  │
-    │                                         └───────────┬─────────────┘                                                            │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                        device.LastPacketTime : u64  │                                                                          │
-    │                                       dst_ip : u32  │                                                                          │
-    │                                                     │                           user.isMFARoute(dst_ip)                        │
-    │                                                     │                                    and                                   │
-    │                user.isMFARoute(dst_ip)              │                         (user.AccountLocked or                           │
-    │  ┌────────┐          and               ┌────────────▼────────────┐ time.Now-LastPacketTime >= InactivityTimeout or ┌────────┐  │
-    │  │        │      isAuthorised          │        MFA Routes       │      user.SessionExpiry < time.Now)             │        │  │
-    │  │  PASS  │◄────────────────────────── │         Check           │ ────────────────────────────────────────────────►  DROP  │  │
-    │  │        │                            └────────────┬────────────┘                                                 │        │  │
-    │  └────────┘                                         │                                                              └────────┘  │
-    │                                       dst_ip : u32  │                                                                          │
-    │                                                     │                                                                          │
-    │  ┌────────┐                            ┌────────────▼────────────┐                                                             │
-    │  │        │ user.isPublicRoute(dst_ip) │       Public Routes     │                                                             │
-    │  │  PASS  │◄────────────────────────── │         Check           │                                                             │
-    │  │        │                            └────────────┬────────────┘                                                             │
-    │  └────────┘                                         │                                                                          │
-    │                                                     │                                                                          │
-    │                                                     │                                                                          │
-    │                                                ┌────▼────┐                                                                     │
-    │                                                │         │                                                                     │
-    │                                                │   DROP  │                                                                     │
-    │                                                │         │                                                                     │
-    │                                                └─────────┘                                                                     │
-    │                                                                                                                                │
-    └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                          Packet Flow                                                           │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                     │                                                                          │
+│                                        Input Packet │                                                                          │
+│                                                     │                                                                          │
+│                                             ┌───────▼───────┐                                                                  │
+│                                             │               │                                                       ┌────────┐ │
+│                                             │  Decode IPv4  │                  if packet not ipv4                   │        │ │
+│                                             │               │  ─────────────────────────────────────────────────────►  DROP  │ │
+│                                             │    Header     │                                                       │        │ │
+│                                             │               │                                                       └────────┘ │
+│                                             └───────┬───────┘                                                                  │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                          src : u32  │                                                                          │
+│                                          dst : u32  │                                                                          │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                        ┌────────────▼─────────────┐                                                            │
+│                                        │                          │                                                            │
+│                                        │       Lookup Device      │                                                            │
+│                                        │                          │                                                ┌────────┐  │
+│                                        │  device = (              │               not_found(device)                │        │  │
+│                                        │     valid(Devices[src])  │ ───────────────────────────────────────────────►  DROP  │  │
+│                                        │           or             │                                                │        │  │
+│                                        │     valid(Devices[dst])  │                                                └────────┘  │
+│                                        │  )                       │                                                            │
+│                                        │                          │                                                            │
+│                                        └────────────┬─────────────┘                                                            │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                  userid : char[20]  │  device found                                                            │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                         ┌───────────▼─────────────┐                                                            │
+│                                         │        Lookup User      │                                                            │
+│                                         │                         │                                                ┌────────┐  │
+│                                         │    user = users(        │                 not_found(userid)              │        │  │
+│                                         │      userid             │ ───────────────────────────────────────────────►  DROP  │  │
+│                                         │    )                    │                                                │        │  │
+│                                         │                         │                                                └────────┘  │
+│                                         └───────────┬─────────────┘                                                            │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                        device.LastPacketTime : u64  │                                                                          │
+│                                       dst_ip : u32  │                                                                          │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                        ┌────────────▼────────────┐                                                 ┌────────┐  │
+│                                        │         Routes          │         matches neither public or mfa routes    │        │  │
+│                                        │          Check          │ ────────────────────────────────────────────────►  DROP  │  │
+│                                        └────────────┬────────────┘                                                 │        │  │
+│                                                     │                                                              └────────┘  │
+│                                                     │                                                                          │
+│                                    policy_id : u32  │                                                                          │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                           ┌─────────┴──────────┐                  empty(policies_arr)                          │
+│                                           │    Check Policies  │                         or                        ┌────────┐  │
+│                                           │                    │         no_match(polices_arr,port,proto)          │        │  ├─
+│                                           │    polices_arr = ( │    ───────────────────────────────────────────────►  DROP  │  │
+│                                           │     policy_id      │                                                   │        │  │
+│                                           │    )               │                                                   └────────┘  │
+│                                           │                    │                                                               │
+│                                           └─────────┬──────────┘                                                               │
+│                                                     │                                                                          │
+│                                                     │                                                                          │
+│                                                ┌────▼────┐                                                                     │
+│                                                │         │                                                                     │
+│                                                │   PASS  │                                                                     │
+│                                                │         │                                                                     │
+│                                                └─────────┘                                                                     │
+│                                                                                                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 */
 
 #define MAX_MAP_ENTRIES 1200
 #define MAX_USERID_LENGTH 20 // Length of sha1 hash
 
 // These definitions are used for searching the trie structure to determine the type of rule we've got.
-#define ANY 0    // All ports and protocols
+#define STOP 0   // Signal stop searching array
 #define RANGE 1  // Port & protocol range e.g 22-2000
 #define SINGLE 2 // Single port & protocol
 
@@ -164,15 +188,15 @@ struct ip4_trie_key
 {
     __u32 prefixlen; // first member must be u32
 
-    // rest can be arbitrary
-    __u16 rule_type;
-
-    __u16 proto;
-    __u16 port;
-
-    __u16 PAD1;
-
     __u32 addr;
+} __attribute__((__packed__));
+
+struct policy
+{
+    __u16 policy_type;
+    __u16 proto;
+    __u16 lower_port;
+    __u16 upper_port;
 } __attribute__((__packed__));
 
 // Username  to LPM trie, value size *has* to be u32 as this is a HASH of MAPS
@@ -200,6 +224,14 @@ struct bpf_map_def SEC("maps") inactivity_timeout_minutes = {
     .max_entries = 1,
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
+    .map_flags = 0,
+};
+
+struct bpf_map_def SEC("maps") policies = {
+    .type = BPF_MAP_TYPE_ARRAY_OF_MAPS,
+    .max_entries = 1024,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u32),
     .map_flags = 0,
 };
 
@@ -286,113 +318,37 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     return 1;
 }
 
-struct any
+struct callback_ctx
 {
     __u16 proto;
     __u16 port;
 
-    __u32 PAD1;
-} __attribute__((__packed__));
+    __u16 result;
+};
 
-struct range
+static __u64 validate_policy(struct bpf_map *map, __u32 *key, struct policy *policy,
+                             struct callback_ctx *data)
 {
-    __u16 proto;
-    __u16 lower_port;
-    __u16 upper_port;
 
-    __u16 PAD;
-} __attribute__((__packed__));
-
-// Value organised in big endian
-// if ANY type this is a 2 byte proto type where 0 means all protocols. [2 bytes proto][6 empty]
-//    RANGE type 2 bytes proto, 2 bytes lower port, 2 bytes upper port. [2 bytes proto][2 bytes lower][2 bytes upper][2 bytes empty]
-//    SINGLE type, no meaning 1 byte for yes or no. [all empty]
-static __always_inline int validate_rule(__u8 rule_type, __u16 port, __u16 proto, void *table_result)
-{
-    switch (rule_type)
+    if (policy->policy_type == STOP)
     {
-    case ANY:
-    {
-        struct any *any_rule = (struct any *)table_result;
-        // if the port is 0, then this is any port
-        return (any_rule->proto == 0 || any_rule->proto == proto) && (any_rule->port == 0 || any_rule->port == port);
-    }
-    case RANGE:
-    {
-        struct range *range_rule = (struct range *)table_result;
-
-#ifdef __DEBUG__
-        bpf_printk("l %d r %d", (range_rule->proto == 0 || range_rule->proto == proto), (port >= range_rule->lower_port && port <= range_rule->upper_port));
-        bpf_printk("rule u %d l %d proto %d", __bpf_htons(range_rule->lower_port), __bpf_htons(range_rule->upper_port), range_rule->proto);
-        bpf_printk("input port %d proto %d", __bpf_htons(port), proto);
-#endif
-
-        return (range_rule->proto == 0 || range_rule->proto == proto) && (port >= range_rule->lower_port && port <= range_rule->upper_port);
-    }
-    case SINGLE:
-        // Single rule is done via the LPM itself. E.g the port and protocol are stored along with the IPv4 address so no active checking needs to happen here. If its a single then by its very nature we've matched.
-        // Just doing an additional check for the NULL just to be 100% sure
-        return (table_result != NULL);
-    }
-
-    return 0;
-}
-
-static __always_inline int check(struct ip4_trie_key *key, struct device *current_device, __u64 currentTime, u8 isTimedOut, __u32 isAccountLocked, __u16 port, __u16 proto)
-{
-    // The inner maps must be a LPM trie
-
-    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
-    // If the key is a match for the LPM in the public table
-    void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
-
-    void *mfa_result = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, key) : NULL;
-    if (mfa_result != NULL)
-    {
-        // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
-        if (!isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
-            // If either max session lifetime is disabled, or it is before the max lifetime of the session
-            (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry))
-        {
-
-            if (!validate_rule(key->rule_type, port, proto, mfa_result))
-            {
-                return 0;
-            }
-
-            // Accessing pointers like this is very odd, and not regarding thread safety feels weird
-            current_device->lastPacketTime = currentTime;
-
-            return 1;
-        }
-
-        // If we match a MFA route, but we are not authorised dont fall through to the public route lookup
-        // just die
-        return 0;
-    }
-
-    void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
-
-    void *public_result = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, key) : NULL;
-    if (public_result != NULL)
-    {
-
-        if (!validate_rule(key->rule_type, port, proto, public_result))
-        {
-            return 0;
-        }
-
-        // Only update the lastpacket time if we're not expired
-        if (!isTimedOut)
-        {
-            current_device->lastPacketTime = currentTime;
-        }
-
         return 1;
     }
 
-    return 0;
+    switch (policy->policy_type)
+    {
+    case SINGLE:
+        data->result = (policy->lower_port == 0 || policy->lower_port == data->port) && (policy->proto == 0 || policy->proto == data->proto);
+        break;
+    case RANGE:
+        data->result = (policy->lower_port <= data->port && policy->upper_port >= data->port) && (policy->proto == 0 || policy->proto == data->proto);
+        break;
+    }
+
+    // if we have a match stop searching
+    return data->result;
 }
+
 static __always_inline int conntrack(struct ip *ip_info)
 {
 
@@ -437,31 +393,61 @@ static __always_inline int conntrack(struct ip *ip_info)
     struct ip4_trie_key key = {0};
 
     key.addr = address;
-    key.prefixlen = 96;
+    key.prefixlen = 32;
 
-    key.rule_type = ANY;
-    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
+    // The inner maps must be a LPM trie
+
+    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
+    // If the key is a match for the LPM in the public table
+    void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
+
+    __u32 *policyIndex = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
+    if (policyIndex != NULL)
     {
-        return 1;
+        // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
+        if (isAccountLocked || isTimedOut || current_device->sessionExpiry != 0 ||
+            // If either max session lifetime is disabled, or it is before the max lifetime of the session
+            (current_device->sessionExpiry != __UINT64_MAX__ && currentTime > current_device->sessionExpiry))
+        {
+            // If we match a MFA route, but we are not authorised dont fall through to the public route lookup
+            // just die
+            return 0;
+        }
+    }
+    else
+    {
+        void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
+        policyIndex = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
     }
 
-    key.rule_type = RANGE;
-    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
+    if (policyIndex == NULL)
     {
-        return 1;
+        return 0;
     }
 
-    // Do not add port and proto for the other two, they contain that information in their values, rather than their keys
-    key.port = port;
-    key.proto = ip_info->proto;
-
-    key.rule_type = SINGLE;
-    if (check(&key, current_device, currentTime, isTimedOut, *isAccountLocked, port, ip_info->proto))
+    void *policy_rules = bpf_map_lookup_elem(&policies, policyIndex);
+    if (policy_rules == NULL)
     {
-        return 1;
+        return 0;
     }
 
-    return 0;
+    // Only update the lastpacket time if we're not expired
+    if (!isTimedOut)
+    {
+        // Accessing pointers like this is very odd, and not regarding thread safety feels weird
+        current_device->lastPacketTime = currentTime;
+    }
+
+    struct callback_ctx data = {
+        .port = port,
+        .proto = ip_info->proto,
+
+        .result = 0,
+    };
+
+    bpf_for_each_map_elem(policy_rules, validate_policy, &data, 0);
+
+    return data.result;
 }
 
 SEC("xdp")

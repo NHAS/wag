@@ -7,68 +7,39 @@ import (
 	"testing"
 )
 
-func checkKey(br BinaryRule, expectedKey Key) error {
-	var (
-		k Key
-	)
+func checkKey(reality Key, expectedKey Key) error {
 
-	if len(expectedKey.Bytes()) != len(br.Key) {
-		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(br.Key))
-	}
-	if err := k.Unpack(br.Key); err != nil {
-		return fmt.Errorf("could not unpack key: %s", err)
+	if len(expectedKey.Bytes()) != len(reality.Bytes()) {
+		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(reality.Bytes()))
 	}
 
-	if !net.IP.Equal(expectedKey.IP, k.IP) {
-		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, k.IP)
+	if !net.IP.Equal(reality.IP, expectedKey.IP) {
+		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, reality.IP)
 	}
 
-	if k.RuleType != expectedKey.RuleType {
-		return fmt.Errorf("key had incorrect rule type should be %d, was %d", expectedKey.RuleType, k.RuleType)
-	}
-
-	if k.Prefixlen != expectedKey.Prefixlen {
-		return fmt.Errorf("key had incorrect prefix length, should be %d, was: %d", expectedKey.Prefixlen, k.Prefixlen)
+	if reality.Prefixlen != expectedKey.Prefixlen {
+		return fmt.Errorf("key had incorrect prefix length, should be %d, was: %d", expectedKey.Prefixlen, reality.Prefixlen)
 	}
 
 	return nil
 }
 
-func checkAny(br BinaryRule, expectedValue Any) error {
-	var a Any
+func checkPolicy(reality Policy, expectedValue Policy) error {
 
-	if err := a.Unpack(br.Value); err != nil {
-		return fmt.Errorf("could not unpack value: %s", err)
+	if reality.PolicyType != expectedValue.PolicyType {
+		return fmt.Errorf("value type was not %s, was: %s", lookupRuleType(expectedValue.PolicyType), lookupRuleType(reality.PolicyType))
 	}
 
-	if a.Port != expectedValue.Port {
-		return fmt.Errorf("value port was not %d, was: %d", expectedValue.Port, a.Port)
+	if reality.LowerPort != expectedValue.LowerPort {
+		return fmt.Errorf("value lower port was not %d, was: %d", expectedValue.LowerPort, reality.LowerPort)
 	}
 
-	if a.Proto != expectedValue.Proto {
-		return fmt.Errorf("value proto was not %d, was: %d", expectedValue.Proto, a.Proto)
+	if reality.UpperPort != expectedValue.UpperPort {
+		return fmt.Errorf("value upper port was not %d, was: %d", expectedValue.UpperPort, reality.UpperPort)
 	}
 
-	return nil
-}
-
-func checkRange(br BinaryRule, expectedValue Range) error {
-	var r Range
-
-	if err := r.Unpack(br.Value); err != nil {
-		return fmt.Errorf("could not unpack value: %s", err)
-	}
-
-	if r.LowerPort != expectedValue.LowerPort {
-		return fmt.Errorf("value lower port was not %d, was: %d", expectedValue.LowerPort, r.LowerPort)
-	}
-
-	if r.LowerPort != expectedValue.LowerPort {
-		return fmt.Errorf("value upper port was not %d, was: %d", expectedValue.UpperPort, r.UpperPort)
-	}
-
-	if r.Proto != expectedValue.Proto {
-		return fmt.Errorf("value proto was not %d, was: %d", expectedValue.Proto, r.Proto)
+	if reality.Proto != expectedValue.Proto {
+		return fmt.Errorf("value proto was not %d, was: %d", expectedValue.Proto, reality.Proto)
 	}
 
 	return nil
@@ -78,13 +49,13 @@ func TestParseEasyRules(t *testing.T) {
 
 	expected := Key{
 		IP:        net.IPv4(1, 1, 1, 1),
-		RuleType:  ANY,
-		Prefixlen: 96,
+		Prefixlen: 32,
 	}
 
-	expectedValue := Any{
-		Proto: ANY,
-		Port:  ANY,
+	expectedValue := Policy{
+		PolicyType: SINGLE,
+		Proto:      ANY,
+		LowerPort:  ANY,
 	}
 
 	br, err := ParseRule("1.1.1.1")
@@ -92,11 +63,11 @@ func TestParseEasyRules(t *testing.T) {
 		t.Fatal("failed to parse 1.1.1.1", err)
 	}
 
-	if err := checkKey(br[0], expected); err != nil {
+	if err := checkKey(br.Keys[0], expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkAny(br[0], expectedValue); err != nil {
+	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,11 +76,11 @@ func TestParseEasyRules(t *testing.T) {
 		t.Fatal("failed to parse 1.1.1.1/32", err)
 	}
 
-	if err := checkKey(br[0], expected); err != nil {
+	if err := checkKey(br.Keys[0], expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkAny(br[0], expectedValue); err != nil {
+	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -120,69 +91,76 @@ func TestParseSimpleSingles(t *testing.T) {
 		t.Fatal("failed to parse 1.2.1.2", err)
 	}
 
-	if len(br) != 4 {
-		log.Fatal("expected to define 4 binary rules only got: ", len(br))
+	if len(br.Keys) != 1 {
+		log.Fatal("expected to define 1 key got: ", len(br.Keys))
+
 	}
 
-	expected := Key{
-		Prefixlen: 96,
-		RuleType:  SINGLE,
-		Protocol:  TCP,
-		Port:      43,
+	if len(br.Values) != 4 {
+		log.Fatal("expected to define 4 policies got: ", len(br.Values))
+	}
+
+	expectedKey := Key{
+		Prefixlen: 32,
 		IP:        net.IPv4(1, 2, 1, 2),
 	}
 
-	for _, rule := range br {
-		if len(rule.Key) != 16 {
-			t.Fatal("rules generated key was not 16 bytes, ", rule.Key)
+	expectedValues := []Policy{
+		{
+			PolicyType: SINGLE,
+			Proto:      TCP,
+			LowerPort:  43,
+		},
+		{
+			PolicyType: SINGLE,
+			Proto:      UDP,
+			LowerPort:  23,
+		},
+		{
+			PolicyType: SINGLE,
+			Proto:      ICMP,
+			LowerPort:  0,
+		},
+		{
+			PolicyType: SINGLE,
+			Proto:      0,
+			LowerPort:  55,
+		},
+	}
+
+	for _, key := range br.Keys {
+		if len(key.Bytes()) != 8 {
+			t.Fatal("rules generated key was not 8 bytes")
 		}
 	}
 
-	if err := checkKey(br[0], expected); err != nil {
+	for _, policy := range br.Values {
+		if len(policy.Bytes()) != 8 {
+			t.Fatal("policy generated was not 8 bytes")
+		}
+	}
+
+	if err := checkKey(br.Keys[0], expectedKey); err != nil {
 		t.Fatal(err)
 	}
 
-	expected.Protocol = UDP
-	expected.Port = 23
+	for i := 0; i < len(br.Values); i++ {
 
-	if err := checkKey(br[1], expected); err != nil {
-		t.Fatal(err)
-	}
+		found := false
+		for _, v := range expectedValues {
 
-	expected.Prefixlen = 96
-	expected.RuleType = ANY
+			if err := checkPolicy(br.Values[i], v); err != nil {
+				continue
+			}
 
-	expected.Protocol = 0
-	expected.Port = 0
+			found = true
+			break
+		}
 
-	if err := checkKey(br[2], expected); err != nil {
-		t.Fatal(err)
-	}
+		if !found {
+			t.Fatal("did not find rule in set")
+		}
 
-	expectedValue := Any{
-		Proto: ICMP,
-		Port:  ICMP,
-	}
-
-	if err := checkAny(br[2], expectedValue); err != nil {
-		t.Fatal(err)
-	}
-
-	expected.Prefixlen = 96
-	expected.RuleType = ANY
-
-	expected.Protocol = 0
-	expected.Port = 0
-
-	if err := checkKey(br[3], expected); err != nil {
-		t.Fatal(err)
-	}
-
-	expectedValue.Port = 55
-	expectedValue.Proto = 0
-
-	if err := checkAny(br[3], expectedValue); err != nil {
-		t.Fatal(err)
 	}
 
 }
@@ -193,27 +171,31 @@ func TestParsePortRange(t *testing.T) {
 		t.Fatal("failed to parse 1.3.1.3", err)
 	}
 
-	if len(br) != 1 {
-		log.Fatal("expected to define 1 binary rules only got: ", len(br))
+	if len(br.Keys) != 1 {
+		log.Fatal("expected to define 1 key got: ", len(br.Keys))
+	}
+
+	if len(br.Values) != 1 {
+		log.Fatal("expected to define 1 policy for key got: ", len(br.Values))
 	}
 
 	expected := Key{
-		Prefixlen: 96,
-		RuleType:  RANGE,
+		Prefixlen: 32,
 		IP:        net.IPv4(1, 3, 1, 3),
 	}
 
-	expectedValue := Range{
-		LowerPort: 43,
-		UpperPort: 100,
-		Proto:     TCP,
+	expectedValue := Policy{
+		PolicyType: RANGE,
+		LowerPort:  43,
+		UpperPort:  100,
+		Proto:      TCP,
 	}
 
-	if err := checkKey(br[0], expected); err != nil {
+	if err := checkKey(br.Keys[0], expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if checkRange(br[0], expectedValue); err != nil {
+	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -223,46 +205,54 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	expected = Key{
-		Prefixlen: 96,
-		RuleType:  RANGE,
+		Prefixlen: 32,
 		IP:        net.IPv4(1, 4, 1, 4),
 	}
 
-	expectedValue = Range{
-		LowerPort: 43,
-		UpperPort: 100,
-		Proto:     ANY,
+	expectedValue = Policy{
+		PolicyType: RANGE,
+		LowerPort:  43,
+		UpperPort:  100,
+		Proto:      ANY,
 	}
 
-	if err := checkKey(br[0], expected); err != nil {
+	if err := checkKey(br.Keys[0], expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if checkRange(br[0], expectedValue); err != nil {
-		t.Fatal(err)
-	}
-
-	expected = Key{
-		Prefixlen: 96,
-		RuleType:  SINGLE,
-		Port:      55,
-		Protocol:  TCP,
-		IP:        net.IPv4(1, 4, 1, 4),
-	}
-
-	if err := checkKey(br[1], expected); err != nil {
+	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
 	expected = Key{
-		Prefixlen: 96,
-		RuleType:  SINGLE,
-		Port:      66,
-		Protocol:  UDP,
-		IP:        net.IPv4(1, 4, 1, 4),
+		Prefixlen: 32,
+
+		IP: net.IPv4(1, 4, 1, 4),
 	}
 
-	if err := checkKey(br[2], expected); err != nil {
+	expectedValue = Policy{
+		PolicyType: SINGLE,
+		LowerPort:  55,
+		Proto:      TCP,
+	}
+
+	if err := checkPolicy(br.Values[1], expectedValue); err != nil {
+		t.Fatal(err)
+	}
+
+	expected = Key{
+		Prefixlen: 32,
+
+		IP: net.IPv4(1, 4, 1, 4),
+	}
+
+	expectedValue = Policy{
+		PolicyType: SINGLE,
+		LowerPort:  66,
+		Proto:      UDP,
+	}
+
+	if err := checkPolicy(br.Values[2], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -319,6 +309,45 @@ func TestParseMalformed(t *testing.T) {
 	}); err == nil {
 		t.Fatal("validate should fail if any rule is invalid")
 
+	}
+
+}
+
+func TestParserCache(t *testing.T) {
+	b, err := ParseRule("1.1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if b.Index != 0 {
+		t.Fatal("first in should be 0")
+	}
+
+	bm, err := ParseRule("1.1.1.1 55/tcp 123-125/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bm.Index != 1 {
+		t.Fatal("should increment")
+	}
+
+	bm, err = ParseRule("1.1.1.1 55/tcp 123-125/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bm.Index != 1 {
+		t.Fatal("adding same rule twice should not increment")
+	}
+
+	bm, err = ParseRule("1.1.1.1    123-125/tcp  55/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bm.Index != 1 {
+		t.Fatal("should be the same index regardless of port order: ", bm.Index)
 	}
 
 }
