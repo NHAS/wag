@@ -326,7 +326,7 @@ struct callback_ctx
     __u16 result;
 };
 
-static __u64 validate_policy(struct bpf_map *map, __u32 *key, struct policy *policy,
+static __u64 validate_policy(void *map, __u32 *key, struct policy *policy,
                              struct callback_ctx *data)
 {
 
