@@ -60,8 +60,6 @@ func (r *Policy) Unpack(b []byte) error {
 
 func (r Policy) String() string {
 
-	pType := lookupPolicyType(r.PolicyType)
-
 	switch r.PolicyType {
 	case STOP:
 		return "stop"
@@ -70,9 +68,9 @@ func (r Policy) String() string {
 		if r.LowerPort == 0 {
 			port = "any"
 		}
-		return fmt.Sprintf("%s %s/%s", pType, port, lookupProtocol(r.Proto))
+		return fmt.Sprintf("%s/%s", port, lookupProtocol(r.Proto))
 	case RANGE:
-		return fmt.Sprintf("%s %d-%d/%s", pType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
+		return fmt.Sprintf("%d-%d/%s", r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 	}
 
 	return "unknown policy"
