@@ -4,57 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 const (
+	MAX_POLICIES = 128
+
 	ICMP = 1  // Internet Control Message
 	TCP  = 6  // Transmission Control
 	UDP  = 17 // User Datagram
 )
 
-var (
-	reverseLookup = map[string]int{}
-	allRules      []Rule
-
-	rulesLck sync.RWMutex
-)
-
 type Rule struct {
-	Index int
-
-	Keys []Key
-	// Every policy is added for every key.
-	// I.e if we have 2 keys, 1.1.1.1 and 1.1.2.2 and three policies then each ip will have 3 polices inserted
+	Keys   []Key
 	Values []Policy
 }
 
-func ResetAndReparseRules(rules []string) (result []Rule, err error) {
-
-	rulesLck.Lock()
-	defer rulesLck.Unlock()
-
-	allRules = make([]Rule, len(rules))
-	reverseLookup = map[string]int{}
-
-	for _, rule := range rules {
-		r, err := parseRule(rule)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, r)
-	}
-
-	return
-}
-
 func ParseRules(rules []string) (result []Rule, err error) {
-	rulesLck.Lock()
-	defer rulesLck.Unlock()
 
 	for _, rule := range rules {
 		r, err := parseRule(rule)
@@ -69,10 +36,29 @@ func ParseRules(rules []string) (result []Rule, err error) {
 }
 
 func ParseRule(rule string) (rules Rule, err error) {
-	rulesLck.Lock()
-	defer rulesLck.Unlock()
 
 	return parseRule(rule)
+}
+
+func parseKeys(address string) (keys []Key, err error) {
+	resultingAddresses, err := parseAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ip := range resultingAddresses {
+
+		maskLength, _ := ip.Mask.Size()
+
+		keys = append(keys,
+			Key{
+				Prefixlen: uint32(maskLength),
+				IP:        [4]byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
+			},
+		)
+	}
+
+	return
 }
 
 func parseRule(rule string) (rules Rule, err error) {
@@ -82,57 +68,41 @@ func parseRule(rule string) (rules Rule, err error) {
 		return rules, errors.New("could not split correct number of rules")
 	}
 
-	sort.Strings(ruleParts[1:])
-	lookupString := strings.Join(ruleParts, " ")
-
-	if index, ok := reverseLookup[lookupString]; ok {
-
-		return allRules[index], nil
-	}
-
-	resultingAddresses, err := parseAddress(ruleParts[0])
+	keys, err := parseKeys(ruleParts[0])
 	if err != nil {
-		return rules, err
+		return rules, errors.New("could not parse keys from address " + ruleParts[0] + " err: " + err.Error())
 	}
 
-	for _, ip := range resultingAddresses {
+	rules.Keys = keys
 
-		maskLength, _ := ip.Mask.Size()
+	rules.Values = make([]Policy, 0, MAX_POLICIES)
 
-		rules.Keys = append(rules.Keys,
-			Key{
-				Prefixlen: uint32(maskLength),
-				IP:        ip.IP,
-			},
-		)
+	if len(ruleParts) == 1 {
+		// If the user has only defined one address and no ports this counts as an any/any rule
 
-		if len(ruleParts) == 1 {
-			// If the user has only defined one address and no ports this counts as an any/any rule
+		rules.Values = append(rules.Values, Policy{
+			PolicyType: SINGLE,
+			Proto:      ANY,
+			LowerPort:  ANY,
+		})
 
-			rules.Values = append(rules.Values, Policy{
-				PolicyType: SINGLE,
-				Proto:      ANY,
-				LowerPort:  ANY,
-			})
+	} else {
 
-		} else {
-
-			for _, field := range ruleParts[1:] {
-				policy, err := parseService(field)
-				if err != nil {
-					return rules, err
-				}
-
-				rules.Values = append(rules.Values, policy)
+		for _, field := range ruleParts[1:] {
+			policy, err := parseService(field)
+			if err != nil {
+				return rules, err
 			}
-		}
 
+			rules.Values = append(rules.Values, policy)
+		}
 	}
 
-	rules.Index = len(allRules)
-	allRules = append(allRules, rules)
-	reverseLookup[lookupString] = rules.Index
+	if len(rules.Values) > MAX_POLICIES {
+		return rules, errors.New("number of policies defined was greather than max")
+	}
 
+	rules.Values = rules.Values[:cap(rules.Values)]
 	return
 }
 

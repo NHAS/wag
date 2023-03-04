@@ -60,5 +60,15 @@ func (r *Policy) Unpack(b []byte) error {
 
 func (r Policy) String() string {
 
-	return fmt.Sprintf("%d-%d/%s", r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
+	if r.PolicyType == STOP {
+		return "stop"
+	}
+
+	pType := lookupPolicyType(r.PolicyType)
+
+	if r.LowerPort == 0 {
+		return fmt.Sprintf("%s any/%s", pType, lookupProtocol(r.Proto))
+	}
+
+	return fmt.Sprintf("%s %d-%d/%s", pType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 }

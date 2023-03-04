@@ -46,7 +46,7 @@ func TestKeyMarshalAndUnmarshal(t *testing.T) {
 
 	a := Key{
 		Prefixlen: 16,
-		IP:        net.IPv4(11, 11, 11, 11),
+		IP:        [4]byte{11, 11, 11, 11},
 	}
 
 	b := a.Bytes()
@@ -63,8 +63,8 @@ func TestKeyMarshalAndUnmarshal(t *testing.T) {
 		t.Fatal("the unpacked Prefixlen was incorrect: expected: ", a.Prefixlen, " got: ", c.Prefixlen)
 	}
 
-	if !net.IP.Equal(a.IP.To4(), c.IP.To4()) {
-		t.Fatal("the ip address did not unmarshal correctly: expected: ", a.IP, []byte(a.IP.To4()), " got: ", c.IP, []byte(c.IP.To4()))
+	if !net.IP.Equal(a.AsIP(), c.AsIP()) {
+		t.Fatal("the ip address did not unmarshal correctly: expected: ", a.AsIP(), a.IP, " got: ", c.AsIP(), c.IP)
 	}
 
 }

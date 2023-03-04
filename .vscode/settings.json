@@ -12,6 +12,11 @@
         "*.inc": "c",
         "algorithm": "c",
         "inet.h": "c",
-        "bpf_endian.h": "c"
+        "bpf_endian.h": "c",
+        "bpf_common.h": "c",
+        "bpf_helpers.h": "c",
+        "bpf_helper_defs.h": "c",
+        "types.h": "c",
+        "bpf.h": "c"
     }
 }

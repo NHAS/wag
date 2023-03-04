@@ -2,7 +2,6 @@ package routetypes
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"testing"
 )
@@ -13,7 +12,7 @@ func checkKey(reality Key, expectedKey Key) error {
 		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(reality.Bytes()))
 	}
 
-	if !net.IP.Equal(reality.IP, expectedKey.IP) {
+	if !net.IP.Equal(reality.AsIP(), expectedKey.AsIP()) {
 		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, reality.IP)
 	}
 
@@ -27,7 +26,7 @@ func checkKey(reality Key, expectedKey Key) error {
 func checkPolicy(reality Policy, expectedValue Policy) error {
 
 	if reality.PolicyType != expectedValue.PolicyType {
-		return fmt.Errorf("value type was not %s, was: %s", lookupRuleType(expectedValue.PolicyType), lookupRuleType(reality.PolicyType))
+		return fmt.Errorf("value type was not %s, was: %s", lookupPolicyType(expectedValue.PolicyType), lookupPolicyType(reality.PolicyType))
 	}
 
 	if reality.LowerPort != expectedValue.LowerPort {
@@ -48,7 +47,7 @@ func checkPolicy(reality Policy, expectedValue Policy) error {
 func TestParseEasyRules(t *testing.T) {
 
 	expected := Key{
-		IP:        net.IPv4(1, 1, 1, 1),
+		IP:        [4]byte{1, 1, 1, 1},
 		Prefixlen: 32,
 	}
 
@@ -92,17 +91,17 @@ func TestParseSimpleSingles(t *testing.T) {
 	}
 
 	if len(br.Keys) != 1 {
-		log.Fatal("expected to define 1 key got: ", len(br.Keys))
+		t.Fatal("expected to define 1 key got: ", len(br.Keys))
 
 	}
 
-	if len(br.Values) != 4 {
-		log.Fatal("expected to define 4 policies got: ", len(br.Values))
+	if len(br.Values) != 128 {
+		t.Fatal("expected to define 128 policies got: ", len(br.Values))
 	}
 
 	expectedKey := Key{
 		Prefixlen: 32,
-		IP:        net.IPv4(1, 2, 1, 2),
+		IP:        [4]byte{1, 2, 1, 2},
 	}
 
 	expectedValues := []Policy{
@@ -146,6 +145,10 @@ func TestParseSimpleSingles(t *testing.T) {
 
 	for i := 0; i < len(br.Values); i++ {
 
+		if br.Values[i].PolicyType == STOP {
+			return
+		}
+
 		found := false
 		for _, v := range expectedValues {
 
@@ -172,16 +175,16 @@ func TestParsePortRange(t *testing.T) {
 	}
 
 	if len(br.Keys) != 1 {
-		log.Fatal("expected to define 1 key got: ", len(br.Keys))
+		t.Fatal("expected to define 1 key got: ", len(br.Keys))
 	}
 
-	if len(br.Values) != 1 {
-		log.Fatal("expected to define 1 policy for key got: ", len(br.Values))
+	if len(br.Values) != 128 {
+		t.Fatal("expected to define 128 policies for key got: ", len(br.Values))
 	}
 
 	expected := Key{
 		Prefixlen: 32,
-		IP:        net.IPv4(1, 3, 1, 3),
+		IP:        [4]byte{1, 3, 1, 3},
 	}
 
 	expectedValue := Policy{
@@ -206,7 +209,7 @@ func TestParsePortRange(t *testing.T) {
 
 	expected = Key{
 		Prefixlen: 32,
-		IP:        net.IPv4(1, 4, 1, 4),
+		IP:        [4]byte{1, 4, 1, 4},
 	}
 
 	expectedValue = Policy{
@@ -224,12 +227,6 @@ func TestParsePortRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected = Key{
-		Prefixlen: 32,
-
-		IP: net.IPv4(1, 4, 1, 4),
-	}
-
 	expectedValue = Policy{
 		PolicyType: SINGLE,
 		LowerPort:  55,
@@ -238,12 +235,6 @@ func TestParsePortRange(t *testing.T) {
 
 	if err := checkPolicy(br.Values[1], expectedValue); err != nil {
 		t.Fatal(err)
-	}
-
-	expected = Key{
-		Prefixlen: 32,
-
-		IP: net.IPv4(1, 4, 1, 4),
 	}
 
 	expectedValue = Policy{
@@ -309,45 +300,6 @@ func TestParseMalformed(t *testing.T) {
 	}); err == nil {
 		t.Fatal("validate should fail if any rule is invalid")
 
-	}
-
-}
-
-func TestParserCache(t *testing.T) {
-	b, err := ParseRule("1.1.1.1")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if b.Index != 0 {
-		t.Fatal("first in should be 0")
-	}
-
-	bm, err := ParseRule("1.1.1.1 55/tcp 123-125/tcp")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bm.Index != 1 {
-		t.Fatal("should increment")
-	}
-
-	bm, err = ParseRule("1.1.1.1 55/tcp 123-125/tcp")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bm.Index != 1 {
-		t.Fatal("adding same rule twice should not increment")
-	}
-
-	bm, err = ParseRule("1.1.1.1    123-125/tcp  55/tcp")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if bm.Index != 1 {
-		t.Fatal("should be the same index regardless of port order: ", bm.Index)
 	}
 
 }

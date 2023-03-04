@@ -2,6 +2,7 @@ package router
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -312,7 +313,7 @@ func TestBasicAuthorise(t *testing.T) {
 
 		newHeader := ipv4.Header{
 			Version: 4,
-			Dst:     rule.Keys[0].IP,
+			Dst:     rule.Keys[0].AsIP(),
 			Src:     net.ParseIP(out[0].Address),
 			Len:     ipv4.HeaderLen,
 		}
@@ -338,8 +339,11 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 
 		if value != expectedResults[headers[i].String()] {
+			m, _ := GetRules()
 
-			t.Fatalf("program did not %s packet instead did: %s", result(expectedResults[headers[i].String()]), result(value))
+			r, _ := json.MarshalIndent(m, "", "    ")
+			log.Printf("%s\n", string(r))
+			t.Fatalf("%s program did not %s packet instead did: %s", headers[i].String(), result(expectedResults[headers[i].String()]), result(value))
 		}
 	}
 

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
 	"golang.org/x/sys/unix"
 )
 
@@ -45,8 +46,8 @@ var (
 		// 4 byte, ipv4 addr;
 		KeySize: 8,
 
-		//We're allowing 100 policies per route, each policy is 8 bytes
-		ValueSize: 8 * 100,
+		//policies array
+		ValueSize: 8 * 128,
 
 		// This flag is required for dynamically sized inner maps.
 		// Added in linux 5.10.
@@ -80,6 +81,11 @@ func GetTimeStamp() uint64 {
 
 func loadXDP() error {
 
+	err := rlimit.RemoveMemlock()
+	if err != nil {
+		return err
+	}
+
 	spec, err := loadBpf()
 	if err != nil {
 		return fmt.Errorf("loading spec: %s", err)
@@ -88,17 +94,15 @@ func loadXDP() error {
 	spec.Maps["public_table"].InnerMap = routesMapSpec
 	spec.Maps["mfa_table"].InnerMap = routesMapSpec
 	// Load pre-compiled programs into the kernel.
-	if err = spec.LoadAndAssign(&xdpObjects, &ebpf.CollectionOptions{Programs: ebpf.ProgramOptions{
-		LogDisabled: false,
-		LogLevel:    (ebpf.LogLevelBranch | ebpf.LogLevelInstruction),
-	}}); err != nil {
+	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
 
-		ve, ok := err.(*ebpf.VerifierError)
-		if !ok {
+		var ve *ebpf.VerifierError
+		b := errors.As(err, &ve)
+		if b {
+			fmt.Print(strings.Join(ve.Log, "\n"))
 			return fmt.Errorf("loading objects: %s", err)
 		}
 
-		fmt.Println(strings.Join(ve.Log, "\n"))
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
@@ -385,22 +389,7 @@ func xdpAddDevice(username, address string) error {
 }
 
 // Takes the LPM table and associates a route to a policy
-func xdpAddRoute(username string, table *ebpf.Map, ruleDefinitions []string) error {
-
-	userid := sha1.Sum([]byte(username))
-	var innerMapID ebpf.MapID
-
-	//Little bit clumsy, but has to be done as there is no bpf_map_get_fd_by_id function in ebpf go style :P
-	err := table.Lookup(userid, &innerMapID)
-	if err != nil {
-		return fmt.Errorf("error looking up table: %s", err)
-	}
-
-	lpmInner, err := ebpf.NewMapFromID(innerMapID)
-	if err != nil {
-		return fmt.Errorf("getting inner map from ID: %s", err)
-	}
-	defer lpmInner.Close()
+func xdpAddRoute(usersRouteTable *ebpf.Map, ruleDefinitions []string) error {
 
 	for _, destination := range ruleDefinitions {
 
@@ -409,10 +398,10 @@ func xdpAddRoute(username string, table *ebpf.Map, ruleDefinitions []string) err
 			return err
 		}
 
-		for _, key := range rules.Keys {
-			_, err = lpmInner.BatchUpdate([]routetypes.Key{key}, rules.Values, nil)
+		for i := range rules.Keys {
+			err := usersRouteTable.Put(&rules.Keys[i], &rules.Values)
 			if err != nil {
-				return fmt.Errorf("error putting value in inner map: %s", err)
+				return fmt.Errorf("error putting route key in inner map: %s", err)
 			}
 		}
 
@@ -433,6 +422,20 @@ func xdpUserExists(userid [20]byte) error {
 	return nil
 }
 
+func addInnerMapTo(key interface{}, spec *ebpf.MapSpec, table *ebpf.Map) (*ebpf.Map, error) {
+	inner, err := ebpf.NewMap(spec)
+	if err != nil {
+		return nil, fmt.Errorf("%s creating new map: %s", table.String(), err)
+	}
+
+	err = table.Put(key, uint32(inner.FD()))
+	if err != nil {
+		return nil, fmt.Errorf("%s adding new map to table: %s", table.String(), err)
+	}
+
+	return inner, nil
+}
+
 func AddUser(username string, acls config.Acl) error {
 
 	lock.Lock()
@@ -450,35 +453,21 @@ func AddUser(username string, acls config.Acl) error {
 	}
 
 	// Adds LPM trie to existing map (hashmap to map)
-	addMapTo := func(table *ebpf.Map) error {
-		inner, err := ebpf.NewMap(routesMapSpec)
-		if err != nil {
-			return fmt.Errorf("%s creating new map: %s", table.String(), err)
-		}
-
-		err = table.Put(userid, uint32(inner.FD()))
-		if err != nil {
-			return fmt.Errorf("%s adding new map to public table: %s", table.String(), err)
-		}
-
-		return inner.Close()
-	}
-
-	err = addMapTo(xdpObjects.PublicTable)
+	mfaTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.MfaTable)
 	if err != nil {
 		return err
 	}
 
-	err = addMapTo(xdpObjects.MfaTable)
+	publicTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PublicTable)
 	if err != nil {
 		return err
 	}
 
-	if err := xdpAddRoute(username, xdpObjects.MfaTable, acls.Mfa); err != nil {
+	if err := xdpAddRoute(mfaTable, acls.Mfa); err != nil {
 		return err
 	}
 
-	if err := xdpAddRoute(username, xdpObjects.PublicTable, acls.Allow); err != nil {
+	if err := xdpAddRoute(publicTable, acls.Allow); err != nil {
 		return err
 	}
 
@@ -573,7 +562,7 @@ func refreshUserAcls(username string) error {
 			return fmt.Errorf("%s adding new map to public table: %s", table.String(), err)
 		}
 
-		err = xdpAddRoute(username, table, routes)
+		err = xdpAddRoute(table, routes)
 		if err != nil {
 			return err
 		}
@@ -653,16 +642,17 @@ func Deauthenticate(address string) error {
 }
 
 type FirewallRules struct {
-	LastPacketTimestamp uint64
-	Expiry              uint64
-	MFA                 []string
-	Public              []string
-	Devices             []fwDevice
+	MFA           []string
+	Public        []string
+	Devices       []fwDevice
+	AccountLocked uint32
 }
 
 type fwDevice struct {
-	IP         string
-	Authorized bool
+	LastPacketTimestamp uint64
+	Expiry              uint64
+	IP                  string
+	Authorized          bool
 }
 
 func GetRules() (map[string]FirewallRules, error) {
@@ -691,16 +681,21 @@ func GetRules() (map[string]FirewallRules, error) {
 		}
 
 		var (
-			innerKey []byte
-			val      []byte
+			k        routetypes.Key
+			policies [routetypes.MAX_POLICIES]routetypes.Policy
 		)
 		innerIter := innerMap.Iterate()
-		kv := routetypes.Key{}
-		p := routetypes.Policy{}
-		for innerIter.Next(&innerKey, &val) {
-			kv.Unpack(innerKey)
-			p.Unpack(val)
-			result = append(result, kv.String()+" "+p.String())
+
+		for innerIter.Next(&k, &policies) {
+			var actualPolicies []routetypes.Policy
+			for i := range policies {
+				if policies[i].PolicyType == routetypes.STOP {
+					actualPolicies = policies[:i]
+					break
+				}
+			}
+
+			result = append(result, k.String()+" policy "+fmt.Sprintf("%+v", actualPolicies))
 		}
 
 		innerMap.Close()
@@ -723,9 +718,11 @@ func GetRules() (map[string]FirewallRules, error) {
 		res := hashToUsername[hex.EncodeToString(deviceStruct.user_id[:])]
 
 		fwRule := result[res]
-		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String())})
-		fwRule.Expiry = deviceStruct.sessionExpiry
-		fwRule.LastPacketTimestamp = deviceStruct.lastPacketTime
+		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String()), Expiry: deviceStruct.sessionExpiry, LastPacketTimestamp: deviceStruct.lastPacketTime})
+
+		if err := xdpObjects.AccountLocked.Lookup(deviceStruct.user_id, &fwRule.AccountLocked); err != nil {
+			return nil, err
+		}
 
 		var innerMapID ebpf.MapID
 
@@ -747,7 +744,7 @@ func GetRules() (map[string]FirewallRules, error) {
 
 	}
 
-	return result, nil
+	return result, iter.Err()
 }
 
 func GetBPFHash() string {

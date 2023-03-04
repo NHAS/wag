@@ -1,14 +1,16 @@
 // +build ignore
 
+#include <linux/ip.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
 #include <linux/icmp.h>
 #include <linux/in.h>
 #include <linux/types.h>
+
+#include <linux/bpf.h>
 #include <linux/bpf_common.h>
 
-#include "bpf_endian.h"
-#include "common.h"
+#include <bpf/bpf_helpers.h>
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 
@@ -131,7 +133,7 @@ A massive oversimplifcation of what is in this file.
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 */
 
-#define MAX_FILTERS 100
+#define MAX_POLICIES 128
 #define MAX_MAP_ENTRIES 1024
 #define MAX_USERID_LENGTH 20 // Length of sha1 hash
 
@@ -139,6 +141,17 @@ A massive oversimplifcation of what is in this file.
 #define STOP 0   // Signal stop searching array
 #define RANGE 1  // Port & protocol range e.g 22-2000
 #define SINGLE 2 // Single port & protocol
+
+struct bpf_map_def
+{
+    unsigned int type;
+    unsigned int key_size;
+    unsigned int value_size;
+    unsigned int max_entries;
+    unsigned int map_flags;
+    unsigned int inner_map_idx;
+    unsigned int numa_node;
+};
 
 struct device
 {
@@ -310,30 +323,6 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     return 1;
 }
 
-static __always_inline __u64 validate_policy(struct policy *policy, __u16 proto, __u16 port, __u16 *result)
-{
-
-    if (policy->policy_type == STOP)
-    {
-        return 1;
-    }
-
-    switch (policy->policy_type)
-    {
-    case SINGLE:
-        *result = (policy->lower_port == 0 || policy->lower_port == port) && (policy->proto == 0 || policy->proto == proto);
-        break;
-    case RANGE:
-        *result = (policy->lower_port <= port && policy->upper_port >= port) && (policy->proto == 0 || policy->proto == proto);
-        break;
-    }
-
-    // if we have a match stop searching
-    return *result;
-}
-
-typedef struct policy policy_arr[];
-
 static __always_inline int conntrack(struct ip *ip_info)
 {
 
@@ -363,7 +352,7 @@ static __always_inline int conntrack(struct ip *ip_info)
     }
 
     // Our userland defined inactivity timeout
-    u32 index = 0;
+    __u32 index = 0;
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
     if (inactivity_timeout == NULL)
     {
@@ -373,7 +362,7 @@ static __always_inline int conntrack(struct ip *ip_info)
     __u64 currentTime = bpf_ktime_get_boot_ns();
 
     // If the inactivity timeout is not disabled and users session has timed out
-    u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));
+    __u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));
 
     struct ip4_trie_key key = {0};
 
@@ -386,11 +375,12 @@ static __always_inline int conntrack(struct ip *ip_info)
     // If the key is a match for the LPM in the public table
     void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
 
-    policy_arr *policies = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
-    if (policies != NULL)
+    struct policy *applicable_policies = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
+    if (applicable_policies != NULL)
     {
+
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
-        if (isAccountLocked || isTimedOut || current_device->sessionExpiry != 0 ||
+        if (*isAccountLocked || isTimedOut || current_device->sessionExpiry == 0 ||
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
             (current_device->sessionExpiry != __UINT64_MAX__ && currentTime > current_device->sessionExpiry))
         {
@@ -401,32 +391,50 @@ static __always_inline int conntrack(struct ip *ip_info)
     }
     else
     {
+
         void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
-        policies = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
+        applicable_policies = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
     }
 
-    if (policies == NULL)
+    if (applicable_policies == NULL)
     {
         return 0;
     }
 
-    // Only update the lastpacket time if we're not expired
     if (!isTimedOut)
     {
-        // Accessing pointers like this is very odd, and not regarding thread safety feels weird
+        // Doesnt matter that this isnt thread safe
         current_device->lastPacketTime = currentTime;
     }
 
-    __u16 result = 0;
-    for (__u16 i = 0; i < MAX_FILTERS; i++)
+    for (__u16 i = 0; i < MAX_POLICIES; i++)
     {
-        if (validate_policy(&(*policies)[i], ip_info->proto, port, &result))
+
+        __u32 key = i;
+        struct policy policy = *(applicable_policies + key);
+
+        if (policy.policy_type == STOP)
         {
-            break;
+            return 0;
+        }
+
+        if (policy.proto == 0 || policy.proto == ip_info->proto)
+        {
+
+            switch (policy.policy_type)
+            {
+            case SINGLE:
+                if (policy.lower_port == 0 || policy.lower_port == port)
+                    return 1;
+
+            case RANGE:
+                if (policy.lower_port <= port && policy.upper_port >= port)
+                    return 1;
+            }
         }
     }
 
-    return result;
+    return 0;
 }
 
 SEC("xdp")
