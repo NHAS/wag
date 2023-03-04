@@ -10,8 +10,10 @@
 #include <linux/bpf.h>
 #include <linux/bpf_common.h>
 
-#include <bpf/bpf_helpers.h>
+#include "bpf_helpers.h"
 #include <bpf/bpf_endian.h>
+
+#include <stddef.h>
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 

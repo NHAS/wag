@@ -17,6 +17,10 @@
         "bpf_helpers.h": "c",
         "bpf_helper_defs.h": "c",
         "types.h": "c",
-        "bpf.h": "c"
+        "bpf.h": "c",
+        "icmp.h": "c",
+        "tcp.h": "c",
+        "ip.h": "c",
+        "typeinfo": "c"
     }
 }

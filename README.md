@@ -400,7 +400,7 @@ Example:
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- Modern kernel 4.15+ at least (needs ebpf and xdp)
+- Modern kernel 5.3+ at least (5.3 allows loops in ebpf)
 
 
 # Development 
