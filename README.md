@@ -352,6 +352,7 @@ Full config example
             "group:nerds": {
                 "Mfa": [
                     "192.168.3.4/32"
+                    "thing.internal 443/tcp icmp"
                 ],
                 "Allow": [
                     "192.168.3.5/32"
@@ -360,8 +361,41 @@ Full config example
         }
     }
 }
+```
+   
+## ACL rule syntax
+  
+The `Policies` section allows you to define what routes, ports and protocols should be both captured by the VPN and allowed through wag respectively.
+Currently 3 types of port and protocol rules are supported:  
+  
+### Any 
+
+When no other rules are defined or the `any` keyword is used wag will allow all services and port combinations.
+
+Example: 
 
 ```
+"1.1.1.1": Allows all ports and protocols to 1.1.1.1/32
+"1.1.1.1 54/any": Allows both tcp and udp to 1.1.1.1/32
+```
+
+### Single Service
+
+Example:
+```
+192.168.1.1 22/tcp 53/udp: Fairly self explanatory, allows you to hit 22/tcp and 53/udp on a host
+1.1.1.1 icmp: As icmp doesnt have ports really you dont need it either
+```
+
+### Ranges
+You can also define a range of ports with a protocol. wag requires that the lower port is first. 
+
+Example:
+```
+192.168.1.1 22-1024/tcp 53-23/any: Format is low port-high port/service
+```
+
+
 # Limitations
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
