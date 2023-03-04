@@ -452,6 +452,10 @@ func AddUser(username string, acls config.Acl) error {
 		return err
 	}
 
+	return setMaps(userid, acls)
+}
+
+func setMaps(userid [20]byte, acls config.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
 	mfaTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.MfaTable)
 	if err != nil {
@@ -549,42 +553,11 @@ func RefreshUserAcls(username string) error {
 // Non-mutex guarded internal version
 func refreshUserAcls(username string) error {
 
-	id := sha1.Sum([]byte(username))
-
-	updateRoutes := func(table *ebpf.Map, routes []string) error {
-		inner, err := ebpf.NewMap(routesMapSpec)
-		if err != nil {
-			return fmt.Errorf("%s creating new map: %s", table.String(), err)
-		}
-
-		err = table.Put(id, uint32(inner.FD()))
-		if err != nil {
-			return fmt.Errorf("%s adding new map to public table: %s", table.String(), err)
-		}
-
-		err = xdpAddRoute(table, routes)
-		if err != nil {
-			return err
-		}
-
-		return inner.Close()
-	}
+	userid := sha1.Sum([]byte(username))
 
 	acls := config.GetEffectiveAcl(username)
 
-	err1 := updateRoutes(xdpObjects.PublicTable, acls.Allow)
-
-	err2 := updateRoutes(xdpObjects.MfaTable, acls.Mfa)
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err2
-	}
-
-	return nil
+	return setMaps(userid, acls)
 }
 
 // SetAuthroized correctly sets the timestamps for a device with internal IP address as internalAddress
