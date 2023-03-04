@@ -38,8 +38,8 @@ func (r Policy) Bytes() []byte {
 	binary.LittleEndian.PutUint16(output, r.PolicyType)
 	binary.LittleEndian.PutUint16(output[2:], r.Proto)
 
-	binary.BigEndian.PutUint16(output[4:], r.LowerPort)
-	binary.BigEndian.PutUint16(output[6:], r.UpperPort)
+	binary.LittleEndian.PutUint16(output[4:], r.LowerPort)
+	binary.LittleEndian.PutUint16(output[6:], r.UpperPort)
 
 	return output
 }
@@ -52,23 +52,28 @@ func (r *Policy) Unpack(b []byte) error {
 	r.PolicyType = binary.LittleEndian.Uint16(b[0:])
 
 	r.Proto = binary.LittleEndian.Uint16(b[2:])
-	r.LowerPort = binary.BigEndian.Uint16(b[4:])
-	r.UpperPort = binary.BigEndian.Uint16(b[6:])
+	r.LowerPort = binary.LittleEndian.Uint16(b[4:])
+	r.UpperPort = binary.LittleEndian.Uint16(b[6:])
 
 	return nil
 }
 
 func (r Policy) String() string {
 
-	if r.PolicyType == STOP {
-		return "stop"
-	}
-
 	pType := lookupPolicyType(r.PolicyType)
 
-	if r.LowerPort == 0 {
-		return fmt.Sprintf("%s any/%s", pType, lookupProtocol(r.Proto))
+	switch r.PolicyType {
+	case STOP:
+		return "stop"
+	case SINGLE:
+		port := fmt.Sprintf("%d", r.LowerPort)
+		if r.LowerPort == 0 {
+			port = "any"
+		}
+		return fmt.Sprintf("%s %s/%s", pType, port, lookupProtocol(r.Proto))
+	case RANGE:
+		return fmt.Sprintf("%s %d-%d/%s", pType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 	}
 
-	return fmt.Sprintf("%s %d-%d/%s", pType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
+	return "unknown policy"
 }

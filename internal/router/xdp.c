@@ -11,6 +11,7 @@
 #include <linux/bpf_common.h>
 
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
 
 char __license[] SEC("license") = "Dual MIT/GPL";
 
@@ -343,6 +344,8 @@ static __always_inline int conntrack(struct ip *ip_info)
         address = ip_info->src_ip;
         port = ip_info->src_port;
     }
+
+    port = bpf_ntohs(port);
 
     // Check if the account exists
     __u32 *isAccountLocked = bpf_map_lookup_elem(&account_locked, current_device->user_id);
