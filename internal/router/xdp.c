@@ -372,7 +372,6 @@ static __always_inline int conntrack(struct ip *ip_info)
     struct policy *applicable_policies = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
     if (applicable_policies != NULL)
     {
-
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
         if (*isAccountLocked || isTimedOut || current_device->sessionExpiry == 0 ||
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
@@ -385,7 +384,6 @@ static __always_inline int conntrack(struct ip *ip_info)
     }
     else
     {
-
         void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
         applicable_policies = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
     }
