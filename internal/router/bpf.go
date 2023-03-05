@@ -399,6 +399,7 @@ func xdpAddRoute(usersRouteTable *ebpf.Map, ruleDefinitions []string) error {
 		}
 
 		for i := range rules.Keys {
+
 			err := usersRouteTable.Put(&rules.Keys[i], &rules.Values)
 			if err != nil {
 				return fmt.Errorf("error putting route key in inner map: %s", err)

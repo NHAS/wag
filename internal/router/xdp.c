@@ -414,7 +414,6 @@ static __always_inline int conntrack(struct ip *ip_info)
 
         if (policy.proto == 0 || policy.proto == ip_info->proto)
         {
-
             switch (policy.policy_type)
             {
             case SINGLE:

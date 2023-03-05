@@ -2,10 +2,11 @@ package router
 
 import (
 	"crypto/sha1"
-	"encoding/json"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"net"
 	"strings"
 	"testing"
@@ -17,6 +18,11 @@ import (
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/net/ipv4"
+)
+
+const (
+	XDP_DROP = 1
+	XDP_PASS = 2
 )
 
 func TestBasicLoad(t *testing.T) {
@@ -339,10 +345,6 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 
 		if value != expectedResults[headers[i].String()] {
-			m, _ := GetRules()
-
-			r, _ := json.MarshalIndent(m, "", "    ")
-			log.Printf("%s\n", string(r))
 			t.Fatalf("%s program did not %s packet instead did: %s", headers[i].String(), result(expectedResults[headers[i].String()]), result(value))
 		}
 	}
@@ -719,6 +721,242 @@ func TestDisablingMaxLifetime(t *testing.T) {
 
 }
 
+type pkthdr struct {
+	pktType string
+
+	src uint16
+	dst uint16
+}
+
+func (p pkthdr) String() string {
+	return fmt.Sprintf("%s, src_port %d, dst_port %d", p.pktType, p.src, p.dst)
+}
+
+func (p *pkthdr) UnpackTcp(b []byte) {
+	p.pktType = "TCP"
+	p.src = binary.BigEndian.Uint16(b)
+	p.dst = binary.BigEndian.Uint16(b[2:])
+}
+
+func (p *pkthdr) Tcp() []byte {
+	r := make([]byte, 21) // 1 byte over as we need to fake some data
+
+	binary.BigEndian.PutUint16(r, p.src)
+	binary.BigEndian.PutUint16(r[2:], p.dst)
+
+	return r
+}
+
+func (p *pkthdr) UnpackUdp(b []byte) {
+	p.pktType = "UDP"
+	p.src = binary.BigEndian.Uint16(b)
+	p.dst = binary.BigEndian.Uint16(b[2:])
+}
+
+func (p *pkthdr) Udp() []byte {
+	r := make([]byte, 9) // 1 byte over as we need to fake some data
+
+	binary.BigEndian.PutUint16(r, p.src)
+	binary.BigEndian.PutUint16(r[2:], p.dst)
+
+	return r
+}
+
+func (p *pkthdr) UnpackIcmp(b []byte) {
+	p.pktType = "ICMP"
+}
+
+func (p *pkthdr) Icmp() []byte {
+	r := make([]byte, 9) // 1 byte over as we need to fake some data
+
+	//icmp isnt parsed, other than proto and length
+
+	return r
+}
+
+func (p *pkthdr) UnpackAny(b []byte) {
+	p.pktType = "Any"
+	p.src = binary.BigEndian.Uint16(b)
+	p.dst = binary.BigEndian.Uint16(b[2:])
+}
+
+func (p *pkthdr) Any() []byte {
+	r := make([]byte, 9) // 1 byte over as we need to fake some data
+
+	//icmp isnt parsed, other than proto and length
+
+	binary.BigEndian.PutUint16(r, p.src)
+	binary.BigEndian.PutUint16(r[2:], p.dst)
+
+	return r
+}
+
+func createPacket(src, dst net.IP, proto, port int) []byte {
+	iphdr := ipv4.Header{
+		Version:  4,
+		Dst:      dst,
+		Src:      src,
+		Len:      ipv4.HeaderLen,
+		Protocol: proto,
+	}
+
+	hdrbytes, _ := iphdr.Marshal()
+
+	pkt := pkthdr{
+		src: 3884,
+		dst: uint16(port),
+	}
+
+	switch proto {
+	case routetypes.UDP:
+		hdrbytes = append(hdrbytes, pkt.Udp()...)
+	case routetypes.TCP:
+		hdrbytes = append(hdrbytes, pkt.Tcp()...)
+
+	case routetypes.ICMP:
+		hdrbytes = append(hdrbytes, pkt.Icmp()...)
+
+	default:
+		hdrbytes = append(hdrbytes, pkt.Any()...)
+
+	}
+
+	return hdrbytes
+}
+
+func TestPortRestrictions(t *testing.T) {
+	if err := setup("../config/test_port_based_rules.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	/*
+		"Allow": [
+			"1.1.0.0/16",
+			"2.2.2.2",
+			"3.3.3.3 33/tcp",
+			"4.4.4.4 43/udp",
+			"5.5.5.5 55/any",
+			"6.6.6.6 100-150/tcp",
+			"7.7.7.7 icmp"
+		]
+	*/
+
+	acl := config.GetEffectiveAcl(out[0].Username)
+
+	rules, err := routetypes.ParseRules(acl.Allow)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var packets [][]byte
+	expectedResults := []uint32{}
+
+	flip := true
+	for _, rule := range rules {
+
+		for _, policy := range rule.Values {
+			if policy.PolicyType == routetypes.STOP {
+				break
+			}
+
+			// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
+			successProto := policy.Proto
+			if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
+				successProto = routetypes.UDP
+			}
+
+			// Add matching/passing packet
+			packets = append(packets, createPacket(net.ParseIP(out[0].Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			expectedResults = append(expectedResults, XDP_PASS)
+
+			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.PolicyType == routetypes.SINGLE {
+				continue
+			}
+
+			//Add single port/proto mismatch failing packet
+			port := int(policy.LowerPort)
+			proto := int(policy.Proto)
+			if proto == routetypes.ANY {
+				port -= 1
+			} else if port == routetypes.ANY {
+				proto = 88
+			} else {
+
+				if flip {
+					proto = 22
+				} else {
+					port -= 1
+				}
+
+				flip = !flip
+			}
+
+			packets = append(packets, createPacket(net.ParseIP(out[0].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
+			expectedResults = append(expectedResults, XDP_DROP)
+
+			var bogusDstIp net.IP = net.ParseIP("1.1.1.1").To4()
+
+			binary.LittleEndian.PutUint32(bogusDstIp, rand.Uint32())
+
+			if net.IP.Equal(bogusDstIp, net.IP(rule.Keys[0].IP[:])) {
+				continue
+			}
+
+			// Route miss packet
+			packets = append(packets, createPacket(net.ParseIP(out[0].Address), bogusDstIp, int(policy.Proto), int(policy.LowerPort)))
+			expectedResults = append(expectedResults, XDP_DROP)
+
+		}
+	}
+
+	for i := range packets {
+
+		packet := packets[i]
+
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		if value != expectedResults[i] {
+
+			var iphdr ipv4.Header
+			err := iphdr.Parse(packet)
+			if err != nil {
+				t.Fatal("packet didnt parse as an IP header: ", err)
+			}
+
+			packet = packet[20:]
+
+			var pkt pkthdr
+			pkt.pktType = "unknown"
+
+			switch iphdr.Protocol {
+			case routetypes.UDP:
+				pkt.UnpackUdp(packet)
+			case routetypes.TCP:
+				pkt.UnpackTcp(packet)
+			case routetypes.ICMP:
+				pkt.UnpackIcmp(packet)
+			case routetypes.ANY:
+				pkt.UnpackAny(packet)
+
+			}
+
+			info := iphdr.Src.String() + " -> " + iphdr.Dst.String() + ", proto " + pkt.String()
+
+			t.Fatalf("%s program did not %s packet instead did: %s", info, result(expectedResults[i]), result(value))
+		}
+	}
+
+}
+
 func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	if err := setup("../config/test_port_based_rules.json"); err != nil {
 		t.Fatal(err)
@@ -752,27 +990,50 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	   ]
 	*/
 
-	// printInner := func(key routetypes.Key, value []byte) (err error) {
-	// 	log.Println("looked up:", key.Bytes(), value, key)
-	// 	log.Println("contains: ")
+	k := routetypes.Key{
+		IP:        [4]byte{1, 1, 1, 1},
+		Prefixlen: 32,
+	}
 
-	// 	var innerKey []byte
-	// 	val := make([]byte, 8)
-	// 	innerIter := userPublicRoutes.Iterate()
-	// 	for innerIter.Next(&innerKey, &val) {
-	// 		var k routetypes.Key
+	var policies [routetypes.MAX_POLICIES]routetypes.Policy
+	err = userPublicRoutes.Lookup(k.Bytes(), &policies)
+	if err != nil {
+		t.Fatal("searched for valid subnet")
+	}
 
-	// 		k.Unpack(innerKey)
+	if policies[0].PolicyType != routetypes.SINGLE {
+		t.Fatal("the route type was not single")
+	}
 
-	// 		log.Println(innerKey, val, k)
-	// 	}
+	if policies[0].LowerPort != 0 || policies[0].Proto != 0 {
+		t.Fatal("policy was not marked as allow all despite having no rules defined")
+	}
 
-	// 	if innerIter.Err() != nil {
-	// 		return innerIter.Err()
-	// 	}
+	if policies[1].PolicyType != routetypes.STOP {
+		t.Fatal("policy should only contain one any/any rule")
+	}
 
-	// 	return
-	// }
+	k = routetypes.Key{
+		IP:        [4]byte{3, 3, 3, 3},
+		Prefixlen: 32,
+	}
+
+	err = userPublicRoutes.Lookup(k.Bytes(), &policies)
+	if err != nil {
+		t.Fatal("searched for ip failed")
+	}
+
+	if policies[0].PolicyType != routetypes.SINGLE {
+		t.Fatal("the route type was not single")
+	}
+
+	if policies[0].LowerPort != 33 || policies[0].Proto != routetypes.TCP {
+		t.Fatal("policy had incorrect proto and port defintions")
+	}
+
+	if policies[1].PolicyType != routetypes.STOP {
+		t.Fatal("policy should only contain one any/any rule")
+	}
 
 }
 
@@ -843,9 +1104,6 @@ func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
 
 	return result, innerMap.Close()
 }
-
-const XDP_DROP = 1
-const XDP_PASS = 2
 
 func result(code uint32) string {
 	switch code {
