@@ -671,7 +671,7 @@ func GetRoutes(username string) ([]string, error) {
 		}
 	}
 
-	resultArray := make([]string, len(result))
+	resultArray := make([]string, 0, len(result))
 	for k := range result {
 		resultArray = append(resultArray, k)
 	}
