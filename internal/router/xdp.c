@@ -405,11 +405,13 @@ static __always_inline int conntrack(struct ip *ip_info)
         __u32 key = i;
         struct policy policy = *(applicable_policies + key);
 
+        // As the array is static in size, we want to be able to terminate the search asap
         if (policy.policy_type == STOP)
         {
             return 0;
         }
 
+        // 0 = ANY
         if (policy.proto == 0 || policy.proto == ip_info->proto)
         {
             switch (policy.policy_type)
