@@ -538,14 +538,18 @@ func status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl := config.GetEffectiveAcl(user.Username)
+	routes, err := router.GetRoutes(user.Username)
+	if err != nil {
+		log.Println(user.Username, remoteAddress, "Getting routes from xdp failed: ", err)
+		http.Error(w, "Server Error", 500)
+	}
 
 	status := struct {
 		IsAuthorised bool
 		Routes       []string
 	}{
 		IsAuthorised: router.IsAuthed(remoteAddress.String()),
-		Routes:       append(acl.Allow, acl.Mfa...),
+		Routes:       routes,
 	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")

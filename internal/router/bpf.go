@@ -629,6 +629,56 @@ type fwDevice struct {
 	Authorized          bool
 }
 
+func GetRoutes(username string) ([]string, error) {
+	userid := sha1.Sum([]byte(username))
+
+	result := map[string]bool{}
+
+	iterateSubmap := func(innerMapID ebpf.MapID) (err error) {
+		innerMap, err := ebpf.NewMapFromID(innerMapID)
+		if err != nil {
+			return fmt.Errorf("map from id: %s", err)
+		}
+
+		var (
+			k        routetypes.Key
+			policies [routetypes.MAX_POLICIES]routetypes.Policy
+		)
+		innerIter := innerMap.Iterate()
+
+		for innerIter.Next(&k, &policies) {
+			result[k.String()] = true
+		}
+
+		innerMap.Close()
+
+		return
+	}
+
+	var innerMapID ebpf.MapID
+
+	err := xdpObjects.PublicTable.Lookup(userid, &innerMapID)
+	if err == nil {
+		if err = iterateSubmap(innerMapID); err != nil {
+			return nil, err
+		}
+	}
+
+	err = xdpObjects.MfaTable.Lookup(userid, &innerMapID)
+	if err == nil {
+		if err = iterateSubmap(innerMapID); err != nil {
+			return nil, err
+		}
+	}
+
+	resultArray := make([]string, len(result))
+	for k := range result {
+		resultArray = append(resultArray, k)
+	}
+
+	return resultArray, nil
+}
+
 func GetRules() (map[string]FirewallRules, error) {
 
 	lock.RLock()
