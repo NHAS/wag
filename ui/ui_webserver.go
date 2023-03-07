@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"log"
@@ -129,9 +130,12 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:  "admin",
-			Value: sessions.StartSession(AdminUser{Username: r.Form.Get("username")}),
-			Path:  "/",
+			Name:     "admin",
+			Value:    sessions.StartSession(AdminUser{Username: r.Form.Get("username")}),
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   config.Values().ManagementUI.SupportsTLS(),
+			SameSite: http.SameSiteStrictMode,
 		})
 
 		log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
@@ -450,7 +454,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/users/data", manageUsers)
+		protectedRoutes.HandleFunc("/management/users/data", contentType(manageUsers, JSON))
 
 		protectedRoutes.HandleFunc("/management/devices/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -482,7 +486,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/devices/data", devicesMgmt)
+		protectedRoutes.HandleFunc("/management/devices/data", contentType(devicesMgmt, JSON))
 
 		protectedRoutes.HandleFunc("/management/registration_tokens/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -514,7 +518,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/management/registration_tokens/data", registrationTokens)
+		protectedRoutes.HandleFunc("/management/registration_tokens/data", contentType(registrationTokens, JSON))
 
 		protectedRoutes.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -546,80 +550,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/policy/rules/data", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case "GET":
-				data, err := ctrl.GetPolicies()
-				if err != nil {
-					log.Println("unable to get policies: ", err)
-					http.Error(w, "Server error", 500)
-					return
-				}
-
-				b, err := json.Marshal(data)
-				if err != nil {
-					log.Println("unable to marshal policies data: ", err)
-					http.Error(w, "Server error", 500)
-					return
-				}
-
-				w.Header().Set("Content-Type", "application/json")
-				w.Write(b)
-				return
-			case "DELETE":
-				var policiesToRemove []string
-				err := json.NewDecoder(r.Body).Decode(&policiesToRemove)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group names to remove: ", err)
-					return
-				}
-
-				if err := ctrl.RemovePolicies(policiesToRemove); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error removing groups: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			case "PUT":
-				var group control.PolicyData
-				err := json.NewDecoder(r.Body).Decode(&group)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group data to edit new group/s: ", err)
-					return
-				}
-
-				if err := ctrl.EditPolicies(group); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error editing policy: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			case "POST":
-				var policy control.PolicyData
-				err := json.NewDecoder(r.Body).Decode(&policy)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group data to add new group: ", err)
-					return
-				}
-
-				if err := ctrl.AddPolicy(policy); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error adding group: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			default:
-				http.NotFound(w, r)
-				return
-			}
-
-		})
+		protectedRoutes.HandleFunc("/policy/rules/data", contentType(policies, JSON))
 
 		protectedRoutes.HandleFunc("/policy/groups/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -651,79 +582,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/policy/groups/data", func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case "GET":
-				data, err := ctrl.GetGroups()
-				if err != nil {
-					log.Println("unable to marshal rules data: ", err)
-					http.Error(w, "Server error", 500)
-					return
-				}
-				b, err := json.Marshal(data)
-				if err != nil {
-					log.Println("unable to marshal groups data: ", err)
-					http.Error(w, "Server error", 500)
-					return
-				}
-
-				w.Header().Set("Content-Type", "application/json")
-				w.Write(b)
-				return
-			case "DELETE":
-				var groupsToRemove []string
-				err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group names to remove: ", err)
-					return
-				}
-
-				if err := ctrl.RemoveGroup(groupsToRemove); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error removing groups: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			case "PUT":
-				var group control.GroupData
-				err := json.NewDecoder(r.Body).Decode(&group)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group data to edit new group/s: ", err)
-					return
-				}
-
-				if err := ctrl.EditGroup(group); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error editing group: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			case "POST":
-				var group control.GroupData
-				err := json.NewDecoder(r.Body).Decode(&group)
-				if err != nil {
-					http.Error(w, "Bad Request", 400)
-					log.Println("error decoding group data to add new group: ", err)
-					return
-				}
-
-				if err := ctrl.AddGroup(group); err != nil {
-					http.Error(w, err.Error(), 500)
-					log.Println("error adding group: ", err)
-					return
-				}
-
-				w.Write([]byte("OK"))
-			default:
-				http.NotFound(w, r)
-				return
-			}
-
-		})
+		protectedRoutes.HandleFunc("/policy/groups/data", contentType(groups, JSON))
 
 		protectedRoutes.HandleFunc("/settings/general", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -771,85 +630,7 @@ func StartWebServer(errs chan<- error) {
 			}
 		})
 
-		protectedRoutes.HandleFunc("/settings/general/data", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "POST" {
-				http.NotFound(w, r)
-				return
-			}
-
-			_, ok := r.Context().Value(adminKey).(AdminUser)
-			if !ok {
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			switch r.URL.Query().Get("type") {
-			case "general":
-
-				var general = struct {
-					HelpMail        string   `json:"help_mail"`
-					ExternalAddress string   `json:"external_address"`
-					DNS             []string `json:"dns"`
-				}{}
-
-				if err := json.NewDecoder(r.Body).Decode(&general); err != nil {
-					http.Error(w, "Bad Request", 400)
-					return
-				}
-
-				if err := config.SetHelpMail(general.HelpMail); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				if err := config.SetExternalAddress(general.ExternalAddress); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				if err := config.SetDNS(general.DNS); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				w.Write([]byte("OK"))
-				return
-			case "login":
-
-				var login = struct {
-					SessionLifetime   int `json:"session_lifetime"`
-					InactivityTimeout int `json:"session_inactivity"`
-					Lockout           int `json:"lockout"`
-				}{}
-
-				if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
-					http.Error(w, "Bad Request", 400)
-					return
-				}
-
-				if err := config.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				if err := config.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				if err := config.SetLockout(login.Lockout); err != nil {
-					http.Error(w, err.Error(), 400)
-					return
-				}
-
-				w.Write([]byte("OK"))
-				return
-			default:
-				http.NotFound(w, r)
-				return
-			}
-
-		})
+		protectedRoutes.HandleFunc("/settings/general/data", contentType(general, JSON))
 
 		protectedRoutes.HandleFunc("/settings/management_users", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
@@ -1043,6 +824,245 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 		uiTemplates["change_password"].Execute(w, ChangePassword{Message: "Success!", Type: 0})
 
+	}
+
+}
+
+func general(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	_, ok := r.Context().Value(adminKey).(AdminUser)
+	if !ok {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	switch r.URL.Query().Get("type") {
+	case "general":
+
+		var general = struct {
+			HelpMail        string   `json:"help_mail"`
+			ExternalAddress string   `json:"external_address"`
+			DNS             []string `json:"dns"`
+		}{}
+
+		if err := json.NewDecoder(r.Body).Decode(&general); err != nil {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+
+		if err := config.SetHelpMail(general.HelpMail); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if err := config.SetExternalAddress(general.ExternalAddress); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if err := config.SetDNS(general.DNS); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		w.Write([]byte("OK"))
+		return
+	case "login":
+
+		var login = struct {
+			SessionLifetime   int `json:"session_lifetime"`
+			InactivityTimeout int `json:"session_inactivity"`
+			Lockout           int `json:"lockout"`
+		}{}
+
+		if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+
+		if err := config.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if err := config.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if err := config.SetLockout(login.Lockout); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		w.Write([]byte("OK"))
+		return
+	default:
+		http.NotFound(w, r)
+		return
+	}
+
+}
+
+func groups(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		data, err := ctrl.GetGroups()
+		if err != nil {
+			log.Println("unable to marshal rules data: ", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+		b, err := json.Marshal(data)
+		if err != nil {
+			log.Println("unable to marshal groups data: ", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+		return
+	case "DELETE":
+		var groupsToRemove []string
+		err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding group names to remove: ", err)
+			return
+		}
+
+		for i := range groupsToRemove {
+			groupsToRemove[i] = html.UnescapeString(groupsToRemove[i])
+		}
+
+		if err := ctrl.RemoveGroup(groupsToRemove); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error removing groups: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	case "PUT":
+		var group control.GroupData
+		err := json.NewDecoder(r.Body).Decode(&group)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding group data to edit new group/s: ", err)
+			return
+		}
+
+		if err := ctrl.EditGroup(group); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error editing group: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	case "POST":
+		var group control.GroupData
+		err := json.NewDecoder(r.Body).Decode(&group)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding group data to add new group: ", err)
+			return
+		}
+
+		if err := ctrl.AddGroup(group); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error adding group: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	default:
+		http.NotFound(w, r)
+		return
+	}
+
+}
+
+func policies(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		data, err := ctrl.GetPolicies()
+		if err != nil {
+			log.Println("unable to get policies: ", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+
+		b, err := json.Marshal(data)
+		if err != nil {
+			log.Println("unable to marshal policies data: ", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(b)
+		return
+	case "DELETE":
+		var policiesToRemove []string
+		err := json.NewDecoder(r.Body).Decode(&policiesToRemove)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding policy names to remove: ", err)
+			return
+		}
+
+		for i := range policiesToRemove {
+			policiesToRemove[i] = html.UnescapeString(policiesToRemove[i])
+		}
+
+		if err := ctrl.RemovePolicies(policiesToRemove); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error removing policy: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	case "PUT":
+		var group control.PolicyData
+		err := json.NewDecoder(r.Body).Decode(&group)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding policy data to edit new group/s: ", err)
+			return
+		}
+
+		if err := ctrl.EditPolicies(group); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error editing policy: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	case "POST":
+		var policy control.PolicyData
+		err := json.NewDecoder(r.Body).Decode(&policy)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println("error decoding group data to add new group: ", err)
+			return
+		}
+
+		log.Println(policy.Effects)
+
+		if err := ctrl.AddPolicy(policy); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Println("error adding policy: ", err)
+			return
+		}
+
+		w.Write([]byte("OK"))
+	default:
+		http.NotFound(w, r)
+		return
 	}
 
 }
