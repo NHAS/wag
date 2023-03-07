@@ -42,16 +42,19 @@ $(function () {
       field: 'state',
       checkbox: true,
       align: 'center',
+      escape: "true"
     }, {
       title: 'Token',
       field: 'token',
       align: 'center',
       sortable: true,
+      escape: "true"
     }, {
       field: 'username',
       title: 'Username',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }, {
       field: 'groups',
       title: 'Groups',
@@ -63,6 +66,7 @@ $(function () {
       title: 'Overwrites',
       sortable: true,
       align: 'center',
+      escape: "true"
     }
   ])
 

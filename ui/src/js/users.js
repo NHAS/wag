@@ -23,15 +23,12 @@ function devicesFormatter(value, row) {
 
 
 function mfaFormatter(value) {
+  let p = document.createElement('p')
   if (value === "unset") {
-    let p = document.createElement('p')
     p.className = "badge badge-danger"
-    p.innerText = value
-
-    return p.outerHTML
   }
-
-  return value
+  p.innerText = value
+  return p.outerHTML
 }
 
 function groupsFormatter(values) {
@@ -59,11 +56,13 @@ $(function () {
       field: 'state',
       checkbox: true,
       align: 'center',
+      escape: "true"
     }, {
       title: 'Username',
       field: 'username',
       align: 'center',
       sortable: true,
+      escape: "true"
     }, {
       field: 'groups',
       title: 'Groups',
@@ -87,6 +86,7 @@ $(function () {
       title: 'Locked',
       align: 'center',
       sortable: true,
+      escape: "true"
     }
   ])
 

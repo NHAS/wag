@@ -65,11 +65,13 @@ $(function () {
       field: 'state',
       checkbox: true,
       align: 'center',
+      escape: "true"
     }, {
       title: 'Effects (Group/Username)',
       field: 'effects',
       align: 'center',
       sortable: true,
+      escape: "true"
     }, {
       field: 'mfa_routes',
       title: 'MFA Routes (Number)',

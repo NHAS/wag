@@ -58,11 +58,13 @@ $(function () {
       field: 'state',
       checkbox: true,
       align: 'center',
+      escape: "true"
     }, {
       title: 'Group',
       field: 'group',
       align: 'center',
       sortable: true,
+      escape: "true"
     }, {
       title: 'Members (Number)',
       field: 'members',
@@ -77,6 +79,7 @@ $(function () {
       clickToSelect: false,
       events: window.operateEvents,
       formatter: operateFormatter
+
     }
   ])
 

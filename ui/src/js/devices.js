@@ -28,6 +28,7 @@ $(function () {
       field: 'state',
       checkbox: true,
       align: 'center',
+      escape: "true"
     }, {
       title: 'Owner',
       field: 'owner',
@@ -38,27 +39,32 @@ $(function () {
       field: 'active',
       title: 'Active',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }, {
       field: 'is_locked',
       title: 'Locked',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }, {
       field: 'internal_ip',
       title: 'Address',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }, {
       field: 'public_key',
       title: 'Public Key',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }, {
       field: 'last_endpoint',
       title: 'Last Endpoint Address',
       sortable: true,
-      align: 'center'
+      align: 'center',
+      escape: "true"
     }
   ])
 
