@@ -56,6 +56,14 @@ func CreateAdminUser(username, password string) error {
 
 func CompareAdminKeys(username, password string) error {
 
+	wasteTime := func() {
+		// Null op to stop timing discovery attacks
+		salt, _ := generateSalt()
+
+		hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+
+		subtle.ConstantTimeCompare(hash, hash)
+	}
 	// Do increment of attempts first to stop race conditions
 	_, err := database.Exec(`UPDATE 
 	AdminUsers 
@@ -65,6 +73,7 @@ func CompareAdminKeys(username, password string) error {
 		attempts <= ? AND username = ?`,
 		5, username)
 	if err != nil {
+		wasteTime()
 		return err
 	}
 
@@ -81,6 +90,7 @@ func CompareAdminKeys(username, password string) error {
 		username = ?
 `, username).Scan(&b64PasswordHashSalt, &attempts)
 	if err != nil {
+		wasteTime()
 		return err
 	}
 
