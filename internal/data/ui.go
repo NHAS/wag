@@ -64,6 +64,7 @@ func CompareAdminKeys(username, password string) error {
 
 		subtle.ConstantTimeCompare(hash, hash)
 	}
+
 	// Do increment of attempts first to stop race conditions
 	_, err := database.Exec(`UPDATE 
 	AdminUsers 
