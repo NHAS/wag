@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"html"
 	"html/template"
 	"io"
 	"log"
@@ -936,10 +935,6 @@ func groups(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for i := range groupsToRemove {
-			groupsToRemove[i] = html.UnescapeString(groupsToRemove[i])
-		}
-
 		if err := ctrl.RemoveGroup(groupsToRemove); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Println("error removing groups: ", err)
@@ -1015,10 +1010,6 @@ func policies(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for i := range policiesToRemove {
-			policiesToRemove[i] = html.UnescapeString(policiesToRemove[i])
-		}
-
 		if err := ctrl.RemovePolicies(policiesToRemove); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Println("error removing policy: ", err)
@@ -1050,8 +1041,6 @@ func policies(w http.ResponseWriter, r *http.Request) {
 			log.Println("error decoding group data to add new group: ", err)
 			return
 		}
-
-		log.Println(policy.Effects)
 
 		if err := ctrl.AddPolicy(policy); err != nil {
 			http.Error(w, err.Error(), 500)

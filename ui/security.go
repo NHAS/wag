@@ -22,7 +22,7 @@ func (sh *security) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//If origin != host header
-		if r.Header.Get("Host") != u.Host {
+		if r.Host != u.Host {
 			http.Error(w, "Bad Request", 400)
 			return
 		}
@@ -37,6 +37,8 @@ func setSecurityHeaders(f http.Handler) http.Handler {
 	}
 }
 
+const JSON = "application/json"
+
 func contentType(handle http.HandlerFunc, contentType string) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +49,4 @@ func contentType(handle http.HandlerFunc, contentType string) http.HandlerFunc {
 
 		handle(w, r)
 	}
-
 }
-
-const JSON = "application/json"
