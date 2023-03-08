@@ -75,7 +75,7 @@ var WebauthnMFAPromptTmpl *template.Template = template.Must(template.New("").Pa
 var qrcodeRegistrationDisplayTmplt string
 
 type QrCodeRegistrationDisplay struct {
-	ImageData string
+	ImageData template.URL
 	Username  string
 }
 

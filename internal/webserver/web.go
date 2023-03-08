@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"image/png"
 	"log"
 	"net/http"
@@ -440,12 +441,14 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to generate qr code:", err)
 			http.Error(w, "Server Error", 500)
+			return
 		}
 
 		image, err = barcode.Scale(image, 400, 400)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to output barcode bytes:", err)
 			http.Error(w, "Server Error", 500)
+			return
 		}
 
 		var buff bytes.Buffer
@@ -457,7 +460,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		}
 
 		qr := resources.QrCodeRegistrationDisplay{
-			ImageData: "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
+			ImageData: template.URL("data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes())),
 			Username:  username,
 		}
 
