@@ -1,7 +1,7 @@
 @font-face {
   font-family: 'icomoon';
-  src:  url('/fonts/icomoon.eot?ljmdwn');
-  src:  url('/fonts/icomoon.eot?ljmdwn#iefix') format('embedded-opentype'),
+  src: url('/fonts/icomoon.eot?ljmdwn');
+  src: url('/fonts/icomoon.eot?ljmdwn#iefix') format('embedded-opentype'),
     url('/fonts/icomoon.ttf?ljmdwn') format('truetype'),
     url('/fonts/icomoon.woff?ljmdwn') format('woff'),
     url('/fonts/icomoon.svg?ljmdwn#icomoon') format('svg');
@@ -10,7 +10,8 @@
   font-display: block;
 }
 
-[class^="icon-"], [class*=" icon-"] {
+[class^="icon-"],
+[class*=" icon-"] {
   /* use !important to prevent issues with browser extensions that change fonts */
   font-family: 'icomoon' !important;
   font-style: normal;
@@ -27,63 +28,89 @@
 .icon-chevron-left:before {
   content: "\e90a";
 }
+
 .icon-chevron-down:before {
   content: "\e908";
 }
+
 .icon-chevron-right:before {
   content: "\e909";
 }
+
 .icon-eye:before {
   content: "\e900";
 }
+
 .icon-trash:before {
   content: "\e901";
 }
+
 .icon-desktop:before {
   content: "\e902";
 }
+
 .icon-dashboard:before {
   content: "\e903";
 }
+
 .icon-tachometer:before {
   content: "\e903";
 }
+
 .icon-bars:before {
   content: "\e904";
 }
+
 .icon-group:before {
   content: "\e905";
 }
+
 .icon-users:before {
   content: "\e905";
 }
+
 .icon-wrench:before {
   content: "\e906";
 }
+
 .icon-pencil:before {
   content: "\e907";
 }
+
 .icon-key:before {
   content: "\e98d";
 }
+
 .icon-lock:before {
   content: "\e98f";
 }
+
 .icon-unlocked:before {
   content: "\e990";
 }
+
 .icon-cog:before {
   content: "\e994";
 }
+
 .icon-cogs:before {
   content: "\e995";
 }
+
 .icon-plus:before {
   content: "\ea0a";
 }
+
 .icon-checkmark:before {
   content: "\ea10";
 }
+
 .icon-exit:before {
   content: "\ea14";
+}
+
+
+.nav-item .icon {
+  min-width: 20px;
+  display: inline-block;
 }
