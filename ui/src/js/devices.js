@@ -22,6 +22,16 @@ function ownersFormatter(values, row) {
   return a.outerHTML
 }
 
+function lockedFormatter(value) {
+  let p = document.createElement('p')
+  if (value === true) {
+    p.className = "badge badge-danger"
+  }
+  p.innerText = value
+  return p.outerHTML
+}
+
+
 $(function () {
   let table = createTable('#devicesTable', [
     {
@@ -46,7 +56,7 @@ $(function () {
       title: 'Locked',
       sortable: true,
       align: 'center',
-      escape: "true"
+      formatter: lockedFormatter
     }, {
       field: 'internal_ip',
       title: 'Address',
