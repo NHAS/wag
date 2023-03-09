@@ -193,7 +193,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			msg, _ := resultMessage(err)
 			if strings.Contains(err.Error(), "returned username") {
-				msg = "username " + user.Username + " not associated with device, device owned by " + info.GetPreferredUsername()
+				msg = "username '" + info.GetPreferredUsername() + "' not associated with device, device owned by '" + user.Username + "'"
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)
