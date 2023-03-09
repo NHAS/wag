@@ -72,7 +72,7 @@ type Config struct {
 	Socket string `json:",omitempty"`
 
 	Proxied     bool
-	ExposePorts []string
+	ExposePorts []string `json:",omitempty"`
 
 	HelpMail                        string
 	Lockout                         int

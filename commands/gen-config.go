@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
@@ -156,6 +157,24 @@ func (g *genconfig) Run() error {
 
 			if u.Scheme == "https" {
 				c.Authenticators.Methods = append(c.Authenticators.Methods, "webauthn")
+			}
+		}
+
+		var managementUI string
+		fmt.Printf("enable managment UI? [N/y] ")
+		fmt.Scanf("%s", &managementUI)
+		if strings.ToLower(managementUI) == "y" {
+
+			c.ManagementUI.Enabled = true
+			fmt.Println("management UI listen address (default 127.0.0.1:4433)? ")
+			c.ManagementUI.ListenAddress = "127.0.0.1:4433"
+			fmt.Scanf("%s", &c.ManagementUI.ListenAddress)
+
+			fmt.Println("management UI TLS private key path (if empty no TLS): ")
+			fmt.Scanf("%s", &c.ManagementUI.KeyPath)
+			if c.ManagementUI.KeyPath != "" {
+				fmt.Println("management UI TLS certificate path (if empty no TLS): ")
+				fmt.Scanf("%s", &c.ManagementUI.CertPath)
 			}
 		}
 
