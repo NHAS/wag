@@ -21,6 +21,15 @@ function devicesFormatter(value, row) {
   return a.outerHTML
 }
 
+function lockedFormatter(value) {
+  let p = document.createElement('p')
+  if (value === true) {
+    p.className = "badge badge-danger"
+  }
+  p.innerText = value
+  return p.outerHTML
+}
+
 
 function mfaFormatter(value) {
   let p = document.createElement('p')
@@ -86,7 +95,7 @@ $(function () {
       title: 'Locked',
       align: 'center',
       sortable: true,
-      escape: "true"
+      formatter: lockedFormatter
     }
   ])
 
