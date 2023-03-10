@@ -1,10 +1,5 @@
 // +build ignore
 
-#include <linux/ip.h>
-#include <linux/udp.h>
-#include <linux/tcp.h>
-#include <linux/icmp.h>
-#include <linux/in.h>
 #include <linux/types.h>
 
 #include <linux/bpf.h>
@@ -143,6 +138,135 @@ struct bpf_map_def
     unsigned int map_flags;
     unsigned int inner_map_idx;
     unsigned int numa_node;
+};
+
+enum
+{
+    IPPROTO_IP = 0, /* Dummy protocol for TCP		*/
+#define IPPROTO_IP IPPROTO_IP
+    IPPROTO_ICMP = 1, /* Internet Control Message Protocol	*/
+#define IPPROTO_ICMP IPPROTO_ICMP
+    IPPROTO_IGMP = 2, /* Internet Group Management Protocol	*/
+#define IPPROTO_IGMP IPPROTO_IGMP
+    IPPROTO_IPIP = 4, /* IPIP tunnels (older KA9Q tunnels use 94) */
+#define IPPROTO_IPIP IPPROTO_IPIP
+    IPPROTO_TCP = 6, /* Transmission Control Protocol	*/
+#define IPPROTO_TCP IPPROTO_TCP
+    IPPROTO_EGP = 8, /* Exterior Gateway Protocol		*/
+#define IPPROTO_EGP IPPROTO_EGP
+    IPPROTO_PUP = 12, /* PUP protocol				*/
+#define IPPROTO_PUP IPPROTO_PUP
+    IPPROTO_UDP = 17, /* User Datagram Protocol		*/
+#define IPPROTO_UDP IPPROTO_UDP
+    IPPROTO_IDP = 22, /* XNS IDP protocol			*/
+#define IPPROTO_IDP IPPROTO_IDP
+    IPPROTO_TP = 29, /* SO Transport Protocol Class 4	*/
+#define IPPROTO_TP IPPROTO_TP
+    IPPROTO_DCCP = 33, /* Datagram Congestion Control Protocol */
+#define IPPROTO_DCCP IPPROTO_DCCP
+    IPPROTO_IPV6 = 41, /* IPv6-in-IPv4 tunnelling		*/
+#define IPPROTO_IPV6 IPPROTO_IPV6
+    IPPROTO_RSVP = 46, /* RSVP Protocol			*/
+#define IPPROTO_RSVP IPPROTO_RSVP
+    IPPROTO_GRE = 47, /* Cisco GRE tunnels (rfc 1701,1702)	*/
+#define IPPROTO_GRE IPPROTO_GRE
+    IPPROTO_ESP = 50, /* Encapsulation Security Payload protocol */
+#define IPPROTO_ESP IPPROTO_ESP
+    IPPROTO_AH = 51, /* Authentication Header protocol	*/
+#define IPPROTO_AH IPPROTO_AH
+    IPPROTO_MTP = 92, /* Multicast Transport Protocol		*/
+#define IPPROTO_MTP IPPROTO_MTP
+    IPPROTO_BEETPH = 94, /* IP option pseudo header for BEET	*/
+#define IPPROTO_BEETPH IPPROTO_BEETPH
+    IPPROTO_ENCAP = 98, /* Encapsulation Header			*/
+#define IPPROTO_ENCAP IPPROTO_ENCAP
+    IPPROTO_PIM = 103, /* Protocol Independent Multicast	*/
+#define IPPROTO_PIM IPPROTO_PIM
+    IPPROTO_COMP = 108, /* Compression Header Protocol		*/
+#define IPPROTO_COMP IPPROTO_COMP
+    IPPROTO_L2TP = 115, /* Layer 2 Tunnelling Protocol		*/
+#define IPPROTO_L2TP IPPROTO_L2TP
+    IPPROTO_SCTP = 132, /* Stream Control Transport Protocol	*/
+#define IPPROTO_SCTP IPPROTO_SCTP
+    IPPROTO_UDPLITE = 136, /* UDP-Lite (RFC 3828)			*/
+#define IPPROTO_UDPLITE IPPROTO_UDPLITE
+    IPPROTO_MPLS = 137, /* MPLS in IP (RFC 4023)		*/
+#define IPPROTO_MPLS IPPROTO_MPLS
+    IPPROTO_ETHERNET = 143, /* Ethernet-within-IPv6 Encapsulation	*/
+#define IPPROTO_ETHERNET IPPROTO_ETHERNET
+    IPPROTO_RAW = 255, /* Raw IP packets			*/
+#define IPPROTO_RAW IPPROTO_RAW
+    IPPROTO_MPTCP = 262, /* Multipath TCP connection		*/
+#define IPPROTO_MPTCP IPPROTO_MPTCP
+    IPPROTO_MAX
+};
+
+struct iphdr
+{
+    __u8 ihl : 4,
+        version : 4;
+    __u8 tos;
+    __be16 tot_len;
+    __be16 id;
+    __be16 frag_off;
+    __u8 ttl;
+    __u8 protocol;
+    __sum16 check;
+    __struct_group(/* no tag */, addrs, /* no attrs */,
+                   __be32 saddr;
+                   __be32 daddr;);
+    /*The options start here. */
+};
+
+struct udphdr
+{
+    __be16 source;
+    __be16 dest;
+    __be16 len;
+    __sum16 check;
+};
+
+struct tcphdr
+{
+    __be16 source;
+    __be16 dest;
+    __be32 seq;
+    __be32 ack_seq;
+    __u16 res1 : 4,
+        doff : 4,
+        fin : 1,
+        syn : 1,
+        rst : 1,
+        psh : 1,
+        ack : 1,
+        urg : 1,
+        ece : 1,
+        cwr : 1;
+    __be16 window;
+    __sum16 check;
+    __be16 urg_ptr;
+};
+
+struct icmphdr
+{
+    __u8 type;
+    __u8 code;
+    __sum16 checksum;
+    union
+    {
+        struct
+        {
+            __be16 id;
+            __be16 sequence;
+        } echo;
+        __be32 gateway;
+        struct
+        {
+            __be16 __unused;
+            __be16 mtu;
+        } frag;
+        __u8 reserved[4];
+    } un;
 };
 
 struct device
