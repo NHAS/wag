@@ -394,6 +394,11 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
         return 0;
     }
 
+    if ((void *)(data + ip_header_length) > data_end)
+    {
+        return 0;
+    }
+
     switch (ip->protocol)
     {
 
