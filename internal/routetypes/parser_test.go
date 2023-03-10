@@ -84,6 +84,32 @@ func TestParseEasyRules(t *testing.T) {
 	}
 }
 
+func TestAclToRoute(t *testing.T) {
+	acls := []string{"1.1.1.1", "5.5.5.0/16", "2.2.2.2 80/tcp 100-102/udp"}
+
+	routes, err := AclsToRoutes(acls)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(routes) != 3 {
+		t.Fatal("number of routes produced from acls to routes incorrect")
+	}
+
+	if routes[0] != "1.1.1.1/32" {
+		t.Fatal("Expected: 1.1.1.1/32 got ", routes[0])
+	}
+
+	if routes[1] != "5.5.0.0/16" {
+		t.Fatal("Expected: 5.5.0.0/16 got ", routes[1])
+	}
+
+	if routes[2] != "2.2.2.2/32" {
+		t.Fatal("Expected: 2.2.2.2/32 got ", routes[2])
+	}
+
+}
+
 func TestParseSimpleSingles(t *testing.T) {
 	br, err := ParseRule("1.2.1.2 43/tcp 23/udp icmp 55/any")
 	if err != nil {

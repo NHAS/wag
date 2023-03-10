@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
@@ -416,12 +417,19 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		dnsWithOutSubnet[i] = strings.TrimSuffix(dnsWithOutSubnet[i], "/32")
 	}
 
+	routes, err := routetypes.AclsToRoutes(append(acl.Allow, acl.Mfa...))
+	if err != nil {
+		log.Println(username, remoteAddr, "unable access parse acls to produce routes: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
 	i := resources.Interface{
 		ClientPrivateKey:   keyStr,
 		ClientAddress:      address,
 		ServerAddress:      fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:    wgPublicKey.String(),
-		CapturedAddresses:  append(acl.Allow, acl.Mfa...),
+		CapturedAddresses:  routes,
 		DNS:                dnsWithOutSubnet,
 		ClientPresharedKey: presharedKey,
 	}

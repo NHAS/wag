@@ -408,11 +408,11 @@ func AddVirtualUser(username string, groups []string) {
 	valuesLock.Lock()
 	defer valuesLock.Unlock()
 
-	for _, group := range groups {
-		if values.Acls.rGroupLookup[username] == nil {
-			values.Acls.rGroupLookup[username] = make(map[string]bool)
-		}
+	if values.Acls.rGroupLookup[username] == nil {
+		values.Acls.rGroupLookup[username] = make(map[string]bool)
+	}
 
+	for _, group := range groups {
 		values.Acls.rGroupLookup[username][group] = true
 	}
 }

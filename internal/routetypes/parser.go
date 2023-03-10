@@ -24,7 +24,7 @@ type Rule struct {
 func ParseRules(rules []string) (result []Rule, err error) {
 
 	for _, rule := range rules {
-		r, err := parseRule(rule)
+		r, err := ParseRule(rule)
 		if err != nil {
 			return nil, err
 		}
@@ -35,34 +35,28 @@ func ParseRules(rules []string) (result []Rule, err error) {
 	return
 }
 
-func ParseRule(rule string) (rules Rule, err error) {
+func AclsToRoutes(rules []string) (routes []string, err error) {
 
-	return parseRule(rule)
-}
+	for _, rule := range rules {
+		ruleParts := strings.Fields(rule)
+		if len(ruleParts) < 1 {
+			return nil, errors.New("could not split correct number of rules")
+		}
 
-func parseKeys(address string) (keys []Key, err error) {
-	resultingAddresses, err := parseAddress(address)
-	if err != nil {
-		return nil, err
-	}
+		keys, err := parseKeys(ruleParts[0])
+		if err != nil {
+			return rules, errors.New("could not parse address " + ruleParts[0] + " err: " + err.Error())
+		}
 
-	for _, ip := range resultingAddresses {
-
-		maskLength, _ := ip.Mask.Size()
-
-		keys = append(keys,
-			Key{
-				Prefixlen: uint32(maskLength),
-				IP:        [4]byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
-			},
-		)
+		for _, k := range keys {
+			routes = append(routes, k.String())
+		}
 	}
 
 	return
 }
 
-func parseRule(rule string) (rules Rule, err error) {
-
+func ParseRule(rule string) (rules Rule, err error) {
 	ruleParts := strings.Fields(rule)
 	if len(ruleParts) < 1 {
 		return rules, errors.New("could not split correct number of rules")
@@ -103,6 +97,27 @@ func parseRule(rule string) (rules Rule, err error) {
 	}
 
 	rules.Values = rules.Values[:cap(rules.Values)]
+	return
+}
+
+func parseKeys(address string) (keys []Key, err error) {
+	resultingAddresses, err := parseAddress(address)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ip := range resultingAddresses {
+
+		maskLength, _ := ip.Mask.Size()
+
+		keys = append(keys,
+			Key{
+				Prefixlen: uint32(maskLength),
+				IP:        [4]byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
+			},
+		)
+	}
+
 	return
 }
 
