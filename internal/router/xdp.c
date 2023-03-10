@@ -360,6 +360,9 @@ struct bpf_map_def SEC("maps") inactivity_timeout_minutes = {
 Attempt to parse the IPv4 source address from the packet.
 Returns 0 if there is no IPv4 header field; otherwise returns non-zero.
 */
+
+#define MAX_PACKET_OFF 0xffff
+
 static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *ip_info)
 {
     void *data_end = (void *)(long)ctx->data_end;
@@ -385,13 +388,19 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     ip_info->dst_port = 0;
     ip_info->src_port = 0;
 
+    __u64 ip_header_length = (ip->ihl * 4);
+    if (ip_header_length > MAX_PACKET_OFF)
+    {
+        return 0;
+    }
+
     switch (ip->protocol)
     {
 
     case IPPROTO_UDP:
     {
 
-        struct udphdr *udph = (data + (ip->ihl * 4));
+        struct udphdr *udph = (data + ip_header_length);
 
         if (udph + 1 > (struct udphdr *)data_end)
         {
@@ -407,7 +416,7 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     case IPPROTO_TCP:
     {
 
-        struct tcphdr *tcph = (data + (ip->ihl * 4));
+        struct tcphdr *tcph = (data + ip_header_length);
 
         if (tcph + 1 > (struct tcphdr *)data_end)
         {
@@ -421,7 +430,7 @@ static __always_inline int parse_ip_src_dst_addr(struct xdp_md *ctx, struct ip *
     }
     case IPPROTO_ICMP:
     {
-        struct icmphdr *icmph = (data + (ip->ihl * 4));
+        struct icmphdr *icmph = (data + ip_header_length);
 
         if (icmph + 1 > (struct icmphdr *)data_end)
         {
