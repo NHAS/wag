@@ -21,6 +21,7 @@
         "icmp.h": "c",
         "tcp.h": "c",
         "ip.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "in.h": "c"
     }
 }
