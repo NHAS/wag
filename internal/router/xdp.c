@@ -477,7 +477,7 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 0;
     }
 
-    __u64 currentTime = bpf_ktime_get_boot_ns();
+    __u64 currentTime = bpf_ktime_get_ns();
 
     // If the inactivity timeout is not disabled and users session has timed out
     __u8 isTimedOut = (*inactivity_timeout != __UINT64_MAX__ && ((currentTime - current_device->lastPacketTime) >= *inactivity_timeout));

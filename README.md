@@ -401,7 +401,7 @@ Example:
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
 - IPv4 only.
 - Linux only
-- Modern kernel 5.3+ at least (5.3 allows loops in ebpf)
+- Very Modern kernel 5.9+ at least (>5.9 allows loops in ebpf and `bpf_link`)
 
 
 # Development 
