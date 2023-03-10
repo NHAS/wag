@@ -161,19 +161,19 @@ func (g *genconfig) Run() error {
 		}
 
 		var managementUI string
-		fmt.Printf("enable managment UI? [N/y] ")
+		fmt.Printf("enable managment UI? [Y/n] ")
 		fmt.Scanf("%s", &managementUI)
-		if strings.ToLower(managementUI) == "y" {
+		if strings.ToLower(managementUI) != "n" {
 
 			c.ManagementUI.Enabled = true
-			fmt.Println("management UI listen address (default 127.0.0.1:4433)? ")
+			fmt.Print("management UI listen address (default 127.0.0.1:4433)? ")
 			c.ManagementUI.ListenAddress = "127.0.0.1:4433"
 			fmt.Scanf("%s", &c.ManagementUI.ListenAddress)
 
-			fmt.Println("management UI TLS private key path (if empty no TLS): ")
+			fmt.Print("management UI TLS private key path (if empty no TLS): ")
 			fmt.Scanf("%s", &c.ManagementUI.KeyPath)
 			if c.ManagementUI.KeyPath != "" {
-				fmt.Println("management UI TLS certificate path (if empty no TLS): ")
+				fmt.Print("management UI TLS certificate path (if empty no TLS): ")
 				fmt.Scanf("%s", &c.ManagementUI.CertPath)
 			}
 		}
