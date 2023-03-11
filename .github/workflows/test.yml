@@ -10,6 +10,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
       - name: Install dependencies
-        run: sudo go get ./...
+        run: sudo apt install -y make wget llvm clang gcc git npm gulp libbpf-dev
+      - name: Build with make
+        run: make
       - name: Test with the Go CLI
         run: sudo go test -v ./...
