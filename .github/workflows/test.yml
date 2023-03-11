@@ -11,6 +11,8 @@ jobs:
         uses: actions/setup-go@v3
       - name: Install dependencies
         run: sudo apt install -y make wget llvm clang gcc git npm gulp libbpf-dev
+      - name: Set asm version
+        run: ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
       - name: Build with make
         run: make
       - name: Test with the Go CLI
