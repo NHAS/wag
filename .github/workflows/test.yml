@@ -1,0 +1,15 @@
+name: Go
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+      - name: Install dependencies
+        run: sudo go get ./...
+      - name: Test with the Go CLI
+        run: sudo go test -v ./...
