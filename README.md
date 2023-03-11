@@ -295,12 +295,12 @@ Full config example
     "Proxied": true,
     "ExposePorts": [
         "443/tcp"
-     ]
+     ],
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": 2,
     "SessionInactivityTimeoutMinutes": 1,
-    "ExternalAddress": "192.168.121.61",
+    "ExternalAddress": "81.80.79.78",
     "DatabaseLocation": "devices.db",
     "Socket":"/tmp/wag.sock",
     "Webserver": {
@@ -316,7 +316,7 @@ Full config example
     "ManagementUI": {
         "ListenAddress": "127.0.0.1:4433",
         "CertPath": "/etc/example/cert/path",
-        "KeyPath": "/etc/ssl/private/somecert.key"
+        "KeyPath": "/etc/ssl/private/somecert.key",
         "Enabled": true
     },
     "Authenticators": {
@@ -360,7 +360,7 @@ Full config example
             },
             "username": { 
                 "Mfa": [
-                     "10.0.0.2/32"
+                     "someinternal.service 9100/tcp"
                 ],
                 "Allow":[ "10.0.0.1/32"]
             },
