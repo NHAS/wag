@@ -14,6 +14,6 @@ jobs:
       - name: Set asm version
         run: sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
       - name: Build with make
-        run: make
+        run: sudo make
       - name: Test with the Go CLI
         run: sudo go test -v ./...
