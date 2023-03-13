@@ -447,6 +447,17 @@ There are a few `_test.go` files around that give example on how to do this.
 
 Then open a pull request and we can discuss it there.  
 
+# Donations and Support
+If you like `wag` and use it to support your work flow, consider donating to the project. Your donations go directly towards the time and effort I put in, and the amount of support I can provide. 
+
+You can do this by either using the `Support` button on the side or the cryptocurrency wallets detailed below.
+  
+Monero (XMR):  
+`8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`  
+  
+Bitcoin (BTC):  
+`bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`  
+
 
 # Unoffical Docker
 
