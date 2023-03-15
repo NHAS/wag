@@ -124,9 +124,12 @@ func TearDown() {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values().Wireguard.Range.String(), "-j", "MASQUERADE")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
+	shouldNAT := config.Values().NAT == nil || (config.Values().NAT != nil && *config.Values().NAT)
+	if shouldNAT {
+		err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values().Wireguard.Range.String(), "-j", "MASQUERADE")
+		if err != nil {
+			log.Println("Unable to clean up firewall rules: ", err)
+		}
 	}
 
 	if !config.Values().Proxied {

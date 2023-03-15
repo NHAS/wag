@@ -73,6 +73,7 @@ type Config struct {
 
 	Proxied     bool
 	ExposePorts []string `json:",omitempty"`
+	NAT         *bool
 
 	HelpMail                        string
 	Lockout                         int
@@ -497,6 +498,11 @@ func load(path string) (c Config, err error) {
 
 	if len(c.Authenticators.Issuer) == 0 {
 		return c, errors.New("no issuer specified")
+	}
+
+	if c.NAT == nil {
+		c.NAT = new(bool)
+		*c.NAT = true
 	}
 
 	err = validExternalAddresses(c.ExternalAddress)

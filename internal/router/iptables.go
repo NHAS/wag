@@ -36,9 +36,12 @@ func setupIptables() error {
 		return err
 	}
 
-	err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().Wireguard.Range.String(), "-j", "MASQUERADE")
-	if err != nil {
-		return err
+	shouldNAT := config.Values().NAT == nil || (config.Values().NAT != nil && *config.Values().NAT)
+	if shouldNAT {
+		err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().Wireguard.Range.String(), "-j", "MASQUERADE")
+		if err != nil {
+			return err
+		}
 	}
 
 	if !config.Values().Proxied {
