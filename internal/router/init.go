@@ -93,12 +93,20 @@ func Setup(error chan<- error, iptables bool) (err error) {
 		}
 	}()
 
-	log.Println("Started firewall management: \n",
-		"\t\t\tSetting filter FORWARD policy to DROP\n",
-		"\t\t\tAllowed input on tunnel port\n",
-		"\t\t\tSet MASQUERADE\n",
-		"\t\t\tXDP eBPF program managing firewall\n",
-		"\t\t\tSet public forwards")
+	output := []string{"Started firewall management: ",
+		"\t\t\tSetting filter FORWARD policy to DROP",
+		"\t\t\tXDP eBPF program managing firewall",
+		"\t\t\tAllow Iptables FORWARDS to and from wireguard device",
+		"\t\t\tAllow input to VPN host"}
+
+	routeMode := "MASQUERADE (NAT)"
+	if config.Values().NAT != nil && !*config.Values().NAT {
+		routeMode = "RAW (No NAT)"
+	}
+
+	output = append(output, "\t\t\tSet routing mode to "+routeMode)
+
+	log.Println(strings.Join(output, "\n"))
 
 	return nil
 }

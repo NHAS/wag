@@ -742,7 +742,7 @@ func StartWebServer(errs chan<- error) {
 		}
 	}()
 
-	log.Println("Started Managemnt UI:\n\tListening:", config.Values().ManagementUI.ListenAddress)
+	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values().ManagementUI.ListenAddress)
 }
 
 func changePassword(w http.ResponseWriter, r *http.Request) {
