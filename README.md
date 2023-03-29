@@ -243,7 +243,7 @@ The web interface itself cannot add administrative users.
 `Proxied`: Respect the `X-Forward-For` directive, must ensure that you are setting the `X-Forward-For` directive in your reverse proxy as wag relies on the client IP for authentication in the VPN tunnel  
 `HelpMail`: The email address that is shown on the prompt page  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
-`ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables)
+`ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
   
@@ -292,16 +292,22 @@ The web interface itself cannot add administrative users.
 Full config example
 ```json
 {
+    "Proxied": true,
+    "ExposePorts": [
+        "443/tcp"
+     ],
     "Lockout": 5,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": 2,
     "SessionInactivityTimeoutMinutes": 1,
-    "ExternalAddress": "192.168.121.61",
+    "ExternalAddress": "81.80.79.78",
     "DatabaseLocation": "devices.db",
     "Socket":"/tmp/wag.sock",
     "Webserver": {
         "Public": {
-            "ListenAddress": "192.168.121.61:8080"
+            "ListenAddress": "192.168.121.61:8080",
+            "CertPath": "/etc/example/cert/path",
+            "KeyPath": "/etc/ssl/private/somecert.key"
         },
         "Tunnel": {
             "Port": "8080"
@@ -309,6 +315,8 @@ Full config example
     },
     "ManagementUI": {
         "ListenAddress": "127.0.0.1:4433",
+        "CertPath": "/etc/example/cert/path",
+        "KeyPath": "/etc/ssl/private/somecert.key",
         "Enabled": true
     },
     "Authenticators": {
@@ -335,24 +343,30 @@ Full config example
     "Acls": {
         "Groups": {
             "group:nerds": [
-                "toaster",
-                "tester",
-                "abc"
-            ],
+                "daviv.test",
+                "franky.someone",
+                "any_username"
+            ]
         },
         "Policies": {
             "*": {
+                "Mfa": [
+                     "10.0.0.2/32 8080/any"
+                ],
                 "Allow": [
-                    "10.7.7.7",
+                    "10.7.7.7/32",
                     "google.com"
                 ]
             },
-            "username": {
-                  "Allow":[ "10.0.0.1/32"]
+            "username": { 
+                "Mfa": [
+                     "someinternal.service 9100/tcp"
+                ],
+                "Allow":[ "10.0.0.1/32"]
             },
             "group:nerds": {
                 "Mfa": [
-                    "192.168.3.4/32"
+                    "192.168.3.4/32",
                     "thing.internal 443/tcp icmp"
                 ],
                 "Allow": [
@@ -432,6 +446,17 @@ If you're looking to add your own features, or bug fixes to wag (thank you!). Pl
 There are a few `_test.go` files around that give example on how to do this.  
 
 Then open a pull request and we can discuss it there.  
+
+# Donations and Support
+If you like `wag` and use it to support your work flow, consider donating to the project. Your donations go directly towards the time and effort I put in, and the amount of support I can provide. 
+
+You can do this by either using the `Support` button on the side or the cryptocurrency wallets detailed below.
+  
+Monero (XMR):  
+`8A8TRqsBKpMMabvt5RxMhCFWcuCSZqGV5L849XQndZB4bcbgkenH8KWJUXinYbF6ySGBznLsunrd1WA8YNPiejGp3FFfPND`  
+  
+Bitcoin (BTC):  
+`bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`  
 
 
 # Unoffical Docker
