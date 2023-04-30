@@ -23,10 +23,19 @@ type Rule struct {
 
 func ParseRules(restrictionType PolicyType, rules []string) (result []Rule, err error) {
 
+	assignedRoutes := map[string]bool{}
+
 	for _, rule := range rules {
 		r, err := ParseRule(restrictionType, rule)
 		if err != nil {
 			return nil, err
+		}
+
+		for _, k := range r.Keys {
+			if _, ok := assignedRoutes[k.String()]; ok {
+				return nil, errors.New("route " + k.String() + " already defined")
+			}
+			assignedRoutes[k.String()] = true
 		}
 
 		result = append(result, r)
