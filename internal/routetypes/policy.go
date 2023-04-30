@@ -36,6 +36,10 @@ type Policy struct {
 }
 
 func (p *Policy) Is(pt PolicyType) bool {
+	if p.PolicyType == 0 && pt == 0 {
+		return true
+	}
+
 	return p.PolicyType&uint16(pt) != 0
 }
 func (r Policy) Bytes() []byte {

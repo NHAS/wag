@@ -145,18 +145,17 @@ func TestAddUser(t *testing.T) {
 			}
 		}
 
-		if !contains(allow, policiesTable) {
+		if !contains(policiesTable, allow) {
 			t.Fatal("public allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", allow)
 		}
 
-		if !contains(mfa, policiesTable) {
+		if !contains(policiesTable, mfa) {
 			t.Fatal("mfa allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", mfa)
 		}
 
 	}
 }
 
-// https://stackoverflow.com/questions/36000487/check-for-equality-on-slices-without-order
 func contains(x, y []string) bool {
 	f := map[string]bool{}
 	for _, nx := range x {
@@ -1012,8 +1011,8 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("searched for valid subnet")
 	}
 
-	if policies[0].Is(routetypes.SINGLE) {
-		t.Fatal("the route type was not single")
+	if !policies[0].Is(routetypes.SINGLE) {
+		t.Fatal("the route type was not single: ", policies[0])
 	}
 
 	if policies[0].LowerPort != 0 || policies[0].Proto != 0 {
