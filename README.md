@@ -242,7 +242,8 @@ The web interface itself cannot add administrative users.
   
 `Proxied`: Respect the `X-Forward-For` directive, must ensure that you are setting the `X-Forward-For` directive in your reverse proxy as wag relies on the client IP for authentication in the VPN tunnel  
 `HelpMail`: The email address that is shown on the prompt page  
-`Lockout`: Number of times a person can attempt mfa authentication before their account locks  
+`Lockout`: Number of times a person can attempt mfa authentication before their account locks 
+`NAT`: Turn on or off masquerading   
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
@@ -300,6 +301,7 @@ Full config example
         "443/tcp"
      ],
     "Lockout": 5,
+    "NAT": true,
     "HelpMail": "help@example.com",
     "MaxSessionLifetimeMinutes": 2,
     "SessionInactivityTimeoutMinutes": 1,
