@@ -961,6 +961,8 @@ func TestPortRestrictions(t *testing.T) {
 
 			info := iphdr.Src.String() + " -> " + iphdr.Dst.String() + ", proto " + pkt.String()
 
+			m, _ := GetRules()
+			t.Logf("%+v", m)
 			t.Fatalf("%s program did not %s packet instead did: %s", info, result(expectedResults[i]), result(value))
 		}
 	}

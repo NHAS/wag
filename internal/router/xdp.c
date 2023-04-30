@@ -127,10 +127,9 @@ A massive oversimplifcation of what is in this file.
 // These definitions are used for searching the trie structure to determine the type of rule we've got.
 #define STOP 0 // Signal stop searching array
 
-#define PUBLIC 2
-
-#define RANGE 4  // Port & protocol range e.g 22-2000
-#define SINGLE 8 // Single port & protocol
+#define PUBLIC 4
+#define RANGE 8   // Port & protocol range e.g 22-2000
+#define SINGLE 16 // Single port & protocol
 
 struct bpf_map_def
 {

@@ -673,10 +673,10 @@ func GetRules() (map[string]FirewallRules, error) {
 
 	result := make(map[string]FirewallRules)
 
-	iterateSubmap := func(innerMapID ebpf.MapID) (result []string, err error) {
+	iterateSubmap := func(innerMapID ebpf.MapID) (isPublic bool, result []string, err error) {
 		innerMap, err := ebpf.NewMapFromID(innerMapID)
 		if err != nil {
-			return nil, fmt.Errorf("map from id: %s", err)
+			return false, nil, fmt.Errorf("map from id: %s", err)
 		}
 
 		var (
@@ -692,6 +692,8 @@ func GetRules() (map[string]FirewallRules, error) {
 					actualPolicies = policies[:i]
 					break
 				}
+
+				isPublic = policies[i].Is(routetypes.PUBLIC)
 			}
 
 			result = append(result, k.String()+" policy "+fmt.Sprintf("%+v", actualPolicies))
@@ -727,8 +729,15 @@ func GetRules() (map[string]FirewallRules, error) {
 
 		err = xdpObjects.PoliciesTable.Lookup(deviceStruct.user_id, &innerMapID)
 		if err == nil {
-			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
+			isPublic, policyRoutes, err := iterateSubmap(innerMapID)
+			if err != nil {
 				return nil, err
+			}
+
+			if isPublic {
+				fwRule.Public = policyRoutes
+			} else {
+				fwRule.MFA = policyRoutes
 			}
 		}
 
