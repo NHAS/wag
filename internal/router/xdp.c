@@ -125,9 +125,12 @@ A massive oversimplifcation of what is in this file.
 #define MAX_USERID_LENGTH 20 // Length of sha1 hash
 
 // These definitions are used for searching the trie structure to determine the type of rule we've got.
-#define STOP 0   // Signal stop searching array
-#define RANGE 1  // Port & protocol range e.g 22-2000
-#define SINGLE 2 // Single port & protocol
+#define STOP 0 // Signal stop searching array
+
+#define PUBLIC 2
+
+#define RANGE 4  // Port & protocol range e.g 22-2000
+#define SINGLE 8 // Single port & protocol
 
 struct bpf_map_def
 {
@@ -328,16 +331,8 @@ struct policy
     __u16 upper_port;
 } __attribute__((__packed__));
 
-// Username  to LPM trie, value size *has* to be u32 as this is a HASH of MAPS
-struct bpf_map_def SEC("maps") public_table = {
-    .type = BPF_MAP_TYPE_HASH_OF_MAPS,
-    .max_entries = MAX_MAP_ENTRIES,
-    .key_size = MAX_USERID_LENGTH,
-    .value_size = sizeof(__u32),
-    .map_flags = 0,
-};
-
-struct bpf_map_def SEC("maps") mfa_table = {
+// Hahed username to LPM trie, value size *has* to be u32 as this is a HASH of MAPS
+struct bpf_map_def SEC("maps") policies_table = {
     .type = BPF_MAP_TYPE_HASH_OF_MAPS,
     .max_entries = MAX_MAP_ENTRIES,
     .key_size = MAX_USERID_LENGTH,
@@ -505,30 +500,27 @@ static __always_inline int conntrack(struct ip *ip_info)
 
     // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
     // If the key is a match for the LPM in the public table
-    void *restricted_routes = bpf_map_lookup_elem(&mfa_table, current_device->user_id);
+    void *user_policies = bpf_map_lookup_elem(&policies_table, current_device->user_id);
 
-    struct policy *applicable_policies = (restricted_routes != NULL) ? bpf_map_lookup_elem(restricted_routes, &key) : NULL;
-    if (applicable_policies != NULL)
+    struct policy *applicable_policies = (user_policies != NULL) ? bpf_map_lookup_elem(user_policies, &key) : NULL;
+    if (applicable_policies == NULL)
+    {
+        return 0;
+    }
+
+    // The upper bytes of a policy tell us if the policies are MFA or Public
+    // We dont have to pay attention to all the polices in a route as they should all be of one type
+    if (!(applicable_policies->policy_type & PUBLIC))
     {
         // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
         if (*isAccountLocked || isTimedOut || current_device->sessionExpiry == 0 ||
             // If either max session lifetime is disabled, or it is before the max lifetime of the session
             (current_device->sessionExpiry != __UINT64_MAX__ && currentTime > current_device->sessionExpiry))
         {
-            // If we match a MFA route, but we are not authorised dont fall through to the public route lookup
+            // If we match a MFA policy, but we are not authorised dont fall through to the public route lookup
             // just die
             return 0;
         }
-    }
-    else
-    {
-        void *public_routes = bpf_map_lookup_elem(&public_table, current_device->user_id);
-        applicable_policies = (public_routes != NULL) ? bpf_map_lookup_elem(public_routes, &key) : NULL;
-    }
-
-    if (applicable_policies == NULL)
-    {
-        return 0;
     }
 
     if (!isTimedOut)
@@ -552,15 +544,15 @@ static __always_inline int conntrack(struct ip *ip_info)
         // 0 = ANY
         if (policy.proto == 0 || policy.proto == ip_info->proto)
         {
-            switch (policy.policy_type)
-            {
-            case SINGLE:
-                if (policy.lower_port == 0 || policy.lower_port == port)
-                    return 1;
 
-            case RANGE:
-                if (policy.lower_port <= port && policy.upper_port >= port)
-                    return 1;
+            if (policy.policy_type & SINGLE)
+            {
+                return (policy.lower_port == 0 || policy.lower_port == port);
+            }
+
+            if (policy.policy_type & RANGE)
+            {
+                return (policy.lower_port <= port && policy.upper_port >= port);
             }
         }
     }

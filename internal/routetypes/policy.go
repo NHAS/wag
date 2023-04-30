@@ -6,14 +6,16 @@ import (
 	"fmt"
 )
 
-const (
-	STOP = uint16(iota) // Special directive, stop searching through the array, this is the end
-	RANGE
-	SINGLE
-)
+type PolicyType uint16
 
 const (
-	ANY = 0
+	ANY  = 0
+	STOP = 0
+
+	PUBLIC = 1 << PolicyType(iota) // Special directive, stop searching through the array, this is the end
+
+	RANGE
+	SINGLE
 )
 
 // Format
@@ -33,6 +35,9 @@ type Policy struct {
 	UpperPort  uint16
 }
 
+func (p *Policy) Is(pt PolicyType) bool {
+	return p.PolicyType&uint16(pt) != 0
+}
 func (r Policy) Bytes() []byte {
 	output := make([]byte, 8)
 	binary.LittleEndian.PutUint16(output, r.PolicyType)
@@ -60,17 +65,26 @@ func (r *Policy) Unpack(b []byte) error {
 
 func (r Policy) String() string {
 
-	switch r.PolicyType {
-	case STOP:
-		return "stop"
-	case SINGLE:
+	restrictionType := "mfa"
+
+	if r.Is(PUBLIC) {
+		restrictionType = "public"
+	}
+
+	if r.Is(STOP) {
+		return fmt.Sprintf("%s stop", restrictionType)
+	}
+
+	if r.Is(SINGLE) {
 		port := fmt.Sprintf("%d", r.LowerPort)
 		if r.LowerPort == 0 {
 			port = "any"
 		}
-		return fmt.Sprintf("%s/%s", port, lookupProtocol(r.Proto))
-	case RANGE:
-		return fmt.Sprintf("%d-%d/%s", r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
+		return fmt.Sprintf("%s %s/%s", restrictionType, port, lookupProtocol(r.Proto))
+	}
+
+	if r.Is(RANGE) {
+		return fmt.Sprintf("%s %d-%d/%s", restrictionType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 	}
 
 	return "unknown policy"

@@ -64,8 +64,7 @@ type bpfMapSpecs struct {
 	AccountLocked            *ebpf.MapSpec `ebpf:"account_locked"`
 	Devices                  *ebpf.MapSpec `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.MapSpec `ebpf:"inactivity_timeout_minutes"`
-	MfaTable                 *ebpf.MapSpec `ebpf:"mfa_table"`
-	PublicTable              *ebpf.MapSpec `ebpf:"public_table"`
+	PoliciesTable            *ebpf.MapSpec `ebpf:"policies_table"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -90,8 +89,7 @@ type bpfMaps struct {
 	AccountLocked            *ebpf.Map `ebpf:"account_locked"`
 	Devices                  *ebpf.Map `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.Map `ebpf:"inactivity_timeout_minutes"`
-	MfaTable                 *ebpf.Map `ebpf:"mfa_table"`
-	PublicTable              *ebpf.Map `ebpf:"public_table"`
+	PoliciesTable            *ebpf.Map `ebpf:"policies_table"`
 }
 
 func (m *bpfMaps) Close() error {
@@ -99,8 +97,7 @@ func (m *bpfMaps) Close() error {
 		m.AccountLocked,
 		m.Devices,
 		m.InactivityTimeoutMinutes,
-		m.MfaTable,
-		m.PublicTable,
+		m.PoliciesTable,
 	)
 }
 

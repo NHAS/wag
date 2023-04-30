@@ -112,19 +112,14 @@ func TestAddUser(t *testing.T) {
 	}
 
 	for _, device := range out {
-		publicAcls, err := checkLPMMap(device.Username, xdpObjects.PublicTable)
+		policiesTable, err := checkLPMMap(device.Username, xdpObjects.PoliciesTable)
 		if err != nil {
 			t.Fatal("checking publictable:", err)
 		}
 
-		mfaAcls, err := checkLPMMap(device.Username, xdpObjects.MfaTable)
-		if err != nil {
-			t.Fatal("checking mfatable:", err)
-		}
-
 		acl := config.GetEffectiveAcl(device.Username)
 
-		results, err := routetypes.ParseRules(acl.Allow)
+		results, err := routetypes.ParseRules(routetypes.PUBLIC, acl.Allow)
 		if err != nil {
 			t.Fatal("parsing rules failed?:", err)
 		}
@@ -137,7 +132,7 @@ func TestAddUser(t *testing.T) {
 			}
 		}
 
-		results, err = routetypes.ParseRules(acl.Mfa)
+		results, err = routetypes.ParseRules(0, acl.Mfa)
 		if err != nil {
 			t.Fatal("parsing rules failed?:", err)
 		}
@@ -150,15 +145,31 @@ func TestAddUser(t *testing.T) {
 			}
 		}
 
-		if !sameStringSlice(allow, publicAcls) {
-			t.Fatal("public allow list does not match configured acls\n got: ", publicAcls, "\nexpected:", allow)
+		if !contains(allow, policiesTable) {
+			t.Fatal("public allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", allow)
 		}
 
-		if !sameStringSlice(mfa, mfaAcls) {
-			t.Fatal("mfa allow list does not match configured acls\n got: ", mfaAcls, "\nexpected:", mfa)
+		if !contains(mfa, policiesTable) {
+			t.Fatal("mfa allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", mfa)
 		}
 
 	}
+}
+
+// https://stackoverflow.com/questions/36000487/check-for-equality-on-slices-without-order
+func contains(x, y []string) bool {
+	f := map[string]bool{}
+	for _, nx := range x {
+		f[nx] = true
+	}
+
+	for _, ny := range y {
+		if ok := f[ny]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestRoutePriority(t *testing.T) {
@@ -308,7 +319,7 @@ func TestBasicAuthorise(t *testing.T) {
 	mfas := config.GetEffectiveAcl(out[0].Username).Mfa
 	for i := range mfas {
 
-		rule, err := routetypes.ParseRule(mfas[i])
+		rule, err := routetypes.ParseRule(0, mfas[i])
 		if err != nil {
 			t.Fatal("could not parse ip: ", err)
 		}
@@ -849,7 +860,7 @@ func TestPortRestrictions(t *testing.T) {
 
 	acl := config.GetEffectiveAcl(out[0].Username)
 
-	rules, err := routetypes.ParseRules(acl.Allow)
+	rules, err := routetypes.ParseRules(routetypes.PUBLIC, acl.Allow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -861,7 +872,7 @@ func TestPortRestrictions(t *testing.T) {
 	for _, rule := range rules {
 
 		for _, policy := range rule.Values {
-			if policy.PolicyType == routetypes.STOP {
+			if policy.Is(routetypes.STOP) {
 				break
 			}
 
@@ -875,7 +886,7 @@ func TestPortRestrictions(t *testing.T) {
 			packets = append(packets, createPacket(net.ParseIP(out[0].Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, XDP_PASS)
 
-			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.PolicyType == routetypes.SINGLE {
+			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.Is(routetypes.SINGLE) {
 				continue
 			}
 
@@ -968,7 +979,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userPublicRoutes, err := getInnerMap(out[0].Username, xdpObjects.PublicTable)
+	userPublicRoutes, err := getInnerMap(out[0].Username, xdpObjects.PoliciesTable)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1001,7 +1012,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("searched for valid subnet")
 	}
 
-	if policies[0].PolicyType != routetypes.SINGLE {
+	if policies[0].Is(routetypes.SINGLE) {
 		t.Fatal("the route type was not single")
 	}
 
@@ -1009,7 +1020,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("policy was not marked as allow all despite having no rules defined")
 	}
 
-	if policies[1].PolicyType != routetypes.STOP {
+	if !policies[1].Is(routetypes.STOP) {
 		t.Fatal("policy should only contain one any/any rule")
 	}
 
@@ -1023,7 +1034,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("searched for ip failed")
 	}
 
-	if policies[0].PolicyType != routetypes.SINGLE {
+	if !policies[0].Is(routetypes.SINGLE) {
 		t.Fatal("the route type was not single")
 	}
 
@@ -1031,35 +1042,10 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("policy had incorrect proto and port defintions")
 	}
 
-	if policies[1].PolicyType != routetypes.STOP {
+	if !policies[1].Is(routetypes.STOP) {
 		t.Fatal("policy should only contain one any/any rule")
 	}
 
-}
-
-// https://stackoverflow.com/questions/36000487/check-for-equality-on-slices-without-order
-func sameStringSlice(x, y []string) bool {
-	if len(x) != len(y) {
-		return false
-	}
-
-	// create a map of string -> int
-	diff := make(map[string]int, len(x))
-	for _, _x := range x {
-		// 0 value for int is 0, so just increment a counter for the string
-		diff[_x]++
-	}
-	for _, _y := range y {
-		// If the string _y is not in diff bail out early
-		if _, ok := diff[_y]; !ok {
-			return false
-		}
-		diff[_y] -= 1
-		if diff[_y] == 0 {
-			delete(diff, _y)
-		}
-	}
-	return len(diff) == 0
 }
 
 func getInnerMap(username string, m *ebpf.Map) (*ebpf.Map, error) {

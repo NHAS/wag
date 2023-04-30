@@ -62,8 +62,7 @@ var (
 		"account_locked":  &xdpObjects.AccountLocked,
 		"devices":         &xdpObjects.bpfMaps.Devices,
 		"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
-		"mfa_table":       &xdpObjects.MfaTable,
-		"public_table":    &xdpObjects.PublicTable,
+		"policies_table":  &xdpObjects.PoliciesTable,
 	}
 )
 
@@ -91,8 +90,7 @@ func loadXDP() error {
 		return fmt.Errorf("loading spec: %s", err)
 	}
 
-	spec.Maps["public_table"].InnerMap = routesMapSpec
-	spec.Maps["mfa_table"].InnerMap = routesMapSpec
+	spec.Maps["policies_table"].InnerMap = routesMapSpec
 	// Load pre-compiled programs into the kernel.
 	if err = spec.LoadAndAssign(&xdpObjects, nil); err != nil {
 
@@ -389,23 +387,21 @@ func xdpAddDevice(username, address string) error {
 }
 
 // Takes the LPM table and associates a route to a policy
-func xdpAddRoute(usersRouteTable *ebpf.Map, ruleDefinitions []string) error {
+func xdpAddRoute(policyType routetypes.PolicyType, usersRouteTable *ebpf.Map, ruleDefinitions []string) error {
 
-	for _, destination := range ruleDefinitions {
+	rules, err := routetypes.ParseRules(policyType, ruleDefinitions)
+	if err != nil {
+		return err
+	}
 
-		rules, err := routetypes.ParseRule(destination)
-		if err != nil {
-			return err
-		}
+	for _, rule := range rules {
+		for i := range rule.Keys {
 
-		for i := range rules.Keys {
-
-			err := usersRouteTable.Put(&rules.Keys[i], &rules.Values)
+			err := usersRouteTable.Put(&rule.Keys[i], &rule.Values)
 			if err != nil {
 				return fmt.Errorf("error putting route key in inner map: %s", err)
 			}
 		}
-
 	}
 
 	return nil
@@ -423,6 +419,7 @@ func xdpUserExists(userid [20]byte) error {
 	return nil
 }
 
+// Returns the inner LPM trie map that was created for the user
 func addInnerMapTo(key interface{}, spec *ebpf.MapSpec, table *ebpf.Map) (*ebpf.Map, error) {
 	inner, err := ebpf.NewMap(spec)
 	if err != nil {
@@ -458,21 +455,16 @@ func AddUser(username string, acls config.Acl) error {
 
 func setMaps(userid [20]byte, acls config.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
-	mfaTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.MfaTable)
+	policiesInnerTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PoliciesTable)
 	if err != nil {
 		return err
 	}
 
-	publicTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PublicTable)
-	if err != nil {
+	if err := xdpAddRoute(0, policiesInnerTable, acls.Mfa); err != nil {
 		return err
 	}
 
-	if err := xdpAddRoute(mfaTable, acls.Mfa); err != nil {
-		return err
-	}
-
-	if err := xdpAddRoute(publicTable, acls.Allow); err != nil {
+	if err := xdpAddRoute(routetypes.PUBLIC, policiesInnerTable, acls.Allow); err != nil {
 		return err
 	}
 
@@ -491,19 +483,9 @@ func RemoveUser(username string) error {
 		return err
 	}
 
-	var finalError error
-	publicErr := xdpObjects.PublicTable.Delete(userid)
-	if publicErr != nil && !strings.Contains(publicErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from public table failed")
-	}
-
-	mfaErr := xdpObjects.MfaTable.Delete(userid)
-	if mfaErr != nil && !strings.Contains(mfaErr.Error(), ebpf.ErrKeyNotExist.Error()) {
-		finalError = errors.New(finalError.Error() + "removing from mfa table failed: " + publicErr.Error() + " ")
-	}
-
-	if finalError != nil {
-		return finalError
+	err = xdpObjects.PoliciesTable.Delete(userid)
+	if err != nil && !strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
+		return errors.New("removing user from policies table failed: " + err.Error())
 	}
 
 	return nil
@@ -657,14 +639,7 @@ func GetRoutes(username string) ([]string, error) {
 
 	var innerMapID ebpf.MapID
 
-	err := xdpObjects.PublicTable.Lookup(userid, &innerMapID)
-	if err == nil {
-		if err = iterateSubmap(innerMapID); err != nil {
-			return nil, err
-		}
-	}
-
-	err = xdpObjects.MfaTable.Lookup(userid, &innerMapID)
+	err := xdpObjects.PoliciesTable.Lookup(userid, &innerMapID)
 	if err == nil {
 		if err = iterateSubmap(innerMapID); err != nil {
 			return nil, err
@@ -750,16 +725,9 @@ func GetRules() (map[string]FirewallRules, error) {
 
 		var innerMapID ebpf.MapID
 
-		err = xdpObjects.PublicTable.Lookup(deviceStruct.user_id, &innerMapID)
+		err = xdpObjects.PoliciesTable.Lookup(deviceStruct.user_id, &innerMapID)
 		if err == nil {
 			if fwRule.Public, err = iterateSubmap(innerMapID); err != nil {
-				return nil, err
-			}
-		}
-
-		err = xdpObjects.MfaTable.Lookup(deviceStruct.user_id, &innerMapID)
-		if err == nil {
-			if fwRule.MFA, err = iterateSubmap(innerMapID); err != nil {
 				return nil, err
 			}
 		}

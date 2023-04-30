@@ -21,10 +21,10 @@ type Rule struct {
 	Values []Policy
 }
 
-func ParseRules(rules []string) (result []Rule, err error) {
+func ParseRules(restrictionType PolicyType, rules []string) (result []Rule, err error) {
 
 	for _, rule := range rules {
-		r, err := ParseRule(rule)
+		r, err := ParseRule(restrictionType, rule)
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +56,7 @@ func AclsToRoutes(rules []string) (routes []string, err error) {
 	return
 }
 
-func ParseRule(rule string) (rules Rule, err error) {
+func ParseRule(restrictionType PolicyType, rule string) (rules Rule, err error) {
 	ruleParts := strings.Fields(rule)
 	if len(ruleParts) < 1 {
 		return rules, errors.New("could not split correct number of rules")
@@ -75,7 +75,7 @@ func ParseRule(rule string) (rules Rule, err error) {
 		// If the user has only defined one address and no ports this counts as an any/any rule
 
 		rules.Values = append(rules.Values, Policy{
-			PolicyType: SINGLE,
+			PolicyType: uint16(restrictionType) | SINGLE,
 			Proto:      ANY,
 			LowerPort:  ANY,
 		})
@@ -87,6 +87,8 @@ func ParseRule(rule string) (rules Rule, err error) {
 			if err != nil {
 				return rules, err
 			}
+
+			policy.PolicyType = uint16(restrictionType) | policy.PolicyType
 
 			rules.Values = append(rules.Values, policy)
 		}
@@ -123,7 +125,7 @@ func parseKeys(address string) (keys []Key, err error) {
 
 func ValidateRules(rules []string) error {
 	for _, rule := range rules {
-		_, err := ParseRule(rule)
+		_, err := ParseRule(PUBLIC, rule)
 		if err != nil {
 			return err
 		}

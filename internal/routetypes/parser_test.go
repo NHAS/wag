@@ -25,8 +25,8 @@ func checkKey(reality Key, expectedKey Key) error {
 
 func checkPolicy(reality Policy, expectedValue Policy) error {
 
-	if reality.PolicyType != expectedValue.PolicyType {
-		return fmt.Errorf("value type was not %s, was: %s", lookupPolicyType(expectedValue.PolicyType), lookupPolicyType(reality.PolicyType))
+	if !reality.Is(PolicyType(expectedValue.PolicyType)) {
+		return fmt.Errorf("value type was not %s, was: %s", expectedValue, reality)
 	}
 
 	if reality.LowerPort != expectedValue.LowerPort {
@@ -57,7 +57,7 @@ func TestParseEasyRules(t *testing.T) {
 		LowerPort:  ANY,
 	}
 
-	br, err := ParseRule("1.1.1.1")
+	br, err := ParseRule(0, "1.1.1.1")
 	if err != nil {
 		t.Fatal("failed to parse 1.1.1.1", err)
 	}
@@ -70,7 +70,7 @@ func TestParseEasyRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	br, err = ParseRule("1.1.1.1/32")
+	br, err = ParseRule(0, "1.1.1.1/32")
 	if err != nil {
 		t.Fatal("failed to parse 1.1.1.1/32", err)
 	}
@@ -111,7 +111,7 @@ func TestAclToRoute(t *testing.T) {
 }
 
 func TestParseSimpleSingles(t *testing.T) {
-	br, err := ParseRule("1.2.1.2 43/tcp 23/udp icmp 55/any")
+	br, err := ParseRule(0, "1.2.1.2 43/tcp 23/udp icmp 55/any")
 	if err != nil {
 		t.Fatal("failed to parse 1.2.1.2", err)
 	}
@@ -187,7 +187,7 @@ func TestParseSimpleSingles(t *testing.T) {
 		}
 
 		if !found {
-			t.Fatal("did not find rule in set")
+			t.Fatal("did not find rule in set: ", br.Values[i].PolicyType)
 		}
 
 	}
@@ -195,7 +195,7 @@ func TestParseSimpleSingles(t *testing.T) {
 }
 
 func TestParsePortRange(t *testing.T) {
-	br, err := ParseRule("1.3.1.3 43-100/tcp")
+	br, err := ParseRule(0, "1.3.1.3 43-100/tcp")
 	if err != nil {
 		t.Fatal("failed to parse 1.3.1.3", err)
 	}
@@ -228,7 +228,7 @@ func TestParsePortRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	br, err = ParseRule("1.4.1.4 43-100/any 55/tcp 66/udp")
+	br, err = ParseRule(0, "1.4.1.4 43-100/any 55/tcp 66/udp")
 	if err != nil {
 		t.Fatal("failed to parse 1.4.1.4", err)
 	}
@@ -276,44 +276,44 @@ func TestParsePortRange(t *testing.T) {
 }
 
 func TestParseDomainRules(t *testing.T) {
-	_, err := ParseRule("google.com 443/tcp")
+	_, err := ParseRule(0, "google.com 443/tcp")
 	if err != nil {
 		t.Fatal("failed to parse google.com", err)
 	}
 }
 
 func TestParseMalformed(t *testing.T) {
-	_, err := ParseRule("")
+	_, err := ParseRule(0, "")
 	if err == nil {
 		t.Fatal("should fail to parse empty")
 	}
 
-	_, err = ParseRule("a")
+	_, err = ParseRule(0, "a")
 	if err == nil {
 		t.Fatal("should fail to parse invalid ipv4 address")
 	}
 
-	_, err = ParseRule("1.1.1.1 400")
+	_, err = ParseRule(0, "1.1.1.1 400")
 	if err == nil {
 		t.Fatal("should fail to parse port without service")
 	}
 
-	_, err = ParseRule("1.1.1.1 400-100/tcp")
+	_, err = ParseRule(0, "1.1.1.1 400-100/tcp")
 	if err == nil {
 		t.Fatal("should fail to lower port greater than upper port")
 	}
 
-	_, err = ParseRule("1.1.1.1 a-2/tcp")
+	_, err = ParseRule(0, "1.1.1.1 a-2/tcp")
 	if err == nil {
 		t.Fatal("should fail to parse non-numeric upper and lower bounds ports")
 	}
 
-	_, err = ParseRule("1.1.1.1 1-b/tcp")
+	_, err = ParseRule(0, "1.1.1.1 1-b/tcp")
 	if err == nil {
 		t.Fatal("should fail to parse non-numeric upper and lower bounds ports")
 	}
 
-	_, err = ParseRule("1.1.1.1 122/igmp")
+	_, err = ParseRule(0, "1.1.1.1 122/igmp")
 	if err == nil {
 		t.Fatal("should fail with unknown service type")
 	}
