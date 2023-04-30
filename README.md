@@ -253,6 +253,9 @@ The web interface itself cannot add administrative users.
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes  
+`Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
+`Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
+`Policies.<policy name>.Public`: Routes and services that do not require authorisation
   
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 
@@ -378,9 +381,26 @@ Full config example
 }
 ```
    
-## ACL rule syntax
+## Defining ACL rules
   
-The `Policies` section allows you to define what routes, ports and protocols should be both captured by the VPN and allowed through wag respectively.
+The `Policies` section allows you to define what routes should be both captured by the VPN and what ports and protocols are allowed through Wag.  
+  
+Rules use the subnet prefix lenght to determine which rule applies. The most *specific* match is use to determine the level of user access to a route.   
+For example:  
+```json
+ "*": {
+                "Mfa": [
+                     "10.0.0.0/16"
+                ],
+                "Allow": [
+                    "10.0.1.1/32",
+                ]
+            },
+```
+Users will be able to access 10.0.1.1 **without** MFA as the match is more specific. This change occured in v6.0.0, previously MFA routes would always take precedence.   
+  
+  
+It is possible to define what services a user can access by defining port and protocol rules.  
 Currently 3 types of port and protocol rules are supported:  
   
 ### Any 
