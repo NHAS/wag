@@ -245,6 +245,7 @@ The web interface itself cannot add administrative users.
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks 
 `NAT`: Turn on or off masquerading   
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]
+`CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to api.github.com   
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
   
@@ -300,6 +301,7 @@ Full config example
     "ExposePorts": [
         "443/tcp"
      ],
+     "CheckUpdates": true,
     "Lockout": 5,
     "NAT": true,
     "HelpMail": "help@example.com",
