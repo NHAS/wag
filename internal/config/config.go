@@ -583,17 +583,15 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
+	policies := []string{}
 	for _, acl := range c.Acls.Policies {
+		policies = append(policies, acl.Allow...)
+		policies = append(policies, acl.Mfa...)
+	}
 
-		err := routetypes.ValidateRules(acl.Allow)
-		if err != nil {
-			return c, fmt.Errorf("Public rules were invalid: %s", err)
-		}
-
-		err = routetypes.ValidateRules(acl.Mfa)
-		if err != nil {
-			return c, fmt.Errorf("MFA rules were invalid: %s", err)
-		}
+	err = routetypes.ValidateRules(policies)
+	if err != nil {
+		return c, fmt.Errorf("policies rules were invalid: %s", err)
 	}
 
 	if len(c.Authenticators.Methods) == 0 {

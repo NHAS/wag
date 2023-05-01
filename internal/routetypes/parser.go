@@ -133,14 +133,8 @@ func parseKeys(address string) (keys []Key, err error) {
 }
 
 func ValidateRules(rules []string) error {
-	for _, rule := range rules {
-		_, err := ParseRule(PUBLIC, rule)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	_, err := ParseRules(PUBLIC, rules)
+	return err
 }
 
 func parseService(service string) (Policy, error) {
