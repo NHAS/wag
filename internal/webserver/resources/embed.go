@@ -3,11 +3,10 @@ package resources
 import (
 	"embed"
 	"html/template"
-	"strings"
-)
+	"io"
 
-//go:embed interface.tmpl
-var interfaceTemplate string
+	"github.com/NHAS/wag/internal/config"
+)
 
 type Interface struct {
 	ClientPrivateKey   string
@@ -27,11 +26,6 @@ type Msg struct {
 	NumMethods int
 }
 
-var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{
-	"StringsJoin": strings.Join,
-	"Unescape":    func(s string) template.HTML { return template.HTML(s) },
-}).Parse(interfaceTemplate))
-
 type Menu struct {
 	MFAMethods  []MenuEntry
 	LastElement int
@@ -41,50 +35,33 @@ type MenuEntry struct {
 	Path, FriendlyName string
 }
 
-//go:embed register_mfa.html
-var mfaRegistrationMenu string
-
-var MFARegistrationMenu *template.Template = template.Must(template.New("").Parse(mfaRegistrationMenu))
-
-//go:embed oidc_error.html
-var oidcError string
-
-var OIDCMFATemplate *template.Template = template.Must(template.New("").Parse(oidcError))
-
-//go:embed register_mfa_totp.html
-var totpRegistration string
-
-var TotpMFATemplate *template.Template = template.Must(template.New("").Parse(totpRegistration))
-
-//go:embed register_mfa_webauthn.html
-var webauthnRegistration string
-
-var WebauthnMFATemplate *template.Template = template.Must(template.New("").Parse(webauthnRegistration))
-
-//go:embed prompt_mfa_totp.html
-var totpPrompt string
-
-var TotpMFAPromptTmpl *template.Template = template.Must(template.New("").Parse(totpPrompt))
-
-//go:embed prompt_mfa_webauthn.html
-var webauthnPrompt string
-
-var WebauthnMFAPromptTmpl *template.Template = template.Must(template.New("").Parse(webauthnPrompt))
-
-//go:embed qrcode_registration.html
-var qrcodeRegistrationDisplayTmplt string
-
 type QrCodeRegistrationDisplay struct {
 	ImageData template.URL
 	Username  string
 }
 
-var DisplayRegistrationAsQRCodeTmpl *template.Template = template.Must(template.New("").Parse(qrcodeRegistrationDisplayTmplt))
-
-// Not a template
-//
-//go:embed success.html
-var MfaSuccess string
+//go:embed templates/*
+var embeddedUI embed.FS
 
 //go:embed static
 var Static embed.FS
+
+// var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{
+// 	"StringsJoin": strings.Join,
+// 	"Unescape":    func(s string) template.HTML { return template.HTML(s) },
+// }).Parse(interfaceTemplate))
+
+func Render(page string, out io.Writer, data interface{}) error {
+	return RenderWithFuncs(page, out, data, nil)
+}
+
+func RenderWithFuncs(page string, out io.Writer, data interface{}, templateFuncs template.FuncMap) error {
+	var currentTemplate *template.Template
+	if len(config.Values().MFATemplatesDirectory) != 0 {
+		currentTemplate = template.Must(template.New("").Funcs(templateFuncs).ParseFiles(page))
+	} else {
+		currentTemplate = template.Must(template.New("").Funcs(templateFuncs).ParseFS(embeddedUI, page))
+	}
+
+	return currentTemplate.Execute(out, data)
+}

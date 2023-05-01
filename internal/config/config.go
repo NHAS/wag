@@ -76,6 +76,8 @@ type Config struct {
 	ExposePorts  []string `json:",omitempty"`
 	NAT          *bool
 
+	MFATemplatesDirectory string `json:",omitempty"`
+
 	HelpMail                        string
 	Lockout                         int
 	ExternalAddress                 string

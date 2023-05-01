@@ -50,7 +50,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -208,13 +208,19 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticat
 }
 
 func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
-	if err := renderTemplate(w, resources.TotpMFAPromptTmpl, "", ""); err != nil {
+	if err := resources.Render("prompt_mfa_totp.html", w, &resources.Msg{
+		HelpMail:   config.Values().HelpMail,
+		NumMethods: len(authenticators.MFA),
+	}); err != nil {
 		log.Println(username, ip, "unable to render totp prompt template: ", err)
 	}
 }
 
 func (t *Totp) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
-	if err := renderTemplate(w, resources.TotpMFATemplate, "", ""); err != nil {
+	if err := resources.Render("register_mfa_totp.html", w, &resources.Msg{
+		HelpMail:   config.Values().HelpMail,
+		NumMethods: len(authenticators.MFA),
+	}); err != nil {
 		log.Println(username, ip, "unable to render totp mfa template: ", err)
 	}
 }

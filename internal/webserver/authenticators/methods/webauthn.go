@@ -43,7 +43,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -171,7 +171,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -291,13 +291,21 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
-	if err := renderTemplate(w, resources.WebauthnMFAPromptTmpl, "", ""); err != nil {
+
+	if err := resources.Render("prompt_mfa_webauthn.html", w, &resources.Msg{
+		HelpMail:   config.Values().HelpMail,
+		NumMethods: len(authenticators.MFA),
+	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}
 }
 
 func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
-	if err := renderTemplate(w, resources.WebauthnMFATemplate, "", ""); err != nil {
+
+	if err := resources.Render("register_mfa_webauthn.html", w, &resources.Msg{
+		HelpMail:   config.Values().HelpMail,
+		NumMethods: len(authenticators.MFA),
+	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}
 }

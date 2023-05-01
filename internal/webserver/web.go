@@ -154,7 +154,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
+
 		return
 	}
 
@@ -184,7 +185,8 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
+
 		return
 	}
 
@@ -227,7 +229,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 
 		menu.LastElement = len(menu.MFAMethods) - 1
 
-		err = resources.MFARegistrationMenu.Execute(w, &menu)
+		err = resources.Render("register_mfa.html", w, &menu)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
 			http.Error(w, "Server error", 500)
@@ -256,7 +258,8 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
+
 		return
 	}
 
@@ -424,7 +427,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	i := resources.Interface{
+	wireguardInterface := resources.Interface{
 		ClientPrivateKey:   keyStr,
 		ClientAddress:      address,
 		ServerAddress:      fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
@@ -438,7 +441,10 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 
 		var config bytes.Buffer
-		err = resources.InterfaceTemplate.Execute(&config, &i)
+		err = resources.RenderWithFuncs("interface.tmpl", &config, &wireguardInterface, template.FuncMap{
+			"StringsJoin": strings.Join,
+			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
+		})
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
 			http.Error(w, "Server Error", 500)
@@ -472,7 +478,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 			Username:  username,
 		}
 
-		err = resources.DisplayRegistrationAsQRCodeTmpl.Execute(w, &qr)
+		err = resources.Render("qrcode_registration.html", w, &qr)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
 			http.Error(w, "Server Error", 500)
@@ -481,7 +487,11 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 		w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
-		err = resources.InterfaceTemplate.Execute(w, &i)
+
+		err = resources.RenderWithFuncs("interface.tmpl", w, &wireguardInterface, template.FuncMap{
+			"StringsJoin": strings.Join,
+			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
+		})
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
 			http.Error(w, "Server Error", 500)

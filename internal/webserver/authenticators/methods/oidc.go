@@ -87,7 +87,7 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if router.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write([]byte(resources.MfaSuccess))
+		resources.Render("success.html", w, nil)
 		return
 	}
 
@@ -197,7 +197,18 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)
-			renderTemplate(w, resources.OIDCMFATemplate, msg, rp.GetEndSessionEndpoint())
+
+			err := resources.Render("oidc_error.html", w, &resources.Msg{
+				HelpMail:   config.Values().HelpMail,
+				NumMethods: len(authenticators.MFA),
+				Message:    msg,
+				URL:        rp.GetEndSessionEndpoint(),
+			})
+
+			if err != nil {
+				log.Println(user.Username, clientTunnelIp, "error rendering oidc_error.html: ", err)
+			}
+
 			return
 		}
 
