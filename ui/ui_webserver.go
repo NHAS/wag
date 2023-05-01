@@ -213,6 +213,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	d := Dashboard{
 		Page: Page{
+			Update:      getUpdate(),
 			Description: "Dashboard",
 			Title:       "Dashboard",
 			User:        u.Username,
@@ -403,6 +404,7 @@ func StartWebServer(errs chan<- error) {
 				XDPState string
 			}{
 				Page: Page{
+					Update:      getUpdate(),
 					Description: "Firewall state page",
 					Title:       "Firewall",
 					User:        u.Username,
@@ -599,6 +601,7 @@ func StartWebServer(errs chan<- error) {
 
 			d := GeneralSettings{
 				Page: Page{
+					Update:      getUpdate(),
 					Description: "Wag settings",
 					Title:       "Settings - General",
 					User:        u.Username,
@@ -755,6 +758,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	d := ChangePassword{
 		Page: Page{
+			Update:      getUpdate(),
 			Description: "Change password page",
 			Title:       "Change password",
 			User:        u.Username,

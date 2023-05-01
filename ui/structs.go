@@ -1,6 +1,7 @@
 package ui
 
 type Page struct {
+	Update
 	Description string
 	Title       string
 	User        string

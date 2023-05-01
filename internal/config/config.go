@@ -71,7 +71,7 @@ type Config struct {
 	path   string
 	Socket string `json:",omitempty"`
 
-	CheckVersion bool `json:",omitempty"`
+	CheckUpdates bool `json:",omitempty"`
 	Proxied      bool
 	ExposePorts  []string `json:",omitempty"`
 	NAT          *bool
