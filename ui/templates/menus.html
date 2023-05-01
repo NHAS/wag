@@ -170,8 +170,27 @@
                     <!-- Topbar Navbar -->
                     <ul class="navbar-nav ml-auto">
 
+                        <li class="nav-item dropdown no-arrow mx-1">
+                            <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="icon-bell"></i>
+                                <!-- Counter - Alerts -->
+                                <span class="badge badge-danger badge-counter">1</span>
+                            </a>
+                            <!-- Dropdown - Alerts -->
+                            <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
+                                aria-labelledby="alertsDropdown">
+                                <a class="dropdown-item d-flex align-items-center" href="#">
+                                    <div>
+                                        <div class="small text-gray-500">{{.UpdateDate}}</div>
+                                        <span class="font-weight-bold">Wag {{.NewVersion}} is now available!</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </li>
+
                         <!-- Nav Item - User Information -->
-                        <li class="nav-item dropdown">
+                        <li class="nav-item dropdown no-arrow">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="icon-user mr-2 text-gray-400"></i>

@@ -1,10 +1,10 @@
 @font-face {
   font-family: 'icomoon';
-  src: url('/fonts/icomoon.eot?ljmdwn');
-  src: url('/fonts/icomoon.eot?ljmdwn#iefix') format('embedded-opentype'),
-    url('/fonts/icomoon.ttf?ljmdwn') format('truetype'),
-    url('/fonts/icomoon.woff?ljmdwn') format('woff'),
-    url('/fonts/icomoon.svg?ljmdwn#icomoon') format('svg');
+  src: url('/fonts/icomoon.eot?lg8nim');
+  src: url('/fonts/icomoon.eot?lg8nim#iefix') format('embedded-opentype'),
+    url('/fonts/icomoon.ttf?lg8nim') format('truetype'),
+    url('/fonts/icomoon.woff?lg8nim') format('woff'),
+    url('/fonts/icomoon.svg?lg8nim#icomoon') format('svg');
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -14,6 +14,7 @@
 [class*=" icon-"] {
   /* use !important to prevent issues with browser extensions that change fonts */
   font-family: 'icomoon' !important;
+  speak: never;
   font-style: normal;
   font-weight: normal;
   font-variant: normal;
@@ -25,88 +26,132 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-.icon-chevron-left:before {
-  content: "\e90a";
-}
-
-.icon-chevron-down:before {
-  content: "\e908";
-}
-
-.icon-chevron-right:before {
-  content: "\e909";
-}
-
-.icon-eye:before {
+.icon-key:before {
   content: "\e900";
 }
 
-.icon-trash:before {
-  content: "\e901";
+.icon-plus:before {
+  content: "\f067";
 }
 
-.icon-desktop:before {
-  content: "\e902";
+.icon-user:before {
+  content: "\f007";
 }
 
-.icon-dashboard:before {
-  content: "\e903";
-}
-
-.icon-tachometer:before {
-  content: "\e903";
-}
-
-.icon-bars:before {
-  content: "\e904";
-}
-
-.icon-group:before {
-  content: "\e905";
-}
-
-.icon-users:before {
-  content: "\e905";
-}
-
-.icon-wrench:before {
-  content: "\e906";
-}
-
-.icon-pencil:before {
-  content: "\e907";
-}
-
-.icon-key:before {
-  content: "\e98d";
-}
-
-.icon-lock:before {
-  content: "\e98f";
-}
-
-.icon-unlocked:before {
-  content: "\e990";
+.icon-check:before {
+  content: "\f00c";
 }
 
 .icon-cog:before {
-  content: "\e994";
+  content: "\f013";
+}
+
+.icon-gear:before {
+  content: "\f013";
+}
+
+.icon-lock:before {
+  content: "\f023";
+}
+
+.icon-pencil:before {
+  content: "\f040";
+}
+
+.icon-chevron-left:before {
+  content: "\f053";
+}
+
+.icon-chevron-right:before {
+  content: "\f054";
+}
+
+.icon-eye:before {
+  content: "\f06e";
+}
+
+.icon-chevron-up:before {
+  content: "\f077";
+}
+
+.icon-chevron-down:before {
+  content: "\f078";
 }
 
 .icon-cogs:before {
-  content: "\e995";
+  content: "\f085";
 }
 
-.icon-plus:before {
-  content: "\ea0a";
+.icon-gears:before {
+  content: "\f085";
 }
 
-.icon-checkmark:before {
-  content: "\ea10";
+.icon-sign-out:before {
+  content: "\f08b";
 }
 
-.icon-exit:before {
-  content: "\ea14";
+.icon-unlock:before {
+  content: "\f09c";
+}
+
+.icon-wrench:before {
+  content: "\f0ad";
+}
+
+.icon-group:before {
+  content: "\f0c0";
+}
+
+.icon-users:before {
+  content: "\f0c0";
+}
+
+.icon-bars:before {
+  content: "\f0c9";
+}
+
+.icon-navicon:before {
+  content: "\f0c9";
+}
+
+.icon-reorder:before {
+  content: "\f0c9";
+}
+
+.icon-dashboard:before {
+  content: "\f0e4";
+}
+
+.icon-tachometer:before {
+  content: "\f0e4";
+}
+
+.icon-bell:before {
+  content: "\f0f3";
+}
+
+.icon-angle-left:before {
+  content: "\f104";
+}
+
+.icon-angle-right:before {
+  content: "\f105";
+}
+
+.icon-angle-up:before {
+  content: "\f106";
+}
+
+.icon-angle-down:before {
+  content: "\f107";
+}
+
+.icon-desktop:before {
+  content: "\f108";
+}
+
+.icon-trash:before {
+  content: "\f1f8";
 }
 
 .nav-item .icon {

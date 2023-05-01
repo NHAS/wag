@@ -14,14 +14,14 @@
           vertical-align: 0;
           border: 0;
           font-weight: 900;
-          content: '\e909';
+          content: '\f054';
           font-family: 'icomoon';
         }
       }
 
       &.show {
         .dropdown-toggle::after {
-          content: '\e908';
+          content: '\f078';
           font-family: 'icomoon';
         }
       }

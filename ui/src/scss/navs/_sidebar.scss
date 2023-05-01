@@ -100,7 +100,7 @@
 
         &::after {
             font-weight: 900;
-            content: '\e90a';
+            content: '\f104';
             font-family: 'icomoon';
             margin-right: 0.1rem;
         }
@@ -119,7 +119,7 @@
         overflow: hidden;
 
         #sidebarToggle::after {
-            content: '\e909';
+            content: '\f054';
             font-family: 'icomoon';
             margin-left: 0.25rem;
         }
@@ -246,12 +246,12 @@
                         vertical-align: 0;
                         border: 0;
                         font-weight: 900;
-                        content: '\e908';
+                        content: '\f078';
                         font-family: 'icomoon';
                     }
 
                     &.collapsed::after {
-                        content: '\e909';
+                        content: '\f054';
                         font-family: 'icomoon';
                     }
                 }

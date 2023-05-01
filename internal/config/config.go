@@ -71,9 +71,10 @@ type Config struct {
 	path   string
 	Socket string `json:",omitempty"`
 
-	Proxied     bool
-	ExposePorts []string `json:",omitempty"`
-	NAT         *bool
+	CheckVersion bool `json:",omitempty"`
+	Proxied      bool
+	ExposePorts  []string `json:",omitempty"`
+	NAT          *bool
 
 	HelpMail                        string
 	Lockout                         int
