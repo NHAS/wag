@@ -246,6 +246,7 @@ The web interface itself cannot add administrative users.
 `NAT`: Turn on or off masquerading   
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]
 `CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to api.github.com   
+`MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages.  
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
   
@@ -443,6 +444,23 @@ Example:
 
 
 # Development 
+
+## Custom templates
+
+With the introduction of the `MFATemplatesDirectory` option, you can now specify a directory that contains template files for customising the MFA entry, registration and wireguard config file.  
+An example of all these files can be found in the embedded variants here: `internal/webserver/resources/templates`.  
+
+When the option is set, you must define *all* the files this guide is a brief description of what each file is:  
+`interface.tmpl`: The wireguard configuration file that is served to clients  
+`oidc_error.html`: If a users login to the oidc provider as some issue (i.e user isnt registered for the device)  
+`prompt_mfa_totp.html`: Page for taking TOTP code entry  
+`prompt_mfa_webauthn.html`: Page for webauthn entry  
+`qrcode_registration.html`: When a client registers with the `?type=mobile` option set, shows a QR code for the wireguard app on android/ios to simply registration  
+`register_mfa_totp.html`: Registration for TOTP that should show a QR code  
+`register_mfa_webauth.html`: Page to do webauthn registration  
+`register_mfa.html`: If multiple MFA methods are registered this page is displayed giving the user an option of what method to use  
+`success.html`: This page is not a template, and is displayed when a user is successfully authed, or if they attempt to access the authorisation endpoint while being authorised   
+
 
 ## Testing
 ```sh

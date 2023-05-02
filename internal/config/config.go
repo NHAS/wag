@@ -597,6 +597,17 @@ func load(path string) (c Config, err error) {
 		return c, fmt.Errorf("policies rules were invalid: %s", err)
 	}
 
+	if len(c.MFATemplatesDirectory) != 0 {
+		info, err := os.Stat(c.MFATemplatesDirectory)
+		if err != nil {
+			return c, fmt.Errorf("could not check MFATemplatesDirectory (%s): %s", c.MFATemplatesDirectory, err)
+		}
+
+		if !info.IsDir() {
+			return c, fmt.Errorf("MFATemplatesDirectory (%s) was not a directory, please check your configuration", c.MFATemplatesDirectory)
+		}
+	}
+
 	if len(c.Authenticators.Methods) == 0 {
 		for method := range authenticators.MFA {
 			c.Authenticators.Methods = append(c.Authenticators.Methods, method)
