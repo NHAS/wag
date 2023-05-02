@@ -4,6 +4,7 @@ import (
 	"embed"
 	"html/template"
 	"io"
+	"path"
 
 	"github.com/NHAS/wag/internal/config"
 )
@@ -46,11 +47,6 @@ var embeddedUI embed.FS
 //go:embed static
 var Static embed.FS
 
-// var InterfaceTemplate *template.Template = template.Must(template.New("").Funcs(template.FuncMap{
-// 	"StringsJoin": strings.Join,
-// 	"Unescape":    func(s string) template.HTML { return template.HTML(s) },
-// }).Parse(interfaceTemplate))
-
 func Render(page string, out io.Writer, data interface{}) error {
 	return RenderWithFuncs(page, out, data, nil)
 }
@@ -58,9 +54,9 @@ func Render(page string, out io.Writer, data interface{}) error {
 func RenderWithFuncs(page string, out io.Writer, data interface{}, templateFuncs template.FuncMap) error {
 	var currentTemplate *template.Template
 	if len(config.Values().MFATemplatesDirectory) != 0 {
-		currentTemplate = template.Must(template.New("").Funcs(templateFuncs).ParseFiles(page))
+		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFiles(path.Join(config.Values().MFATemplatesDirectory, page)))
 	} else {
-		currentTemplate = template.Must(template.New("").Funcs(templateFuncs).ParseFS(embeddedUI, page))
+		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFS(embeddedUI, "templates/"+page))
 	}
 
 	return currentTemplate.Execute(out, data)
