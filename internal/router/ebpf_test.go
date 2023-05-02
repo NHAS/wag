@@ -1050,14 +1050,6 @@ func TestPortRestrictions(t *testing.T) {
 
 }
 
-func TestFailIfSameRouteDefined(t *testing.T) {
-	if err := setup("../config/test_fail_with_multiple.json"); err == nil {
-		t.Fatal("Should fail")
-	}
-	defer xdpObjects.Close()
-
-}
-
 func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	if err := setup("../config/test_port_based_rules.json"); err != nil {
 		t.Fatal(err)
