@@ -546,12 +546,18 @@ static __always_inline int conntrack(struct ip *ip_info)
 
             if (policy.policy_type & SINGLE)
             {
-                return (policy.lower_port == 0 || policy.lower_port == port);
+                if (policy.lower_port == 0 || policy.lower_port == port)
+                {
+                    return 1;
+                }
             }
 
             if (policy.policy_type & RANGE)
             {
-                return (policy.lower_port <= port && policy.upper_port >= port);
+                if (policy.lower_port <= port && policy.upper_port >= port)
+                {
+                    return 1;
+                }
             }
         }
     }

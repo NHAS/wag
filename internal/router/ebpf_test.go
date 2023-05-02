@@ -1050,6 +1050,87 @@ func TestPortRestrictions(t *testing.T) {
 
 }
 
+func TestAgnosticRuleOrdering(t *testing.T) {
+	if err := setup("../config/test_port_based_rules.json"); err != nil {
+		t.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var packets [][]byte
+
+	for _, user := range out {
+		acl := config.GetEffectiveAcl(user.Username)
+
+		rules, err := routetypes.ParseRules(routetypes.PUBLIC, acl.Allow)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Populate expected
+		for _, rule := range rules {
+
+			for _, policy := range rule.Values {
+				if policy.Is(routetypes.STOP) {
+					break
+				}
+
+				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
+				successProto := policy.Proto
+				if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
+					successProto = routetypes.UDP
+				}
+
+				// Add matching/passing packet
+				packets = append(packets, createPacket(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			}
+		}
+
+	}
+	// We check that for both users, that they all pass. This effectively enables us to check that reordered rules are equal
+	for i := range packets {
+
+		packet := packets[i]
+
+		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
+
+		var iphdr ipv4.Header
+		err = iphdr.Parse(packet)
+		if err != nil {
+			t.Fatal("packet didnt parse as an IP header: ", err)
+		}
+		packet = packet[20:]
+
+		var pkt pkthdr
+		pkt.pktType = "unknown"
+
+		switch iphdr.Protocol {
+		case routetypes.UDP:
+			pkt.UnpackUdp(packet)
+		case routetypes.TCP:
+			pkt.UnpackTcp(packet)
+		case routetypes.ICMP:
+			pkt.UnpackIcmp(packet)
+		case routetypes.ANY:
+			pkt.UnpackAny(packet)
+
+		}
+		t.Log(iphdr.Src.String(), " -> ", iphdr.Dst.String(), ", proto "+pkt.String())
+
+		if value != XDP_PASS {
+
+			t.Fatalf("program did not XDP_PASS packet instead did: %s", result(value))
+		}
+	}
+}
+
 func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	if err := setup("../config/test_port_based_rules.json"); err != nil {
 		t.Fatal(err)
