@@ -43,19 +43,6 @@ func (l Key) String() string {
 	return fmt.Sprintf("%s/%d", net.IP(l.IP[:]).To4().String(), l.Prefixlen)
 }
 
-func lookupPolicyType(t uint16) string {
-	switch t {
-	case RANGE:
-		return "range"
-	case SINGLE:
-		return "single"
-	case STOP:
-		return "stop"
-	default:
-		return fmt.Sprintf("unknown(%d)", t)
-	}
-}
-
 func lookupProtocol(t uint16) string {
 	switch t {
 	case ANY:
