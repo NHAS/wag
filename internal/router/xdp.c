@@ -507,27 +507,13 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 0;
     }
 
-    // The upper bytes of a policy tell us if the policies are MFA or Public
-    // We dont have to pay attention to all the polices in a route as they should all be of one type
-    if (!(applicable_policies->policy_type & PUBLIC))
-    {
-        // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
-        if (*isAccountLocked || isTimedOut || current_device->sessionExpiry == 0 ||
-            // If either max session lifetime is disabled, or it is before the max lifetime of the session
-            (current_device->sessionExpiry != __UINT64_MAX__ && currentTime > current_device->sessionExpiry))
-        {
-            // If we match a MFA policy, but we are not authorised dont fall through to the public route lookup
-            // just die
-            return 0;
-        }
-    }
-
     if (!isTimedOut)
     {
         // Doesnt matter that this isnt thread safe
         current_device->lastPacketTime = currentTime;
     }
 
+    int decision = 0;
     for (__u16 i = 0; i < MAX_POLICIES; i++)
     {
 
@@ -537,27 +523,31 @@ static __always_inline int conntrack(struct ip *ip_info)
         // As the array is static in size, we want to be able to terminate the search asap
         if (policy.policy_type == STOP)
         {
-            return 0;
+            return decision;
         }
 
-        // 0 = ANY
-        if (policy.proto == 0 || policy.proto == ip_info->proto)
+        //      0 = ANY
+        // If we match the protocol,
+        //      If type is SINGLE and the port is either any, or equal
+        //      OR
+        //      If type is RANGE and the port is within bounds
+        if ((policy.proto == 0 || policy.proto == ip_info->proto) &&
+            ((policy.policy_type & SINGLE && (policy.lower_port == 0 || policy.lower_port == port)) ||
+             (policy.policy_type & RANGE && (policy.lower_port <= port && policy.upper_port >= port))))
         {
-
-            if (policy.policy_type & SINGLE)
+            if (policy.policy_type & PUBLIC)
             {
-                if (policy.lower_port == 0 || policy.lower_port == port)
-                {
-                    return 1;
-                }
+                // If a public route matches, it may still be overriden by a MFA policy so we have to check all policies
+                decision = 1;
             }
-
-            if (policy.policy_type & RANGE)
+            else
             {
-                if (policy.lower_port <= port && policy.upper_port >= port)
-                {
-                    return 1;
-                }
+                // MFA restrictions take precedence, so if we match an MFA policy under this route
+                // Then we can fail/succeed fast
+                // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
+                return (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
+                        // If either max session lifetime is disabled, or it is before the max lifetime of the session
+                        (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry));
             }
         }
     }

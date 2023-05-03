@@ -76,7 +76,7 @@ func (r Policy) String() string {
 	}
 
 	if r.Is(STOP) {
-		return fmt.Sprintf("%s stop", restrictionType)
+		return "stop"
 	}
 
 	if r.Is(SINGLE) {
@@ -84,11 +84,11 @@ func (r Policy) String() string {
 		if r.LowerPort == 0 {
 			port = "any"
 		}
-		return fmt.Sprintf("%s %s/%s", restrictionType, port, lookupProtocol(r.Proto))
+		return fmt.Sprintf("%s(%d) %s/%s", restrictionType, r.PolicyType, port, lookupProtocol(r.Proto))
 	}
 
 	if r.Is(RANGE) {
-		return fmt.Sprintf("%s %d-%d/%s", restrictionType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
+		return fmt.Sprintf("%s(%d) %d-%d/%s", restrictionType, r.PolicyType, r.LowerPort, r.UpperPort, lookupProtocol(r.Proto))
 	}
 
 	return "unknown policy"

@@ -387,9 +387,9 @@ func xdpAddDevice(username, address string) error {
 }
 
 // Takes the LPM table and associates a route to a policy
-func xdpAddRoute(policyType routetypes.PolicyType, usersRouteTable *ebpf.Map, ruleDefinitions []string) error {
+func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls config.Acl) error {
 
-	rules, err := routetypes.ParseRules(policyType, ruleDefinitions)
+	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow)
 	if err != nil {
 		return err
 	}
@@ -453,18 +453,14 @@ func AddUser(username string, acls config.Acl) error {
 	return setMaps(userid, acls)
 }
 
-func setMaps(userid [20]byte, acls config.Acl) error {
+func setMaps(userid [20]byte, userAcls config.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
 	policiesInnerTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PoliciesTable)
 	if err != nil {
 		return err
 	}
 
-	if err := xdpAddRoute(0, policiesInnerTable, acls.Mfa); err != nil {
-		return err
-	}
-
-	if err := xdpAddRoute(routetypes.PUBLIC, policiesInnerTable, acls.Allow); err != nil {
+	if err := xdpAddRoute(policiesInnerTable, userAcls); err != nil {
 		return err
 	}
 
@@ -598,8 +594,7 @@ func Deauthenticate(address string) error {
 }
 
 type FirewallRules struct {
-	MFA           []string
-	Public        []string
+	Policies      []string
 	Devices       []fwDevice
 	AccountLocked uint32
 }
@@ -663,7 +658,6 @@ func GetRules() (map[string]FirewallRules, error) {
 	if err != nil {
 		return nil, errors.New("fw rule get all users: " + err.Error())
 	}
-
 	// This is less than optimal, but I'd prefer to be using something of static length in the ebpf code, and sha1 is a decent compression algorithm as well
 	hashToUsername := make(map[string]string)
 	for _, user := range users {
@@ -673,10 +667,10 @@ func GetRules() (map[string]FirewallRules, error) {
 
 	result := make(map[string]FirewallRules)
 
-	iterateSubmap := func(innerMapID ebpf.MapID) (isPublic bool, result []string, err error) {
+	iterateSubmap := func(innerMapID ebpf.MapID) (rules []string, err error) {
 		innerMap, err := ebpf.NewMapFromID(innerMapID)
 		if err != nil {
-			return false, nil, fmt.Errorf("map from id: %s", err)
+			return nil, fmt.Errorf("map from id: %s", err)
 		}
 
 		var (
@@ -692,11 +686,9 @@ func GetRules() (map[string]FirewallRules, error) {
 					actualPolicies = policies[:i]
 					break
 				}
-
-				isPublic = policies[i].Is(routetypes.PUBLIC)
 			}
 
-			result = append(result, k.String()+" policy "+fmt.Sprintf("%+v", actualPolicies))
+			rules = append(rules, k.String()+" policy "+fmt.Sprintf("%+v", actualPolicies))
 		}
 
 		innerMap.Close()
@@ -729,16 +721,11 @@ func GetRules() (map[string]FirewallRules, error) {
 
 		err = xdpObjects.PoliciesTable.Lookup(deviceStruct.user_id, &innerMapID)
 		if err == nil {
-			isPublic, policyRoutes, err := iterateSubmap(innerMapID)
+			fwRule.Policies, err = iterateSubmap(innerMapID)
 			if err != nil {
 				return nil, err
 			}
 
-			if isPublic {
-				fwRule.Public = policyRoutes
-			} else {
-				fwRule.MFA = policyRoutes
-			}
 		}
 
 		result[res] = fwRule

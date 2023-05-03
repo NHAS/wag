@@ -17,18 +17,63 @@ const (
 )
 
 type Rule struct {
-	Keys   []Key
-	Values []Policy
+	//We may have multiple keys in the instance where a domain with multiple A/AAA records is passed in
+	Keys []Key
+
+	NumPolicies int
+	Values      []Policy
 }
 
-func ParseRules(restrictionType PolicyType, rules []string) (result []Rule, err error) {
+func ParseRules(mfa, public []string) (result []Rule, err error) {
 
-	for _, rule := range rules {
-		r, err := ParseRule(restrictionType, rule)
+	cache := map[string]int{}
+	// Add
+	for _, rule := range mfa {
+		r, err := parseRule(0, rule)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, r)
+
+		for i := range r.Keys {
+			if index, ok := cache[r.Keys[i].String()]; ok {
+				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
+				result[index].Values = append(result[index].Values, r.Values...)
+				continue
+			}
+
+			result = append(result, r)
+			cache[r.Keys[i].String()] = len(result) - 1
+		}
+	}
+
+	for _, rule := range public {
+		r, err := parseRule(PUBLIC, rule)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range r.Keys {
+			if index, ok := cache[r.Keys[i].String()]; ok {
+				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
+				result[index].Values = append(result[index].Values, r.Values...)
+				continue
+			}
+
+			result = append(result, r)
+			cache[r.Keys[i].String()] = len(result) - 1
+		}
+	}
+	for i := range result {
+		if len(result[i].Values) > MAX_POLICIES {
+			return nil, errors.New("number of policies defined was greather than max")
+		}
+
+		temp := make([]Policy, 0, MAX_POLICIES)
+		temp = append(temp, result[i].Values...)
+
+		result[i].NumPolicies = len(result[i].Values)
+
+		result[i].Values = temp[:cap(temp)]
 	}
 
 	return
@@ -55,7 +100,7 @@ func AclsToRoutes(rules []string) (routes []string, err error) {
 	return
 }
 
-func ParseRule(restrictionType PolicyType, rule string) (rules Rule, err error) {
+func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) {
 	ruleParts := strings.Fields(rule)
 	if len(ruleParts) < 1 {
 		return rules, errors.New("could not split correct number of rules")
@@ -68,7 +113,7 @@ func ParseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 
 	rules.Keys = keys
 
-	rules.Values = make([]Policy, 0, MAX_POLICIES)
+	rules.Values = []Policy{}
 
 	if len(ruleParts) == 1 {
 		// If the user has only defined one address and no ports this counts as an any/any rule
@@ -93,11 +138,6 @@ func ParseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 		}
 	}
 
-	if len(rules.Values) > MAX_POLICIES {
-		return rules, errors.New("number of policies defined was greather than max")
-	}
-
-	rules.Values = rules.Values[:cap(rules.Values)]
 	return
 }
 
@@ -122,8 +162,8 @@ func parseKeys(address string) (keys []Key, err error) {
 	return
 }
 
-func ValidateRules(rules []string) error {
-	_, err := ParseRules(PUBLIC, rules)
+func ValidateRules(mfa, public []string) error {
+	_, err := ParseRules(mfa, public)
 	return err
 }
 

@@ -22,6 +22,7 @@
         "tcp.h": "c",
         "ip.h": "c",
         "typeinfo": "c",
-        "in.h": "c"
+        "in.h": "c",
+        "numbers": "c"
     }
 }

@@ -215,14 +215,9 @@ func AddAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s was already defined", effects)
 	}
 
-	err := routetypes.ValidateRules(Rule.Allow)
+	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow)
 	if err != nil {
-		return fmt.Errorf("Public rules were invalid: %s", err)
-	}
-
-	err = routetypes.ValidateRules(Rule.Mfa)
-	if err != nil {
-		return fmt.Errorf("MFA rules were invalid: %s", err)
+		return fmt.Errorf("rules were invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -239,14 +234,9 @@ func EditAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s acl was not defined", effects)
 	}
 
-	err := routetypes.ValidateRules(Rule.Allow)
+	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow)
 	if err != nil {
 		return fmt.Errorf("Public rules were invalid: %s", err)
-	}
-
-	err = routetypes.ValidateRules(Rule.Mfa)
-	if err != nil {
-		return fmt.Errorf("MFA rules were invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -586,15 +576,11 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	policies := []string{}
 	for _, acl := range c.Acls.Policies {
-		policies = append(policies, acl.Allow...)
-		policies = append(policies, acl.Mfa...)
-	}
-
-	err = routetypes.ValidateRules(policies)
-	if err != nil {
-		return c, fmt.Errorf("policies rules were invalid: %s", err)
+		err = routetypes.ValidateRules(acl.Mfa, acl.Allow)
+		if err != nil {
+			return c, fmt.Errorf("policy was invalid: %s", err)
+		}
 	}
 
 	if len(c.MFATemplatesDirectory) != 0 {
