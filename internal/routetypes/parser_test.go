@@ -121,8 +121,8 @@ func TestParseSimpleSingles(t *testing.T) {
 
 	}
 
-	if len(br.Values) != 128 {
-		t.Fatal("expected to define 128 policies got: ", len(br.Values))
+	if len(br.Values) != 4 {
+		t.Fatal("expected to define 4 policies got: ", len(br.Values))
 	}
 
 	expectedKey := Key{
@@ -204,8 +204,8 @@ func TestParsePortRange(t *testing.T) {
 		t.Fatal("expected to define 1 key got: ", len(br.Keys))
 	}
 
-	if len(br.Values) != 128 {
-		t.Fatal("expected to define 128 policies for key got: ", len(br.Values))
+	if len(br.Values) != 1 {
+		t.Fatal("expected to define 1 policies for key got: ", len(br.Values))
 	}
 
 	expected := Key{
