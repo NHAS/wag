@@ -390,7 +390,7 @@ Full config example
   
 The `Policies` section allows you to define what routes should be both captured by the VPN and what ports and protocols are allowed through Wag.  
   
-Rules use the subnet prefix lenght to determine which rule applies. The most *specific* match is use to determine the level of user access to a route.   
+Rules use the subnet prefix length to determine which rule applies. The most *specific* match is use to determine the level of user access to a route.   
 For example:  
 ```json
  "*": {
@@ -404,6 +404,25 @@ For example:
 ```
 Users will be able to access 10.0.1.1 **without** MFA as the match is more specific. This change occured in v6.0.0, previously MFA routes would always take precedence.   
   
+  
+Additionally if multiple policies are defined for a single route they are composed with MFA rules taking preference.  
+For example:  
+```json
+ "*": {
+            "Mfa": [
+                  "10.0.0.0/16",
+                  "10.0.1.1/32 22/tcp",
+            ]
+  },
+ "group:users": {
+            "Allow": [
+                  "10.0.1.1/32 443/tcp",
+            ]
+ }
+```
+All users will be able to access `22/tcp` on the `10.0.1.1/32` host, but users in the `group:users` will be able to access `443/tcp` on that host as well, along with `22/tcp` when authorized.  
+
+It is **important to note** that this will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference. 
   
 It is possible to define what services a user can access by defining port and protocol rules.  
 Currently 3 types of port and protocol rules are supported:  
