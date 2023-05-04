@@ -1290,6 +1290,54 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 
 }
 
+func BenchmarkGeneralRun(b *testing.B) {
+
+	if err := setup("../config/test_port_based_rules.json"); err != nil {
+		b.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	packet := createPacket(net.ParseIP(out[0].Address), net.ParseIP("10.10.10.10"), routetypes.TCP, 8082)
+
+	b.ResetTimer()
+	_, duration, err := xdpObjects.bpfPrograms.XdpWagFirewall.Benchmark(packet, b.N, nil)
+	if err != nil {
+		b.Fatalf("program failed %s", err)
+	}
+
+	b.ReportMetric(float64(duration), "ns/op")
+
+}
+
+func BenchmarkGeneralDenyRun(b *testing.B) {
+
+	if err := setup("../config/test_port_based_rules.json"); err != nil {
+		b.Fatal(err)
+	}
+	defer xdpObjects.Close()
+
+	out, err := addDevices()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	packet := createPacket(net.ParseIP(out[0].Address), net.ParseIP("10.10.10.10"), routetypes.TCP, 9999)
+
+	b.ResetTimer()
+	_, duration, err := xdpObjects.bpfPrograms.XdpWagFirewall.Benchmark(packet, b.N, nil)
+	if err != nil {
+		b.Fatalf("program failed %s", err)
+	}
+
+	b.ReportMetric(float64(duration), "ns/op")
+
+}
+
 func getInnerMap(username string, m *ebpf.Map) (*ebpf.Map, error) {
 	var innerMapID ebpf.MapID
 	userid := sha1.Sum([]byte(username))

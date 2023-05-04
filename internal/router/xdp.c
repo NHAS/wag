@@ -477,7 +477,7 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 0;
     }
 
-    // Our userland defined inactivity timeout
+    // // Our userland defined inactivity timeout
     __u32 index = 0;
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
     if (inactivity_timeout == NULL)
@@ -544,7 +544,8 @@ static __always_inline int conntrack(struct ip *ip_info)
             {
                 // MFA restrictions take precedence, so if we match an MFA policy under this route
                 // Then we can fail/succeed fast
-                // If device does not belong to a locked account and the device itself isnt locked and if it isnt timed out
+
+                // If device does not belong to a locked account, the device itself isnt locked and if it isnt timed out
                 return (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
                         // If either max session lifetime is disabled, or it is before the max lifetime of the session
                         (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry));

@@ -422,7 +422,7 @@ For example:
 ```
 All users will be able to access `22/tcp` on the `10.0.1.1/32` host, but users in the `group:users` will be able to access `443/tcp` on that host as well, along with `22/tcp` when authorized.  
 
-It is **important to note** that this will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference. 
+It is **important to note** that this will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference.   
   
 It is possible to define what services a user can access by defining port and protocol rules.  
 Currently 3 types of port and protocol rules are supported:  
