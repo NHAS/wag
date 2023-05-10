@@ -315,6 +315,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Wireguard Devices",
 				Title:       "wg",
 				User:        u.Username,
@@ -438,6 +439,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Users Management Page",
 				Title:       "Users",
 				User:        u.Username,
@@ -470,6 +472,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Devices Management Page",
 				Title:       "Devices",
 				User:        u.Username,
@@ -502,6 +505,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Registration Tokens Management Page",
 				Title:       "Registration",
 				User:        u.Username,
@@ -534,6 +538,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Firewall rules",
 				Title:       "Rules",
 				User:        u.Username,
@@ -566,6 +571,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Groups",
 				Title:       "Groups",
 				User:        u.Username,
@@ -647,6 +653,7 @@ func StartWebServer(errs chan<- error) {
 			}
 
 			d := Page{
+				Update:      getUpdate(),
 				Description: "Wag settings",
 				Title:       "Settings - Admin Users",
 				User:        u.Username,
