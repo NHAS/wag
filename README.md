@@ -27,7 +27,7 @@ Wag does not need `wg-quick` or other equalivent as long as the kernel supports 
 
 # Setup instructions
 
-Both options require a kernel newer than 4.15+;
+Both options require a kernel newer than 5.9+
   
 Binary release (requires glibc 2.31+):  
 ```
