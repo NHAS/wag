@@ -16,6 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/webserver"
 	"github.com/NHAS/wag/pkg/control/server"
 	"github.com/NHAS/wag/ui"
+	"golang.org/x/sys/unix"
 )
 
 type start struct {
@@ -59,7 +60,26 @@ func (g *start) Check() error {
 		}
 	})
 
-	err := config.Load(g.config)
+	// Taken from: https://github.com/cilium/ebpf/blob/9444f0c545e0bda2f3db40bdaf69381df9f51af4/internal/version.go
+	var uname unix.Utsname
+	err := unix.Uname(&uname)
+	if err != nil {
+		return errors.New("could not get kernel version: " + err.Error())
+	}
+
+	kernelVersion := unix.ByteSliceToString(uname.Release[:])
+
+	var major, minor, patch uint16
+	n, _ := fmt.Sscanf(kernelVersion, "%d.%d.%d", &major, &minor, &patch)
+	if n < 2 {
+		return errors.New("this kernel version did not conform to kernel version format: " + kernelVersion)
+	}
+
+	if major < 5 || major == 5 && minor < 9 {
+		return errors.New("kernel is too old(" + kernelVersion + "), wag requires kernel version > 5.9")
+	}
+
+	err = config.Load(g.config)
 	if err != nil {
 		return err
 	}
