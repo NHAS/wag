@@ -1,6 +1,7 @@
 version: '3.4'
 services:
     wag-docker:
+        image: wagvpn/wag
         container_name: wag
         env_file:
           - .env
