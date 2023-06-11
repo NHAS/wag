@@ -58,7 +58,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `upgrade`, `gen-config`
+Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `gen-config`
   
 `start`: starts the wag server  
 ```
@@ -166,22 +166,6 @@ Usage of webadmin:
         Unlock a web administrator account
   -username string
         Admin Username to act upon
-```
-
-`upgrade`: Pin all ebpf programs, shutdown wag server and optionally copy in the new binary all while leaving the XDP firewall online  
-Note, this will not restart the server after shutdown, you will manually need to start the server after with your preferred service manager (`systemctl start wag`)
-```
-Usage of upgrade:
-  -force
-        Disable compatiablity checks
-  -hash string
-        Version hash from new wag version (find this by doing ./wag version -local)
-  -manual
-        Shutdown the server in upgrade mode but will not copy or automatically check the new wag binary
-  -path string
-        File path to new wag executable
-  -socket string
-        Wag socket location, (default "/tmp/wag.sock")
 ```
 
 # User guide
