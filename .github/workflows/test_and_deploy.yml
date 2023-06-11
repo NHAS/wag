@@ -1,8 +1,10 @@
 name: Go
-on: [push]
+on:
+  push:
+    branches: [ "main" ]
 
 jobs:
-  build-and-deploy:
+  build-and-test:
     runs-on: ubuntu-22.04
 
     steps:
@@ -24,6 +26,25 @@ jobs:
 
       - name: Test with the Go CLI
         run: sudo go test -v ./...
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wag_binary
+          path: wag
+  deploy:
+    runs-on: ubuntu-22.04
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: wag_binary
+          path: wag
 
       - name: docker login
         env:
