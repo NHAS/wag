@@ -6,11 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -56,13 +53,6 @@ var (
 		// We set this to 200 now, but this inner map spec gets copied
 		// and altered later.
 		MaxEntries: 1024,
-	}
-
-	mapsLookup = map[string]**ebpf.Map{
-		"account_locked":  &xdpObjects.AccountLocked,
-		"devices":         &xdpObjects.bpfMaps.Devices,
-		"inactivity_time": &xdpObjects.InactivityTimeoutMinutes,
-		"policies_table":  &xdpObjects.PoliciesTable,
 	}
 )
 
@@ -145,102 +135,7 @@ func attachXDP() error {
 	return nil
 }
 
-func Pin() error {
-
-	err := xdpLink.Pin(filepath.Join(ebpfFS, "wag_link"))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Unpin() error {
-
-	os.Remove(filepath.Join(ebpfFS, "wag_link"))
-
-	if xdpLink != nil {
-		return xdpLink.Unpin()
-	}
-
-	return nil
-}
-
-func loadPins() (err error) {
-
-	defer func() {
-		if err != nil {
-			xdpObjects.Close()
-
-			if xdpLink != nil {
-				log.Println("Unable to reconnect to XDP firewall, flushing (this will cause interruptions, sorry)")
-				xdpLink.Close()
-			}
-		}
-	}()
-
-	xdpLink, err = link.LoadPinnedLink(filepath.Join(ebpfFS, "wag_link"), nil)
-	if err != nil {
-		return err
-	}
-
-	Unpin() // Pins should only be loaded once tied to the life of the program
-
-	i, err := xdpLink.Info()
-	if err != nil {
-		return err
-	}
-
-	xdpObjects.bpfPrograms.XdpWagFirewall, err = ebpf.NewProgramFromID(i.Program)
-	if err != nil {
-		return err
-	}
-
-	programInfo, err := xdpObjects.XdpWagFirewall.Info()
-	if err != nil {
-		return err
-	}
-
-	maps, available := programInfo.MapIDs()
-	if !available {
-		err = errors.New("kernel is not new enough to load pins")
-		return err
-	}
-
-	for _, m := range maps {
-
-		var currentMap *ebpf.Map
-		currentMap, err = ebpf.NewMapFromID(m)
-		if err != nil {
-			return err
-		}
-
-		var mapInfo *ebpf.MapInfo
-		mapInfo, err = currentMap.Info()
-		if err != nil {
-			return err
-		}
-
-		_, ok := mapsLookup[mapInfo.Name]
-		if !ok {
-			err = errors.New("could not find map " + mapInfo.Name + " in lookup table")
-			return
-		}
-
-		*mapsLookup[mapInfo.Name] = currentMap
-	}
-
-	return nil
-
-}
-
 func setupXDP() error {
-
-	err := loadPins()
-	if err == nil {
-		// If we can load the pins instead of reattaching to the device, do so
-		return nil
-	}
 
 	if err := loadXDP(); err != nil {
 		return err

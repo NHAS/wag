@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -81,37 +80,6 @@ func shutdown(w http.ResponseWriter, r *http.Request) {
 	os.Exit(returnCode)
 }
 
-func pinBPF(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
-	err := router.Pin()
-	if err != nil {
-		http.Error(w, errors.New("Could not pin ebpf assets: "+err.Error()).Error(), 500)
-		return
-	}
-
-	w.Write([]byte("OK"))
-
-}
-
-func unpinBPF(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
-	err := router.Unpin()
-	if err != nil {
-		http.Error(w, errors.New("Could not unpin ebpf assets: "+err.Error()).Error(), 500)
-		return
-	}
-
-	w.Write([]byte("OK"))
-}
-
 func StartControlSocket() error {
 
 	l, err := net.Listen("unix", config.Values().Socket)
@@ -163,9 +131,6 @@ func StartControlSocket() error {
 
 	controlMux.HandleFunc("/version", version)
 	controlMux.HandleFunc("/version/bpf", bpfVersion)
-
-	controlMux.HandleFunc("/ebpf/pin", pinBPF)
-	controlMux.HandleFunc("/ebpf/unpin", unpinBPF)
 
 	controlMux.HandleFunc("/shutdown", shutdown)
 

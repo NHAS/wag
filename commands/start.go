@@ -77,12 +77,6 @@ func (g *start) Run() error {
 
 	error := make(chan error)
 
-	if _, err := os.Stat(wag_was_upgraded); err == nil {
-		os.Remove(wag_was_upgraded)
-		g.noIptables = true
-		log.Println("Wag was upgraded to", config.Version, " iptables will not be configured. (Due to presence of", wag_was_upgraded, ")")
-	}
-
 	err := router.Setup(error, !g.noIptables)
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
