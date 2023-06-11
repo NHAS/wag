@@ -1,0 +1,38 @@
+name: Go
+on: [push]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+
+      - name: Install dependencies
+        run: sudo apt install -y make wget llvm clang gcc git npm gulp libbpf-dev
+
+      - name: Set asm version
+        run: sudo ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/asm
+
+      - name: Build with make
+        run: sudo make release
+
+      - name: Test with the Go CLI
+        run: sudo go test -v ./...
+
+      - name: docker login
+        env:
+          DOCKER_ACCESS_TOKEN: ${{secrets.DOCKER_ACCESS_TOKEN}}
+        run: | 
+          docker login -u wagvpn -p $DOCKER_ACCESS_TOKEN
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag wagvpn/wag:$(date +%s) --tag wagvpn/wag
+        
+      - name: Docker Push
+        run: docker push wagvpn/wag
