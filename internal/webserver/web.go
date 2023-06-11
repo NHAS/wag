@@ -565,6 +565,15 @@ func status(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server Error", 500)
 	}
 
+	w.Header().Set("Content-Disposition", "attachment; filename=acl")
+
+	if r.URL.Query().Get("routes") == "true" {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(strings.Join(routes, ", ")))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	status := struct {
 		IsAuthorised bool
 		Routes       []string
@@ -572,9 +581,6 @@ func status(w http.ResponseWriter, r *http.Request) {
 		IsAuthorised: router.IsAuthed(remoteAddress.String()),
 		Routes:       routes,
 	}
-
-	w.Header().Set("Content-Disposition", "attachment; filename=acl")
-	w.Header().Set("Content-Type", "application/json")
 
 	result, err := json.Marshal(&status)
 	if err != nil {
