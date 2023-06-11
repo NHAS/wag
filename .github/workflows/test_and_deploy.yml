@@ -29,6 +29,7 @@ jobs:
         with:
           name: wag_binary
           path: wag
+        retention-days: 1
   deploy:
     runs-on: ubuntu-22.04
     needs: build-and-test
