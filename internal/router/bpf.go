@@ -502,6 +502,10 @@ type fwDevice struct {
 }
 
 func GetRoutes(username string) ([]string, error) {
+
+	lock.RLock()
+	defer lock.RUnlock()
+
 	userid := sha1.Sum([]byte(username))
 
 	result := map[string]bool{}
