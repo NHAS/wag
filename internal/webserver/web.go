@@ -91,6 +91,8 @@ func Start(errChan chan<- error) error {
 	tunnel := http.NewServeMux()
 
 	tunnel.HandleFunc("/status/", status)
+	tunnel.HandleFunc("/routes/", routes)
+
 	tunnel.HandleFunc("/logout/", logout)
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
@@ -545,7 +547,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func status(w http.ResponseWriter, r *http.Request) {
+func routes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
 		return
@@ -563,23 +565,41 @@ func status(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Getting routes from xdp failed: ", err)
 		http.Error(w, "Server Error", 500)
-	}
-
-	w.Header().Set("Content-Disposition", "attachment; filename=acl")
-
-	if r.URL.Query().Get("routes") == "true" {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(strings.Join(routes, ", ")))
 		return
 	}
 
+	w.Header().Set("Content-Disposition", "attachment; filename=acl")
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(strings.Join(routes, ", ")))
+
+}
+
+func status(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	remoteAddress := utils.GetIPFromRequest(r)
+	user, err := users.GetUserFromAddress(remoteAddress)
+	if err != nil {
+		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
+
+	acl := config.GetEffectiveAcl(user.Username)
+
+	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "application/json")
 	status := struct {
 		IsAuthorised bool
-		Routes       []string
+		MFA          []string
+		Public       []string
 	}{
 		IsAuthorised: router.IsAuthed(remoteAddress.String()),
-		Routes:       routes,
+		MFA:          acl.Mfa,
+		Public:       acl.Allow,
 	}
 
 	result, err := json.Marshal(&status)
