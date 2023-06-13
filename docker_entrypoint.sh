@@ -2,9 +2,10 @@
 
 if [ ! -f /cfg/config.json ]; then
 	echo "No config file found, generating from example. Ensure /data is mounted for persistence"
-	wag gen-config- out /cfg/config.json
+	wag gen-config -out /cfg/config.json
 	sed -i "s|\"devices.db\"|\"/data/devices.db\"|" /cfg/config.json
 	echo "Config generated, you may want to edit the advanced options and start again"
+  exit
 fi
 
 # trap for all processes created inside this block; a single Ctrl+C will stop them all
