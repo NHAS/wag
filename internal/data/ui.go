@@ -32,7 +32,7 @@ func generateSalt() ([]byte, error) {
 	return randomData, nil
 }
 
-func CreateAdminUser(username, password string) error {
+func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -46,10 +46,10 @@ func CreateAdminUser(username, password string) error {
 
 	_, err = database.Exec(`
 	INSERT INTO
-		AdminUsers (username, passwd_hash, date_added)
+		AdminUsers (username, passwd_hash, date_added, change)
 	VALUES
-		(?,?,?)
-`, username, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), time.Now().Format(time.RFC3339))
+		(?,?,?, ?)
+`, username, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), time.Now().Format(time.RFC3339), changeOnFirstUse)
 
 	return err
 }

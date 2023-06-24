@@ -101,6 +101,7 @@ func (c *CtrlClient) UnlockDevice(address string) error {
 	return c.simplepost("device/unlock", form)
 }
 
+// List Admin users, or if username is supplied get details from single user
 func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/list?username=" + url.QueryEscape(username))
@@ -124,10 +125,11 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminModel, e
 }
 
 // Take device address to remove
-func (c *CtrlClient) AddAdminUser(username, password string) error {
+func (c *CtrlClient) AddAdminUser(username, password string, changeOnFirstUser bool) error {
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("password", password)
+	form.Add("change", fmt.Sprintf("%t", changeOnFirstUser))
 
 	return c.simplepost("webadmin/add", form)
 }

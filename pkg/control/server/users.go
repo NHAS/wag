@@ -313,8 +313,9 @@ func addAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	shouldChange := r.FormValue("change") == "true"
 
-	err = data.CreateAdminUser(username, password)
+	err = data.CreateAdminUser(username, password, shouldChange)
 	if err != nil {
 		http.Error(w, "unable to create admin user: "+err.Error(), 404)
 		return

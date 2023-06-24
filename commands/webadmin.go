@@ -82,7 +82,7 @@ func (g *webadmin) Run() error {
 
 	case "add":
 
-		err := ctl.AddAdminUser(g.username, g.password)
+		err := ctl.AddAdminUser(g.username, g.password, true)
 		if err != nil {
 			return err
 		}
