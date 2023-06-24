@@ -263,6 +263,45 @@ func StartWebServer(errs chan<- error) {
 		return
 	}
 
+	admins, err := ctrl.ListAdminUsers("")
+	if err != nil {
+		errs <- err
+		return
+	}
+
+	if len(admins) == 0 {
+		log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
+
+		b := make([]byte, 16)
+		_, err := rand.Read(b)
+		if err != nil {
+			errs <- err
+			return
+		}
+
+		password := hex.EncodeToString(b)
+
+		_, err = rand.Read(b[:8])
+		if err != nil {
+			errs <- err
+			return
+		}
+
+		username := hex.EncodeToString(b)
+
+		log.Println("Username: ", username)
+		log.Println("Password: ", password)
+
+		log.Println("This information will not be shown again. ")
+
+		err = ctrl.AddAdminUser(username, password)
+		if err != nil {
+			errs <- err
+			return
+		}
+
+	}
+
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
