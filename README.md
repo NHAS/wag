@@ -286,7 +286,7 @@ Full config example
     "ExposePorts": [
         "443/tcp"
      ],
-     "CheckUpdates": true,
+    "CheckUpdates": true,
     "Lockout": 5,
     "NAT": true,
     "HelpMail": "help@example.com",
