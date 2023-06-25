@@ -294,7 +294,7 @@ func StartWebServer(errs chan<- error) {
 
 		log.Println("This information will not be shown again. ")
 
-		err = ctrl.AddAdminUser(username, password)
+		err = ctrl.AddAdminUser(username, password, true)
 		if err != nil {
 			errs <- err
 			return
