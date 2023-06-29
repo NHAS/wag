@@ -47,6 +47,7 @@ func (c *CtrlClient) simplepost(path string, form url.Values) error {
 		if err != nil {
 			return err
 		}
+
 		return errors.New(string(result))
 	}
 

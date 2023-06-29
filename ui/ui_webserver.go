@@ -78,6 +78,19 @@ func (sh *authMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u, ok := user.(AdminUser)
+	if !ok {
+		log.Println("session didnt link to AdminUser")
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if u.MustChangePassword && r.URL.RawPath != "/change_password" {
+		log.Println("user tried to browse to something other than change password")
+		http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
+		return
+	}
+
 	ctx := context.WithValue(r.Context(), adminKey, user)
 
 	sh.next.ServeHTTP(w, r.WithContext(ctx))
@@ -90,7 +103,8 @@ func setAuth(f http.Handler) http.Handler {
 }
 
 type AdminUser struct {
-	Username string
+	Username           string
+	MustChangePassword bool
 }
 
 func doLogin(w http.ResponseWriter, r *http.Request) {
@@ -247,11 +261,11 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func StartWebServer(errs chan<- error) {
+func StartWebServer(errs chan<- error) error {
 
 	if !config.Values().ManagementUI.Enabled {
 		log.Println("Management Web UI is disabled")
-		return
+		return nil
 	}
 
 	ctrl = wagctl.NewControlClient(config.Values().Socket)
@@ -259,14 +273,12 @@ func StartWebServer(errs chan<- error) {
 	var err error
 	WagVersion, err = ctrl.GetVersion()
 	if err != nil {
-		errs <- err
-		return
+		return err
 	}
 
 	admins, err := ctrl.ListAdminUsers("")
 	if err != nil {
-		errs <- err
-		return
+		return err
 	}
 
 	if len(admins) == 0 {
@@ -275,19 +287,17 @@ func StartWebServer(errs chan<- error) {
 		b := make([]byte, 16)
 		_, err := rand.Read(b)
 		if err != nil {
-			errs <- err
-			return
+			return err
 		}
 
 		password := hex.EncodeToString(b)
 
 		_, err = rand.Read(b[:8])
 		if err != nil {
-			errs <- err
-			return
+			return err
 		}
 
-		username := hex.EncodeToString(b)
+		username := hex.EncodeToString(b[:8])
 
 		log.Println("Username: ", username)
 		log.Println("Password: ", password)
@@ -296,10 +306,8 @@ func StartWebServer(errs chan<- error) {
 
 		err = ctrl.AddAdminUser(username, password, true)
 		if err != nil {
-			errs <- err
-			return
+			return err
 		}
-
 	}
 
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
@@ -794,6 +802,8 @@ func StartWebServer(errs chan<- error) {
 	}()
 
 	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values().ManagementUI.ListenAddress)
+
+	return nil
 }
 
 func changePassword(w http.ResponseWriter, r *http.Request) {

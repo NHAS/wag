@@ -15,6 +15,7 @@ type webadmin struct {
 
 	username, password, socket string
 	action                     string
+	isTempPass                 bool
 }
 
 func Webadmin() *webadmin {
@@ -27,6 +28,8 @@ func Webadmin() *webadmin {
 	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance control socket")
 
 	gc.fs.Bool("add", false, "Add web administrator user (requires -password)")
+	gc.fs.Bool("temp", false, "If the user should be forced to change their password on first use (requires -add)")
+
 	gc.fs.Bool("del", false, "Delete admin user")
 	gc.fs.Bool("list", false, "List web administration users, if '-username' supply will filter by user")
 	gc.fs.Bool("reset", false, "Reset admin user account password (requires -password and -username)")
@@ -55,6 +58,8 @@ func (g *webadmin) Check() error {
 		switch f.Name {
 		case "lockaccount", "unlockaccount", "del", "list", "add", "reset":
 			g.action = strings.ToLower(f.Name)
+		case "temp":
+			g.isTempPass = true
 		}
 	})
 
@@ -64,10 +69,12 @@ func (g *webadmin) Check() error {
 			return errors.New("address must be supplied")
 		}
 	case "list":
+
 	case "add", "reset":
 		if g.username == "" || g.password == "" {
 			return errors.New("both username and password must be specified for this command")
 		}
+
 	default:
 		return errors.New("Unknown flag: " + g.action)
 	}
@@ -82,7 +89,7 @@ func (g *webadmin) Run() error {
 
 	case "add":
 
-		err := ctl.AddAdminUser(g.username, g.password, true)
+		err := ctl.AddAdminUser(g.username, g.password, g.isTempPass)
 		if err != nil {
 			return err
 		}

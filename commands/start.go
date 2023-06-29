@@ -123,7 +123,10 @@ func (g *start) Run() error {
 		return fmt.Errorf("unable to start webserver: %v", err)
 	}
 
-	ui.StartWebServer(error)
+	err = ui.StartWebServer(error)
+	if err != nil {
+		return fmt.Errorf("unable to start management web server: %v", err)
+	}
 
 	go func() {
 		cancel := make(chan os.Signal, 1)

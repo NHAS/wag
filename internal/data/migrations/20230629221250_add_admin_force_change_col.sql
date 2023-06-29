@@ -1,0 +1,2 @@
+-- version 9
+ALTER TABLE AdminUsers ADD change BOOLEAN DEFAULT FALSE;
