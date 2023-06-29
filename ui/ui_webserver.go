@@ -78,20 +78,27 @@ func (sh *authMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, ok := user.(AdminUser)
+	u, ok := user.(data.AdminModel)
 	if !ok {
-		log.Println("session didnt link to AdminUser")
+		log.Println("session didnt link to AdminModel")
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
 
-	if u.MustChangePassword && r.URL.RawPath != "/change_password" {
+	u, err = data.GetAdminUser(u.Username)
+	if err != nil {
+		log.Println("error refreshing admin user details")
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	if u.Change && r.URL.Path != "/change_password" {
 		log.Println("user tried to browse to something other than change password")
 		http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
 		return
 	}
 
-	ctx := context.WithValue(r.Context(), adminKey, user)
+	ctx := context.WithValue(r.Context(), adminKey, u)
 
 	sh.next.ServeHTTP(w, r.WithContext(ctx))
 }
@@ -100,11 +107,6 @@ func setAuth(f http.Handler) http.Handler {
 	return &authMiddleware{
 		next: f,
 	}
-}
-
-type AdminUser struct {
-	Username           string
-	MustChangePassword bool
 }
 
 func doLogin(w http.ResponseWriter, r *http.Request) {
@@ -144,9 +146,17 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		adminDetails, err := data.GetAdminUser(r.Form.Get("username"))
+		if err != nil {
+			log.Println("unable to login: ", err)
+
+			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
+			return
+		}
+
 		http.SetCookie(w, &http.Cookie{
 			Name:     "admin",
-			Value:    sessions.StartSession(AdminUser{Username: r.Form.Get("username")}),
+			Value:    sessions.StartSession(adminDetails),
 			Path:     "/",
 			HttpOnly: true,
 			Secure:   config.Values().ManagementUI.SupportsTLS(),
@@ -164,7 +174,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func populateDashboard(w http.ResponseWriter, r *http.Request) {
-	u, ok := r.Context().Value(adminKey).(AdminUser)
+	u, ok := r.Context().Value(adminKey).(data.AdminModel)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
@@ -357,7 +367,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -429,7 +439,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -481,7 +491,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -514,7 +524,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -547,7 +557,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -580,7 +590,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -613,7 +623,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -646,7 +656,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -695,7 +705,7 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(AdminUser)
+			u, ok := r.Context().Value(adminKey).(data.AdminModel)
 			if !ok {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
@@ -808,7 +818,7 @@ func StartWebServer(errs chan<- error) error {
 
 func changePassword(w http.ResponseWriter, r *http.Request) {
 
-	u, ok := r.Context().Value(adminKey).(AdminUser)
+	u, ok := r.Context().Value(adminKey).(data.AdminModel)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
@@ -876,7 +886,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("unable to set new admin password for ", u.Username)
 
-			d.Message = "Error"
+			d.Message = "Error: " + err.Error()
 			d.Type = 1
 
 			uiTemplates["change_password"].Execute(w, d)
@@ -895,7 +905,7 @@ func general(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := r.Context().Value(adminKey).(AdminUser)
+	_, ok := r.Context().Value(adminKey).(data.AdminModel)
 	if !ok {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return

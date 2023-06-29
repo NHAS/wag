@@ -32,6 +32,12 @@ $(function () {
       align: 'center',
       sortable: true,
       escape: "true"
+    }, {
+      field: 'change',
+      title: 'Temp Password',
+      align: 'center',
+      sortable: true,
+      escape: "true"
     }
   ])
 

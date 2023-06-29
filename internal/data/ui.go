@@ -20,6 +20,7 @@ type AdminModel struct {
 	DateAdded string `json:"date_added"`
 	LastLogin string `json:"last_login"`
 	IP        string `json:"ip"`
+	Change    bool   `json:"change"`
 }
 
 func generateSalt() ([]byte, error) {
@@ -184,11 +185,11 @@ func GetAdminUser(username string) (a AdminModel, err error) {
 
 	err = database.QueryRow(`
 	SELECT 
-		username, attempts, last_login, ip, date_added
+		username, attempts, last_login, ip, date_added, change
 	FROM 
 		AdminUsers
 	WHERE
-		username = ?`, username).Scan(&a.Username, &a.Attempts, &LastLogin, &IP, &a.DateAdded)
+		username = ?`, username).Scan(&a.Username, &a.Attempts, &LastLogin, &IP, &a.DateAdded, &a.Change)
 	if err != nil {
 		return
 	}
@@ -201,7 +202,7 @@ func GetAdminUser(username string) (a AdminModel, err error) {
 
 func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 
-	rows, err := database.Query("SELECT username, attempts, last_login, ip, date_added FROM AdminUsers ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT username, attempts, last_login, ip, date_added, change FROM AdminUsers ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +214,7 @@ func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 			IP        sql.NullString
 			au        AdminModel
 		)
-		err = rows.Scan(&au.Username, &au.Attempts, &LastLogin, &IP, &au.DateAdded)
+		err = rows.Scan(&au.Username, &au.Attempts, &LastLogin, &IP, &au.DateAdded, &au.Change)
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +245,7 @@ func SetAdminPassword(username, password string) error {
 	UPDATE 
 		AdminUsers
 	SET
-		passwd_hash = ?
+		passwd_hash = ?, change = false
 	WHERE
 		username = ?
 	`, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), username)
