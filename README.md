@@ -502,8 +502,3 @@ Monero (XMR):
   
 Bitcoin (BTC):  
 `bc1qm9e9sfrm7l7tnq982nrm6khnsfdlay07h0dxfr`  
-
-
-# Unoffical Docker
-
-https://github.com/lachlan2k/wag-docker/
