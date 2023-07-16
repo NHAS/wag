@@ -7,7 +7,7 @@ WORKDIR /app/wag
 
 COPY wag/wag /usr/bin/wag
 COPY docker_entrypoint.sh /
-RUN chmod +x /docker_entrypoint.sh
+RUN chmod +x /docker_entrypoint.sh /usr/bin/wag
 
 VOLUME /data
 VOLUME /cfg
