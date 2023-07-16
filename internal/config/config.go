@@ -662,7 +662,7 @@ func load(path string) (c Config, err error) {
 				return c, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
 			}
 
-			if !c.Webserver.Tunnel.SupportsTLS() {
+			if !c.Webserver.Tunnel.SupportsTLS() && !c.Proxied {
 				return c, errors.New("tunnel does not support TLS (no cert/key given)")
 			}
 
