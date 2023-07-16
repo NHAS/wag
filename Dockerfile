@@ -5,9 +5,7 @@ RUN microdnf install -y iptables nc
 
 WORKDIR /app/wag
 
-COPY wag /usr/bin/wag
-COPY example_config.json /tmp
-
+COPY wag/wag /usr/bin/wag
 COPY docker_entrypoint.sh /
 RUN chmod +x /docker_entrypoint.sh
 
