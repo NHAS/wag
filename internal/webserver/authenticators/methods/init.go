@@ -27,6 +27,7 @@ func init() {
 	authenticators.MFA[authenticators.TotpMFA] = new(Totp)
 	authenticators.MFA[authenticators.WebauthnMFA] = new(Webauthn)
 	authenticators.MFA[authenticators.OidcMFA] = new(Oidc)
+	authenticators.MFA[authenticators.PamMFA] = new(Pam)
 }
 
 func resultMessage(err error) (string, int) {

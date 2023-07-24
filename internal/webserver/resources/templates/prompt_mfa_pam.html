@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>MFA Code</title>
+  <meta name="description" content="MFA Prompt">
+  <meta name="author" content="Jordan Smith">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="/static/css/normalize.css">
+  <link rel="stylesheet" href="/static/css/skeleton.css">
+  <link rel="stylesheet" href="/static/css/custom.css">
+
+
+  <!--Specific TOTP functions
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="/static/js/pam.js"></script>
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="/static/images/favicon.png">
+
+</head>
+
+<body>
+
+  <!-- Primary Page Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container">
+    <div class="row">
+      <div class="one-half column offset-by-three">
+        <h4 class="center">Enter PAM Auth Password</h4>
+        <p>
+          In order to access restricted resources you must verify your identity. Please enter your PAM auth below.
+          If you are encountering issues, please send an email to <a href="mailto:{{.HelpMail}}">{{.HelpMail}}</a>
+        </p>
+
+
+        <div class="row" hidden="true" id="error">
+          <p class="alert alert-error" id="errorMsg">A server error has occurred, please contact: {{.HelpMail}}</p>
+        </div>
+
+        <form id="loginForm" autocomplete="off">
+          <div class="row">
+           
+              <label for="mfaCode">PAM Auth</label>
+              <input name="code" class="u-full-width" type="password" placeholder="PAM password" id="mfaCode"
+                autofocus>
+
+              <input class="button-primary u-pull-right" type="submit" value="Submit">
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- End Document
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+</body>
+
+</html>

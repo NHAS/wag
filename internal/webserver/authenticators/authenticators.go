@@ -15,6 +15,7 @@ const (
 	TotpMFA     = "totp"
 	WebauthnMFA = "webauthn"
 	OidcMFA     = "oidc"
+	PamMFA      = "pam"
 )
 
 type Authenticator interface {

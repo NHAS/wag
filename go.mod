@@ -32,6 +32,7 @@ require (
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/msteinert/pam v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
