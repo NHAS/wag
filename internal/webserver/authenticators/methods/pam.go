@@ -15,15 +15,12 @@ import (
 	"github.com/msteinert/pam"
 )
 
-// Supported is true when built with PAM
-var Supported = true
-var serviceName = ""
-
 type Pam struct {
+	serviceName string
 }
 
 func (t *Pam) Init(settings map[string]string) error {
-	serviceName = settings["ServiceName"]
+	t.serviceName = settings["ServiceName"]
 	return nil
 }
 
@@ -138,7 +135,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 
 		passwd := r.FormValue("password")
 
-		t, err := pam.StartFunc(serviceName, username, func(s pam.Style, msg string) (string, error) {
+		t, err := pam.StartFunc(t.serviceName, username, func(s pam.Style, msg string) (string, error) {
 			switch s {
 			case pam.PromptEchoOff:
 				return passwd, nil
