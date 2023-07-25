@@ -262,15 +262,17 @@ The web interface itself cannot add administrative users.
 `Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
 `Authenticators.OIDC.ClientID`:  OIDC identifier for application
 `Authenticators.OIDC.ClientSecret`: OIDC secret
-`Authenticators.OIDC.GroupsClaimName`: Not yet used. 
-
+`Authenticators.OIDC.GroupsClaimName`: Not yet used.  
+  
+`Authenticators.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`  will default to `/etc/pam.d/login` if unset or empty  
+  
 `Wireguard`: Object that contains the wireguard device configuration  
 `Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
 `Wireguard.ListenPort`: Port that wireguard will listen on  
 `Wireguard.PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
 `Wireguard.Address`: Subnet the VPN is responsible for  
 `Wireguard.MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
-`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds
+`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
 `Wireguard.DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
    
 `ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  

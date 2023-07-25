@@ -18,11 +18,11 @@ import (
 )
 
 type Pam struct {
-	pamRules string
+	serviceName string
 }
 
 func (t *Pam) Init(settings map[string]string) error {
-	t.pamRules = settings["Rules"]
+	t.serviceName = settings["ServiceName"]
 
 	return nil
 }
