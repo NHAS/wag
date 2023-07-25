@@ -18,9 +18,12 @@ import (
 )
 
 type Pam struct {
+	pamRules string
 }
 
 func (t *Pam) Init(settings map[string]string) error {
+	t.pamRules = settings["Rules"]
+
 	return nil
 }
 
@@ -135,8 +138,17 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 
 		passwd := r.FormValue("password")
 
-		// Set the PAM service name as a static string so in debugging we always know what configuration file to look at
-		t, err := pam.StartFunc("wagvpn", username, func(s pam.Style, msg string) (string, error) {
+		serviceName := config.Values().Authenticators.PAM.ServiceName
+
+		pamRulesFile := "config /etc/pam.d/" + serviceName
+		if serviceName == "" {
+			serviceName = "login"
+			pamRulesFile = "default PAM /etc/pam.d/login"
+		}
+
+		log.Println(username, "attempting to authorise with PAM (using ", pamRulesFile, ")")
+		t, err := pam.StartFunc(serviceName, username, func(s pam.Style, msg string) (string, error) {
+
 			switch s {
 			case pam.PromptEchoOff:
 				return passwd, nil
@@ -146,15 +158,15 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 			return "", errors.New("unrecognized PAM message style")
 		})
 		if err != nil {
-			return errors.New("PAM start failed")
+			return errors.New("PAM start failed: " + err.Error())
 		}
 
 		if err = t.Authenticate(0); err != nil {
-			return errors.New("PAM authentication failed")
+			return errors.New("PAM authentication failed: " + err.Error())
 		}
 
 		if err = t.AcctMgmt(0); err != nil {
-			return errors.New("PAM account failed")
+			return errors.New("PAM account failed: " + err.Error())
 		}
 
 		// PAM login names might suffer transformations in the PAM stack.

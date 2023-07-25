@@ -42,9 +42,9 @@
   <div class="container">
     <div class="row">
       <div class="one-half column offset-by-three">
-        <h4 class="center">Enter PAM Auth Password</h4>
+        <h4 class="center">Enter Password</h4>
         <p>
-          In order to access restricted resources you must verify your identity. Please enter your PAM auth below.
+          In order to access restricted resources you must verify your identity. Please enter your credentials below.
           If you are encountering issues, please send an email to <a href="mailto:{{.HelpMail}}">{{.HelpMail}}</a>
         </p>
 
@@ -56,8 +56,7 @@
         <form id="loginForm" autocomplete="off">
           <div class="row">
 
-            <label for="mfaPassword">PAM Auth</label>
-            <input name="password" class="u-full-width" type="password" placeholder="PAM password" id="mfaPassword"
+            <input name="password" class="u-full-width" type="password" placeholder="Account Password" id="mfaPassword"
               autofocus>
 
             <input class="button-primary u-pull-right" type="submit" value="Submit">

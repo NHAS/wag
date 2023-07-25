@@ -683,9 +683,6 @@ func load(path string) (c Config, err error) {
 			if err != nil {
 				return c, errors.New("could not configure webauthn domain: " + err.Error())
 			}
-
-			// pam does not require anything to be validated
-
 		}
 
 		if err := resultMFAMap[method].Init(settings); err != nil {
