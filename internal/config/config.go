@@ -684,12 +684,7 @@ func load(path string) (c Config, err error) {
 				return c, errors.New("could not configure webauthn domain: " + err.Error())
 			}
 
-		case "pam":
-			if c.Authenticators.PAM.ServiceName == "" {
-				return c, errors.New("Authenticators.PAM.ServiceName unset, needed for PAM authentication")
-			}
-
-			settings["ServiceName"] = c.Authenticators.PAM.ServiceName
+			// pam does not require anything to be validated
 
 		}
 

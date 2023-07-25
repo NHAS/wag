@@ -255,15 +255,14 @@ The web interface itself cannot add administrative users.
 `Authenticators`: Object that contains configurations for the authentication methods wag provides  
 `Authenticators.Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `Authenticators.DomainURL`: Full url of the vpn authentication endpoint, required for `webauthn` and `oidc`
-`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`)    
-`Authenticators.Methods`: String array, enabled authentication methods, e.g ["totp","webauthn","oidc", "pam"]
+`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`, `pam`)    
+`Authenticators.Methods`: String array, enabled authentication methods, e.g `["totp","webauthn","oidc", "pam"]`. Side note the name of PAM-Auth file is `/etc/pam.d/wagvpn`
 
 `Authenticators.OIDC`: Object that contains `OIDC` specific configuration options
 `Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
 `Authenticators.OIDC.ClientID`:  OIDC identifier for application
 `Authenticators.OIDC.ClientSecret`: OIDC secret
 `Authenticators.OIDC.GroupsClaimName`: Not yet used. 
-`Authenticators.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`
 
 `Wireguard`: Object that contains the wireguard device configuration  
 `Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
@@ -322,10 +321,7 @@ Full config example
             "ClientSecret": "<OMITTED>",
             "ClientID": "account",
             "GroupsClaimName": "groups"
-        },
-        "PAM": {
-            "ServiceName": "vpncheckpass"
-        },
+        }
     },
     "Wireguard": {
         "DevName": "wg0",

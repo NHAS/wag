@@ -18,11 +18,9 @@ import (
 )
 
 type Pam struct {
-	serviceName string
 }
 
 func (t *Pam) Init(settings map[string]string) error {
-	t.serviceName = settings["ServiceName"]
 	return nil
 }
 
@@ -31,7 +29,7 @@ func (t *Pam) Type() string {
 }
 
 func (t *Pam) FriendlyName() string {
-	return "Pam OTP"
+	return "System Login"
 }
 
 func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +135,8 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 
 		passwd := r.FormValue("password")
 
-		t, err := pam.StartFunc(t.serviceName, username, func(s pam.Style, msg string) (string, error) {
+		// Set the PAM service name as a static string so in debugging we always know what configuration file to look at
+		t, err := pam.StartFunc("wagvpn", username, func(s pam.Style, msg string) (string, error) {
 			switch s {
 			case pam.PromptEchoOff:
 				return passwd, nil
