@@ -49,11 +49,11 @@ async function loginUser(location) {
                 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
             },
             body: new URLSearchParams({
-                "code": document.getElementById("mfaCode").value
+                "password": document.getElementById("mfaPassword").value
             })
         });
 
-        document.getElementById("mfaCode").value = "";
+        document.getElementById("mfaPassword").value = "";
 
         if (!send.ok) {
             console.log("failed to send pam code")

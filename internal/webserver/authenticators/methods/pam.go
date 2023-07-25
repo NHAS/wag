@@ -136,7 +136,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 			return err
 		}
 
-		passwd := r.FormValue("code")
+		passwd := r.FormValue("password")
 
 		t, err := pam.StartFunc(serviceName, username, func(s pam.Style, msg string) (string, error) {
 			switch s {
