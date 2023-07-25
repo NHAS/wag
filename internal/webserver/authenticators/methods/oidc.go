@@ -1,11 +1,11 @@
 package methods
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"path"
