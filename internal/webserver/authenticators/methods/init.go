@@ -3,13 +3,11 @@ package methods
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
-	"github.com/NHAS/wag/internal/webserver/resources"
 )
 
 // from: https://github.com/duo-labs/webauthn.io/blob/3f03b482d21476f6b9fb82b2bf1458ff61a61d41/server/response.go#L15
@@ -42,23 +40,4 @@ func resultMessage(err error) (string, int) {
 		msg = "Device is locked contact: " + config.Values().HelpMail
 	}
 	return msg, http.StatusBadRequest
-}
-
-func renderTemplate(w http.ResponseWriter, tmplt *template.Template, message, url string) error {
-
-	data := resources.Msg{
-		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
-		Message:    message,
-		URL:        url,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	err := tmplt.Execute(w, &data)
-	if err != nil {
-		http.Error(w, "Server error", 500)
-		return err
-	}
-
-	return err
 }

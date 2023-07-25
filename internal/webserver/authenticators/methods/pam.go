@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"fmt"
+
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
@@ -158,12 +160,13 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 
 		// PAM login names might suffer transformations in the PAM stack.
 		// We should take whatever the PAM stack returns for it.
-		user, err := t.GetItem(pam.User)
+		pamUsername, err := t.GetItem(pam.User)
 		if err != nil {
-			return errors.New("PAM get user '" + user + "' failed")
+			return fmt.Errorf("PAM get user '%s' (%s) failed", pamUsername, username)
 		} else {
 			return nil
 		}
+
 	}
 }
 
