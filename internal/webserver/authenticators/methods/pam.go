@@ -18,12 +18,9 @@ import (
 )
 
 type Pam struct {
-	serviceName string
 }
 
 func (t *Pam) Init(settings map[string]string) error {
-	t.serviceName = settings["ServiceName"]
-
 	return nil
 }
 

@@ -32,6 +32,9 @@
             "ClientSecret": "AN EXAMPLE KEY",
             "ClientID": "account",
             "GroupsClaimName": "groups"
+        },
+        "PAM": {
+            "ServiceName": "vpncheckpass"
         }
     },
     "Wireguard": {
