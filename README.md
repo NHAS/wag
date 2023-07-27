@@ -256,7 +256,7 @@ The web interface itself cannot add administrative users.
 `Authenticators.Issuer`: TOTP issuer, the name that will get added to the TOTP app  
 `Authenticators.DomainURL`: Full url of the vpn authentication endpoint, required for `webauthn` and `oidc`
 `Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`, `pam`)    
-`Authenticators.Methods`: String array, enabled authentication methods, e.g `["totp","webauthn","oidc", "pam"]`. Side note the name of PAM-Auth file is `/etc/pam.d/wagvpn`
+`Authenticators.Methods`: String array, enabled authentication methods, e.g `["totp","webauthn","oidc", "pam"]`. 
 
 `Authenticators.OIDC`: Object that contains `OIDC` specific configuration options
 `Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
