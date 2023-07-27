@@ -480,7 +480,7 @@ Sudo is required to load the eBPF program into the kernel.
 
 If you havent build the release docker image (used because it has a stable version of glibc) do the following:
 ```
-cd builder
+cd release_builder
 sudo docker build -t wag_builder .
 cd ..
 
