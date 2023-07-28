@@ -1,7 +1,7 @@
 FROM redhat/ubi9-minimal:latest
 
 RUN microdnf update -y
-RUN microdnf install -y iptables nc pam-devel
+RUN microdnf install -y iptables nc pam
 
 WORKDIR /app/wag
 
