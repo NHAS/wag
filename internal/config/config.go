@@ -375,7 +375,10 @@ func GetEffectiveAcl(username string) Acl {
 
 	// Add dns servers if defined
 	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	resultingACLs.Allow = append(resultingACLs.Allow, values.Wireguard.DNS...)
+	// Restrict dns servers to only having 53/any by default as per #49
+	for _, server := range values.Wireguard.DNS {
+		resultingACLs.Allow = append(resultingACLs.Allow, fmt.Sprintf("%s 53/any", server))
+	}
 
 	if allPolicy, ok := values.Acls.Policies["*"]; ok {
 		resultingACLs.Allow = append(resultingACLs.Allow, allPolicy.Allow...)

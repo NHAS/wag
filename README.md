@@ -14,7 +14,7 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 # Requirements
 
 
-`iptables` must be installed.  
+`iptables` and `libpam` must be installed.  
 Wag must be run as root, to manage `iptables` and the `wireguard` device.  
    
 Forwarding must be enabled in `sysctl`.  
