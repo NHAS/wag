@@ -1148,6 +1148,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 				Token:      reg.Token,
 				Groups:     reg.Groups,
 				Overwrites: reg.Overwrites,
+				Uses:       reg.NumUses,
 			})
 		}
 
@@ -1184,6 +1185,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			Token      string
 			Overwrites string
 			Groups     string
+			Uses       int
 		}
 
 		defer r.Body.Close()
@@ -1198,7 +1200,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			groups = strings.Split(b.Groups, ",")
 		}
 
-		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, groups...)
+		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, b.Uses, groups...)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return

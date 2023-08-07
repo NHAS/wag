@@ -5,6 +5,7 @@ type RegistrationResult struct {
 	Username   string
 	Groups     []string
 	Overwrites string
+	NumUses    int
 }
 
 type PolicyData struct {

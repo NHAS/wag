@@ -80,6 +80,7 @@ type TokensData struct {
 	Username   string   `json:"username"`
 	Groups     []string `json:"groups"`
 	Overwrites string   `json:"overwrites"`
+	Uses       int      `json:"uses"`
 }
 
 type WgDevicesData struct {
