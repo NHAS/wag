@@ -70,7 +70,7 @@ func (a Acls) GetUserGroups(username string) (result []string) {
 type Config struct {
 	path         string
 	Socket       string `json:",omitempty"`
-	GID          int    `json:",omitempty"`
+	GID          *int   `json:",omitempty"`
 	CheckUpdates bool   `json:",omitempty"`
 	Proxied      bool
 	ExposePorts  []string `json:",omitempty"`
