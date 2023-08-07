@@ -92,6 +92,10 @@ func StartControlSocket() error {
 		return err
 	}
 
+	if err := os.Chown(config.Values().Socket, -1, config.Values().GID); err != nil {
+		return err
+	}
+
 	log.Println("Started control socket: \n\t\t\t", config.Values().Socket)
 
 	controlMux := http.NewServeMux()
