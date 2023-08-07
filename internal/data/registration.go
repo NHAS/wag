@@ -24,6 +24,8 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 			RegistrationTokens
 		WHERE
 			token = ?
+				AND
+			uses > 0
 	`, token).Scan(&token, &username, &overwrites, &groupsJson)
 	if err != nil {
 		return
@@ -41,7 +43,7 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 // Returns list of tokens
 func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
 
-	rows, err := database.Query("SELECT token, username, overwrite, groups FROM RegistrationTokens ORDER by ROWID DESC")
+	rows, err := database.Query("SELECT token, username, overwrite, groups, uses FROM RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +53,7 @@ func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
 			groupsJson   sql.NullString
 			registration control.RegistrationResult
 		)
-		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson)
+		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson, &registration.NumUses)
 		if err != nil {
 			return nil, err
 		}
@@ -74,26 +76,53 @@ func DeleteRegistrationToken(identifier string) error {
 		DELETE FROM
 			RegistrationTokens
 		WHERE
-			token = $1 OR username = $1
+			(token = $1 OR username = $1) or uses <= 0
 	`, identifier)
 	return err
 }
 
+// FinaliseRegistration may or may not delete the token in question depending on whether the number of uses is <= 0
+func FinaliseRegistration(token string) error {
+	_, err := database.Exec(`UPDATE 
+		RegistrationTokens 
+	SET 
+		uses = uses - 1 
+	WHERE 
+		token = ?`,
+		token)
+	if err != nil {
+		return err
+	}
+
+	var uses int
+	err = database.QueryRow(`SELECT uses FROM RegistrationTokens WHERE token = ?`, token).Scan(&uses)
+	// Due to the (token = $1 OR username = $1) or uses <= 0 in DeleteRegistrationToken it is possible for tokens to get deleted between update and now
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if uses <= 0 && err != sql.ErrNoRows {
+		return DeleteRegistrationToken(token)
+	}
+
+	return nil
+}
+
 // Randomly generate a token for a specific username
-func GenerateToken(username, overwrite string, groups []string) (token string, err error) {
+func GenerateToken(username, overwrite string, groups []string, uses int) (token string, err error) {
 	tokenBytes, err := generateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
 
 	token = hex.EncodeToString(tokenBytes)
-	err = AddRegistrationToken(token, username, overwrite, groups)
+	err = AddRegistrationToken(token, username, overwrite, groups, uses)
 
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func AddRegistrationToken(token, username, overwrite string, groups []string) error {
+func AddRegistrationToken(token, username, overwrite string, groups []string, uses int) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}
@@ -120,20 +149,20 @@ func AddRegistrationToken(token, username, overwrite string, groups []string) er
 
 		_, err = database.Exec(`
 		INSERT INTO
-			RegistrationTokens (token, username, overwrite, groups)
+			RegistrationTokens (token, username, overwrite, groups, uses)
 		VALUES
-			(?, ?, ?, ?)
-	`, token, username, overwrite, string(result))
+			(?, ?, ?, ?, ?)
+	`, token, username, overwrite, string(result), uses)
 
 		return err
 	}
 
 	_, err = database.Exec(`
 	INSERT INTO
-		RegistrationTokens (token, username, overwrite)
+		RegistrationTokens (token, username, overwrite, uses)
 	VALUES
-		(?, ?, ?)
-`, token, username, overwrite)
+		(?, ?, ?, ?)
+`, token, username, overwrite, uses)
 
 	return err
 }

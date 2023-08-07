@@ -526,12 +526,18 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 	return
 }
 
-func (c *CtrlClient) NewRegistration(token, username, overwrite string, groups ...string) (r control.RegistrationResult, err error) {
+func (c *CtrlClient) NewRegistration(token, username, overwrite string, uses int, groups ...string) (r control.RegistrationResult, err error) {
+
+	if uses <= 0 {
+		err = errors.New("unable to create token with <= 0 uses")
+		return
+	}
 
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("token", token)
 	form.Add("overwrite", overwrite)
+	form.Add("uses", fmt.Sprintf("%d", uses))
 
 	for _, group := range groups {
 		if !strings.HasPrefix(group, "group:") {

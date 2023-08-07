@@ -67,6 +67,12 @@ $(function () {
       sortable: true,
       align: 'center',
       escape: "true"
+    }, {
+      field: 'uses',
+      title: 'Uses',
+      sortable: true,
+      align: 'center',
+      escape: "true"
     }
   ])
 
@@ -110,7 +116,8 @@ $(function () {
       "username": $('#recipient-name').val(),
       "token": $('#token').val(),
       "overwrites": $('#overwrite').val(),
-      "groups": $('#groups').val()
+      "groups": $('#groups').val(),
+      "uses": ($("#uses").val() == "" ? "1" : $("#uses").val())
     }
 
     fetch("/management/registration_tokens/data", {

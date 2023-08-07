@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
@@ -52,6 +53,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	overwrite := r.FormValue("overwrite")
 
 	groupsString := r.FormValue("groups")
+	usesString := r.FormValue("uses")
 
 	var groups []string = nil
 	err = json.Unmarshal([]byte(groupsString), &groups)
@@ -72,7 +74,18 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		config.AddVirtualUser(username, groups)
 	}
 
-	resp := control.RegistrationResult{Token: token, Username: username, Groups: groups}
+	uses, err := strconv.Atoi(usesString)
+	if err != nil {
+		http.Error(w, "invalid number of uses for registration token: "+err.Error(), 500)
+		return
+	}
+
+	if uses <= 0 {
+		http.Error(w, "invalid number of uses for registration token: "+usesString, 400)
+		return
+	}
+
+	resp := control.RegistrationResult{Token: token, Username: username, Groups: groups, NumUses: uses}
 
 	tokenType := "registration"
 	if overwrite != "" {
@@ -80,7 +93,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if token != "" {
-		err := data.AddRegistrationToken(token, username, overwrite, groups)
+		err := data.AddRegistrationToken(token, username, overwrite, groups, uses)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -98,7 +111,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err = data.GenerateToken(username, overwrite, groups)
+	token, err = data.GenerateToken(username, overwrite, groups, uses)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

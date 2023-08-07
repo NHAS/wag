@@ -502,7 +502,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Finish registration process
-	err = data.DeleteRegistrationToken(key)
+	err = data.FinaliseRegistration(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "expiring registration token failed:", err)
 		http.Error(w, "Server Error", 500)
