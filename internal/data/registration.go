@@ -53,7 +53,7 @@ func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
 			groupsJson   sql.NullString
 			registration control.RegistrationResult
 		)
-		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson)
+		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson, &registration.NumUses)
 		if err != nil {
 			return nil, err
 		}
@@ -149,10 +149,10 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 
 		_, err = database.Exec(`
 		INSERT INTO
-			RegistrationTokens (token, username, overwrite, groups)
+			RegistrationTokens (token, username, overwrite, groups, uses)
 		VALUES
-			(?, ?, ?, ?)
-	`, token, username, overwrite, string(result))
+			(?, ?, ?, ?, ?)
+	`, token, username, overwrite, string(result), uses)
 
 		return err
 	}
@@ -161,7 +161,7 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 	INSERT INTO
 		RegistrationTokens (token, username, overwrite, uses)
 	VALUES
-		(?, ?, ?, ))
+		(?, ?, ?, ?)
 `, token, username, overwrite, uses)
 
 	return err

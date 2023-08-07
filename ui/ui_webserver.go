@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1185,13 +1186,24 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			Token      string
 			Overwrites string
 			Groups     string
-			Uses       int
+			Uses       string
 		}
 
 		defer r.Body.Close()
 		err := json.NewDecoder(r.Body).Decode(&b)
 		if err != nil {
-			http.Error(w, "Bad request", 400)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		uses, err := strconv.Atoi(b.Uses)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if uses <= 0 {
+			http.Error(w, "cannot create token with <= 0 uses", 400)
 			return
 		}
 
@@ -1200,7 +1212,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			groups = strings.Split(b.Groups, ",")
 		}
 
-		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, b.Uses, groups...)
+		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, uses, groups...)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return

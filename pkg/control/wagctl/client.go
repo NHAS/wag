@@ -528,6 +528,11 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 
 func (c *CtrlClient) NewRegistration(token, username, overwrite string, uses int, groups ...string) (r control.RegistrationResult, err error) {
 
+	if uses <= 0 {
+		err = errors.New("unable to create token with <= 0 uses")
+		return
+	}
+
 	form := url.Values{}
 	form.Add("username", username)
 	form.Add("token", token)
