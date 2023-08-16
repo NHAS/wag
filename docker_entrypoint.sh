@@ -9,4 +9,4 @@ if [ ! -f /cfg/config.json ]; then
 fi
 
 echo "WAG: start"
-/usr/bin/wag start -config /cfg/config.json
+exec /usr/bin/wag start -config /cfg/config.json
