@@ -23,7 +23,7 @@ jobs:
         run: sudo PATH=/usr/local/go/bin:$PATH make release
 
       - name: Test with the Go CLI
-        run: sudo PATH=/usr/local/go/bin:$PATH go test -v ./...
+        run: sudo /usr/local/go/bin/go test -v ./...
 
       - uses: actions/upload-artifact@v3
         with:
