@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
@@ -16,12 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NHAS/session"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/control/wagctl"
-	"github.com/NHAS/wag/pkg/session"
 )
 
 var (
@@ -47,68 +46,13 @@ var (
 		"login": template.Must(template.ParseFS(templatesContent, "templates/login.html")),
 	}
 
-	sessions = session.NewSessionManager()
-	ctrl     *wagctl.CtrlClient
+	sessionManager *session.SessionStore[data.AdminModel]
+	ctrl           *wagctl.CtrlClient
 
 	WagVersion string
 
 	LogQueue = NewQueue(40)
 )
-
-type AdminContextKey string
-
-const adminKey AdminContextKey = "admin"
-
-type authMiddleware struct {
-	next http.Handler
-}
-
-func (sh *authMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	cookie, err := r.Cookie("admin")
-	if err != nil {
-		log.Println("attempted to get admin page without admin cookie")
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	user, err := sessions.GetSession(cookie.Value)
-	if err != nil {
-		log.Println("attempted to get admin page without session")
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	u, ok := user.(data.AdminModel)
-	if !ok {
-		log.Println("session didnt link to AdminModel")
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	u, err = data.GetAdminUser(u.Username)
-	if err != nil {
-		log.Println("error refreshing admin user details")
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	if u.Change && r.URL.Path != "/change_password" {
-		log.Println("user tried to browse to something other than change password")
-		http.Redirect(w, r, "/change_password", http.StatusTemporaryRedirect)
-		return
-	}
-
-	ctx := context.WithValue(r.Context(), adminKey, u)
-
-	sh.next.ServeHTTP(w, r.WithContext(ctx))
-}
-
-func setAuth(f http.Handler) http.Handler {
-	return &authMiddleware{
-		next: f,
-	}
-}
 
 func doLogin(w http.ResponseWriter, r *http.Request) {
 
@@ -155,14 +99,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     "admin",
-			Value:    sessions.StartSession(adminDetails),
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   config.Values().ManagementUI.SupportsTLS(),
-			SameSite: http.SameSiteStrictMode,
-		})
+		sessionManager.StartSession(w, r, adminDetails, nil)
 
 		log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
 
@@ -175,8 +112,9 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func populateDashboard(w http.ResponseWriter, r *http.Request) {
-	u, ok := r.Context().Value(adminKey).(data.AdminModel)
-	if !ok {
+
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
@@ -321,6 +259,11 @@ func StartWebServer(errs chan<- error) error {
 		}
 	}
 
+	sessionManager, err = session.NewStore[data.AdminModel]("admin", 1*time.Hour, 28800, false)
+	if err != nil {
+		return err
+	}
+
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
@@ -358,7 +301,21 @@ func StartWebServer(errs chan<- error) error {
 		allRoutes.Handle("/fonts/", static)
 		allRoutes.Handle("/vendor/", static)
 
-		allRoutes.Handle("/", setAuth(protectedRoutes))
+		allRoutes.Handle("/", sessionManager.AuthorisationChecks(protectedRoutes, func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
+
+			key, _ := sessionManager.GetSessionFromRequest(r)
+
+			d, err := data.GetAdminUser(dAdmin.Username)
+			if err != nil {
+				sessionManager.DeleteSession(w, r)
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return false
+			}
+
+			sessionManager.UpdateSession(key, d)
+
+			return true
+		}))
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
 
@@ -368,8 +325,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -440,8 +397,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -492,8 +449,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -525,8 +482,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -558,8 +515,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -591,12 +548,11 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
-
 			d := Page{
 				Update:      getUpdate(),
 				Description: "Firewall rules",
@@ -624,8 +580,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -657,8 +613,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -706,8 +662,8 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			u, ok := r.Context().Value(adminKey).(data.AdminModel)
-			if !ok {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 				return
 			}
@@ -757,16 +713,7 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/change_password", changePassword)
 
 		protectedRoutes.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
-
-			cookie, err := r.Cookie("admin")
-			if err != nil {
-				log.Println("attempted to get admin page without admin cookie")
-				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return
-			}
-
-			sessions.DeleteSession(cookie.Value)
-
+			sessionManager.DeleteSession(w, r)
 			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		})
 
@@ -819,8 +766,8 @@ func StartWebServer(errs chan<- error) error {
 
 func changePassword(w http.ResponseWriter, r *http.Request) {
 
-	u, ok := r.Context().Value(adminKey).(data.AdminModel)
-	if !ok {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
@@ -906,8 +853,8 @@ func general(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := r.Context().Value(adminKey).(data.AdminModel)
-	if !ok {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}

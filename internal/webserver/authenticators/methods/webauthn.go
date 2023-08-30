@@ -8,7 +8,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/NHAS/session"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
@@ -16,18 +18,18 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/internal/webserver/resources"
-	"github.com/NHAS/wag/pkg/session"
 	"github.com/NHAS/webauthn/protocol"
 	"github.com/NHAS/webauthn/webauthn"
 )
 
 type Webauthn struct {
-	sessions *session.SessionManager
+	sessions *session.SessionStore[*webauthn.SessionData]
 }
 
-func (wa *Webauthn) Init(settings map[string]string) error {
-	wa.sessions = session.NewSessionManager()
-	return nil
+func (wa *Webauthn) Init(settings map[string]string) (err error) {
+
+	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", 30*time.Minute, 1800, false)
+	return err
 }
 
 func (wa *Webauthn) Type() string {
@@ -77,11 +79,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:  "registration",
-			Value: wa.sessions.StartSession(sessionData),
-			Path:  "/",
-		})
+		wa.sessions.StartSession(w, r, sessionData, nil)
 
 		webauthdata, err := webauthnUser.MarshalJSON()
 		if err != nil {
@@ -109,20 +107,12 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				cookie, err := r.Cookie("registration")
-				if err != nil {
-					return err
+				_, sessionData := wa.sessions.GetSessionFromRequest(r)
+				if sessionData == nil {
+					return errors.New("session not found")
 				}
 
-				sessionData, err := wa.sessions.GetSession(cookie.Value)
-				if err != nil {
-					return err
-				}
-
-				webauthnSession, ok := sessionData.(*webauthn.SessionData)
-				if !ok {
-					return errors.New("could not get webauthn session back")
-				}
+				webauthnSession := *sessionData
 
 				credential, err := config.Values().Authenticators.Webauthn.FinishRegistration(webauthnUser, *webauthnSession, r)
 				if err != nil {
@@ -142,7 +132,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				wa.sessions.DeleteSession(cookie.Value)
+				wa.sessions.DeleteSession(w, r)
 
 				return nil
 			})
@@ -214,11 +204,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:  "authentication",
-			Value: wa.sessions.StartSession(sessionData),
-			Path:  "/",
-		})
+		wa.sessions.StartSession(w, r, sessionData, nil)
 
 		jsonResponse(w, options, http.StatusOK)
 		log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
@@ -235,22 +221,12 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// load the session data
-				cookie, err := r.Cookie("authentication")
+				_, sessionData := wa.sessions.GetSessionFromRequest(r)
 				if err != nil {
 					return err
 				}
 
-				sessionData, err := wa.sessions.GetSession(cookie.Value)
-				if err != nil {
-					return err
-				}
-
-				session, ok := sessionData.(*webauthn.SessionData)
-				if !ok {
-					return errors.New("session data could not be turned into WebauthnSessionData")
-				}
-
-				c, err := config.Values().Authenticators.Webauthn.FinishLogin(webauthnUser, *session, r)
+				c, err := config.Values().Authenticators.Webauthn.FinishLogin(webauthnUser, **sessionData, r)
 				if err != nil {
 					return err
 				}

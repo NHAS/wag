@@ -1,6 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.19
+go 1.21.0
 
 require (
 	github.com/NHAS/webauthn v0.0.0-20230701002608-24fb1253febd
@@ -12,13 +12,14 @@ require (
 	github.com/msteinert/pam v1.1.0
 	github.com/pquerna/otp v1.4.0
 	github.com/zitadel/oidc v1.13.4
-	golang.org/x/crypto v0.11.0
+	golang.org/x/crypto v0.12.0
 	golang.org/x/net v0.12.0
-	golang.org/x/sys v0.10.0
+	golang.org/x/sys v0.11.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 )
 
 require (
+	github.com/NHAS/session v0.0.0-20230829082122-79a308a78ac9 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
 	github.com/go-webauthn/revoke v0.1.10 // indirect
 	github.com/go-webauthn/x v0.1.4 // indirect
@@ -38,7 +39,7 @@ require (
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
