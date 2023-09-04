@@ -16,10 +16,10 @@ jobs:
           go-version: "1.21.0"
 
       - name: Test
-        run: echo $(go version) && echo $(whereis go)
+        run: go version &&
 
       - name: Test with the Go CLI
-        run: sudo go test -v ./...
+        run: sudo -E go test -v ./...
 
   deploy:
     runs-on: ubuntu-latest
