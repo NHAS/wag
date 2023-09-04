@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -94,6 +95,12 @@ func Start(errChan chan<- error) error {
 	tunnel.HandleFunc("/routes/", routes)
 
 	tunnel.HandleFunc("/logout/", logout)
+
+	if config.Values().MFATemplatesDirectory != "" {
+		fs := http.FileServer(http.Dir(path.Join(config.Values().MFATemplatesDirectory, "static")))
+		tunnel.Handle("/custom/", fs)
+	}
+
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
 	for method, handler := range authenticators.MFA {
