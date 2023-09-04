@@ -16,7 +16,7 @@ jobs:
           go-version: "1.21.0"
 
       - name: Install build tools
-        run: apt install -y make gcc-multilib wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
+        run: sudo apt install -y make gcc-multilib wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
 
       - name: build
         run: make release
