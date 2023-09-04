@@ -437,7 +437,7 @@ You can also define a range of ports with a protocol. wag requires that the lowe
 
 Example:
 ```
-192.168.1.1 22-1024/tcp 53-23/any: Format is low port-high port/service
+192.168.1.1 22-1024/tcp 23-53/any: Format is low port-high port/service
 ```
 
 
