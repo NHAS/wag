@@ -1,6 +1,10 @@
 package webserver
 
-import "net/http"
+import (
+	"net"
+	"net/http"
+	"strings"
+)
 
 type securityHeaders struct {
 	next http.Handler
@@ -18,4 +22,27 @@ func setSecurityHeaders(f http.Handler) http.Handler {
 	return &securityHeaders{
 		next: f,
 	}
+}
+
+type httpRedirectHandler struct {
+	TLSPort string
+}
+
+func (sh *httpRedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port in address") {
+			host = r.Host
+		} else {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, "https://"+host+r.RequestURI, http.StatusTemporaryRedirect)
+}
+
+func setRedirectHandler(TLSPort string) http.Handler {
+	return &httpRedirectHandler{TLSPort: TLSPort}
 }

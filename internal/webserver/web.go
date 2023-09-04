@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"image/png"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -75,6 +76,34 @@ func Start(errChan chan<- error) error {
 
 			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
+
+		if !config.Values().Proxied {
+			go func() {
+
+				address, port, err := net.SplitHostPort(config.Values().Webserver.Public.ListenAddress)
+
+				if err != nil {
+					errChan <- fmt.Errorf("Malformed listen address for public listener: %v", err)
+					return
+				}
+
+				port += ":" + port
+				if port == "443" {
+					port = ""
+				}
+
+				srv := &http.Server{
+					Addr:         address + ":80",
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+					IdleTimeout:  120 * time.Second,
+					Handler:      setSecurityHeaders(setRedirectHandler(port)),
+				}
+
+				errChan <- fmt.Errorf("Redirect to TLS webserver public listener failed: %v", srv.ListenAndServe())
+			}()
+		}
+
 	} else {
 		go func() {
 			srv := &http.Server{
@@ -131,6 +160,26 @@ func Start(errChan chan<- error) error {
 
 			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
+
+		if !config.Values().Proxied {
+			go func() {
+
+				port := ":" + config.Values().Webserver.Tunnel.Port
+				if port == "443" {
+					port = ""
+				}
+
+				srv := &http.Server{
+					Addr:         config.Values().Wireguard.ServerAddress.String() + ":80",
+					ReadTimeout:  5 * time.Second,
+					WriteTimeout: 10 * time.Second,
+					IdleTimeout:  120 * time.Second,
+					Handler:      setSecurityHeaders(setRedirectHandler(port)),
+				}
+
+				errChan <- fmt.Errorf("Redirect to TLS webserver public listener failed: %v", srv.ListenAndServe())
+			}()
+		}
 	} else {
 		go func() {
 			srv := &http.Server{

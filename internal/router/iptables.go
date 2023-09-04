@@ -55,6 +55,16 @@ func setupIptables() error {
 		if err != nil {
 			return err
 		}
+
+		// Open port 80 to allow http redirection
+		if config.Values().Webserver.Tunnel.SupportsTLS() {
+			//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
+			err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 
 	for _, port := range config.Values().ExposePorts {
