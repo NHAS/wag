@@ -1,10 +1,10 @@
 FROM golang:1.21 AS builder
 
 RUN apt update && \
-    apt install -y make gcc-multilib wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
+    apt install -y make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
 
 
-RUN ln -s /usr/include$(uname -m)-linux-gnu/asm /usr/include/asm 
+RUN ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/include/asm 
 
 
 WORKDIR /app
