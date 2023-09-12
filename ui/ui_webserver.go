@@ -41,7 +41,6 @@ var (
 		"firewall": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/diagnostics/firewall_state.html")),
 		"wg":       template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/diagnostics/wireguard_peers.html")),
 
-		"404":   template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/404.html")),
 		"error": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/error.html")),
 		"login": template.Must(template.ParseFS(templatesContent, "templates/login.html")),
 	}
