@@ -300,7 +300,7 @@ func StartWebServer(errs chan<- error) error {
 		allRoutes.Handle("/fonts/", static)
 		allRoutes.Handle("/vendor/", static)
 
-		allRoutes.Handle("/", sessionManager.AuthorisationChecks(protectedRoutes, func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
+		allRoutes.Handle("/", sessionManager.AuthorisationChecks(protectedRoutes, "/login", func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
 
 			key, _ := sessionManager.GetSessionFromRequest(r)
 

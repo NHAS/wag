@@ -3,7 +3,7 @@ module github.com/NHAS/wag
 go 1.21.0
 
 require (
-	github.com/NHAS/session v0.0.0-20230829082122-79a308a78ac9
+	github.com/NHAS/session v0.0.0-20230912232900-857b7061aedb
 	github.com/NHAS/webauthn v0.0.0-20230701002608-24fb1253febd
 	github.com/boombuler/barcode v1.0.1
 	github.com/cilium/ebpf v0.11.0
@@ -13,7 +13,7 @@ require (
 	github.com/msteinert/pam v1.1.0
 	github.com/pquerna/otp v1.4.0
 	github.com/zitadel/oidc v1.13.4
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.13.0
 	golang.org/x/net v0.14.0
 	golang.org/x/sys v0.12.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
@@ -37,7 +37,7 @@ require (
 	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20230325221338-052af4a8072b // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
