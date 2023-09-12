@@ -718,15 +718,7 @@ func StartWebServer(errs chan<- error) error {
 		})
 
 		protectedRoutes.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			err := uiTemplates["404"].Execute(w, nil)
-
-			if err != nil {
-				log.Println("unable to render 404 page:", err)
-
-				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
-				return
-			}
+			http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
 		})
 
 		if config.Values().ManagementUI.SupportsTLS() {
