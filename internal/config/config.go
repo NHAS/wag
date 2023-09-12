@@ -670,7 +670,7 @@ func load(path string) (c Config, err error) {
 			}
 
 			if !c.Webserver.Tunnel.SupportsTLS() && !c.Proxied {
-				return c, errors.New("tunnel does not support TLS (no cert/key given)")
+				return c, errors.New("tunnel does not support TLS (no cert/key given) required by webauthn")
 			}
 
 			if tunnelURL.Scheme != "https" {
