@@ -87,6 +87,7 @@ func Start(errChan chan<- error) error {
 					return
 				}
 
+				// If we're supporting tls, add a redirection handler from 80 -> tls
 				port += ":" + port
 				if port == "443" {
 					port = ""
@@ -100,7 +101,7 @@ func Start(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				errChan <- fmt.Errorf("Redirect to TLS webserver public listener failed: %v", srv.ListenAndServe())
+				log.Printf("Creating redirection from 80/tcp to TLS webserver public listener failed: %v", srv.ListenAndServe())
 			}()
 		}
 
