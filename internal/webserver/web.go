@@ -545,7 +545,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
-		w.Header().Set("Content-Disposition", "attachment; filename=wg0.conf")
+		w.Header().Set("Content-Disposition", "attachment; filename="+config.Values().DownloadConfigFileName)
 
 		err = resources.RenderWithFuncs("interface.tmpl", w, &wireguardInterface, template.FuncMap{
 			"StringsJoin": strings.Join,

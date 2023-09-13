@@ -84,6 +84,8 @@ type Config struct {
 	MaxSessionLifetimeMinutes       int
 	SessionInactivityTimeoutMinutes int
 
+	DownloadConfigFileName string `json:",omitempty"`
+
 	ManagementUI struct {
 		usualWeb
 		Enabled bool
@@ -433,6 +435,10 @@ func load(path string) (c Config, err error) {
 
 	if c.Socket == "" {
 		c.Socket = control.DefaultWagSocket
+	}
+
+	if c.DownloadConfigFileName == "" {
+		c.DownloadConfigFileName = "wg0.conf"
 	}
 
 	i, err := net.InterfaceByName(c.Wireguard.DevName)

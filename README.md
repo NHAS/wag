@@ -230,7 +230,8 @@ The web interface itself cannot add administrative users.
 `NAT`: Turn on or off masquerading  
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]  
 `CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to api.github.com   
-`MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory
+`MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory  
+`DownloadConfigFileName`: The filename of the wireguard config that is downloaded, defaults to `wg0.conf` 
   
 `ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
   
