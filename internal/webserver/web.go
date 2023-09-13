@@ -178,7 +178,7 @@ func Start(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				errChan <- fmt.Errorf("Redirect to TLS webserver public listener failed: %v", srv.ListenAndServe())
+				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", srv.ListenAndServe())
 			}()
 		}
 	} else {
