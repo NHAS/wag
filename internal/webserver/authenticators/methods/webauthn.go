@@ -28,7 +28,7 @@ type Webauthn struct {
 
 func (wa *Webauthn) Init(settings map[string]string) (err error) {
 
-	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", 30*time.Minute, 1800, false)
+	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", "WAG-CSRF", 30*time.Minute, 1800, false)
 	return err
 }
 

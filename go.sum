@@ -2,6 +2,12 @@ github.com/NHAS/session v0.0.0-20230829082122-79a308a78ac9 h1:xEvca6Mg8N0T2V5wkM
 github.com/NHAS/session v0.0.0-20230829082122-79a308a78ac9/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/session v0.0.0-20230912232900-857b7061aedb h1:76HnrEP5YAV0bLaFhrbVv5SuaUYH+DJnPvIXYjdDkvw=
 github.com/NHAS/session v0.0.0-20230912232900-857b7061aedb/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
+github.com/NHAS/session v0.0.0-20230912234744-c2a3c81af157 h1:elFdIrZIamHa5iUwIAjmQcvt7y1OLnqdUXly/FzmrXg=
+github.com/NHAS/session v0.0.0-20230912234744-c2a3c81af157/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
+github.com/NHAS/session v0.0.0-20230913001004-e3249bca36e8 h1:qe3uyCZEeRKTkx3UpJ8BhJcdJSnTcGc9r3QqqEDvb+M=
+github.com/NHAS/session v0.0.0-20230913001004-e3249bca36e8/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
+github.com/NHAS/session v0.0.0-20230913013109-aef0bdd63caa h1:3fKRkxqoQtbOunf2lLIYkTvEC9qw3ADlOCWaugU7S+o=
+github.com/NHAS/session v0.0.0-20230913013109-aef0bdd63caa/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/webauthn v0.0.0-20230701002608-24fb1253febd h1:I3Zx79SVWGG5Qq2tbJDiEiKEpuY53EpUCXx8mYLlNVg=
 github.com/NHAS/webauthn v0.0.0-20230701002608-24fb1253febd/go.mod h1:hglmpEbAdMVhruL46LJXV56PPbEJO6ovBg0uhqIG9Dw=
 github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=

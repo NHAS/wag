@@ -3,7 +3,7 @@ module github.com/NHAS/wag
 go 1.21.0
 
 require (
-	github.com/NHAS/session v0.0.0-20230912232900-857b7061aedb
+	github.com/NHAS/session v0.0.0-20230913013109-aef0bdd63caa
 	github.com/NHAS/webauthn v0.0.0-20230701002608-24fb1253febd
 	github.com/boombuler/barcode v1.0.1
 	github.com/cilium/ebpf v0.11.0

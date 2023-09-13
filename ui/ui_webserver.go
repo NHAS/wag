@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,27 +25,6 @@ import (
 )
 
 var (
-	uiTemplates map[string]*template.Template = map[string]*template.Template{
-		"dashboard": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/management/dashboard.html")),
-
-		"users":               template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/management/users.html", "templates/delete_modal.html")),
-		"devices":             template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/management/devices.html", "templates/delete_modal.html")),
-		"registration_tokens": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/management/registration_tokens.html", "templates/delete_modal.html")),
-
-		"rules":  template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/policy/rules.html", "templates/delete_modal.html")),
-		"groups": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/policy/groups.html", "templates/delete_modal.html")),
-
-		"general":          template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/settings/general.html")),
-		"management_users": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/settings/management_users.html")),
-		"change_password":  template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/change_password.html")),
-
-		"firewall": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/diagnostics/firewall_state.html")),
-		"wg":       template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/diagnostics/wireguard_peers.html")),
-
-		"error": template.Must(template.ParseFS(templatesContent, "templates/menus.html", "templates/error.html")),
-		"login": template.Must(template.ParseFS(templatesContent, "templates/login.html")),
-	}
-
 	sessionManager *session.SessionStore[data.AdminModel]
 	ctrl           *wagctl.CtrlClient
 
@@ -53,15 +33,52 @@ var (
 	LogQueue = NewQueue(40)
 )
 
+func renderDefaults(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
+
+	contentPath := []string{"templates/menus.html"}
+	for _, path := range content {
+		contentPath = append(contentPath, "templates/"+path)
+	}
+
+	return render(w, r, model, contentPath...)
+
+}
+
+func render(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
+
+	name := ""
+	if len(content) > 0 {
+		name = filepath.Base(content[0])
+	}
+
+	parsed, err := template.New(name).Funcs(template.FuncMap{
+		"csrfToken": func() template.HTML {
+			t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
+
+			return t
+		},
+	}).ParseFS(templatesContent, content...)
+	if err != nil {
+		return fmt.Errorf("parse %s: %v", content, err)
+	}
+
+	if err := parsed.Execute(w, model); err != nil {
+		return fmt.Errorf("execute %s: %v", content, err)
+	}
+
+	return nil
+}
+
 func doLogin(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		err := uiTemplates["login"].Execute(w, nil)
+
+		err := render(w, r, nil, "templates/login.html")
 
 		if err != nil {
 			log.Println("unable to render login template:", err)
-			uiTemplates["error"].Execute(w, nil)
+			renderDefaults(w, r, nil, "error.html")
 
 			return
 		}
@@ -70,8 +87,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("bad form value: ", err)
 
-			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
-
+			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
 			return
 		}
 
@@ -79,14 +95,14 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
 
-			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
+			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
 			return
 		}
 
 		if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
 			log.Println("unable to login: ", err)
 
-			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
+			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
 			return
 		}
 
@@ -94,7 +110,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("unable to login: ", err)
 
-			uiTemplates["login"].Execute(w, Login{ErrorMessage: "Unable to login"})
+			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
 			return
 		}
 
@@ -102,7 +118,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
 
-		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 
 	default:
 		http.NotFound(w, r)
@@ -123,7 +139,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		log.Println("error getting users: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
+		renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -140,7 +156,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		log.Println("error getting devices: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
+		renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -162,7 +178,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		log.Println("error getting registrations: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
+		renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -171,7 +187,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		log.Println("error getting server details: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
+		renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -198,13 +214,13 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		LogItems:           LogQueue.ReadAll(),
 	}
 
-	err = uiTemplates["dashboard"].Execute(w, d)
+	err = renderDefaults(w, r, d, "management/dashboard.html")
 
 	if err != nil {
 		log.Println("unable to render dashboard page: ", err)
 
 		w.WriteHeader(http.StatusInternalServerError)
-		uiTemplates["error"].Execute(w, nil)
+		renderDefaults(w, r, nil, "error.html")
 		return
 	}
 }
@@ -258,7 +274,7 @@ func StartWebServer(errs chan<- error) error {
 		}
 	}
 
-	sessionManager, err = session.NewStore[data.AdminModel]("admin", 1*time.Hour, 28800, false)
+	sessionManager, err = session.NewStore[data.AdminModel]("admin", "WAG-CSRF", 1*time.Hour, 28800, false)
 	if err != nil {
 		return err
 	}
@@ -338,15 +354,7 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["wg"].Execute(w, d)
-
-			if err != nil {
-				log.Println("unable to render wg devices page: ", err)
-
-				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
-				return
-			}
+			renderDefaults(w, r, d, "diagnostics/wireguard_peers.html")
 		})
 
 		protectedRoutes.HandleFunc("/diag/wg/data", func(w http.ResponseWriter, r *http.Request) {
@@ -430,13 +438,13 @@ func StartWebServer(errs chan<- error) error {
 				XDPState: string(result),
 			}
 
-			err = uiTemplates["firewall"].Execute(w, d)
+			err = renderDefaults(w, r, d, "diagnostics/firewall_state.html")
 
 			if err != nil {
 				log.Println("unable to render firewall page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 
@@ -462,13 +470,13 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["users"].Execute(w, d)
+			err := renderDefaults(w, r, d, "management/users.html", "delete_modal.html")
 
 			if err != nil {
 				log.Println("unable to render users page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -495,13 +503,13 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["devices"].Execute(w, d)
+			err := renderDefaults(w, r, d, "management/devices.html", "delete_modal.html")
 
 			if err != nil {
 				log.Println("unable to render devices page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -528,13 +536,12 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["registration_tokens"].Execute(w, d)
-
+			err := renderDefaults(w, r, d, "management/registration_tokens.html", "delete_modal.html")
 			if err != nil {
 				log.Println("unable to render registration_tokens page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -560,13 +567,13 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["rules"].Execute(w, d)
+			err := renderDefaults(w, r, d, "policy/rules.html", "delete_modal.html")
 
 			if err != nil {
 				log.Println("unable to render rules page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -593,13 +600,13 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["groups"].Execute(w, d)
+			err := renderDefaults(w, r, d, "policy/groups.html", "delete_modal.html")
 
 			if err != nil {
 				log.Println("unable to render groups page: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -642,13 +649,12 @@ func StartWebServer(errs chan<- error) error {
 				WebauthnEnabled:          false,
 			}
 
-			err := uiTemplates["general"].Execute(w, d)
-
+			err := renderDefaults(w, r, d, "settings/general.html")
 			if err != nil {
 				log.Println("unable to render general: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -675,13 +681,13 @@ func StartWebServer(errs chan<- error) error {
 				WagVersion:  WagVersion,
 			}
 
-			err := uiTemplates["management_users"].Execute(w, d)
+			err := renderDefaults(w, r, d, "settings/management_users.html")
 
 			if err != nil {
 				log.Println("unable to render management_users: ", err)
 
 				w.WriteHeader(http.StatusInternalServerError)
-				uiTemplates["error"].Execute(w, nil)
+				renderDefaults(w, r, nil, "error.html")
 				return
 			}
 		})
@@ -776,11 +782,10 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
-		err := uiTemplates["change_password"].Execute(w, d)
-
+		err := renderDefaults(w, r, d, "change_password.html")
 		if err != nil {
 			log.Println("unable to render change password page: ", err)
-			uiTemplates["error"].Execute(w, nil)
+			renderDefaults(w, r, nil, "error.html")
 			return
 		}
 
@@ -796,7 +801,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 			d.Message = "Error"
 			d.Type = 1
 
-			uiTemplates["change_password"].Execute(w, d)
+			renderDefaults(w, r, d, "change_password.html")
 			return
 		}
 
@@ -807,7 +812,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 			d.Message = "Current password is incorrect"
 			d.Type = 1
 
-			uiTemplates["change_password"].Execute(w, d)
+			renderDefaults(w, r, d, "change_password.html")
 			return
 		}
 
@@ -817,7 +822,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 			d.Message = "New passwords do not match"
 			d.Type = 1
 
-			uiTemplates["change_password"].Execute(w, d)
+			renderDefaults(w, r, d, "change_password.html")
 			return
 		}
 
@@ -828,12 +833,11 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 			d.Message = "Error: " + err.Error()
 			d.Type = 1
 
-			uiTemplates["change_password"].Execute(w, d)
+			renderDefaults(w, r, d, "change_password.html")
 			return
 		}
 
-		uiTemplates["change_password"].Execute(w, ChangePassword{Message: "Success!", Type: 0})
-
+		renderDefaults(w, r, ChangePassword{Message: "Success!", Type: 0}, "change_password.html")
 	}
 
 }

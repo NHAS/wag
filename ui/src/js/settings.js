@@ -14,7 +14,8 @@ $(function () {
             credentials: 'same-origin',
             redirect: 'follow',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'WAG-CSRF': $("#csrf_token").val()
             },
             body: JSON.stringify(data)
         }).then((response) => {
@@ -51,7 +52,9 @@ $(function () {
             credentials: 'same-origin',
             redirect: 'follow',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'WAG-CSRF': $("#csrf_token").val()
+
             },
             body: JSON.stringify(data)
         }).then((response) => {

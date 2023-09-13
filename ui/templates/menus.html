@@ -35,7 +35,8 @@
 </head>
 
 <body id="page-top">
-
+    <!-- Main CSRF guard so that JS can read this value and use it -->
+    {{ csrfToken }}
     <!-- Page Wrapper -->
     <div id="wrapper">
 
