@@ -43,7 +43,6 @@
         "PrivateKey": "AN EXAMPLE KEY",
         "Address": "192.168.1.1/24",
         "MTU": 1420,
-        "PersistentKeepAlive": 25,
         "DNS": [
             "1.1.1.1/32"
         ]

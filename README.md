@@ -273,7 +273,6 @@ The web interface itself cannot add administrative users.
 `Wireguard.PrivateKey`: The wireguard private key, can be generated with `wg genkey`  
 `Wireguard.Address`: Subnet the VPN is responsible for  
 `Wireguard.MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
-`Wireguard.PersistentKeepAlive`: Time between wireguard keepalive heartbeats to keep NAT entries alive, defaults to 25 seconds  
 `Wireguard.DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
    
 `ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  
@@ -332,7 +331,6 @@ Full config example
         "PrivateKey": "AN EXAMPLE KEY",
         "Address": "192.168.1.1/24",
         "MTU": 1420,
-        "PersistentKeepAlive": 25,
         "DNS": ["1.1.1.1"]
     },
     "Acls": {

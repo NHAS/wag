@@ -21,8 +21,7 @@
         "ListenPort": 53230,
         "PrivateKey": "aEOTM9QSRsPFs4UMKeeLfsXDJiu6lCoKzVNyxnrsZVQ=",
         "Address": "192.168.1.1/24",
-        "MTU": 1420,
-        "PersistentKeepAlive": 25
+        "MTU": 1420
     },
     "Acls": {
         "Policies": {
