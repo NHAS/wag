@@ -117,12 +117,11 @@ type Config struct {
 		Webauthn *webauthn.WebAuthn `json:"-"`
 	}
 	Wireguard struct {
-		DevName             string
-		ListenPort          int
-		PrivateKey          string
-		Address             string
-		MTU                 int
-		PersistentKeepAlive int
+		DevName    string
+		ListenPort int
+		PrivateKey string
+		Address    string
+		MTU        int
 
 		//Not externally configurable
 		External      bool       `json:"-"`
@@ -491,10 +490,6 @@ func load(path string) (c Config, err error) {
 
 		if c.Wireguard.MTU == 0 {
 			c.Wireguard.MTU = 1420
-		}
-
-		if c.Wireguard.PersistentKeepAlive == 0 {
-			c.Wireguard.PersistentKeepAlive = 25
 		}
 	}
 

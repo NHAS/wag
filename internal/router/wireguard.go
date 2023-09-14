@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"time"
 	"unsafe"
 
 	"github.com/NHAS/wag/internal/config"
@@ -97,17 +96,14 @@ func setupWireguard() error {
 			psk = &testKey
 		}
 
-		keepalive := time.Duration(time.Duration(config.Values().Wireguard.PersistentKeepAlive)) * time.Second
-
 		_, network, _ := net.ParseCIDR(device.Address + "/32")
 
 		c.Peers = append(c.Peers, wgtypes.PeerConfig{
-			PublicKey:                   pk,
-			PersistentKeepaliveInterval: &keepalive,
-			ReplaceAllowedIPs:           true,
-			AllowedIPs:                  []net.IPNet{*network},
-			Endpoint:                    device.Endpoint,
-			PresharedKey:                psk,
+			PublicKey:         pk,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        []net.IPNet{*network},
+			Endpoint:          device.Endpoint,
+			PresharedKey:      psk,
 		})
 	}
 
