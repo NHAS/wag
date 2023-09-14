@@ -19,7 +19,7 @@ jobs:
         run: sudo apt install -y make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
 
       - name: Link correct asm headers
-        run: ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/include/asm
+        run: sudo ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/include/asm
 
       - name: build
         run: make release
