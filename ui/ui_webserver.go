@@ -1117,7 +1117,10 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, token := range tokens {
-			ctrl.DeleteRegistration(token)
+			err := ctrl.DeleteRegistration(token)
+			if err != nil {
+				log.Println("Error deleting registration token: ", token, "err:", err)
+			}
 		}
 		w.Write([]byte("OK"))
 
@@ -1257,7 +1260,10 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, user := range usernames {
-			ctrl.DeleteUser(user)
+			err := ctrl.DeleteUser(user)
+			if err != nil {
+				log.Println("Error deleting user: ", user, "err: ", err)
+			}
 		}
 		w.Write([]byte("OK"))
 
@@ -1319,9 +1325,15 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 		for _, address := range action.Addresses {
 			switch action.Action {
 			case "lock":
-				ctrl.LockDevice(address)
+				err := ctrl.LockDevice(address)
+				if err != nil {
+					log.Println("Error locking device: ", address, " err:", err)
+				}
 			case "unlock":
-				ctrl.UnlockDevice(address)
+				err := ctrl.UnlockDevice(address)
+				if err != nil {
+					log.Println("Error unlocking device: ", address, " err:", err)
+				}
 			default:
 				http.Error(w, "invalid action", 400)
 				return
@@ -1340,7 +1352,10 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, address := range addresses {
-			ctrl.DeleteDevice(address)
+			err := ctrl.DeleteDevice(address)
+			if err != nil {
+				log.Println("Error Deleting device: ", address, "err:", err)
+			}
 		}
 		w.Write([]byte("OK"))
 

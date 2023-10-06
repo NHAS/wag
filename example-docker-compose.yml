@@ -7,9 +7,6 @@ services:
           - .env
         build:
           context: .
-          args:
-            WEB_USER: ${WEB_USER}
-            WEB_PWD: ${WEB_PWD}
         ports:
           - '4433:4433/tcp'
           - '7080:7080/tcp'

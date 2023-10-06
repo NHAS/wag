@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"strings"
@@ -607,13 +608,18 @@ func GetRules() (map[string]FirewallRules, error) {
 			return nil, err
 		}
 
-		res := hashToUsername[hex.EncodeToString(deviceStruct.user_id[:])]
+		res, ok := hashToUsername[hex.EncodeToString(deviceStruct.user_id[:])]
+		if !ok {
+			log.Println("[ERROR] Device links to unknown user UI (not found in db): ", hex.EncodeToString(deviceStruct.user_id[:]))
+			continue
+		}
 
 		fwRule := result[res]
 		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String()), Expiry: deviceStruct.sessionExpiry, LastPacketTimestamp: deviceStruct.lastPacketTime})
 
 		if err := xdpObjects.AccountLocked.Lookup(deviceStruct.user_id, &fwRule.AccountLocked); err != nil {
-			return nil, err
+			log.Println("[ERROR] User ID was not properly in firewall map: ", hex.EncodeToString(deviceStruct.user_id[:]), " err: ", err)
+			continue
 		}
 
 		var innerMapID ebpf.MapID
@@ -622,7 +628,8 @@ func GetRules() (map[string]FirewallRules, error) {
 		if err == nil {
 			fwRule.Policies, err = iterateSubmap(innerMapID)
 			if err != nil {
-				return nil, err
+				log.Println("[ERROR] User had no policies: ", hex.EncodeToString(deviceStruct.user_id[:]), " err: ", err)
+				continue
 			}
 
 		}
