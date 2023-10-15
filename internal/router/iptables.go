@@ -73,7 +73,7 @@ func setupIptables() error {
 			return errors.New(port + " is not in a valid port format. E.g 80/tcp")
 		}
 
-		err = ipt.Append("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", devName, "--dport", parts[0], "-j", "ACCEPT")
+		err = ipt.Append("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", devName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}

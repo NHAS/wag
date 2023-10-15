@@ -547,7 +547,7 @@ func load(path string) (c Config, err error) {
 	for _, port := range c.ExposePorts {
 		parts := strings.Split(port, "/")
 		if len(parts) < 2 {
-			return c, errors.New(port + " is not in a valid port format. E.g 80/tcp")
+			return c, errors.New(port + " is not in a valid port format. E.g 80/tcp, 100-200/udp")
 		}
 
 		if c.Proxied {
@@ -559,9 +559,21 @@ func load(path string) (c Config, err error) {
 
 		switch strings.ToLower(parts[1]) {
 		case "tcp", "udp":
-			_, err := strconv.Atoi(parts[0])
-			if err != nil {
-				return c, errors.New(parts[0] + " is not in a valid port number. E.g 80/tcp")
+			scope := strings.Split(parts[0], "-")
+			if len(scope) == 2 { 
+				start, errStart := strconv.Atoi(scope[0])
+				end, errEnd := strconv.Atoi(scope[1])
+				if (errStart != nil) || ( errEnd != nil) {
+					return c, errors.New(parts[0] + " Could not convert lower port or upper port to number. E.g 100:200/udp")
+				}
+				if (end < start) {
+					return c, errors.New(parts[0] + " port have to be smaller than end port . E.g 100-200/udp")
+				}
+			} else {
+				_, err := strconv.Atoi(parts[0])
+				if err != nil {
+					return c, errors.New(parts[0] + " is not in a valid port number. E.g 80/tcp, 100-200/udp")
+				}
 			}
 		default:
 			return c, errors.New(port + " invalid protocol (supports tcp/udp)")

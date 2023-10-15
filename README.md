@@ -228,7 +228,7 @@ The web interface itself cannot add administrative users.
 `HelpMail`: The email address that is shown on the prompt page  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `NAT`: Turn on or off masquerading  
-`ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp" ]  
+`ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp", "100-200/udp" ]  
 `CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to api.github.com   
 `MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory  
 `DownloadConfigFileName`: The filename of the wireguard config that is downloaded, defaults to `wg0.conf` 
@@ -286,7 +286,8 @@ Full config example
 {
     "Proxied": true,
     "ExposePorts": [
-        "443/tcp"
+        "443/tcp",
+        "100-200/udp"
      ],
     "CheckUpdates": true,
     "Lockout": 5,

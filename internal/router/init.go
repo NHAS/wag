@@ -156,10 +156,10 @@ func TearDown() {
 	for _, port := range config.Values().ExposePorts {
 		parts := strings.Split(port, "/")
 		if len(parts) < 2 {
-			log.Println(port + " is not in a valid port format. E.g 80/tcp")
+			log.Println(port + " is not in a valid port format. E.g 80/tcp, 100-200/tcp")
 		}
 
-		err = ipt.Delete("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", config.Values().Wireguard.DevName, "--dport", parts[0], "-j", "ACCEPT")
+		err = ipt.Delete("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", config.Values().Wireguard.DevName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
 		if err != nil {
 			log.Println("unable to cleanup custom defined port", port, ":", err)
 		}

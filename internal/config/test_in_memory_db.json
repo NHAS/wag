@@ -23,6 +23,10 @@
         "Address": "10.2.43.1/24",
         "MTU": 1420
     },
+    "ExposePorts": [
+        "443/tcp",
+        "100-200/udp"
+    ],
     "Acls": {
         "Groups": {
             "group:nerds": [
