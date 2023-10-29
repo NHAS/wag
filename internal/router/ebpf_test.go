@@ -119,7 +119,7 @@ func TestAddUser(t *testing.T) {
 
 		acl := config.GetEffectiveAcl(device.Username)
 
-		results, err := routetypes.ParseRules(acl.Mfa, acl.Allow)
+		results, err := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 		if err != nil {
 			t.Fatal("parsing rules failed?:", err)
 		}
@@ -132,7 +132,7 @@ func TestAddUser(t *testing.T) {
 			}
 		}
 
-		results, err = routetypes.ParseRules(acl.Mfa, acl.Allow)
+		results, err = routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 		if err != nil {
 			t.Fatal("parsing rules failed?:", err)
 		}
@@ -315,7 +315,7 @@ func TestBasicAuthorise(t *testing.T) {
 		headers[5].String(): XDP_DROP,
 	}
 
-	mfas, err := routetypes.ParseRules(config.GetEffectiveAcl(out[0].Username).Mfa, nil)
+	mfas, err := routetypes.ParseRules(config.GetEffectiveAcl(out[0].Username).Mfa, nil, nil)
 	if err != nil {
 		t.Fatal("failed to parse mfa rules: ", err)
 	}
@@ -1019,7 +1019,7 @@ func TestPortRestrictions(t *testing.T) {
 
 	acl := config.GetEffectiveAcl(out[0].Username)
 
-	rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow)
+	rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1145,7 +1145,7 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 	for _, user := range out {
 		acl := config.GetEffectiveAcl(user.Username)
 
-		rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow)
+		rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

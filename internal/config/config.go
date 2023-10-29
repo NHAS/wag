@@ -45,6 +45,7 @@ func (wb webserverDetails) SupportsTLS() bool {
 type Acl struct {
 	Mfa   []string `json:",omitempty"`
 	Allow []string `json:",omitempty"`
+	Deny  []string `json:",omitempty"`
 }
 
 type Acls struct {
@@ -220,7 +221,7 @@ func AddAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s was already defined", effects)
 	}
 
-	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow)
+	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow, Rule.Deny)
 	if err != nil {
 		return fmt.Errorf("rules were invalid: %s", err)
 	}
@@ -239,9 +240,9 @@ func EditAcl(effects string, Rule Acl) error {
 		return fmt.Errorf("%s acl was not defined", effects)
 	}
 
-	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow)
+	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow, Rule.Deny)
 	if err != nil {
-		return fmt.Errorf("Public rules were invalid: %s", err)
+		return fmt.Errorf("rules were invalid: %s", err)
 	}
 
 	values.Acls.Policies[effects] = &Rule
@@ -560,13 +561,13 @@ func load(path string) (c Config, err error) {
 		switch strings.ToLower(parts[1]) {
 		case "tcp", "udp":
 			scope := strings.Split(parts[0], "-")
-			if len(scope) == 2 { 
+			if len(scope) == 2 {
 				start, errStart := strconv.Atoi(scope[0])
 				end, errEnd := strconv.Atoi(scope[1])
-				if (errStart != nil) || ( errEnd != nil) {
+				if (errStart != nil) || (errEnd != nil) {
 					return c, errors.New(parts[0] + " Could not convert lower port or upper port to number. E.g 100:200/udp")
 				}
-				if (end < start) {
+				if end < start {
 					return c, errors.New(parts[0] + " port have to be smaller than end port . E.g 100-200/udp")
 				}
 			} else {
@@ -597,7 +598,7 @@ func load(path string) (c Config, err error) {
 	}
 
 	for _, acl := range c.Acls.Policies {
-		err = routetypes.ValidateRules(acl.Mfa, acl.Allow)
+		err = routetypes.ValidateRules(acl.Mfa, acl.Allow, acl.Deny)
 		if err != nil {
 			return c, fmt.Errorf("policy was invalid: %s", err)
 		}

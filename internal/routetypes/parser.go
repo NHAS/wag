@@ -24,7 +24,7 @@ type Rule struct {
 	Values      []Policy
 }
 
-func ParseRules(mfa, public []string) (result []Rule, err error) {
+func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 
 	cache := map[string]int{}
 	// Add
@@ -63,6 +63,25 @@ func ParseRules(mfa, public []string) (result []Rule, err error) {
 			cache[r.Keys[i].String()] = len(result) - 1
 		}
 	}
+
+	for _, rule := range deny {
+		r, err := parseRule(DENY, rule)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range r.Keys {
+			if index, ok := cache[r.Keys[i].String()]; ok {
+				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
+				result[index].Values = append(result[index].Values, r.Values...)
+				continue
+			}
+
+			result = append(result, r)
+			cache[r.Keys[i].String()] = len(result) - 1
+		}
+	}
+
 	for i := range result {
 		if len(result[i].Values) > MAX_POLICIES {
 			return nil, errors.New("number of policies defined was greather than max")
@@ -169,8 +188,8 @@ func parseKeys(address string) (keys []Key, err error) {
 	return
 }
 
-func ValidateRules(mfa, public []string) error {
-	_, err := ParseRules(mfa, public)
+func ValidateRules(mfa, public, deny []string) error {
+	_, err := ParseRules(mfa, public, deny)
 	return err
 }
 

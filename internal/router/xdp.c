@@ -131,6 +131,7 @@ A massive oversimplifcation of what is in this file.
 #define PUBLIC 4
 #define RANGE 8   // Port & protocol range e.g 22-2000
 #define SINGLE 16 // Single port & protocol
+#define DENY 32   // Deny flag
 
 struct bpf_map_def
 {
@@ -535,14 +536,20 @@ static __always_inline int conntrack(struct ip *ip_info)
             ((policy.policy_type & SINGLE && (policy.lower_port == ANY || policy.lower_port == port)) ||
              (policy.policy_type & RANGE && (policy.lower_port <= port && policy.upper_port >= port))))
         {
-            if (policy.policy_type & PUBLIC)
+
+            if (policy.policy_type & DENY)
             {
-                // If a public route matches, it may still be overriden by a MFA policy so we have to check all policies
+                // Deny rules take precedence over everything
+                return 0;
+            }
+            else if (policy.policy_type & PUBLIC)
+            {
+                // If a public route matches, it may still be overriden by a MFA or a Deny policy so we have to check all policies
                 decision = 1;
             }
             else
             {
-                // MFA restrictions take precedence, so if we match an MFA policy under this route
+                // MFA restrictions take precedence over public rules, so if we match an MFA policy under this route
                 // Then we can fail/succeed fast
 
                 // If device does not belong to a locked account, the device itself isnt locked and if it isnt timed out

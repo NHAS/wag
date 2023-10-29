@@ -15,6 +15,8 @@ const (
 	PUBLIC = 1 << PolicyType(iota)
 	RANGE
 	SINGLE
+
+	DENY // Deny flag which is additional to RANGE/SINGLE types
 )
 
 // Format
@@ -72,6 +74,10 @@ func (r Policy) String() string {
 
 	if r.Is(PUBLIC) {
 		restrictionType = "public"
+	}
+
+	if r.Is(DENY) {
+		restrictionType = "deny"
 	}
 
 	if r.Is(STOP) {

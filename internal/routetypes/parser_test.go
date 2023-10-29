@@ -323,7 +323,7 @@ func TestParseMalformed(t *testing.T) {
 		"4.4.4.4",
 		"a",
 		"1.1.1.1/23 43/tcp a",
-	}, []string{}); err == nil {
+	}, []string{}, nil); err == nil {
 		t.Fatal("validate should fail if any rule is invalid")
 
 	}

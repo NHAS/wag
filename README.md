@@ -244,6 +244,7 @@ The web interface itself cannot add administrative users.
 `Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
 `Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
 `Policies.<policy name>.Public`: Routes and services that do not require authorisation
+`Policies.<policy name>.Deny`: Deny access to this route  
   
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 
@@ -361,11 +362,15 @@ Full config example
             "group:nerds": {
                 "Mfa": [
                     "192.168.3.4/32",
+                    "10.0.0.0/24",
                     "thing.internal 443/tcp icmp"
                 ],
                 "Allow": [
                     "192.168.3.5/32"
-                ]
+                ],
+                "Deny": [
+                    "10.0.0.5/32"
+                 ]
             }
         }
     }
@@ -408,7 +413,25 @@ For example:
 ```
 All users will be able to access `22/tcp` on the `10.0.1.1/32` host, but users in the `group:users` will be able to access `443/tcp` on that host as well, along with `22/tcp` when authorized.  
 
-It is **important to note** that this will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference.   
+As of **[version number, yet to be released]** you can now define deny rules which will block access to a route.
+
+Example: 
+
+```json
+ "*": {
+            "Allow": [
+                  "10.0.0.0/16",
+                  "10.0.1.1/32 443/tcp",
+            ]
+  },
+ "group:users": {
+            "Deny": [
+                  "10.0.1.1/32 443/tcp",
+            ]
+ }
+ ```
+
+It is **important to note** that rules will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference.   
   
 It is possible to define what services a user can access by defining port and protocol rules.  
 Currently 3 types of port and protocol rules are supported:  
