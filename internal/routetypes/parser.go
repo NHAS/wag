@@ -81,6 +81,7 @@ func ParseRules(mfa, public []string) (result []Rule, err error) {
 
 func AclsToRoutes(rules []string) (routes []string, err error) {
 
+	deduplication := map[string]bool{}
 	for _, rule := range rules {
 		ruleParts := strings.Fields(rule)
 		if len(ruleParts) < 1 {
@@ -93,6 +94,12 @@ func AclsToRoutes(rules []string) (routes []string, err error) {
 		}
 
 		for _, k := range keys {
+			_, ok := deduplication[k.String()]
+			if ok {
+				continue
+			}
+
+			deduplication[k.String()] = true
 			routes = append(routes, k.String())
 		}
 	}
