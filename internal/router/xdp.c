@@ -127,6 +127,7 @@ A massive oversimplifcation of what is in this file.
 // These definitions are used for searching the trie structure to determine the type of rule we've got.
 #define STOP 0 // Signal stop searching array
 
+#define ANY 0
 #define PUBLIC 4
 #define RANGE 8   // Port & protocol range e.g 22-2000
 #define SINGLE 16 // Single port & protocol
@@ -525,13 +526,13 @@ static __always_inline int conntrack(struct ip *ip_info)
             return decision;
         }
 
-        //      0 = ANY
-        // If we match the protocol,
+        //      ANY = 0
+        //      If we match the protocol,
         //      If type is SINGLE and the port is either any, or equal
         //      OR
         //      If type is RANGE and the port is within bounds
-        if ((policy.proto == 0 || policy.proto == ip_info->proto) &&
-            ((policy.policy_type & SINGLE && (policy.lower_port == 0 || policy.lower_port == port)) ||
+        if ((policy.proto == ANY || policy.proto == ip_info->proto) &&
+            ((policy.policy_type & SINGLE && (policy.lower_port == ANY || policy.lower_port == port)) ||
              (policy.policy_type & RANGE && (policy.lower_port <= port && policy.upper_port >= port))))
         {
             if (policy.policy_type & PUBLIC)
