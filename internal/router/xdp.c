@@ -497,8 +497,7 @@ static __always_inline int conntrack(struct ip *ip_info)
 
     // The inner maps must be a LPM trie
 
-    // Order of preference is MFA -> Public, just in case someone adds multiple entries for the same route to make sure accidental exposure is less likely
-    // If the key is a match for the LPM in the public table
+    // Get public and mfa policies for a user, the whole table will be searched as MFA rules take preference (and can fail early if it matches and the user is not authed)
     void *user_policies = bpf_map_lookup_elem(&policies_table, current_device->user_id);
 
     struct policy *applicable_policies = (user_policies != NULL) ? bpf_map_lookup_elem(user_policies, &key) : NULL;

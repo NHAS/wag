@@ -10,10 +10,9 @@ type PolicyType uint16
 
 const (
 	ANY  = 0
-	STOP = 0
+	STOP = 0 // Special directive, stop searching through the array, this is the end
 
-	PUBLIC = 1 << PolicyType(iota) // Special directive, stop searching through the array, this is the end
-
+	PUBLIC = 1 << PolicyType(iota)
 	RANGE
 	SINGLE
 )
