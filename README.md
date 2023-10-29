@@ -431,9 +431,46 @@ Example:
  }
  ```
 
-It is **important to note** that rules will not compose subnet matches, i.e rules that apply to `10.0.0.0/16` will not apply to `10.0.1.1/32` as the more specific route rule takes preference.   
+Its important to note that the most specific rule effectively creates a new rule "bucket", so if you do something like:  
+```json
+"group:nerds": {
+      "Allow": [
+            "10.0.0.0/24 443/tcp"
+      ],
+      "Deny": [
+            "10.0.0.5/32 22/tcp"
+      ]
+}
+```
   
-It is possible to define what services a user can access by defining port and protocol rules.  
+Your clients will not be able to access `10.0.0.5/32 443/tcp`, as the only rule in the `/32` "bucket" is a deny rule. You can solve this by adding the following:
+```json
+"group:nerds": {
+      "Allow": [
+            "10.0.0.0/24 443/tcp"
+            "10.0.0.5/32 22/tcp"
+      ],
+      "Deny": [
+            "10.0.0.5/32 22/tcp"
+      ]
+}
+```
+  
+or  
+  
+```json
+"group:nerds": {
+      "Allow": [
+            "10.0.0.0/24 443/tcp"
+      ],
+      "Deny": [
+            "10.0.0.0/24 22/tcp"
+      ]
+}
+```
+As then you're adding the deny rule to the `/24` "bucket".  
+  
+Additionally, It is possible to define what services a user can access by defining port and protocol rules.  
 Currently 3 types of port and protocol rules are supported:  
   
 ### Any 
