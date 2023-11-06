@@ -32,11 +32,10 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main'
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         platform:
           - linux/amd64
-          - linux/arm/v7
           - linux/arm64
 
     steps:
@@ -62,5 +61,5 @@ jobs:
         with:
           context: .
           outputs: "type=registry,push=true"
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          platforms: ${{ matrix.platform }}
           tags: wagvpn/wag:latest
