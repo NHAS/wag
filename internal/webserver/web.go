@@ -128,7 +128,7 @@ func Start(errChan chan<- error) error {
 
 	if config.Values().MFATemplatesDirectory != "" {
 		fs := http.FileServer(http.Dir(path.Join(config.Values().MFATemplatesDirectory, "static")))
-		tunnel.Handle("/custom/", fs)
+		tunnel.Handle("/custom/", http.StripPrefix("/custom/", fs))
 	}
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
