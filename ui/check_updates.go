@@ -20,7 +20,7 @@ type githubResponse struct {
 type Update struct {
 	New           bool
 	UpdateVersion string
-	Message       []string
+	UpdateMessage []string
 	Url           string
 	Released      string
 }
@@ -51,7 +51,7 @@ func getUpdate() Update {
 
 		mostRecentUpdate = &Update{
 			UpdateVersion: gr.TagName,
-			Message:       strings.Split(gr.Body, "\r\n"),
+			UpdateMessage: strings.Split(gr.Body, "\r\n"),
 			Url:           gr.Url,
 			Released:      gr.Published,
 		}
