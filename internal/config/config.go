@@ -125,9 +125,10 @@ type Config struct {
 		MTU        int
 
 		//Not externally configurable
-		External      bool       `json:"-"`
-		Range         *net.IPNet `json:"-"`
-		ServerAddress net.IP     `json:"-"`
+		External                  bool       `json:"-"`
+		Range                     *net.IPNet `json:"-"`
+		ServerAddress             net.IP     `json:"-"`
+		ServerPersistentKeepAlive int
 
 		DNS []string `json:",omitempty"`
 	}
