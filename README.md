@@ -224,7 +224,7 @@ The web interface itself cannot add administrative users.
 
 # Configuration file reference
   
-`Proxied`: Respect the `X-Forward-For` directive, must ensure that you are setting the `X-Forward-For` directive in your reverse proxy as wag relies on the client IP for authentication in the VPN tunnel  
+`NumberProxies`: The number of trusted reverse proxies before the client, makes wag respect the `X-Forward-For` directive and parses the client IP from it correctly
 `HelpMail`: The email address that is shown on the prompt page  
 `Lockout`: Number of times a person can attempt mfa authentication before their account locks  
 `NAT`: Turn on or off masquerading  
