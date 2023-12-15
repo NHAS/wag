@@ -74,6 +74,7 @@ type Config struct {
 	GID           *int   `json:",omitempty"`
 	CheckUpdates  bool   `json:",omitempty"`
 	NumberProxies int
+	Proxied       bool
 	ExposePorts   []string `json:",omitempty"`
 	NAT           *bool
 
@@ -440,6 +441,13 @@ func load(path string) (c Config, err error) {
 
 	if c.DownloadConfigFileName == "" {
 		c.DownloadConfigFileName = "wg0.conf"
+	}
+
+	if c.Proxied {
+		log.Println("WARNING, Proxied setting is depreciated as it does not indicate how many reverse proxies we're behind (thus we cannot parse x-forwarded-for correctly), this will be removed in the next release")
+		log.Println("For no, setting NumberProxies = 1 and hoping that just works for you. Change your config!")
+
+		c.NumberProxies = 1
 	}
 
 	i, err := net.InterfaceByName(c.Wireguard.DevName)
