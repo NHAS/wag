@@ -77,7 +77,7 @@ func Start(errChan chan<- error) error {
 			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
 		}()
 
-		if !config.Values().Proxied {
+		if config.Values().NumberProxies == 0 {
 			go func() {
 
 				address, port, err := net.SplitHostPort(config.Values().Webserver.Public.ListenAddress)
@@ -162,7 +162,7 @@ func Start(errChan chan<- error) error {
 			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
 		}()
 
-		if !config.Values().Proxied {
+		if config.Values().NumberProxies == 0 {
 			go func() {
 
 				port := ":" + config.Values().Webserver.Tunnel.Port

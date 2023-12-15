@@ -69,13 +69,13 @@ func (a Acls) GetUserGroups(username string) (result []string) {
 }
 
 type Config struct {
-	path         string
-	Socket       string `json:",omitempty"`
-	GID          *int   `json:",omitempty"`
-	CheckUpdates bool   `json:",omitempty"`
-	Proxied      bool
-	ExposePorts  []string `json:",omitempty"`
-	NAT          *bool
+	path          string
+	Socket        string `json:",omitempty"`
+	GID           *int   `json:",omitempty"`
+	CheckUpdates  bool   `json:",omitempty"`
+	NumberProxies int
+	ExposePorts   []string `json:",omitempty"`
+	NAT           *bool
 
 	MFATemplatesDirectory string `json:",omitempty"`
 
@@ -542,8 +542,8 @@ func load(path string) (c Config, err error) {
 		return c, err
 	}
 
-	if c.Proxied && len(c.ExposePorts) == 0 {
-		return c, errors.New("you have set 'Proxied' mode which disables adding the tunnel port to iptables but not defined any ExposedPorts (iptables rules added on the wag vpn host) thus clients would not be able to access the MFA portal")
+	if c.NumberProxies > 0 && len(c.ExposePorts) == 0 {
+		return c, errors.New("you have set 'NumberProxies' mode which disables adding the tunnel port to iptables but not defined any ExposedPorts (iptables rules added on the wag vpn host) thus clients would not be able to access the MFA portal")
 	}
 
 	for _, port := range c.ExposePorts {
@@ -552,7 +552,7 @@ func load(path string) (c Config, err error) {
 			return c, errors.New(port + " is not in a valid port format. E.g 80/tcp, 100-200/udp")
 		}
 
-		if c.Proxied {
+		if c.NumberProxies > 0 {
 			_, port, _ := net.SplitHostPort(c.Webserver.Public.ListenAddress)
 			if port == parts[0] {
 				return c, errors.New("you have tried to expose the vpn service (with ExposedPorts) while also having 'Proxied' set to true, this will cause wag to respect X-Forwarded-For from an external source which will result in a security vulnerablity, as such this is an error")
@@ -684,7 +684,7 @@ func load(path string) (c Config, err error) {
 				return c, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
 			}
 
-			if !c.Webserver.Tunnel.SupportsTLS() && !c.Proxied {
+			if !c.Webserver.Tunnel.SupportsTLS() && c.NumberProxies == 0 {
 				return c, errors.New("tunnel does not support TLS (no cert/key given) required by webauthn")
 			}
 

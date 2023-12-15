@@ -49,7 +49,7 @@ func setupIptables() error {
 		}
 	}
 
-	if !config.Values().Proxied {
+	if config.Values().NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel, if we're not behind a proxy
 		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values().Webserver.Tunnel.Port, "-j", "ACCEPT")
 		if err != nil {

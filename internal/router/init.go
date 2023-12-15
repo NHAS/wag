@@ -145,7 +145,7 @@ func TearDown() {
 		}
 	}
 
-	if !config.Values().Proxied {
+	if config.Values().NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel
 		err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values().Wireguard.DevName, "--dport", config.Values().Webserver.Tunnel.Port, "-j", "ACCEPT")
 		if err != nil {
