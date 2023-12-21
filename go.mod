@@ -1,6 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.21.0
+go 1.21
 
 require (
 	github.com/NHAS/session v0.0.0-20230913013109-aef0bdd63caa
