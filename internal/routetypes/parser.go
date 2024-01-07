@@ -28,6 +28,7 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 
 	cache := map[string]int{}
 	// Add
+
 	for _, rule := range mfa {
 		r, err := parseRule(0, rule)
 		if err != nil {

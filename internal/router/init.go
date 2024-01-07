@@ -43,6 +43,17 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 	go func() {
 		startup := true
+		cache := map[string]string{}
+		d, err := data.GetAllDevices()
+		if err != nil {
+			error <- err
+			return
+		}
+
+		for _, device := range d {
+			cache[device.Address] = device.Endpoint.String()
+		}
+
 		for {
 
 			dev, err := ctrl.Device(config.Values().Wireguard.DevName)
@@ -60,16 +71,17 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 				ip := p.AllowedIPs[0].IP.String()
 
-				d, err := data.GetDeviceByAddress(ip)
-				if err != nil {
-					log.Println("unable to get previous device endpoint for ", ip, err)
-					if err := Deauthenticate(ip); err != nil {
-						log.Println(ip, "unable to remove forwards for device: ", err)
-					}
-					continue
-				}
+				if cache[ip] != p.Endpoint.String() {
+					cache[ip] = p.Endpoint.String()
 
-				if d.Endpoint.String() != p.Endpoint.String() {
+					d, err := data.GetDeviceByAddress(ip)
+					if err != nil {
+						log.Println("unable to get previous device endpoint for ", ip, err)
+						if err := Deauthenticate(ip); err != nil {
+							log.Println(ip, "unable to remove forwards for device: ", err)
+						}
+						continue
+					}
 
 					err = data.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
 					if err != nil {

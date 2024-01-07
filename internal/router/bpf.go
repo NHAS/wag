@@ -297,6 +297,7 @@ func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls config.Acl) error {
 			if err != nil {
 				return fmt.Errorf("error putting route key in inner map: %s", err)
 			}
+
 		}
 	}
 
@@ -317,6 +318,7 @@ func xdpUserExists(userid [20]byte) error {
 
 // Returns the inner LPM trie map that was created for the user
 func addInnerMapTo(key interface{}, spec *ebpf.MapSpec, table *ebpf.Map) (*ebpf.Map, error) {
+
 	inner, err := ebpf.NewMap(spec)
 	if err != nil {
 		return nil, fmt.Errorf("%s creating new map: %s", table.String(), err)
@@ -350,6 +352,7 @@ func AddUser(username string, acls config.Acl) error {
 }
 
 func setMaps(userid [20]byte, userAcls config.Acl) error {
+
 	// Adds LPM trie to existing map (hashmap to map)
 	policiesInnerTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PoliciesTable)
 	if err != nil {
