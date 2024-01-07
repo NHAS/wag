@@ -155,7 +155,6 @@ func Start(errChan chan<- error) error {
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
-				TLSConfig:    tlsConfig,
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
