@@ -118,7 +118,6 @@ func (g *genconfig) Run() error {
 
 		c.Wireguard.PrivateKey = k.String()
 		c.Wireguard.ListenPort = 5920
-		c.Wireguard.MTU = 1420
 
 		c.Acls.Groups = make(map[string][]string)
 		c.Acls.Policies = make(map[string]*config.Acl)

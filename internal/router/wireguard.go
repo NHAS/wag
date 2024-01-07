@@ -332,7 +332,10 @@ func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {
 	}
 
 	ne := netlink.NewAttributeEncoder()
-	ne.Int32(unix.IFLA_MTU, int32(mtu))
+	// If MTU is 0 it is unset, so let wireguard try and sense what MTU should be set
+	if mtu != 0 {
+		ne.Int32(unix.IFLA_MTU, int32(mtu))
+	}
 	ne.String(unix.IFLA_IFNAME, name)
 
 	ne.Nested(unix.IFLA_LINKINFO, func(nae *netlink.AttributeEncoder) error {

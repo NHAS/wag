@@ -497,10 +497,6 @@ func load(path string) (c Config, err error) {
 		if c.Wireguard.ListenPort == 0 {
 			return c, errors.New("wireguard ListenPort not set")
 		}
-
-		if c.Wireguard.MTU == 0 {
-			c.Wireguard.MTU = 1420
-		}
 	}
 
 	if len(c.Acls.Policies) == 0 {
