@@ -146,21 +146,19 @@ func setupXDP() error {
 		return err
 	}
 
-	knownDevices, err := data.GetAllDevices()
-	if err != nil {
-		return errors.New("xdp setup get all devices: " + err.Error())
-	}
-
 	users, err := data.GetAllUsers()
 	if err != nil {
 		return errors.New("xdp setup get all users: " + err.Error())
 	}
 
-	for _, user := range users {
+	knownDevices, err := data.GetAllDevices()
+	if err != nil {
+		return errors.New("xdp setup get all devices: " + err.Error())
+	}
 
-		if err := AddUser(user.Username, config.GetEffectiveAcl(user.Username)); err != nil {
-			return errors.New("xdp setup add user: " + err.Error())
-		}
+	errs := bulkCreateUserMaps(users)
+	if len(errs) != 0 {
+		return fmt.Errorf("%s", errs)
 	}
 
 	for _, device := range knownDevices {
@@ -316,54 +314,96 @@ func xdpUserExists(userid [20]byte) error {
 	return nil
 }
 
-// Returns the inner LPM trie map that was created for the user
-func addInnerMapTo(key interface{}, spec *ebpf.MapSpec, table *ebpf.Map) (*ebpf.Map, error) {
-
-	inner, err := ebpf.NewMap(spec)
-	if err != nil {
-		return nil, fmt.Errorf("%s creating new map: %s", table.String(), err)
-	}
-
-	err = table.Put(key, uint32(inner.FD()))
-	if err != nil {
-		return nil, fmt.Errorf("%s adding new map to table: %s", table.String(), err)
-	}
-
-	return inner, nil
-}
-
 func AddUser(username string, acls config.Acl) error {
 
 	lock.Lock()
 	defer lock.Unlock()
 
 	userid := sha1.Sum([]byte(username))
-
 	if xdpUserExists(userid) == nil {
 		return errors.New("user already exists")
 	}
 
+	// New users are obviously unlocked
 	err := xdpObjects.AccountLocked.Put(userid, uint32(0))
 	if err != nil {
 		return err
 	}
 
-	return setMaps(userid, acls)
+	return setSingleUserMap(userid, acls)
 }
 
-func setMaps(userid [20]byte, userAcls config.Acl) error {
-
+func setSingleUserMap(userid [20]byte, acls config.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
-	policiesInnerTable, err := addInnerMapTo(userid, routesMapSpec, xdpObjects.PoliciesTable)
+	policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)
 	}
 
-	if err := xdpAddRoute(policiesInnerTable, userAcls); err != nil {
+	err = xdpObjects.PoliciesTable.Put(userid, uint32(policiesInnerTable.FD()))
+	if err != nil {
+		return fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)
+	}
+
+	if err := xdpAddRoute(policiesInnerTable, acls); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func bulkCreateUserMaps(users []data.UserModel) []error {
+
+	var (
+		keys   [][20]byte
+		values []uint32
+
+		maps = map[string]*ebpf.Map{}
+	)
+
+	for _, user := range users {
+		keys = append(keys, sha1.Sum([]byte(user.Username)))
+
+		locked := uint32(0)
+		if user.Locked {
+			locked = 1
+		}
+
+		err := xdpObjects.AccountLocked.Put(keys[len(keys)-1], locked)
+		if err != nil {
+			return []error{err}
+		}
+
+		policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
+		if err != nil {
+			return []error{fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)}
+		}
+
+		values = append(values, uint32(policiesInnerTable.FD()))
+		maps[user.Username] = policiesInnerTable
+	}
+
+	n, err := xdpObjects.PoliciesTable.BatchUpdate(keys, values, &ebpf.BatchOptions{
+		Flags: uint64(ebpf.UpdateAny),
+	})
+
+	if err != nil {
+		return []error{fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)}
+	}
+
+	if n != len(keys) {
+		return []error{fmt.Errorf("batch update could not write all keys to map: expected %d got %d", len(keys), n)}
+	}
+
+	var errors []error
+	for username, m := range maps {
+		err := xdpAddRoute(m, config.GetEffectiveAcl(username))
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	return errors
 }
 
 func RemoveUser(username string) error {
@@ -397,8 +437,6 @@ func RefreshConfiguration() []error {
 		return []error{err}
 	}
 
-	var errors []error
-
 	value := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
 	if config.Values().SessionInactivityTimeoutMinutes < 0 {
 		value = math.MaxUint64
@@ -409,14 +447,7 @@ func RefreshConfiguration() []error {
 		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
 	}
 
-	for _, user := range users {
-		err := refreshUserAcls(user.Username)
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}
-
-	return errors
+	return bulkCreateUserMaps(users)
 }
 
 // Update FW routes for specific user
@@ -425,17 +456,11 @@ func RefreshUserAcls(username string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	return refreshUserAcls(username)
-}
-
-// Non-mutex guarded internal version
-func refreshUserAcls(username string) error {
-
 	userid := sha1.Sum([]byte(username))
 
 	acls := config.GetEffectiveAcl(username)
 
-	return setMaps(userid, acls)
+	return setSingleUserMap(userid, acls)
 }
 
 // SetAuthroized correctly sets the timestamps for a device with internal IP address as internalAddress
