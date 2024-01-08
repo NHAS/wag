@@ -1,11 +1,16 @@
 package routetypes
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -24,12 +29,43 @@ type Rule struct {
 	Values      []Policy
 }
 
+var (
+	rwLock      sync.RWMutex
+	globalCache = map[string][]Rule{}
+)
+
+func hash(mfa, public, deny []string) string {
+
+	sort.Strings(mfa)
+	sort.Strings(public)
+	sort.Strings(deny)
+
+	sha1.New()
+	sha1.Sum([]byte(strings.Join(mfa, "")))
+	sha1.Sum([]byte(strings.Join(public, "")))
+	output := sha1.Sum([]byte(strings.Join(deny, "")))
+
+	return hex.EncodeToString(output[:])
+}
+
 func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 
 	cache := map[string]int{}
+
+	parseKey := hash(mfa, public, deny)
+
+	rwLock.RLock()
+	if entry, ok := globalCache[parseKey]; ok {
+		rwLock.RUnlock()
+		return entry, nil
+
+	}
+	rwLock.RUnlock()
+
 	// Add
 
 	for _, rule := range mfa {
+
 		r, err := parseRule(0, rule)
 		if err != nil {
 			return nil, err
@@ -45,6 +81,7 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 			result = append(result, r)
 			cache[r.Keys[i].String()] = len(result) - 1
 		}
+
 	}
 
 	for _, rule := range public {
@@ -63,6 +100,7 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 			result = append(result, r)
 			cache[r.Keys[i].String()] = len(result) - 1
 		}
+
 	}
 
 	for _, rule := range deny {
@@ -81,6 +119,7 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 			result = append(result, r)
 			cache[r.Keys[i].String()] = len(result) - 1
 		}
+
 	}
 
 	for i := range result {
@@ -96,6 +135,9 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 		result[i].Values = temp[:cap(temp)]
 	}
 
+	rwLock.Lock()
+	globalCache[parseKey] = result
+	rwLock.Unlock()
 	return
 }
 
@@ -169,7 +211,9 @@ func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 }
 
 func parseKeys(address string) (keys []Key, err error) {
-	resultingAddresses, err := parseAddress(address)
+	var resultingAddresses []net.IPNet
+
+	resultingAddresses, err = parseAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +221,6 @@ func parseKeys(address string) (keys []Key, err error) {
 	for _, ip := range resultingAddresses {
 
 		maskLength, _ := ip.Mask.Size()
-
 		keys = append(keys,
 			Key{
 				Prefixlen: uint32(maskLength),
@@ -301,6 +344,16 @@ func parseSinglePort(port, proto string) (Policy, error) {
 	return Policy{}, errors.New("unknown service: " + port + "/" + proto)
 }
 
+type cacheEntry struct {
+	dnsTime   time.Time
+	addresses []net.IPNet
+}
+
+var (
+	dnsLock  sync.RWMutex
+	dnsCache = map[string]cacheEntry{}
+)
+
 func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 
 	ip := net.ParseIP(address)
@@ -308,6 +361,13 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 
 		_, cidr, err := net.ParseCIDR(address)
 		if err != nil {
+
+			dnsLock.RLock()
+			if entries, ok := dnsCache[address]; ok && time.Now().Before(entries.dnsTime.Add(3*time.Second)) {
+				dnsLock.RUnlock()
+				return entries.addresses, nil
+			}
+			dnsLock.RUnlock()
 
 			//If we suspect this is a domain
 			addresses, err := net.LookupIP(address)
@@ -330,6 +390,10 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 			if !addedSomething {
 				return nil, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", address)
 			}
+
+			dnsLock.Lock()
+			dnsCache[address] = cacheEntry{dnsTime: time.Now(), addresses: resultAddresses}
+			dnsLock.Unlock()
 
 			return resultAddresses, nil
 		}
