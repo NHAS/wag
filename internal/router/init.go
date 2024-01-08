@@ -177,7 +177,7 @@ func TearDown() {
 		}
 	}
 
-	err = ipt.Delete("filter", "INPUT", "-p", "icmp", "--icmp-type", "8", "-i", config.Values().Wireguard.DevName, "-m", "state", "--state", "NEW,ESTABLISHED,RELATED", "-j", "ACCEPT")
+	err = ipt.Delete("filter", "INPUT", "-p", "icmp", "-i", config.Values().Wireguard.DevName, "-j", "ACCEPT")
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}

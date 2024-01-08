@@ -79,7 +79,7 @@ func setupIptables() error {
 		}
 	}
 
-	err = ipt.Append("filter", "INPUT", "-p", "icmp", "--icmp-type", "8", "-i", devName, "-m", "state", "--state", "NEW,ESTABLISHED,RELATED", "-j", "ACCEPT")
+	err = ipt.Append("filter", "INPUT", "-p", "icmp", "-i", devName, "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
