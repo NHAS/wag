@@ -1,6 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.21.0
+go 1.21.5
 
 require (
 	github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462
@@ -21,26 +21,25 @@ require (
 
 require (
 	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
-	github.com/go-webauthn/x v0.1.6 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.0 // indirect
+	github.com/go-webauthn/x v0.1.4 // indirect
+	github.com/golang-jwt/jwt/v5 v5.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-tpm v0.9.0 // indirect
-	github.com/google/uuid v1.5.0 // indirect
-	github.com/gorilla/schema v1.2.1 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+	github.com/gorilla/schema v1.2.0 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
-	github.com/mdlayher/socket v0.5.0 // indirect
+	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc // indirect
-	golang.org/x/oauth2 v0.15.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
+	golang.org/x/oauth2 v0.13.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
+	golang.zx2c4.com/wireguard v0.0.0-20230325221338-052af4a8072b // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )

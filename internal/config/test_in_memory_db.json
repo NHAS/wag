@@ -42,8 +42,7 @@
         "Policies": {
             "*": {
                 "Allow": [
-                    "7.7.7.7",
-                    "google.com"
+                    "7.7.7.7"
                 ]
             },
             "group:nerds": {

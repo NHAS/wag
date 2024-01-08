@@ -114,7 +114,7 @@ func TestAddUser(t *testing.T) {
 	for _, device := range out {
 		policiesTable, err := checkLPMMap(device.Username, xdpObjects.PoliciesTable)
 		if err != nil {
-			t.Fatal("checking publictable:", err)
+			t.Fatal("checking policy table:", err)
 		}
 
 		acl := config.GetEffectiveAcl(device.Username)
@@ -124,33 +124,15 @@ func TestAddUser(t *testing.T) {
 			t.Fatal("parsing rules failed?:", err)
 		}
 
-		var allow []string
+		resultsAsString := []string{}
 		for _, r := range results {
-
-			for _, k := range r.Keys {
-				allow = append(allow, k.String())
+			for m := range r.Keys {
+				resultsAsString = append(resultsAsString, r.Keys[m].String())
 			}
 		}
 
-		results, err = routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
-		if err != nil {
-			t.Fatal("parsing rules failed?:", err)
-		}
-
-		var mfa []string
-		for _, r := range results {
-
-			for _, k := range r.Keys {
-				mfa = append(mfa, k.String())
-			}
-		}
-
-		if !contains(policiesTable, allow) {
-			t.Fatal("public allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", allow)
-		}
-
-		if !contains(policiesTable, mfa) {
-			t.Fatal("mfa allow list does not match configured acls\n got: ", policiesTable, "\nexpected:", mfa)
+		if !contains(policiesTable, resultsAsString) {
+			t.Fatal("policies list does not match configured acls\n got: ", policiesTable, "\nexpected:", resultsAsString)
 		}
 
 	}
@@ -1365,7 +1347,7 @@ func checkLPMMap(username string, m *ebpf.Map) ([]string, error) {
 	result := []string{}
 
 	var innerKey []byte
-	var val uint8
+	var val [routetypes.MAX_POLICIES]routetypes.Policy
 	innerIter := innerMap.Iterate()
 	kv := routetypes.Key{}
 	for innerIter.Next(&innerKey, &val) {
