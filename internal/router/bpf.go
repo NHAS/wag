@@ -55,6 +55,8 @@ var (
 		// and altered later.
 		MaxEntries: 1024,
 	}
+
+	userPolicyMaps = map[[20]byte]*ebpf.Map{}
 )
 
 type Timespec struct {
@@ -339,6 +341,8 @@ func setSingleUserMap(userid [20]byte, acls config.Acl) error {
 		return fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)
 	}
 
+	userPolicyMaps[userid] = policiesInnerTable
+
 	err = xdpObjects.PoliciesTable.Put(userid, uint32(policiesInnerTable.FD()))
 	if err != nil {
 		return fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)
@@ -351,6 +355,9 @@ func setSingleUserMap(userid [20]byte, acls config.Acl) error {
 	return nil
 }
 
+// I've tried my hardest not to make this stateful. But alas we must cache the user policy maps or things become unreasonbly slow
+// If someone has a better way of doing this. Please for the love of god pipe up
+// https://github.com/cilium/ebpf/discussions/1297
 func bulkCreateUserMaps(users []data.UserModel) []error {
 
 	var (
@@ -361,8 +368,24 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 		maps = map[string]*ebpf.Map{}
 	)
 
+	x := 0
+
 	for _, user := range users {
 		userid := sha1.Sum([]byte(user.Username))
+
+		// Fast path, if the user already has a map then just repopulate the map. Since we have "stop" rules at the end of definitions it doesnt matter if other rules were defined
+		// This speeds up things like refresh acls, but not wag start up
+		if policiesInnerTable, ok := userPolicyMaps[userid]; ok {
+
+			err := xdpAddRoute(policiesInnerTable, config.GetEffectiveAcl(user.Username))
+
+			if err != nil {
+				errors = append(errors, err)
+			} else {
+				x++
+				continue
+			}
+		}
 
 		locked := uint32(0)
 		if user.Locked {
@@ -374,36 +397,17 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 			return []error{err}
 		}
 
-		var (
-			innerMapID         ebpf.MapID
-			policiesInnerTable *ebpf.Map
-		)
-		err = xdpObjects.PoliciesTable.Lookup(userid, &innerMapID)
-		// Fast path, if the user already has a map then just repopulate the map. Since we have "stop" rules at the end of definitions it doesnt matter if other rules were defined
-		// This speeds up things like refresh acls, but not wag start up
-		if err == nil {
-			policiesInnerTable, err = ebpf.NewMapFromID(innerMapID)
-			if err != nil {
-				policiesInnerTable = nil
-			} else {
-
-				err := xdpAddRoute(policiesInnerTable, config.GetEffectiveAcl(user.Username))
-				if err != nil {
-					errors = append(errors, err)
-				}
-			}
+		policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
+		if err != nil {
+			return []error{fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)}
 		}
 
-		if policiesInnerTable == nil {
-			policiesInnerTable, err = ebpf.NewMap(routesMapSpec)
-			if err != nil {
-				return []error{fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)}
-			}
+		values = append(values, uint32(policiesInnerTable.FD()))
+		keys = append(keys, userid)
+		maps[user.Username] = policiesInnerTable
 
-			values = append(values, uint32(policiesInnerTable.FD()))
-			keys = append(keys, userid)
-			maps[user.Username] = policiesInnerTable
-		}
+		userPolicyMaps[userid] = policiesInnerTable
+
 	}
 
 	n, err := xdpObjects.PoliciesTable.BatchUpdate(keys, values, &ebpf.BatchOptions{
@@ -417,6 +421,7 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 	if n != len(keys) {
 		return []error{fmt.Errorf("batch update could not write all keys to map: expected %d got %d", len(keys), n)}
 	}
+
 	for username, m := range maps {
 		err := xdpAddRoute(m, config.GetEffectiveAcl(username))
 		if err != nil {
@@ -443,6 +448,8 @@ func RemoveUser(username string) error {
 	if err != nil && !strings.Contains(err.Error(), ebpf.ErrKeyNotExist.Error()) {
 		return errors.New("removing user from policies table failed: " + err.Error())
 	}
+
+	delete(userPolicyMaps, userid)
 
 	return nil
 }
