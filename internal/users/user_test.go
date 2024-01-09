@@ -15,7 +15,12 @@ func setupWgTest() error {
 		return err
 	}
 
-	err := data.Load(config.Values().DatabaseLocation)
+	m, err := wgtypes.GenerateKey()
+	if err != nil {
+		return err
+	}
+
+	err = data.Load(fmt.Sprintf("file:%s?mode=memory&cache=shared", m.String()))
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}

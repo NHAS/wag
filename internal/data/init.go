@@ -31,7 +31,7 @@ func Load(path string) error {
 		return err
 	}
 
-	if can && !strings.HasPrefix(path, "file::memory:") {
+	if can && !strings.HasPrefix(path, "file::memory:") && !strings.Contains(path, "mode=memory") {
 		backupPath := path + "." + time.Now().Format("20060102150405") + ".bak"
 		log.Println("can do migrations, backing up database to ", backupPath)
 
