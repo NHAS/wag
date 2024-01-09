@@ -356,30 +356,54 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 	var (
 		keys   [][20]byte
 		values []uint32
+		errors []error
 
 		maps = map[string]*ebpf.Map{}
 	)
 
 	for _, user := range users {
-		keys = append(keys, sha1.Sum([]byte(user.Username)))
+		userid := sha1.Sum([]byte(user.Username))
 
 		locked := uint32(0)
 		if user.Locked {
 			locked = 1
 		}
 
-		err := xdpObjects.AccountLocked.Put(keys[len(keys)-1], locked)
+		err := xdpObjects.AccountLocked.Put(userid, locked)
 		if err != nil {
 			return []error{err}
 		}
 
-		policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
-		if err != nil {
-			return []error{fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)}
+		var (
+			innerMapID         ebpf.MapID
+			policiesInnerTable *ebpf.Map
+		)
+		err = xdpObjects.PoliciesTable.Lookup(userid, &innerMapID)
+		// Fast path, if the user already has a map then just repopulate the map. Since we have "stop" rules at the end of definitions it doesnt matter if other rules were defined
+		// This speeds up things like refresh acls, but not wag start up
+		if err == nil {
+			policiesInnerTable, err = ebpf.NewMapFromID(innerMapID)
+			if err != nil {
+				policiesInnerTable = nil
+			} else {
+
+				err := xdpAddRoute(policiesInnerTable, config.GetEffectiveAcl(user.Username))
+				if err != nil {
+					errors = append(errors, err)
+				}
+			}
 		}
 
-		values = append(values, uint32(policiesInnerTable.FD()))
-		maps[user.Username] = policiesInnerTable
+		if policiesInnerTable == nil {
+			policiesInnerTable, err = ebpf.NewMap(routesMapSpec)
+			if err != nil {
+				return []error{fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)}
+			}
+
+			values = append(values, uint32(policiesInnerTable.FD()))
+			keys = append(keys, userid)
+			maps[user.Username] = policiesInnerTable
+		}
 	}
 
 	n, err := xdpObjects.PoliciesTable.BatchUpdate(keys, values, &ebpf.BatchOptions{
@@ -393,8 +417,6 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 	if n != len(keys) {
 		return []error{fmt.Errorf("batch update could not write all keys to map: expected %d got %d", len(keys), n)}
 	}
-
-	var errors []error
 	for username, m := range maps {
 		err := xdpAddRoute(m, config.GetEffectiveAcl(username))
 		if err != nil {
