@@ -329,3 +329,45 @@ func TestParseMalformed(t *testing.T) {
 	}
 
 }
+
+func TestParseRules(t *testing.T) {
+	/*
+	   "*": {
+	       "Allow": [
+	           "7.7.7.7",
+	           "google.com"
+	       ]
+	   },
+	   "tester": {
+	       "Mfa": [
+	           "192.168.3.0/24",
+	           "192.168.5.0/24"
+	       ],
+	       "Allow": [
+	           "4.3.3.3/32"
+	       ]
+	   },
+	*/
+
+	publicRules := []string{"7.7.7.7", "google.com"}
+	mfaRules := []string{"192.168.3.0/24", "192.168.5.0/24"}
+
+	result, err := ParseRules([]string{}, publicRules, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result) != 2 {
+		t.Fatal("resulting number of rules was wrong")
+	}
+
+	result, err = ParseRules(mfaRules, publicRules, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result) != 4 {
+		t.Fatal("resulting number of rules was wrong")
+	}
+
+}

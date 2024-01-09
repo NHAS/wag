@@ -846,7 +846,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	t.Log(GetRoutes("tester"))
 	t.Logf("Now doing timing test for disabled sliding window waiting...")
 
 	elapsed := 0
@@ -862,7 +862,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		}
 
 		if value == 1 {
-			t.Fatal("should not block traffic")
+			t.Fatalf("should not block traffic")
 		}
 
 		if elapsed > 30 {
@@ -1233,7 +1233,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	var policies [routetypes.MAX_POLICIES]routetypes.Policy
 	err = userPublicRoutes.Lookup(k.Bytes(), &policies)
 	if err != nil {
-		t.Fatal("searched for valid subnet")
+		t.Fatal("searched for valid subnet: ", err)
 	}
 
 	if !policies[0].Is(routetypes.SINGLE) {

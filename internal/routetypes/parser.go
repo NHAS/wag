@@ -1,8 +1,10 @@
 package routetypes
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -40,12 +42,14 @@ func hash(mfa, public, deny []string) string {
 	sort.Strings(public)
 	sort.Strings(deny)
 
-	sha1.New()
-	sha1.Sum([]byte(strings.Join(mfa, "")))
-	sha1.Sum([]byte(strings.Join(public, "")))
-	output := sha1.Sum([]byte(strings.Join(deny, "")))
+	b := bytes.NewBuffer(nil)
+	encoder := json.NewEncoder(b)
+	encoder.Encode(mfa)
+	encoder.Encode(public)
+	encoder.Encode(deny)
 
-	return hex.EncodeToString(output[:])
+	result := sha1.Sum(b.Bytes())
+	return hex.EncodeToString(result[:])
 }
 
 func ParseRules(mfa, public, deny []string) (result []Rule, err error) {

@@ -282,7 +282,6 @@ func xdpAddDevice(username, address string) error {
 
 // Takes the LPM table and associates a route to a policy
 func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls config.Acl) error {
-
 	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
 	if err != nil {
 		return err

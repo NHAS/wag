@@ -501,7 +501,6 @@ static __always_inline int conntrack(struct ip *ip_info)
 
     // Get public and mfa policies for a user, the whole table will be searched as MFA rules take preference (and can fail early if it matches and the user is not authed)
     void *user_policies = bpf_map_lookup_elem(&policies_table, current_device->user_id);
-
     struct policy *applicable_policies = (user_policies != NULL) ? bpf_map_lookup_elem(user_policies, &key) : NULL;
     if (applicable_policies == NULL)
     {
