@@ -70,6 +70,7 @@ func Load(path string) error {
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values().Clustering.Name
 	cfg.InitialClusterToken = "wag-test"
+	cfg.LogLevel = "error"
 	cfg.ListenPeerUrls = parseUrls(config.Values().Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = parseUrls(fmt.Sprintf("http://127.0.0.1:%d", 2480))
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls

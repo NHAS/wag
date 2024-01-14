@@ -91,11 +91,6 @@ func GetDevice(username, id string) (device Device, err error) {
 
 	err = json.Unmarshal(response.Kvs[0].Value, &device)
 
-	// TODO write custom marhaller
-	// if endpoint.Valid {
-	// 	device.Endpoint = stringToUDPaddr(endpoint.String)
-	// }
-
 	return
 }
 
@@ -206,13 +201,24 @@ func DeleteDevice(username, id string) error {
 }
 
 func DeleteDevices(username string) error {
-
-	// TODO delete references
-	_, err := etcd.Delete(context.Background(), fmt.Sprintf("device-%s-", username), clientv3.WithPrefix())
+	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("device-%s-", username), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
 
+	ops := []clientv3.Op{}
+	for _, reference := range deleted.PrevKvs {
+
+		var d Device
+		err := json.Unmarshal(reference.Value, &d)
+		if err != nil {
+			return err
+		}
+
+		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete("deviceref-"+d.Address))
+	}
+
+	_, err = etcd.Txn(context.Background()).Then(ops...).Commit()
 	return err
 }
 
@@ -236,8 +242,6 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 		return string(b), false, err
 	})
 }
-
-//CREATE TABLE Devices(address string primary key, username string not null, publickey string not null unique, endpoint string, attempts integer  DEFAULT 0 not null);
 
 func GetDeviceByAddress(address string) (device Device, err error) {
 
