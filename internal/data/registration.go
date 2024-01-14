@@ -1,107 +1,103 @@
 package data
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NHAS/wag/pkg/control"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
+
+func restrationKey(token string) string {
+	return fmt.Sprintf("tokens-%s", token)
+}
 
 func GetRegistrationToken(token string) (username, overwrites string, group []string, err error) {
 
 	minTime := time.After(1 * time.Second)
 
-	var groupsJson sql.NullString
-
-	err = database.QueryRow(`
-		SELECT 
-			token, username, overwrite, groups 
-		FROM 
-			RegistrationTokens
-		WHERE
-			token = ?
-				AND
-			uses > 0
-	`, token).Scan(&token, &username, &overwrites, &groupsJson)
+	response, err := etcd.Get(context.Background(), restrationKey(token))
 	if err != nil {
 		return
 	}
 
-	if groupsJson.Valid {
-		err = json.Unmarshal([]byte(groupsJson.String), &group)
+	if len(response.Kvs) != 1 {
+		err = errors.New("invalid token")
+		return
 	}
+
+	var result control.RegistrationResult
+	err = json.Unmarshal(response.Kvs[0].Value, &result)
 
 	<-minTime
 
-	return
+	if err != nil {
+		return
+	}
+
+	return result.Username, result.Overwrites, result.Groups, nil
 }
 
 // Returns list of tokens
-func GetRegistrationTokens() (result []control.RegistrationResult, err error) {
+func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 
-	rows, err := database.Query("SELECT token, username, overwrite, groups, uses FROM RegistrationTokens ORDER by ROWID DESC")
+	response, err := etcd.Get(context.Background(), "tokens-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for rows.Next() {
-		var (
-			groupsJson   sql.NullString
-			registration control.RegistrationResult
-		)
-		err = rows.Scan(&registration.Token, &registration.Username, &registration.Overwrites, &groupsJson, &registration.NumUses)
+	for _, res := range response.Kvs {
+		var result control.RegistrationResult
+		err := json.Unmarshal(res.Value, &result)
 		if err != nil {
 			return nil, err
 		}
 
-		if groupsJson.Valid {
-			err = json.Unmarshal([]byte(groupsJson.String), &registration.Groups)
-			if err != nil {
-				return
-			}
-		}
-
-		result = append(result, registration)
+		results = append(results, result)
 	}
 
-	return result, nil
+	return results, nil
 }
 
 func DeleteRegistrationToken(identifier string) error {
-	_, err := database.Exec(`
-		DELETE FROM
-			RegistrationTokens
-		WHERE
-			(token = $1 OR username = $1) or uses <= 0
-	`, identifier)
+	_, err := etcd.Delete(context.Background(), restrationKey(identifier))
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
 // FinaliseRegistration may or may not delete the token in question depending on whether the number of uses is <= 0
 func FinaliseRegistration(token string) error {
-	_, err := database.Exec(`UPDATE 
-		RegistrationTokens 
-	SET 
-		uses = uses - 1 
-	WHERE 
-		token = ?`,
-		token)
-	if err != nil {
-		return err
-	}
 
-	var uses int
-	err = database.QueryRow(`SELECT uses FROM RegistrationTokens WHERE token = ?`, token).Scan(&uses)
-	// Due to the (token = $1 OR username = $1) or uses <= 0 in DeleteRegistrationToken it is possible for tokens to get deleted between update and now
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
+	errVal := errors.New("registration token has expired")
+	err := doSafeUpdate(context.Background(), "tokens-"+token, false, func(gr *clientv3.GetResponse) (string, bool, error) {
 
-	if uses <= 0 && err != sql.ErrNoRows {
+		var result control.RegistrationResult
+		err := json.Unmarshal(gr.Kvs[0].Value, &result)
+		if err != nil {
+			return "", false, err
+		}
+
+		if result.NumUses <= 0 {
+			return "", false, errVal
+		}
+
+		result.NumUses--
+
+		b, _ := json.Marshal(result)
+
+		return string(b), false, nil
+	})
+
+	if err == errVal {
 		return DeleteRegistrationToken(token)
 	}
 
@@ -133,36 +129,28 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 
 	var err error
 	if overwrite != "" {
-		var u string
-		err = database.QueryRow("SELECT address FROM Devices WHERE address = ? AND username = ?", overwrite, username).Scan(&u)
+
+		response, err := etcd.Get(context.Background(), "device-ref-"+overwrite)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				return errors.New("could not find device that this token is intended to overwrite")
-			}
-			return errors.New("failed to create registration token: " + err.Error())
+			return err
+		}
+
+		if !bytes.Contains(response.Kvs[0].Value, []byte(username)) {
+			return errors.New("could not find device that this token is intended to overwrite")
 		}
 	}
 
-	if len(groups) != 0 {
-
-		result, _ := json.Marshal(groups)
-
-		_, err = database.Exec(`
-		INSERT INTO
-			RegistrationTokens (token, username, overwrite, groups, uses)
-		VALUES
-			(?, ?, ?, ?, ?)
-	`, token, username, overwrite, string(result), uses)
-
-		return err
+	result := control.RegistrationResult{
+		Token:      token,
+		Username:   username,
+		Overwrites: overwrite,
+		Groups:     groups,
+		NumUses:    uses,
 	}
 
-	_, err = database.Exec(`
-	INSERT INTO
-		RegistrationTokens (token, username, overwrite, uses)
-	VALUES
-		(?, ?, ?, ?)
-`, token, username, overwrite, uses)
+	b, _ := json.Marshal(result)
+
+	_, err = etcd.Put(context.Background(), "tokens-"+token, string(b))
 
 	return err
 }

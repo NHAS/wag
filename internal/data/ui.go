@@ -1,19 +1,22 @@
 package data
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/crypto/argon2"
 )
 
 const minPasswordLength = 14
 
+// DTO
 type AdminModel struct {
 	Username  string `json:"username"`
 	Attempts  int    `json:"attempts"`
@@ -21,6 +24,11 @@ type AdminModel struct {
 	LastLogin string `json:"last_login"`
 	IP        string `json:"ip"`
 	Change    bool   `json:"change"`
+}
+
+type admin struct {
+	AdminModel
+	Hash string
 }
 
 func generateSalt() ([]byte, error) {
@@ -45,12 +53,18 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 
 	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
-	_, err = database.Exec(`
-	INSERT INTO
-		AdminUsers (username, passwd_hash, date_added, change)
-	VALUES
-		(?,?,?, ?)
-`, username, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), time.Now().Format(time.RFC3339), changeOnFirstUse)
+	newAdmin := admin{
+		AdminModel: AdminModel{
+			Username:  username,
+			DateAdded: time.Now().Format(time.RFC3339),
+			Change:    changeOnFirstUse,
+		},
+		Hash: base64.RawStdEncoding.EncodeToString(append(hash, salt...)),
+	}
+
+	b, _ := json.Marshal(newAdmin)
+
+	_, err = etcd.Put(context.Background(), "admin-users-"+username, string(b))
 
 	return err
 }
@@ -66,109 +80,87 @@ func CompareAdminKeys(username, password string) error {
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	// Do increment of attempts first to stop race conditions
-	_, err := database.Exec(`UPDATE 
-	AdminUsers 
-	SET 
-		attempts = attempts + 1 
-	WHERE 
-		attempts <= ? AND username = ?`,
-		5, username)
-	if err != nil {
-		wasteTime()
-		return err
-	}
+	err := doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
 
-	var (
-		attempts            int
-		b64PasswordHashSalt string
-	)
-	err = database.QueryRow(`
-	SELECT 
-		passwd_hash, attempts
-	FROM 
-		AdminUsers
-	WHERE
-		username = ?
-`, username).Scan(&b64PasswordHashSalt, &attempts)
-	if err != nil {
-		wasteTime()
-		return err
-	}
+		var result admin
+		err := json.Unmarshal(gr.Kvs[0].Value, &result)
+		if err != nil {
+			return "", false, err
+		}
 
-	rawHashSalt, err := base64.RawStdEncoding.DecodeString(b64PasswordHashSalt)
-	if err != nil {
-		return err
-	}
+		if result.Attempts >= 5 {
+			wasteTime()
+			return "", false, errors.New("account locked")
+		}
 
-	thisHash := argon2.IDKey([]byte(password), rawHashSalt[len(rawHashSalt)-16:], 1, 10*1024, 4, 32)
+		rawHashSalt, err := base64.RawStdEncoding.DecodeString(result.Hash)
+		if err != nil {
+			return "", false, err
+		}
 
-	if subtle.ConstantTimeCompare(thisHash, rawHashSalt[:len(rawHashSalt)-16]) != 1 {
-		return errors.New("passwords did not match")
-	}
+		thisHash := argon2.IDKey([]byte(password), rawHashSalt[len(rawHashSalt)-16:], 1, 10*1024, 4, 32)
 
-	if attempts > 5 {
-		return errors.New("account locked")
-	}
+		if subtle.ConstantTimeCompare(thisHash, rawHashSalt[:len(rawHashSalt)-16]) != 1 {
+			result.Attempts++
 
-	_, err = database.Exec(`UPDATE 
-		AdminUsers 
-	SET 
-		attempts = 0 
-	WHERE 
-		username = ?`,
-		username)
-	if err != nil {
-		return err
-	}
+			b, _ := json.Marshal(result)
 
-	return nil
+			// For this specific error we need to write the attempts to the entry
+			return string(b), true, errors.New("passwords did not match")
+		}
+
+		result.Attempts = 0
+		b, _ := json.Marshal(result)
+
+		return string(b), false, nil
+	})
+
+	return err
 }
 
 // Lock admin account and make them unable to login
 func SetAdminUserLock(username string) error {
 
-	_, err := database.Exec(`
-	UPDATE 
-		AdminUsers
-	SET
-		attempts = ?
-	WHERE
-		username = ?
-	`, 6, username)
+	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
+		var result admin
+		err := json.Unmarshal(gr.Kvs[0].Value, &result)
+		if err != nil {
+			return "", false, err
+		}
 
-	if err != nil {
-		return errors.New("Unable to lock admin account: " + err.Error())
-	}
+		result.Attempts = 6
 
-	return nil
+		result.Attempts = 0
+		b, _ := json.Marshal(result)
+
+		return string(b), false, nil
+
+	})
 }
 
 // Unlock admin account
 func SetAdminUserUnlock(username string) error {
-	_, err := database.Exec(`
-	UPDATE 
-		AdminUsers
-	SET
-		attempts = ?
-	WHERE
-		username = ?
-	`, 0, username)
 
-	if err != nil {
-		return errors.New("Unable to unlock admin account: " + err.Error())
-	}
+	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
+		var result admin
+		err := json.Unmarshal(gr.Kvs[0].Value, &result)
+		if err != nil {
+			return "", false, err
+		}
 
-	return nil
+		result.Attempts = 0
+
+		result.Attempts = 0
+		b, _ := json.Marshal(result)
+
+		return string(b), false, nil
+
+	})
 }
 
 func DeleteAdminUser(username string) error {
 
-	_, err := database.Exec(`
-		DELETE FROM
-			AdminUsers
-		WHERE
-			username = ?`, username)
+	_, err := etcd.Delete(context.Background(), "admin-users-"+username, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -178,55 +170,37 @@ func DeleteAdminUser(username string) error {
 
 func GetAdminUser(username string) (a AdminModel, err error) {
 
-	var (
-		LastLogin sql.NullString
-		IP        sql.NullString
-	)
-
-	err = database.QueryRow(`
-	SELECT 
-		username, attempts, last_login, ip, date_added, change
-	FROM 
-		AdminUsers
-	WHERE
-		username = ?`, username).Scan(&a.Username, &a.Attempts, &LastLogin, &IP, &a.DateAdded, &a.Change)
+	response, err := etcd.Get(context.Background(), "admin-users-"+username)
 	if err != nil {
-		return
+		return a, err
 	}
 
-	a.LastLogin = LastLogin.String
-	a.IP = IP.String
+	if len(response.Kvs) != 1 {
+		return a, errors.New("invalid number of admin users")
+	}
 
+	err = json.Unmarshal(response.Kvs[0].Value, &a)
 	return
 }
 
 func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 
-	rows, err := database.Query("SELECT username, attempts, last_login, ip, date_added, change FROM AdminUsers ORDER by ROWID DESC")
+	response, err := etcd.Get(context.Background(), "admin-users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for rows.Next() {
-
-		var (
-			LastLogin sql.NullString
-			IP        sql.NullString
-			au        AdminModel
-		)
-		err = rows.Scan(&au.Username, &au.Attempts, &LastLogin, &IP, &au.DateAdded, &au.Change)
+	for _, res := range response.Kvs {
+		var admin AdminModel
+		err := json.Unmarshal(res.Value, &admin)
 		if err != nil {
 			return nil, err
 		}
 
-		au.LastLogin = LastLogin.String
-		au.IP = IP.String
-
-		adminUsers = append(adminUsers, au)
+		adminUsers = append(adminUsers, admin)
 	}
 
-	return adminUsers, nil
-
+	return
 }
 
 func SetAdminPassword(username, password string) error {
@@ -241,36 +215,72 @@ func SetAdminPassword(username, password string) error {
 
 	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
-	_, err = database.Exec(`
-	UPDATE 
-		AdminUsers
-	SET
-		passwd_hash = ?, change = false
-	WHERE
-		username = ?
-	`, base64.RawStdEncoding.EncodeToString(append(hash, salt...)), username)
+	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
 
-	if err != nil {
-		return errors.New("Unable to set admin password hash: " + err.Error())
-	}
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("invalid number of admin users")
+		}
 
-	return nil
+		var admin admin
+		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
+		if err != nil {
+			return "", false, err
+		}
+
+		admin.Change = false
+		admin.Hash = base64.RawStdEncoding.EncodeToString(append(hash, salt...))
+
+		b, _ := json.Marshal(admin)
+
+		return string(b), false, nil
+
+	})
+
+}
+
+func setAdminHash(username, hash string) error {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("invalid number of admin users")
+		}
+
+		var admin admin
+		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
+		if err != nil {
+			return "", false, err
+		}
+
+		admin.Change = false
+		admin.Hash = hash
+
+		b, _ := json.Marshal(admin)
+
+		return string(b), false, nil
+
+	})
 }
 
 func SetLastLoginInformation(username, ip string) error {
-	_, err := database.Exec(`
-	UPDATE 
-		AdminUsers
-	SET
-		last_login = ?,
-		ip = ?
-	WHERE
-		username = ?
-	`, time.Now().Format(time.RFC3339), ip, username)
+	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
 
-	if err != nil {
-		return errors.New("Unable to set last login time: " + err.Error())
-	}
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("invalid number of admin users")
+		}
 
-	return nil
+		var admin admin
+		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
+		if err != nil {
+			return "", false, err
+		}
+
+		admin.LastLogin = time.Now().Format(time.RFC3339)
+		admin.IP = ip
+
+		b, _ := json.Marshal(admin)
+
+		return string(b), false, nil
+
+	})
+
 }

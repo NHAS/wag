@@ -1,17 +1,21 @@
 package data
 
 import (
-	"database/sql"
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
 	"github.com/NHAS/wag/internal/utils"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type Device struct {
+	Version      int
 	Address      string
 	Publickey    string
 	Username     string
@@ -42,84 +46,97 @@ func stringToUDPaddr(address string) (r *net.UDPAddr) {
 
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 
-	_, err := database.Exec(`UPDATE Devices SET endpoint = ? WHERE address = ?`, endpoint.String(), address)
+	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	if realKey.Count == 0 {
+		return errors.New("device was not found")
+	}
+
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, bool, error) {
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("user device has multiple keys")
+		}
+
+		var device Device
+		err := json.Unmarshal(gr.Kvs[0].Value, &device)
+		if err != nil {
+			return "", false, err
+		}
+
+		device.Endpoint = endpoint
+
+		b, _ := json.Marshal(device)
+
+		return string(b), false, err
+	})
 }
 
 func GetDevice(username, id string) (device Device, err error) {
-	var (
-		endpoint sql.NullString
-	)
 
-	err = database.QueryRow(`SELECT 
-								* 
-							FROM 
-								Devices 
-							WHERE 
-								username = ? 
-									AND 
-								(address = $2 OR publickey = $2)`,
-		username, id).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts, &device.PresharedKey)
-
+	response, err := etcd.Get(context.Background(), deviceKey(username, id))
 	if err != nil {
 		return Device{}, err
 	}
 
-	if endpoint.Valid {
-		device.Endpoint = stringToUDPaddr(endpoint.String)
+	if response.Count == 0 {
+		return Device{}, errors.New("device was not found")
 	}
+
+	if len(response.Kvs) != 1 {
+		return Device{}, errors.New("user device has multiple keys")
+	}
+
+	err = json.Unmarshal(response.Kvs[0].Value, &device)
+
+	// TODO write custom marhaller
+	// if endpoint.Valid {
+	// 	device.Endpoint = stringToUDPaddr(endpoint.String)
+	// }
 
 	return
 }
 
 func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
-	_, err := database.Exec(`
-	UPDATE 
-		Devices
-	SET
-		attempts = ?
-	WHERE
-		address = ? AND username = ?
-	`, attempts, address, username)
+	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, bool, error) {
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("user device has multiple keys")
+		}
 
-	if err != nil {
-		return errors.New("Unable to set number of account attempts: " + err.Error())
-	}
+		var device Device
+		err := json.Unmarshal(gr.Kvs[0].Value, &device)
+		if err != nil {
+			return "", false, err
+		}
 
-	return nil
+		device.Attempts = attempts
+
+		b, _ := json.Marshal(device)
+
+		return string(b), false, err
+	})
 }
 
 func GetAllDevices() (devices []Device, err error) {
 
-	rows, err := database.Query("SELECT address, publickey, username, endpoint, attempts, preshared_key FROM Devices ORDER by ROWID DESC")
+	response, err := etcd.Get(context.Background(), "devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for rows.Next() {
-
-		var (
-			endpoint sql.NullString
-			d        Device
-		)
-		err = rows.Scan(&d.Address, &d.Publickey, &d.Username, &endpoint, &d.Attempts, &d.PresharedKey)
+	for _, res := range response.Kvs {
+		var device Device
+		err := json.Unmarshal(res.Value, &device)
 		if err != nil {
 			return nil, err
 		}
 
-		if endpoint.Valid {
-			d.Endpoint = stringToUDPaddr(endpoint.String)
-		}
-
-		devices = append(devices, d)
+		devices = append(devices, device)
 	}
 
 	return devices, nil
-
 }
 
 func AddDevice(username, address, publickey, preshared_key string) (Device, error) {
@@ -127,105 +144,142 @@ func AddDevice(username, address, publickey, preshared_key string) (Device, erro
 		return Device{}, errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
 	}
 
-	//Leaves enforcing null
-	_, err := database.Exec(`
-	INSERT INTO
-		Devices (address, username, publickey, preshared_key)
-	VALUES
-		(?, ?, ?, ?)
-`, address, username, publickey, preshared_key)
+	d := Device{
+		Address:      address,
+		Publickey:    publickey,
+		Username:     username,
+		PresharedKey: preshared_key,
+	}
 
-	return Device{
-		Address:   address,
-		Publickey: publickey,
-		Username:  username,
-	}, err
+	b, _ := json.Marshal(d)
+	key := deviceKey(username, address)
+
+	_, err := etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
+	if err != nil {
+		return Device{}, err
+	}
+
+	return d, err
+}
+
+func deviceKey(username, address string) string {
+	return fmt.Sprintf("devices-%s-%s", username, address)
 }
 
 func DeleteDevice(username, id string) error {
-	_, err := database.Exec(`
-		DELETE FROM
-			Devices
-		WHERE
-			username = ? AND 
-			(address = $2 OR publickey = $2)
-	`, username, id)
+
+	refKey := "deviceref-" + id
+
+	realKey, err := etcd.Get(context.Background(), refKey)
+	if err != nil {
+		return err
+	}
+
+	if realKey.Count == 0 {
+		return errors.New("no reference found")
+	}
+
+	deviceEntry, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	if err != nil {
+		return err
+	}
+
+	var d Device
+	err = json.Unmarshal(deviceEntry.Kvs[0].Value, &d)
+	if err != nil {
+		return err
+	}
+
+	otherReferenceKey := "deviceref-" + d.Publickey
+	if d.Publickey == id {
+		otherReferenceKey = "deviceref-" + d.Address
+	}
+
+	_, err = etcd.Txn(context.Background()).Then(clientv3.OpDelete(string(realKey.Kvs[0].Value)), clientv3.OpDelete(refKey), clientv3.OpDelete(otherReferenceKey)).Commit()
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
 func DeleteDevices(username string) error {
-	_, err := database.Exec(`
-		DELETE FROM
-			Devices
-		WHERE
-			username = ?
-	`, username)
+
+	// TODO delete references
+	_, err := etcd.Delete(context.Background(), fmt.Sprintf("device-%s-", username), clientv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
 func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
-	_, err := database.Exec(`
-		UPDATE
-			Devices
-		SET
-		    publickey = ?
-		WHERE
-			username = ? AND address = ?`, publicKey.String(), username, address)
-	return err
+
+	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, bool, error) {
+		if len(gr.Kvs) != 1 {
+			return "", false, errors.New("user device has multiple keys")
+		}
+
+		var device Device
+		err := json.Unmarshal(gr.Kvs[0].Value, &device)
+		if err != nil {
+			return "", false, err
+		}
+
+		device.Publickey = publicKey.String()
+
+		b, _ := json.Marshal(device)
+
+		return string(b), false, err
+	})
 }
 
 //CREATE TABLE Devices(address string primary key, username string not null, publickey string not null unique, endpoint string, attempts integer  DEFAULT 0 not null);
 
 func GetDeviceByAddress(address string) (device Device, err error) {
-	var (
-		endpoint sql.NullString
-	)
 
-	err = database.QueryRow(`SELECT 
-								* 
-							FROM 
-								Devices 
-							WHERE 
-								address = ?`,
-		address).Scan(&device.Address, &device.Username, &device.Publickey, &endpoint, &device.Attempts, &device.PresharedKey)
-
+	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
 	if err != nil {
 		return Device{}, err
 	}
 
-	if endpoint.Valid {
-		device.Endpoint = stringToUDPaddr(endpoint.String)
+	if len(realKey.Kvs) != 1 {
+		return Device{}, errors.New("incorrect number of keys for device reference")
 	}
+
+	response, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	if err != nil {
+		return Device{}, err
+	}
+
+	if len(response.Kvs) != 1 {
+		return Device{}, errors.New("user device has multiple keys")
+	}
+
+	err = json.Unmarshal(response.Kvs[0].Value, &device)
 
 	return
 }
 
 func GetDevicesByUser(username string) (devices []Device, err error) {
-	rows, err := database.Query(`SELECT * FROM Devices WHERE username = ?`, username)
+
+	response, err := etcd.Get(context.Background(), fmt.Sprintf("devices-%s-", username), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
 
-		var (
-			endpoint sql.NullString
-		)
-
-		var d Device
-		//Devices(address string primary key,
-		//username string not null, publickey string not null unique, endpoint string, attempts integer not null
-		err = rows.Scan(&d.Address, &d.Username, &d.Publickey, &endpoint, &d.Attempts, &d.PresharedKey)
+	for _, res := range response.Kvs {
+		var device Device
+		err := json.Unmarshal(res.Value, &device)
 		if err != nil {
 			return nil, err
 		}
 
-		if endpoint.Valid {
-			d.Endpoint = stringToUDPaddr(endpoint.String)
-		}
-
-		devices = append(devices, d)
+		devices = append(devices, device)
 	}
 
-	return devices, rows.Err()
+	return
 }

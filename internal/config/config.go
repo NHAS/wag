@@ -98,6 +98,12 @@ type Config struct {
 		Tunnel tunnelWeb
 	}
 
+	Clustering struct {
+		Name            string
+		ListenAddresses []string
+		Peers           map[string][]string
+	}
+
 	Authenticators struct {
 		DefaultMethod string `json:",omitempty"`
 		Issuer        string
@@ -505,6 +511,18 @@ func load(path string) (c Config, err error) {
 
 	if len(c.Authenticators.Issuer) == 0 {
 		return c, errors.New("no issuer specified")
+	}
+
+	if c.Clustering.Peers == nil {
+		c.Clustering.Peers = make(map[string][]string)
+	}
+
+	if c.Clustering.Name == "" {
+		c.Clustering.Name = "default"
+	}
+
+	if c.Clustering.ListenAddresses == nil {
+		c.Clustering.ListenAddresses = []string{"http://localhost:2380"}
 	}
 
 	if c.NAT == nil {
