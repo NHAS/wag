@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 var (
 	database               *sql.DB
 	etcd                   *clientv3.Client
+	etcdServer             *embed.Etcd
 	allowedTokenCharacters = regexp.MustCompile(`[a-zA-Z0-9\-\_\.]+`)
 )
 
@@ -87,17 +89,17 @@ func Load(path string) error {
 		cfg.InitialCluster += fmt.Sprintf("%s=%s", tag, strings.Join(addresses, ","))
 	}
 
-	cfg.Dir = config.Values().Clustering.Name + "wag-node.etcd"
-	e, err := embed.StartEtcd(cfg)
+	cfg.Dir = filepath.Join(config.Values().Clustering.DatabaseLocation, config.Values().Clustering.Name+".wag-node.etcd")
+	etcdServer, err = embed.StartEtcd(cfg)
 	if err != nil {
 		return err
 	}
 
 	select {
-	case <-e.Server.ReadyNotify():
+	case <-etcdServer.Server.ReadyNotify():
 		break
 	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
+		etcdServer.Server.Stop() // trigger a shutdown
 		return errors.New("etcd took too long to start")
 	}
 
@@ -214,8 +216,13 @@ func Load(path string) error {
 		log.Println("Migrated", len(tokens), "registration tokens")
 
 	}
-
 	return nil
+}
+
+func TearDown() {
+	if etcdServer != nil {
+		etcdServer.Close()
+	}
 }
 
 func doSafeUpdate(ctx context.Context, key string, prefix bool, mutateFunc func(*clientv3.GetResponse) (value string, onErrwrite bool, err error)) error {

@@ -99,9 +99,10 @@ type Config struct {
 	}
 
 	Clustering struct {
-		Name            string
-		ListenAddresses []string
-		Peers           map[string][]string
+		Name             string
+		ListenAddresses  []string
+		Peers            map[string][]string
+		DatabaseLocation string
 	}
 
 	Authenticators struct {

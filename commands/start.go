@@ -94,6 +94,7 @@ func (g *start) Check() error {
 }
 
 func (g *start) Run() error {
+	defer data.TearDown()
 
 	error := make(chan error)
 
