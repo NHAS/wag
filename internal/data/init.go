@@ -1,8 +1,10 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -74,7 +76,7 @@ func Load(path string) error {
 	cfg.InitialClusterToken = "wag-test"
 	cfg.LogLevel = "error"
 	cfg.ListenPeerUrls = parseUrls(config.Values().Clustering.ListenAddresses...)
-	cfg.ListenClientUrls = parseUrls(fmt.Sprintf("http://127.0.0.1:%d", 2480))
+	cfg.ListenClientUrls = parseUrls("http://127.0.0.1:2480")
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 
 	if _, ok := config.Values().Clustering.Peers[cfg.Name]; ok {
@@ -106,7 +108,7 @@ func Load(path string) error {
 	log.Println("Connecting to etcd")
 
 	etcd, err = clientv3.New(clientv3.Config{
-		Endpoints:   []string{"localhost:2480"},
+		Endpoints:   []string{"127.0.0.1:2480"},
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -216,12 +218,115 @@ func Load(path string) error {
 		log.Println("Migrated", len(tokens), "registration tokens")
 
 	}
+
+	response, err = etcd.Get(context.Background(), "wag-acls")
+	if err != nil {
+		return err
+	}
+
+	if len(response.Kvs) == 0 {
+		log.Println("no acls found in database, importing from .json file (from this point the json file will be ignored)")
+
+		for aclName, acl := range config.Values().Acls.Policies {
+			aclJson, _ := json.Marshal(acl)
+			_, err = etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	response, err = etcd.Get(context.Background(), "wag-groups")
+	if err != nil {
+		return err
+	}
+
+	if len(response.Kvs) == 0 {
+		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
+
+		for groupName, group := range config.Values().Acls.Groups {
+			groupJson, _ := json.Marshal(group)
+			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	response, err = etcd.Get(context.Background(), "wag-config")
+	if err != nil {
+		return err
+	}
+
+	if len(response.Kvs) == 0 {
+		log.Println("no config found in database, importing from .json file (from this point the json file will be ignored)")
+
+		groups, _ := json.Marshal(config.Values())
+		_, err = etcd.Put(context.Background(), "wag-config", string(groups))
+		if err != nil {
+			return err
+		}
+	}
+
+	go checkClusterHealth()
+	go watchEvents()
+
 	return nil
 }
 
 func TearDown() {
 	if etcdServer != nil {
 		etcdServer.Close()
+	}
+}
+
+func watchEvents() {
+	wc := etcd.Watch(context.Background(), "", clientv3.WithPrefix(), clientv3.WithCreatedNotify())
+	for watchEvent := range wc {
+
+		for _, event := range watchEvent.Events {
+
+			switch {
+			case bytes.HasPrefix(event.Kv.Key, []byte("devices-")):
+
+			case bytes.HasPrefix(event.Kv.Key, []byte("users-")):
+
+			default:
+				continue
+			}
+
+		}
+
+	}
+}
+
+func checkClusterHealth() {
+	startup := true
+	for {
+		leader := etcdServer.Server.Leader()
+		if leader == 0 {
+
+			if startup {
+				// When we first start up, make sure we wait for an election to either have occured, or is occuring before we check to make sure things are still up
+				time.Sleep(etcdServer.Server.Cfg.ElectionTimeout() * 2)
+				continue
+			}
+
+			select {
+			case <-etcdServer.Server.LeaderChangedNotify():
+				// Something has changed, so try and check whats going on
+				continue
+			case <-time.After(30 * time.Second):
+				// Do a random recheck just for fun
+				continue
+			case <-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2):
+				// Dead
+				log.Println("Cluster is no longer contactable. Shutting wag down and entering degraded state")
+
+			}
+		}
+
+		startup = false
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -120,7 +121,7 @@ func (g *genconfig) Run() error {
 		c.Wireguard.ListenPort = 5920
 
 		c.Acls.Groups = make(map[string][]string)
-		c.Acls.Policies = make(map[string]*config.Acl)
+		c.Acls.Policies = make(map[string]*acls.Acl)
 
 		fmt.Print("set vpn tunnel domain url (e.g https://vpn.test:8080, or empty which will disable oidc and webauthn authentication methods): ")
 		fmt.Scanf("%s", &c.Authenticators.DomainURL)

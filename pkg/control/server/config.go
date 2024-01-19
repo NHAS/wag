@@ -6,50 +6,11 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 )
-
-func aclReload() error {
-
-	errs := router.RefreshConfiguration()
-	if len(errs) > 0 {
-
-		return errs[0]
-	}
-
-	return nil
-}
-
-func configReload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
-	err := config.Reload()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	errs := router.RefreshConfiguration()
-	if len(errs) > 0 {
-		w.WriteHeader(500)
-		w.Header().Set("Content-Type", "text/plain")
-		for _, err := range errs {
-			if err != nil {
-				w.Write([]byte(err.Error() + "\n"))
-			}
-		}
-		return
-	}
-
-	log.Println("Config fully reloaded")
-
-	w.Write([]byte("OK!"))
-}
 
 func policies(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
@@ -95,12 +56,7 @@ func newPolicy(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := config.AddAcl(acl.Effects, config.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes}); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	if err := aclReload(); err != nil {
+	if err := data.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes}, false); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -116,25 +72,20 @@ func editPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var data control.PolicyData
+	var polciyData control.PolicyData
 
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&polciyData); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 
 	}
 
-	if err := config.EditAcl(data.Effects, config.Acl{Mfa: data.MfaRoutes, Allow: data.PublicRoutes}); err != nil {
+	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes}, true); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if err := aclReload(); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	log.Printf("policy '%s' edited", data.Effects)
+	log.Printf("policy '%s' edited", polciyData.Effects)
 
 	w.Write([]byte("OK!"))
 }
@@ -153,15 +104,10 @@ func deletePolicies(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, policyName := range policyNames {
-		if err := config.DeleteAcl(policyName); err != nil {
+		if err := data.RemoveAcl(policyName); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-	}
-
-	if err := aclReload(); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
 	}
 
 	log.Printf("policy '%s' deleted", policyNames)
@@ -204,25 +150,20 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var data control.GroupData
+	var gData control.GroupData
 
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&gData); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 
 	}
 
-	if err := config.AddGroup(data.Group, data.Members); err != nil {
+	if err := data.SetGroup(gData.Group, gData.Members, false); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if err := aclReload(); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	log.Printf("new group '%s' added", data.Group)
+	log.Printf("new group '%s' added", gData.Group)
 
 	w.Write([]byte("OK!"))
 }
@@ -233,25 +174,20 @@ func editGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var data control.GroupData
+	var gdata control.GroupData
 
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&gdata); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 
 	}
 
-	if err := config.EditGroup(data.Group, data.Members); err != nil {
+	if err := data.SetGroup(gdata.Group, gdata.Members, true); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if err := aclReload(); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	log.Printf("group '%s' edited", data.Group)
+	log.Printf("group '%s' edited", gdata.Group)
 
 	w.Write([]byte("OK!"))
 }
@@ -270,15 +206,10 @@ func deleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, groupName := range groupNames {
-		if err := config.DeleteGroup(groupName); err != nil {
+		if err := data.RemoveGroup(groupName); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
-	}
-
-	if err := aclReload(); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
 	}
 
 	log.Printf("group/s '%s' deleted", groupNames)

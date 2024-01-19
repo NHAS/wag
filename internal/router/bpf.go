@@ -14,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -283,7 +284,7 @@ func xdpAddDevice(username, address string) error {
 }
 
 // Takes the LPM table and associates a route to a policy
-func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls config.Acl) error {
+func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls acls.Acl) error {
 	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
 	if err != nil {
 		return err
@@ -315,7 +316,7 @@ func xdpUserExists(userid [20]byte) error {
 	return nil
 }
 
-func AddUser(username string, acls config.Acl) error {
+func AddUser(username string, acls acls.Acl) error {
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -334,21 +335,24 @@ func AddUser(username string, acls config.Acl) error {
 	return setSingleUserMap(userid, acls)
 }
 
-func setSingleUserMap(userid [20]byte, acls config.Acl) error {
+func setSingleUserMap(userid [20]byte, acls acls.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
-	policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
-	if err != nil {
-		return fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)
+
+	if _, ok := userPolicyMaps[userid]; !ok {
+		policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
+		if err != nil {
+			return fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)
+		}
+
+		err = xdpObjects.PoliciesTable.Put(userid, uint32(policiesInnerTable.FD()))
+		if err != nil {
+			return fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)
+		}
+
+		userPolicyMaps[userid] = policiesInnerTable
 	}
 
-	userPolicyMaps[userid] = policiesInnerTable
-
-	err = xdpObjects.PoliciesTable.Put(userid, uint32(policiesInnerTable.FD()))
-	if err != nil {
-		return fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)
-	}
-
-	if err := xdpAddRoute(policiesInnerTable, acls); err != nil {
+	if err := xdpAddRoute(userPolicyMaps[userid], acls); err != nil {
 		return err
 	}
 

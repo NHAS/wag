@@ -78,11 +78,6 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	address := r.FormValue("address")
-	err = router.Deauthenticate(address)
-	if err != nil {
-		http.Error(w, "not found in firewall: "+err.Error(), 404)
-		return
-	}
 
 	user, err := users.GetUserFromAddress(net.ParseIP(address))
 	if err != nil {

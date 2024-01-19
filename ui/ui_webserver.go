@@ -868,17 +868,17 @@ func general(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := config.SetHelpMail(general.HelpMail); err != nil {
+		if err := data.SetHelpMail(general.HelpMail); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
-		if err := config.SetExternalAddress(general.ExternalAddress); err != nil {
+		if err := data.SetExternalAddress(general.ExternalAddress); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
-		if err := config.SetDNS(general.DNS); err != nil {
+		if err := data.SetDNS(general.DNS); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -898,17 +898,17 @@ func general(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := config.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
+		if err := data.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
-		if err := config.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
+		if err := data.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 
-		if err := config.SetLockout(login.Lockout); err != nil {
+		if err := data.SetLockout(login.Lockout); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}

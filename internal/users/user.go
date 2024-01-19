@@ -24,20 +24,8 @@ func (u *user) ResetDeviceAuthAttempts(address string) error {
 
 func (u *user) ResetMfa() error {
 
-	devices, err := u.GetDevices()
-	if err != nil {
-		return err
-	}
-
-	for _, device := range devices {
-		err := router.Deauthenticate(device.Address)
-		if err != nil {
-			return err
-		}
-	}
-
 	// the MFA column is marked as "unique" so just set it as the username as that is also unique
-	err = data.SetUserMfa(u.Username, u.Username, authenticators.UnsetMFA)
+	err := data.SetUserMfa(u.Username, u.Username, authenticators.UnsetMFA)
 	if err != nil {
 		return err
 	}
@@ -51,16 +39,6 @@ func (u *user) SetDeviceAuthAttempts(address string, number int) error {
 
 func (u *user) SetDevicePublicKey(publickey, address string) (err error) {
 	key, err := wgtypes.ParseKey(publickey)
-	if err != nil {
-		return err
-	}
-
-	device, err := data.GetDeviceByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	err = router.ReplacePeer(device, key)
 	if err != nil {
 		return err
 	}
@@ -83,37 +61,12 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 
 func (u *user) AddDevice(publickey wgtypes.Key) (device data.Device, err error) {
 
-	address, psk, err := router.AddPeer(publickey, u.Username)
-	if err != nil {
-		return data.Device{}, err
-	}
-
-	return data.AddDevice(u.Username, address, publickey.String(), psk)
+	return //data.AddDevice(u.Username, address, publickey.String(), psk)
 }
 
 func (u *user) DeleteDevice(address string) (err error) {
 
-	device, err := data.GetDevice(u.Username, address)
-	if err != nil {
-		return err
-	}
-
-	var errStr string
-	err = router.RemovePeer(device.Publickey, address)
-	if err != nil {
-		errStr += err.Error()
-	}
-
-	err = data.DeleteDevice(u.Username, address)
-	if err != nil {
-		errStr += "" + err.Error()
-	}
-
-	if len(errStr) == 0 {
-		return nil
-	}
-
-	return errors.New(errStr)
+	return data.DeleteDevice(u.Username, address)
 }
 
 func (u *user) GetDevice(id string) (device data.Device, err error) {
@@ -127,17 +80,6 @@ func (u *user) GetDevices() (device []data.Device, err error) {
 func (u *user) Lock() error {
 	u.Locked = true
 
-	devices, err := u.GetDevices()
-	if err != nil {
-		return err
-	}
-
-	for _, device := range devices {
-		err := router.Deauthenticate(device.Address)
-		if err != nil {
-			return err
-		}
-	}
 	return data.SetUserLock(u.Username)
 }
 
@@ -159,24 +101,6 @@ func (u *user) IsEnforcingMFA() bool {
 }
 
 func (u *user) Delete() error {
-
-	devices, err := u.GetDevices()
-	if err != nil {
-		return err
-	}
-
-	for _, device := range devices {
-		err := router.RemovePeer(device.Publickey, device.Address)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = router.RemoveUser(u.Username)
-	if err != nil {
-		return err
-	}
-
 	return data.DeleteUser(u.Username)
 }
 
@@ -222,15 +146,7 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
-	err = router.RefreshUserAcls(u.Username)
-	if err != nil {
-		return fmt.Errorf("%s %s unable to refresh users acls: %s", u.Username, device, err)
-	}
-
-	err = router.SetAuthorized(device, u.Username)
-	if err != nil {
-		return fmt.Errorf("%s %s unable to add mfa routes: %s", u.Username, device, err)
-	}
+	// TODO gonna have to do an additional something here in order to send the statemachine a message we need to update the ebpf
 
 	return nil
 }
@@ -263,12 +179,6 @@ func CreateUser(username string) (user, error) {
 	if err != nil {
 		return user{}, err
 	}
-
-	err = router.AddUser(username, config.GetEffectiveAcl(username))
-	if err != nil {
-		return user{}, err
-	}
-
 	return user{ud.Username, ud.Locked, ud.Enforcing}, nil
 }
 

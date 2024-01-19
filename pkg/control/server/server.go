@@ -123,8 +123,6 @@ func StartControlSocket() error {
 
 	controlMux.HandleFunc("/firewall/list", firewallRules)
 
-	controlMux.HandleFunc("/config/full_reload", configReload)
-
 	controlMux.HandleFunc("/config/policies/list", policies)
 	controlMux.HandleFunc("/config/policy/edit", editPolicy)
 	controlMux.HandleFunc("/config/policy/create", newPolicy)

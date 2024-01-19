@@ -224,7 +224,12 @@ func DeleteDevices(username string) error {
 
 func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 
-	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, bool, error) {
+	beforeUpadte, err := GetDeviceByAddress(address)
+	if err != nil {
+		return err
+	}
+
+	err = doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, bool, error) {
 		if len(gr.Kvs) != 1 {
 			return "", false, errors.New("user device has multiple keys")
 		}
@@ -241,6 +246,14 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 
 		return string(b), false, err
 	})
+
+	if err != nil {
+		return err
+	}
+
+	_, err = etcd.Delete(context.Background(), "devicesref-"+beforeUpadte.Publickey)
+
+	return err
 }
 
 func GetDeviceByAddress(address string) (device Device, err error) {

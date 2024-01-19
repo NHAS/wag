@@ -11,12 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/pkg/control"
-	"github.com/NHAS/wag/pkg/fsops"
 	"github.com/NHAS/webauthn/webauthn"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -42,17 +41,11 @@ func (wb webserverDetails) SupportsTLS() bool {
 	return len(wb.CertPath) > 0 && len(wb.KeyPath) > 0
 }
 
-type Acl struct {
-	Mfa   []string `json:",omitempty"`
-	Allow []string `json:",omitempty"`
-	Deny  []string `json:",omitempty"`
-}
-
 type Acls struct {
 	Groups map[string][]string `json:",omitempty"`
 	//Username -> groups name
 	rGroupLookup map[string]map[string]bool
-	Policies     map[string]*Acl
+	Policies     map[string]*acls.Acl
 }
 
 func (a Acls) GetUserGroups(username string) (result []string) {
@@ -151,223 +144,6 @@ var (
 	values     Config
 )
 
-func SetDNS(entries []string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	newDnsServers, err := validateDns(entries)
-	if err != nil {
-		return err
-	}
-	values.Wireguard.DNS = newDnsServers
-
-	return save()
-}
-
-func SetSessionInactivityTimeoutMinutes(SessionInactivityTimeoutMinutes int) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	values.SessionInactivityTimeoutMinutes = SessionInactivityTimeoutMinutes
-
-	return save()
-}
-
-func SetSessionLifetimeMinutes(SessionLifetimeMinutes int) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	values.MaxSessionLifetimeMinutes = SessionLifetimeMinutes
-
-	return save()
-}
-
-func SetHelpMail(HelpMail string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	if HelpMail == "" {
-		return errors.New("help mail was not set")
-	}
-
-	values.HelpMail = HelpMail
-
-	return save()
-}
-
-func SetExternalAddress(ExternalAddress string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	if err := validExternalAddresses(ExternalAddress); err != nil {
-		return err
-	}
-
-	values.ExternalAddress = ExternalAddress
-
-	return save()
-}
-
-func SetLockout(lockout int) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	if values.Lockout <= 0 {
-		return errors.New("lockout cannot be less than or equal to 0")
-	}
-
-	values.Lockout = lockout
-
-	return save()
-}
-
-func AddAcl(effects string, Rule Acl) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	_, ok := values.Acls.Policies[effects]
-	if ok {
-		return fmt.Errorf("%s was already defined", effects)
-	}
-
-	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow, Rule.Deny)
-	if err != nil {
-		return fmt.Errorf("rules were invalid: %s", err)
-	}
-
-	values.Acls.Policies[effects] = &Rule
-
-	return save()
-}
-
-func EditAcl(effects string, Rule Acl) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	_, ok := values.Acls.Policies[effects]
-	if !ok {
-		return fmt.Errorf("%s acl was not defined", effects)
-	}
-
-	err := routetypes.ValidateRules(Rule.Mfa, Rule.Allow, Rule.Deny)
-	if err != nil {
-		return fmt.Errorf("rules were invalid: %s", err)
-	}
-
-	values.Acls.Policies[effects] = &Rule
-
-	return save()
-}
-
-func DeleteAcl(effects string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	_, ok := values.Acls.Policies[effects]
-	if !ok {
-		return fmt.Errorf("%s was not defined", effects)
-	}
-
-	delete(values.Acls.Policies, effects)
-
-	return save()
-}
-
-func AddGroup(group string, members []string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	if !strings.HasPrefix(group, "group:") {
-		return errors.New("group did not have group prefix")
-	}
-
-	_, ok := values.Acls.Groups[group]
-	if ok {
-		return fmt.Errorf("%s was already defined", group)
-	}
-
-	if values.Acls.Groups == nil {
-		values.Acls.Groups = make(map[string][]string)
-	}
-	values.Acls.Groups[group] = members
-
-	for _, member := range members {
-		if values.Acls.rGroupLookup[member] == nil {
-			values.Acls.rGroupLookup[member] = make(map[string]bool)
-		}
-
-		values.Acls.rGroupLookup[member][group] = true
-	}
-
-	return save()
-}
-
-func EditGroup(group string, newMembers []string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	members, ok := values.Acls.Groups[group]
-	if !ok {
-		return fmt.Errorf("%s was not defined", group)
-	}
-
-	for _, member := range members {
-		delete(values.Acls.rGroupLookup[member], group)
-	}
-
-	values.Acls.Groups[group] = newMembers
-
-	for _, member := range newMembers {
-		if values.Acls.rGroupLookup[member] == nil {
-			values.Acls.rGroupLookup[member] = make(map[string]bool)
-		}
-
-		values.Acls.rGroupLookup[member][group] = true
-	}
-
-	return save()
-}
-
-func DeleteGroup(group string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	members, ok := values.Acls.Groups[group]
-	if !ok {
-		return fmt.Errorf("%s not defined", group)
-	}
-
-	if group == "*" {
-		return fmt.Errorf("cannot delete default group")
-	}
-
-	delete(values.Acls.Groups, group)
-
-	for _, member := range members {
-		delete(values.Acls.rGroupLookup[member], group)
-	}
-
-	return save()
-}
-
-func save() error {
-
-	backupPath := time.Now().Format("20060102150405") + "_config_backup.json.bak"
-	err := fsops.CopyFile(values.path, backupPath)
-	if err != nil {
-		return errors.New("could not create backup of config, cannot save current: " + err.Error())
-	}
-
-	val, err := json.MarshalIndent(values, "", "    ")
-	if err != nil {
-		return err
-	}
-
-	fs, _ := os.Stat(values.path)
-
-	return os.WriteFile(values.path, val, fs.Mode())
-}
-
 func Values() Config {
 	valuesLock.RLock()
 	defer valuesLock.RUnlock()
@@ -376,11 +152,11 @@ func Values() Config {
 	return v
 }
 
-func GetEffectiveAcl(username string) Acl {
+func GetEffectiveAcl(username string) acls.Acl {
 	valuesLock.RLock()
 	defer valuesLock.RUnlock()
 
-	var resultingACLs Acl
+	var resultingACLs acls.Acl
 	//Add the server address by default
 	resultingACLs.Allow = []string{values.Wireguard.ServerAddress.String() + "/32"}
 
@@ -791,21 +567,6 @@ func Load(path string) error {
 
 	values = newConfig
 	values.path = path
-
-	return nil
-}
-
-func Reload() error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	previousPath := values.path
-	newConfig, err := load(values.path)
-	if err != nil {
-		return errors.New("Failed to reload configuration file: " + err.Error())
-	}
-	values = newConfig
-	values.path = previousPath
 
 	return nil
 }

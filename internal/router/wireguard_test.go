@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/mdlayher/netlink"
@@ -84,7 +85,7 @@ func TestWgAddRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = AddUser("toaster", config.Acl{})
+	err = AddUser("toaster", acls.Acl{})
 	if err != nil {
 		t.Fatal(err)
 	}
