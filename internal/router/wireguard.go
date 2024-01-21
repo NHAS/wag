@@ -1,12 +1,10 @@
 package router
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"time"
 	"unsafe"
 
@@ -14,8 +12,6 @@ import (
 	"github.com/NHAS/wag/internal/data"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
-
-	"github.com/NHAS/wag/internal/utils"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -50,7 +46,7 @@ func (msg *IfAddrmsg) Serialize() []byte {
 	return (*(*[unix.SizeofIfAddrmsg]byte)(unsafe.Pointer(msg)))[:]
 }
 
-func setupWireguard() error {
+func setupWireguard(devices []data.Device) error {
 
 	var c wgtypes.Config
 
@@ -83,11 +79,6 @@ func setupWireguard() error {
 		c.ListenPort = &port
 	}
 
-	devices, err := data.GetAllDevices()
-	if err != nil {
-		return errors.New("setup wireguard get all devices: " + err.Error())
-	}
-
 	for _, device := range devices {
 		pk, _ := wgtypes.ParseKey(device.Publickey)
 		var psk *wgtypes.Key = nil
@@ -114,6 +105,7 @@ func setupWireguard() error {
 		c.Peers = append(c.Peers, pc)
 	}
 
+	var err error
 	ctrl, err = wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("cannot start wireguard control %v", err)
@@ -149,6 +141,10 @@ func RemovePeer(publickey, address string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
+	return _removePeer(publickey, address)
+}
+
+func _removePeer(publickey, address string) error {
 	pubkey, err := wgtypes.ParseKey(publickey)
 	if err != nil {
 		return err
@@ -171,6 +167,11 @@ func RemovePeer(publickey, address string) error {
 	if err2 != nil {
 		return err1
 	}
+
+	user := addressesToUsers[address]
+	addr := usersToAddresses[user]
+	delete(addr, address)
+	usersToAddresses[user] = addr
 
 	return nil
 }
@@ -211,8 +212,16 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 		},
 	}
 
-	return ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
 
+	addresses := usersToAddresses[device.Username]
+	addresses[device.Address] = newPublicKey.String()
+	usersToAddresses[device.Username] = addresses
+
+	return nil
 }
 
 func ListPeers() ([]wgtypes.Peer, error) {
@@ -229,46 +238,19 @@ func ListPeers() ([]wgtypes.Peer, error) {
 }
 
 // AddPeer adds the device to wireguard
-func AddPeer(public wgtypes.Key, username string) (address string, psk string, err error) {
+func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err error) {
 
 	lock.Lock()
 	defer lock.Unlock()
 
-	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
+	preshared_key, err := wgtypes.ParseKey(presharedKey)
 	if err != nil {
-		return "", "", err
+		return err
 	}
 
-	preshared_key, err := wgtypes.GenerateKey()
+	_, network, err := net.ParseCIDR(addresss + "/32")
 	if err != nil {
-		return "", "", err
-	}
-
-	//Poor selection algorithm
-	//If we dont have any peers take the server tun address and increment that
-	newAddress := net.ParseIP(config.Values().Wireguard.ServerAddress.String())
-	if len(dev.Peers) > 0 {
-		addresses := make([]net.IP, 0, len(dev.Peers))
-		for _, peer := range dev.Peers {
-			addresses = append(addresses, net.ParseIP(utils.GetIP(peer.AllowedIPs[0].IP.String())))
-		}
-
-		// Find the last added address
-		sort.Slice(addresses, func(i, j int) bool {
-			return bytes.Compare(addresses[i], addresses[j]) < 0
-		})
-
-		newAddress = addresses[len(addresses)-1]
-	}
-
-	newAddress, err = incrementIP(newAddress.String(), config.Values().Wireguard.Range.String())
-	if err != nil {
-		return "", "", err
-	}
-
-	_, network, err := net.ParseCIDR(newAddress.String() + "/32")
-	if err != nil {
-		return "", "", err
+		return err
 	}
 
 	var c wgtypes.Config
@@ -281,13 +263,27 @@ func AddPeer(public wgtypes.Key, username string) (address string, psk string, e
 		},
 	}
 
-	err = xdpAddDevice(username, newAddress.String())
+	err = xdpAddDevice(username, addresss)
 	if err != nil {
 
-		return "", "", err
+		return err
 	}
 
-	return newAddress.String(), preshared_key.String(), ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
+
+	addressesMap, ok := usersToAddresses[username]
+	if !ok {
+		addressesMap = make(map[string]string)
+	}
+
+	addressesMap[addresss] = public.String()
+	usersToAddresses[username] = addressesMap
+	addressesToUsers[addresss] = username
+
+	return nil
 }
 
 func GetPeerRealIp(address string) (string, error) {
@@ -303,24 +299,6 @@ func GetPeerRealIp(address string) (string, error) {
 	}
 
 	return "", errors.New("not found")
-}
-
-func incrementIP(origIP, cidr string) (net.IP, error) {
-	ip := net.ParseIP(origIP)
-	_, ipNet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return ip, err
-	}
-	for i := len(ip) - 1; i >= 0; i-- {
-		ip[i]++
-		if ip[i] != 0 {
-			break
-		}
-	}
-	if !ipNet.Contains(ip) {
-		return ip, fmt.Errorf("overflowed CIDR while incrementing IP (ip: %s range: %s)", ip.String(), ipNet.String())
-	}
-	return ip, nil
 }
 
 func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {

@@ -450,7 +450,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	acl := config.GetEffectiveAcl(username)
+	acl := data.GetEffectiveAcl(username)
 
 	wgPublicKey, wgPort, err := router.ServerDetails()
 	if err != nil {
@@ -644,7 +644,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl := config.GetEffectiveAcl(user.Username)
+	acl := data.GetEffectiveAcl(user.Username)
 
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "application/json")

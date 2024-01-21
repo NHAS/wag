@@ -94,11 +94,14 @@ func (g *start) Check() error {
 }
 
 func (g *start) Run() error {
-	defer data.TearDown()
 
+	var err error
+	defer func() {
+		data.TearDown()
+	}()
 	error := make(chan error)
 
-	err := router.Setup(error, !g.noIptables)
+	err = router.Setup(error, !g.noIptables)
 	if err != nil {
 		return fmt.Errorf("unable to start router: %v", err)
 	}

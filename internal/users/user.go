@@ -7,7 +7,6 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -61,7 +60,7 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 
 func (u *user) AddDevice(publickey wgtypes.Key) (device data.Device, err error) {
 
-	return //data.AddDevice(u.Username, address, publickey.String(), psk)
+	return data.AddDevice(u.Username, publickey.String())
 }
 
 func (u *user) DeleteDevice(address string) (err error) {
@@ -146,13 +145,18 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
+	err = data.AuthoriseDevice(u.Username, device)
+	if err != nil {
+		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
+	}
+
 	// TODO gonna have to do an additional something here in order to send the statemachine a message we need to update the ebpf
 
 	return nil
 }
 
 func (u *user) Deauthenticate(device string) error {
-	return router.Deauthenticate(device)
+	return data.DeauthenticateDevice(device)
 }
 
 func (u *user) MFA() (string, error) {

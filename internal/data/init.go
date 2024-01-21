@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -74,7 +73,7 @@ func Load(path string) error {
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values().Clustering.Name
 	cfg.InitialClusterToken = "wag-test"
-	cfg.LogLevel = "error"
+	cfg.LogLevel = config.Values().Clustering.ETCDLogLevel
 	cfg.ListenPeerUrls = parseUrls(config.Values().Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = parseUrls("http://127.0.0.1:2480")
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
@@ -105,6 +104,7 @@ func Load(path string) error {
 		return errors.New("etcd took too long to start")
 	}
 
+	log.Println("etcd server started!")
 	log.Println("Connecting to etcd")
 
 	etcd, err = clientv3.New(clientv3.Config{
@@ -114,6 +114,8 @@ func Load(path string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Println("Successfully connected to etcd")
 
 	response, err := etcd.Get(context.Background(), "wag-migrated-sql")
 	if err != nil {
@@ -130,7 +132,7 @@ func Load(path string) error {
 		}
 
 		for _, device := range devices {
-			_, err := AddDevice(device.Username, device.Address, device.Publickey, device.PresharedKey)
+			_, err := SetDevice(device.Username, device.Address, device.Publickey, device.PresharedKey)
 			if err != nil {
 				return err
 			}
@@ -219,7 +221,7 @@ func Load(path string) error {
 
 	}
 
-	response, err = etcd.Get(context.Background(), "wag-acls")
+	response, err = etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -236,7 +238,7 @@ func Load(path string) error {
 		}
 	}
 
-	response, err = etcd.Get(context.Background(), "wag-groups")
+	response, err = etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -244,13 +246,31 @@ func Load(path string) error {
 	if len(response.Kvs) == 0 {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
-		for groupName, group := range config.Values().Acls.Groups {
-			groupJson, _ := json.Marshal(group)
+		// User to groups
+		rGroupLookup := map[string]map[string]bool{}
+
+		for groupName, members := range config.Values().Acls.Groups {
+			groupJson, _ := json.Marshal(members)
 			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
 			if err != nil {
 				return err
 			}
+
+			for _, user := range members {
+				if rGroupLookup[user] == nil {
+					rGroupLookup[user] = make(map[string]bool)
+				}
+
+				rGroupLookup[user][groupName] = true
+			}
 		}
+
+		reverseMappingJson, _ := json.Marshal(rGroupLookup)
+		_, err = etcd.Put(context.Background(), "wag-membership", string(reverseMappingJson))
+		if err != nil {
+			return err
+		}
+
 	}
 
 	response, err = etcd.Get(context.Background(), "wag-config")
@@ -261,8 +281,8 @@ func Load(path string) error {
 	if len(response.Kvs) == 0 {
 		log.Println("no config found in database, importing from .json file (from this point the json file will be ignored)")
 
-		groups, _ := json.Marshal(config.Values())
-		_, err = etcd.Put(context.Background(), "wag-config", string(groups))
+		configData, _ := json.Marshal(config.Values())
+		_, err = etcd.Put(context.Background(), "wag-config", string(configData))
 		if err != nil {
 			return err
 		}
@@ -276,66 +296,14 @@ func Load(path string) error {
 
 func TearDown() {
 	if etcdServer != nil {
+		log.Println("Tearing down server")
 		etcdServer.Close()
 	}
 }
 
-func watchEvents() {
-	wc := etcd.Watch(context.Background(), "", clientv3.WithPrefix(), clientv3.WithCreatedNotify())
-	for watchEvent := range wc {
-
-		for _, event := range watchEvent.Events {
-
-			switch {
-			case bytes.HasPrefix(event.Kv.Key, []byte("devices-")):
-
-			case bytes.HasPrefix(event.Kv.Key, []byte("users-")):
-
-			default:
-				continue
-			}
-
-		}
-
-	}
-}
-
-func checkClusterHealth() {
-	startup := true
-	for {
-		leader := etcdServer.Server.Leader()
-		if leader == 0 {
-
-			if startup {
-				// When we first start up, make sure we wait for an election to either have occured, or is occuring before we check to make sure things are still up
-				time.Sleep(etcdServer.Server.Cfg.ElectionTimeout() * 2)
-				continue
-			}
-
-			select {
-			case <-etcdServer.Server.LeaderChangedNotify():
-				// Something has changed, so try and check whats going on
-				continue
-			case <-time.After(30 * time.Second):
-				// Do a random recheck just for fun
-				continue
-			case <-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2):
-				// Dead
-				log.Println("Cluster is no longer contactable. Shutting wag down and entering degraded state")
-
-			}
-		}
-
-		startup = false
-	}
-}
-
-func doSafeUpdate(ctx context.Context, key string, prefix bool, mutateFunc func(*clientv3.GetResponse) (value string, onErrwrite bool, err error)) error {
+func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.GetResponse) (value string, onErrwrite bool, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
 	opts := []clientv3.OpOption{}
-	if prefix {
-		opts = append(opts, clientv3.WithPrefix())
-	}
 
 	if mutateFunc == nil {
 		return errors.New("no mutate function set in safe update")
@@ -376,4 +344,37 @@ func doSafeUpdate(ctx context.Context, key string, prefix bool, mutateFunc func(
 
 		return err
 	}
+}
+
+func GetInitialData() (users []UserModel, devices []Device, err error) {
+	txn := etcd.Txn(context.Background())
+	txn.Then(clientv3.OpGet("users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
+		clientv3.OpGet("devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
+
+	resp, err := txn.Commit()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, res := range resp.Responses[0].GetResponseRange().Kvs {
+		var user UserModel
+		err := json.Unmarshal(res.Value, &user)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	for _, res := range resp.Responses[1].GetResponseRange().Kvs {
+		var device Device
+		err := json.Unmarshal(res.Value, &device)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		devices = append(devices, device)
+	}
+
+	return
 }

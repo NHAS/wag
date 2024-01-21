@@ -52,12 +52,16 @@ var (
 		// Added in linux 5.10.
 		Flags: unix.BPF_F_NO_PREALLOC,
 
-		// We set this to 200 now, but this inner map spec gets copied
+		// We set this to 1024 now, but this inner map spec gets copied
 		// and altered later.
 		MaxEntries: 1024,
 	}
 
 	userPolicyMaps = map[[20]byte]*ebpf.Map{}
+
+	// Pain
+	usersToAddresses = map[string]map[string]string{}
+	addressesToUsers = map[string]string{}
 )
 
 type Timespec struct {
@@ -139,7 +143,7 @@ func attachXDP() error {
 	return nil
 }
 
-func setupXDP() error {
+func setupXDP(users []data.UserModel, knownDevices []data.Device) error {
 
 	if err := loadXDP(); err != nil {
 		return err
@@ -147,16 +151,6 @@ func setupXDP() error {
 
 	if err := attachXDP(); err != nil {
 		return err
-	}
-
-	users, err := data.GetAllUsers()
-	if err != nil {
-		return errors.New("xdp setup get all users: " + err.Error())
-	}
-
-	knownDevices, err := data.GetAllDevices()
-	if err != nil {
-		return errors.New("xdp setup get all devices: " + err.Error())
 	}
 
 	errs := bulkCreateUserMaps(users)
@@ -283,6 +277,27 @@ func xdpAddDevice(username, address string) error {
 	return xdpObjects.Devices.Put(ip.To4(), deviceStruct.Bytes())
 }
 
+func SetLockAccount(username string, locked uint32) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	userid := sha1.Sum([]byte(username))
+
+	for address := range usersToAddresses[username] {
+		err := _deauthenticate(address)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	err := xdpObjects.AccountLocked.Put(userid, &locked)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Takes the LPM table and associates a route to a policy
 func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls acls.Acl) error {
 	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
@@ -332,7 +347,14 @@ func AddUser(username string, acls acls.Acl) error {
 		return err
 	}
 
-	return setSingleUserMap(userid, acls)
+	err = setSingleUserMap(userid, acls)
+	if err != nil {
+		return err
+	}
+
+	usersToAddresses[username] = make(map[string]string)
+
+	return nil
 }
 
 func setSingleUserMap(userid [20]byte, acls acls.Acl) error {
@@ -381,7 +403,7 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 		// This speeds up things like refresh acls, but not wag start up
 		if policiesInnerTable, ok := userPolicyMaps[userid]; ok {
 
-			err := xdpAddRoute(policiesInnerTable, config.GetEffectiveAcl(user.Username))
+			err := xdpAddRoute(policiesInnerTable, data.GetEffectiveAcl(user.Username))
 
 			if err != nil {
 				errors = append(errors, err)
@@ -427,7 +449,7 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 	}
 
 	for username, m := range maps {
-		err := xdpAddRoute(m, config.GetEffectiveAcl(username))
+		err := xdpAddRoute(m, data.GetEffectiveAcl(username))
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -454,6 +476,13 @@ func RemoveUser(username string) error {
 	}
 
 	delete(userPolicyMaps, userid)
+
+	for address, publicKey := range usersToAddresses[username] {
+		err = _removePeer(publicKey, address)
+		if err != nil {
+			log.Println("unable to remove peer: ", err)
+		}
+	}
 
 	return nil
 }
@@ -490,7 +519,7 @@ func RefreshUserAcls(username string) error {
 
 	userid := sha1.Sum([]byte(username))
 
-	acls := config.GetEffectiveAcl(username)
+	acls := data.GetEffectiveAcl(username)
 
 	return setSingleUserMap(userid, acls)
 }
@@ -520,6 +549,27 @@ func SetAuthorized(internalAddress, username string) error {
 
 func Deauthenticate(address string) error {
 
+	lock.Lock()
+	defer lock.Unlock()
+
+	return _deauthenticate(address)
+}
+
+func DeauthenticateAllDevices(username string) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	for address := range usersToAddresses[username] {
+		err := _deauthenticate(address)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func _deauthenticate(address string) error {
 	ip := net.ParseIP(address)
 	if ip == nil {
 		return errors.New("Unable to get IP address from: " + address)
@@ -528,9 +578,6 @@ func Deauthenticate(address string) error {
 	if ip.To4() == nil {
 		return errors.New("IP address was not ipv4")
 	}
-
-	lock.Lock()
-	defer lock.Unlock()
 
 	deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
 	if err != nil {

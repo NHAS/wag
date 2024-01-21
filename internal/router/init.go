@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -18,7 +19,12 @@ var lock sync.RWMutex
 
 func Setup(error chan<- error, iptables bool) (err error) {
 
-	err = setupWireguard()
+	initialUsers, knownDevices, err := data.GetInitialData()
+	if err != nil {
+		return errors.New("xdp setup get all users and devices: " + err.Error())
+	}
+
+	err = setupWireguard(knownDevices)
 	if err != nil {
 		return err
 	}
@@ -36,10 +42,12 @@ func Setup(error chan<- error, iptables bool) (err error) {
 		}
 	}()
 
-	err = setupXDP()
+	err = setupXDP(initialUsers, knownDevices)
 	if err != nil {
 		return err
 	}
+
+	handleEvents()
 
 	go func() {
 		startup := true

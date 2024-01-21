@@ -96,6 +96,7 @@ type Config struct {
 		ListenAddresses  []string
 		Peers            map[string][]string
 		DatabaseLocation string
+		ETCDLogLevel     string
 	}
 
 	Authenticators struct {
@@ -150,44 +151,6 @@ func Values() Config {
 
 	v := values
 	return v
-}
-
-func GetEffectiveAcl(username string) acls.Acl {
-	valuesLock.RLock()
-	defer valuesLock.RUnlock()
-
-	var resultingACLs acls.Acl
-	//Add the server address by default
-	resultingACLs.Allow = []string{values.Wireguard.ServerAddress.String() + "/32"}
-
-	// Add dns servers if defined
-	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	// Restrict dns servers to only having 53/any by default as per #49
-	for _, server := range values.Wireguard.DNS {
-		resultingACLs.Allow = append(resultingACLs.Allow, fmt.Sprintf("%s 53/any", server))
-	}
-
-	if allPolicy, ok := values.Acls.Policies["*"]; ok {
-		resultingACLs.Allow = append(resultingACLs.Allow, allPolicy.Allow...)
-		resultingACLs.Mfa = append(resultingACLs.Mfa, allPolicy.Mfa...)
-	}
-
-	//If the user has any user specific rules, add those
-	if acl, ok := values.Acls.Policies[username]; ok {
-		resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
-		resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
-	}
-
-	//This may get expensive if the user belongs to a large number of
-	for group := range values.Acls.rGroupLookup[username] {
-		//If the user belongs to a series of groups, grab those, and add their rules
-		if acl, ok := values.Acls.Policies[group]; ok {
-			resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
-			resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
-		}
-	}
-
-	return resultingACLs
 }
 
 // Used in authentication methods that can specify user groups directly (for the moment just oidc)

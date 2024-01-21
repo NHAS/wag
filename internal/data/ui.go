@@ -80,7 +80,7 @@ func CompareAdminKeys(username, password string) error {
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	err := doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
+	err := doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
 
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -121,7 +121,7 @@ func CompareAdminKeys(username, password string) error {
 // Lock admin account and make them unable to login
 func SetAdminUserLock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -141,7 +141,7 @@ func SetAdminUserLock(username string) error {
 // Unlock admin account
 func SetAdminUserUnlock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -215,7 +215,7 @@ func SetAdminPassword(username, password string) error {
 
 	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", false, errors.New("invalid number of admin users")
@@ -239,7 +239,7 @@ func SetAdminPassword(username, password string) error {
 }
 
 func setAdminHash(username, hash string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", false, errors.New("invalid number of admin users")
@@ -262,7 +262,7 @@ func setAdminHash(username, hash string) error {
 }
 
 func SetLastLoginInformation(username, ip string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", false, errors.New("invalid number of admin users")
