@@ -168,7 +168,7 @@ func makeBasicEvent[T any](event *clientv3.Event) (BasicEvent[T], error) {
 
 	value := event.Kv.Value
 	if event.Type == clientv3.EventTypeDelete {
-		if event.PrevKv != nil {
+		if event.PrevKv == nil {
 			return BasicEvent[T]{}, fmt.Errorf("key was deleted and has no previous state: %s", event.Kv.Key)
 		}
 		value = event.PrevKv.Value
