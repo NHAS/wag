@@ -89,7 +89,7 @@ func GetGroups() (result []control.GroupData, err error) {
 		})
 	}
 
-	return nil, nil
+	return
 }
 
 func RemoveGroup(groupName string) error {

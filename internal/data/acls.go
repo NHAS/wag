@@ -62,7 +62,7 @@ func GetPolicies() (result []control.PolicyData, err error) {
 		})
 	}
 
-	return nil, nil
+	return
 }
 
 func RemoveAcl(effects string) error {
