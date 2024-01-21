@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -165,7 +166,16 @@ func watchEvents() {
 
 func makeBasicEvent[T any](event *clientv3.Event) (BasicEvent[T], error) {
 	var d T
-	err := json.Unmarshal(event.Kv.Value, &d)
+
+	value := event.Kv.Value
+	if event.Type == clientv3.EventTypeDelete {
+		if event.PrevKv != nil {
+			return BasicEvent[T]{}, fmt.Errorf("key was deleted and has no previous state: %s", event.Kv.Key)
+		}
+		value = event.PrevKv.Value
+	}
+
+	err := json.Unmarshal(value, &d)
 	if err != nil {
 		return BasicEvent[T]{}, err
 	}
