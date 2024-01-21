@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/NHAS/wag/internal/acls"
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -45,7 +44,13 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 			}
 		}
 
-		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > config.Values().Lockout) || // If the number of authentication attempts on a device has exceeded the max
+		lockout, err := data.GetLockout()
+		if err != nil {
+			log.Println("cannot get lockout:", err)
+			return
+		}
+
+		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
 			device.CurrentValue.Endpoint.String() != device.Previous.Endpoint.String() || // If the client ip has changed
 			device.CurrentValue.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(device.CurrentValue.Address)
@@ -57,7 +62,7 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 		if device.CurrentValue.Authorised != device.Previous.Authorised {
 			log.Println("authorisation state changed on device")
 
-			if !device.CurrentValue.Authorised.IsZero() && device.CurrentValue.Attempts <= config.Values().Lockout {
+			if !device.CurrentValue.Authorised.IsZero() && device.CurrentValue.Attempts <= lockout {
 
 				log.Println("authorising device")
 				err := SetAuthorized(device.CurrentValue.Address, device.CurrentValue.Username)

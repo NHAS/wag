@@ -75,15 +75,8 @@ func GetEffectiveAcl(username string) acls.Acl {
 	//Add the server address by default
 	resultingACLs.Allow = []string{config.Values().Wireguard.ServerAddress.String() + "/32"}
 
-	// Add dns servers if defined
-	// Make sure we resolve the dns servers in case someone added them as domains, so that clients dont get stuck trying to use the domain dns servers to look up the dns servers
-	// Restrict dns servers to only having 53/any by default as per #49
-	for _, server := range config.Values().Wireguard.DNS {
-		resultingACLs.Allow = append(resultingACLs.Allow, fmt.Sprintf("%s 53/any", server))
-	}
-
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet("wag-membership"))
+	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet("wag-membership"), clientv3.OpGet(dnsKey))
 	resp, err := txn.Commit()
 	if err != nil {
 		return acls.Acl{}
@@ -147,6 +140,19 @@ func GetEffectiveAcl(username string) acls.Acl {
 				}
 			}
 
+		}
+	}
+
+	// Add dns servers if defined
+	// Restrict dns servers to only having 53/any by default as per #49
+	if resp.Responses[3].GetResponseRange().GetCount() != 0 {
+
+		var dns []string
+		err = json.Unmarshal(resp.Responses[3].GetResponseRange().Kvs[0].Value, &dns)
+		if err == nil {
+			for _, server := range dns {
+				resultingACLs.Allow = append(resultingACLs.Allow, fmt.Sprintf("%s 53/any", server))
+			}
 		}
 	}
 

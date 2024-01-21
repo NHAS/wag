@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -117,7 +116,12 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return err
 	}
 
-	if attempts > config.Values().Lockout {
+	lockout, err := data.GetLockout()
+	if err != nil {
+		return err
+	}
+
+	if attempts > lockout {
 		return errors.New("device is locked")
 	}
 

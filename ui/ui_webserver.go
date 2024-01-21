@@ -160,7 +160,15 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lockout := config.Values().Lockout
+	lockout, err := data.GetLockout()
+	if err != nil {
+		log.Println("error getting lockout: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		renderDefaults(w, r, nil, "error.html")
+		return
+	}
+
 	lockedDevices := 0
 	activeSessions := 0
 	for _, d := range allDevices {
@@ -625,7 +633,14 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 
-			c := config.Values()
+			datastoreSettings, err := data.GetAllSettings()
+			if err != nil {
+				log.Println("could not get settings from datastore: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				renderDefaults(w, r, nil, "error.html")
+				return
+			}
 
 			d := GeneralSettings{
 				Page: Page{
@@ -636,20 +651,20 @@ func StartWebServer(errs chan<- error) error {
 					WagVersion:  WagVersion,
 				},
 
-				ExternalAddress:          c.ExternalAddress,
-				Lockout:                  c.Lockout,
-				Issuer:                   c.Authenticators.Issuer,
-				Domain:                   c.Authenticators.DomainURL,
-				InactivityTimeoutMinutes: c.SessionInactivityTimeoutMinutes,
-				SessionLifeTimeMinutes:   c.MaxSessionLifetimeMinutes,
-				HelpMail:                 c.HelpMail,
-				DNS:                      strings.Join(c.Wireguard.DNS, "\n"),
+				ExternalAddress:          datastoreSettings.ExternalAddress,
+				Lockout:                  datastoreSettings.Lockout,
+				Issuer:                   datastoreSettings.Issuer,
+				Domain:                   datastoreSettings.Domain,
+				InactivityTimeoutMinutes: datastoreSettings.SessionInactivityTimeoutMinutes,
+				SessionLifeTimeMinutes:   datastoreSettings.MaxSessionLifetimeMinutes,
+				HelpMail:                 datastoreSettings.HelpMail,
+				DNS:                      strings.Join(datastoreSettings.DNS, "\n"),
 				TotpEnabled:              true,
 				OidcEnabled:              false,
 				WebauthnEnabled:          false,
 			}
 
-			err := renderDefaults(w, r, d, "settings/general.html")
+			err = renderDefaults(w, r, d, "settings/general.html")
 			if err != nil {
 				log.Println("unable to render general: ", err)
 
@@ -1284,9 +1299,16 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := []DevicesData{}
+		lockout, err := data.GetLockout()
+		if err != nil {
+			log.Println("error getting lockout: ", err)
 
-		lockout := config.Values().Lockout
+			w.WriteHeader(http.StatusInternalServerError)
+			renderDefaults(w, r, nil, "error.html")
+			return
+		}
+
+		data := []DevicesData{}
 
 		for _, dev := range allDevices {
 			data = append(data, DevicesData{

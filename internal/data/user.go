@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/NHAS/wag/internal/config"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -37,7 +36,12 @@ func IncrementAuthenticationAttempt(username, device string) error {
 			return "", false, err
 		}
 
-		if userDevice.Attempts < config.Values().Lockout {
+		l, err := GetLockout()
+		if err != nil {
+			return "", false, err
+		}
+
+		if userDevice.Attempts < l {
 			userDevice.Attempts++
 		}
 

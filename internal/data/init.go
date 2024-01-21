@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/wag/pkg/fsops"
 	_ "github.com/mattn/go-sqlite3"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
@@ -117,6 +118,143 @@ func Load(path string) error {
 
 	log.Println("Successfully connected to etcd")
 
+	// This will be kept for 2 major releases with reduced support.
+	// It is a no-op if a migration has already taken place
+	err = migrateFromSql()
+	if err != nil {
+		return err
+	}
+
+	// This will stay, so that the config can be used to easily spin up a new wag instance.
+	// After first run this will be a no-op
+	err = loadInitialSettings()
+	if err != nil {
+		return err
+	}
+
+	go checkClusterHealth()
+	go watchEvents()
+
+	return nil
+}
+
+func loadInitialSettings() error {
+	response, err := etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+
+	if len(response.Kvs) == 0 {
+		log.Println("no acls found in database, importing from .json file (from this point the json file will be ignored)")
+
+		for aclName, acl := range config.Values().Acls.Policies {
+			aclJson, _ := json.Marshal(acl)
+			_, err = etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	response, err = etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+
+	if len(response.Kvs) == 0 {
+		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
+
+		// User to groups
+		rGroupLookup := map[string]map[string]bool{}
+
+		for groupName, members := range config.Values().Acls.Groups {
+			groupJson, _ := json.Marshal(members)
+			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
+			if err != nil {
+				return err
+			}
+
+			for _, user := range members {
+				if rGroupLookup[user] == nil {
+					rGroupLookup[user] = make(map[string]bool)
+				}
+
+				rGroupLookup[user][groupName] = true
+			}
+		}
+
+		reverseMappingJson, _ := json.Marshal(rGroupLookup)
+		_, err = etcd.Put(context.Background(), "wag-membership", string(reverseMappingJson))
+		if err != nil {
+			return err
+		}
+	}
+
+	configData, _ := json.Marshal(config.Values())
+	err = putIfNotFound(fullJsonConfigKey, string(configData), "full config")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(helpMailKey, config.Values().HelpMail, "help mail")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(externalAddressKey, config.Values().ExternalAddress, "external wag address")
+	if err != nil {
+		return err
+	}
+
+	dnsData, _ := json.Marshal(config.Values().Wireguard.DNS)
+	err = putIfNotFound(dnsKey, string(dnsData), "dns")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(inactivityTimeoutKey, fmt.Sprintf("%d", config.Values().SessionInactivityTimeoutMinutes), "inactivity timeout")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(sessionLifetimeKey, fmt.Sprintf("%d", config.Values().MaxSessionLifetimeMinutes), "max session life")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(lockoutKey, fmt.Sprintf("%d", config.Values().Lockout), "lockout")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(issuerKey, config.Values().Authenticators.Issuer, "issuer name")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(domainKey, config.Values().Authenticators.DomainURL, "domain url")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func putIfNotFound(key, value, set string) error {
+	txn := etcd.Txn(context.Background())
+	resp, err := txn.If(clientv3util.KeyMissing(key)).Then(clientv3.OpPut(key, value)).Commit()
+	if err != nil {
+		return err
+	}
+
+	if resp.Succeeded {
+		log.Printf("setting %s from json, importing from .json file (from this point the json file will be ignored)", set)
+	}
+
+	return nil
+}
+
+func migrateFromSql() error {
 	response, err := etcd.Get(context.Background(), "wag-migrated-sql")
 	if err != nil {
 		return err
@@ -220,76 +358,6 @@ func Load(path string) error {
 		log.Println("Migrated", len(tokens), "registration tokens")
 
 	}
-
-	response, err = etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
-	if err != nil {
-		return err
-	}
-
-	if len(response.Kvs) == 0 {
-		log.Println("no acls found in database, importing from .json file (from this point the json file will be ignored)")
-
-		for aclName, acl := range config.Values().Acls.Policies {
-			aclJson, _ := json.Marshal(acl)
-			_, err = etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	response, err = etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix())
-	if err != nil {
-		return err
-	}
-
-	if len(response.Kvs) == 0 {
-		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
-
-		// User to groups
-		rGroupLookup := map[string]map[string]bool{}
-
-		for groupName, members := range config.Values().Acls.Groups {
-			groupJson, _ := json.Marshal(members)
-			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
-			if err != nil {
-				return err
-			}
-
-			for _, user := range members {
-				if rGroupLookup[user] == nil {
-					rGroupLookup[user] = make(map[string]bool)
-				}
-
-				rGroupLookup[user][groupName] = true
-			}
-		}
-
-		reverseMappingJson, _ := json.Marshal(rGroupLookup)
-		_, err = etcd.Put(context.Background(), "wag-membership", string(reverseMappingJson))
-		if err != nil {
-			return err
-		}
-
-	}
-
-	response, err = etcd.Get(context.Background(), "wag-config")
-	if err != nil {
-		return err
-	}
-
-	if len(response.Kvs) == 0 {
-		log.Println("no config found in database, importing from .json file (from this point the json file will be ignored)")
-
-		configData, _ := json.Marshal(config.Values())
-		_, err = etcd.Put(context.Background(), "wag-config", string(configData))
-		if err != nil {
-			return err
-		}
-	}
-
-	go checkClusterHealth()
-	go watchEvents()
 
 	return nil
 }

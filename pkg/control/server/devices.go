@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -86,7 +85,14 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.SetDeviceAuthAttempts(address, config.Values().Lockout+1)
+	lockout, err := data.GetLockout()
+	if err != nil {
+		http.Error(w, "could not get lockout number: "+err.Error(), 404)
+		return
+	}
+
+	// This will need to be changed at some point to make it that lockout is a state, rather than a simple int
+	err = user.SetDeviceAuthAttempts(address, lockout+1)
 	if err != nil {
 		http.Error(w, "could not lock device in db: "+err.Error(), 404)
 		return
