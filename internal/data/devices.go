@@ -206,7 +206,7 @@ func AddDevice(username, publickey string) (Device, error) {
 		return Device{}, err
 	}
 
-	address, err := allocateIPAddress(config.Values().Wireguard.Range.String())
+	address, err := getNextIP(config.Values().Wireguard.Range.String())
 	if err != nil {
 		return Device{}, err
 	}
@@ -289,7 +289,7 @@ func DeleteDevice(username, id string) error {
 		otherReferenceKey = "deviceref-" + d.Address
 	}
 
-	_, err = etcd.Txn(context.Background()).Then(clientv3.OpDelete(string(realKey.Kvs[0].Value)), clientv3.OpDelete(refKey), clientv3.OpDelete(otherReferenceKey)).Commit()
+	_, err = etcd.Txn(context.Background()).Then(clientv3.OpDelete(string(realKey.Kvs[0].Value)), clientv3.OpDelete(refKey), clientv3.OpDelete(otherReferenceKey), clientv3.OpDelete("allocated_ips/"+d.Address)).Commit()
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func DeleteDevices(username string) error {
 			return err
 		}
 
-		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete("deviceref-"+d.Address))
+		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete("deviceref-"+d.Address), clientv3.OpDelete("allocated_ips/"+d.Address))
 	}
 
 	_, err = etcd.Txn(context.Background()).Then(ops...).Commit()

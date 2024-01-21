@@ -2,92 +2,64 @@ package data
 
 import (
 	"context"
-	"fmt"
+	"math"
+	"math/rand"
 	"net"
-	"slices"
-	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-// This is almost certainly unsafe from splicing during multiple client registration
-func allocateIPAddress(subnet string) (string, error) {
-
-	// Retrieve the list of allocated IPs
-	allocatedIPs, err := getAllocatedIPs()
-	if err != nil {
-		return "", err
-	}
-
-	// Find an unallocated IP address within the given subnet
-	ip, err := findUnallocatedIP(subnet, allocatedIPs)
-	if err != nil {
-		return "", err
-	}
-
-	// Mark the selected IP as allocated
-	if err := markIPAsAllocated(ip); err != nil {
-		return "", err
-	}
-
-	return ip, nil
+// https://gist.github.com/udhos/b468fbfd376aa0b655b6b0c539a88c03
+func incrementIP(ip net.IP, inc uint) net.IP {
+	i := ip.To4()
+	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
+	v += inc
+	v3 := byte(v & 0xFF)
+	v2 := byte((v >> 8) & 0xFF)
+	v1 := byte((v >> 16) & 0xFF)
+	v0 := byte((v >> 24) & 0xFF)
+	return net.IPv4(v0, v1, v2, v3)
 }
 
-func getAllocatedIPs() ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func getNextIP(subnet string) (string, error) {
 
-	resp, err := etcd.Get(ctx, "allocated_ips", clientv3.WithPrefix())
-	if err != nil {
-		return nil, err
-	}
-
-	var allocatedIPs []string
-	for _, kv := range resp.Kvs {
-		allocatedIPs = append(allocatedIPs, string(kv.Value))
-	}
-
-	return allocatedIPs, nil
-}
-
-func findUnallocatedIP(subnet string, allocatedIPs []string) (string, error) {
-	_, ipNet, err := net.ParseCIDR(subnet)
+	serverIP, cidr, err := net.ParseCIDR(subnet)
 	if err != nil {
 		return "", err
 	}
 
-	for ip := ipNet.IP.Mask(ipNet.Mask); ipNet.Contains(ip); incrementIP(ip) {
-		// Check if the IP is unallocated
+	used, _ := cidr.Mask.Size()
+	addresses := int(math.Pow(2, float64(32-used))) - 2 // Do not allocate largest address or 0
 
-		if !slices.Contains(allocatedIPs, ip.String()) {
-			return ip.String(), nil
+	// Choose a random number that cannot be 0
+	addressAttempt := rand.Intn(addresses) + 1
+	addr := incrementIP(cidr.IP, uint(addressAttempt))
+
+	if serverIP.Equal(addr) {
+		addr = incrementIP(addr, 1)
+	}
+
+	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 3)
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		txn := etcd.Txn(context.Background())
+		txn.If(clientv3util.KeyMissing("deviceref-"+addr.String()), clientv3util.KeyMissing("ip-hold-"+addr.String()))
+		txn.Then(clientv3.OpPut("ip-hold-"+addr.String(), addr.String(), clientv3.WithLease(lease.ID)))
+
+		resp, err := txn.Commit()
+		if err != nil {
+			return "", err
 		}
-	}
 
-	return "", fmt.Errorf("no available unallocated IP addresses in the subnet")
-}
-
-func markIPAsAllocated(ip string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := etcd.Put(ctx, fmt.Sprintf("allocated_ips/%s", ip), ip)
-	return err
-}
-
-func markIPAsUnallocated(ip string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := etcd.Delete(ctx, fmt.Sprintf("allocated_ips/%s", ip))
-	return err
-}
-
-func incrementIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
+		if resp.Succeeded {
+			return addr.String(), nil
 		}
+
+		addr = incrementIP(addr, 1)
 	}
+
 }

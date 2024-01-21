@@ -86,15 +86,15 @@ func FinaliseRegistration(token string) error {
 			return "", false, err
 		}
 
-		if result.NumUses <= 0 {
-			return "", false, errVal
-		}
-
 		result.NumUses--
+
+		if result.NumUses <= 0 {
+			err = errVal
+		}
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), false, err
 	})
 
 	if err == errVal {
