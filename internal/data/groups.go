@@ -1,11 +1,13 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -64,7 +66,30 @@ func SetGroup(group string, members []string, overwrite bool) error {
 	})
 
 	return err
+}
 
+func GetGroups() (result []control.GroupData, err error) {
+
+	resp, err := etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range resp.Kvs {
+
+		var groupMembers []string
+		err := json.Unmarshal(r.Value, &groupMembers)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, control.GroupData{
+			Group:   string(bytes.TrimPrefix(r.Key, []byte("wag-groups-"))),
+			Members: groupMembers,
+		})
+	}
+
+	return nil, nil
 }
 
 func RemoveGroup(groupName string) error {

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,25 +9,60 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 
-	response, err := etcd.Get(context.Background(), "wag-acls-"+effects)
+	policyJson, _ := json.Marshal(policy)
+
+	if overwrite {
+		_, err := etcd.Put(context.Background(), "wag-acls-"+effects, string(policyJson))
+		return err
+	}
+
+	txn := etcd.Txn(context.Background())
+	txn.If(clientv3util.KeyMissing("wag-acls-" + effects))
+	txn.Then(clientv3.OpPut("wag-acls-"+effects, string(policyJson)))
+
+	resp, err := txn.Commit()
 	if err != nil {
 		return err
 	}
 
-	if len(response.Kvs) > 0 && !overwrite {
+	if !resp.Succeeded {
 		return errors.New("acl already exists")
 	}
 
-	policyJson, _ := json.Marshal(policy)
-
-	_, err = etcd.Put(context.Background(), "wag-acls-"+effects, string(policyJson))
-
 	return err
+}
+
+func GetPolicies() (result []control.PolicyData, err error) {
+
+	resp, err := etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range resp.Kvs {
+
+		var policy acls.Acl
+		err := json.Unmarshal(r.Value, &policy)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, control.PolicyData{
+			Effects:      string(bytes.TrimPrefix(r.Key, []byte("wag-acls-"))),
+			PublicRoutes: policy.Allow,
+			MfaRoutes:    policy.Mfa,
+			DenyRoutes:   policy.Deny,
+		})
+	}
+
+	return nil, nil
 }
 
 func RemoveAcl(effects string) error {

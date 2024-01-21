@@ -12,6 +12,7 @@ type PolicyData struct {
 	Effects      string   `json:"effects"`
 	PublicRoutes []string `json:"public_routes"`
 	MfaRoutes    []string `json:"mfa_routes"`
+	DenyRoutes   []string `json:"deny_routes"`
 }
 
 type GroupData struct {

@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"sort"
 
 	"github.com/NHAS/wag/internal/acls"
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 )
@@ -18,28 +16,16 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := []control.PolicyData{}
-
-	accessOrder := []string{}
-	policies := config.Values().Acls.Policies
-	for k := range policies {
-		accessOrder = append(accessOrder, k)
+	policies, err := data.GetPolicies()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
 
-	sort.Strings(accessOrder)
-	//Stable output for the display or usage, gross because of unordered maps in golang thanks golang
-	for _, policyName := range accessOrder {
-		data = append(data, control.PolicyData{
-			Effects:      policyName,
-			PublicRoutes: policies[policyName].Allow,
-			MfaRoutes:    policies[policyName].Mfa,
-		})
-	}
-
-	result, _ := json.Marshal(data)
+	resultBytes, _ := json.Marshal(policies)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
+	w.Write(resultBytes)
 }
 
 func newPolicy(w http.ResponseWriter, r *http.Request) {
@@ -121,24 +107,13 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := []control.GroupData{}
-
-	accessOrder := []string{}
-	groups := config.Values().Acls.Groups
-	for k := range groups {
-		accessOrder = append(accessOrder, k)
+	groups, err := data.GetGroups()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
 
-	sort.Strings(accessOrder)
-	//Stable output for the display or usage, gross because of unordered maps in golang thanks golang
-	for _, groupName := range accessOrder {
-		data = append(data, control.GroupData{
-			Group:   groupName,
-			Members: groups[groupName],
-		})
-	}
-
-	result, _ := json.Marshal(data)
+	result, _ := json.Marshal(groups)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(result)
