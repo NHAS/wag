@@ -64,7 +64,6 @@ func addWatcher[I any, T WatcherFuncType[I]](watcher T, existingWatches *[]T) {
 func execWatchers[I any, T WatcherFuncType[I]](watchers []T, data I, state int) {
 	lck.RLock()
 
-	log.Println(len(watchers), data)
 	for _, watcher := range watchers {
 		go watcher(data, state)
 	}

@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
@@ -24,7 +25,7 @@ type Device struct {
 	Endpoint     *net.UDPAddr
 	Attempts     int
 	Active       bool
-	Authorised   bool
+	Authorised   time.Time
 }
 
 func stringToUDPaddr(address string) (r *net.UDPAddr) {
@@ -96,6 +97,7 @@ func GetDevice(username, id string) (device Device, err error) {
 	return
 }
 
+// Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) error {
 	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, bool, error) {
 		if len(gr.Kvs) != 1 {
@@ -114,7 +116,12 @@ func AuthoriseDevice(username, address string) error {
 			return "", false, err
 		}
 
-		device.Authorised = !u.Locked
+		if u.Locked {
+			return "", false, errors.New("account is locked")
+		}
+
+		device.Authorised = time.Now()
+		device.Attempts = 0
 
 		b, _ := json.Marshal(device)
 
@@ -144,7 +151,7 @@ func DeauthenticateDevice(address string) error {
 			return "", false, err
 		}
 
-		device.Authorised = false
+		device.Authorised = time.Time{}
 
 		b, _ := json.Marshal(device)
 

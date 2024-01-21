@@ -18,6 +18,9 @@ func handleEvents(erroChan chan<- error) {
 }
 
 func deviceChanges(device data.BasicEvent[data.Device], state int) {
+
+	log.Printf("state: %d, event: %+v", state, device)
+
 	switch state {
 	case data.DELETED:
 		err := RemovePeer(device.CurrentValue.Publickey, device.CurrentValue.Address)
@@ -42,8 +45,9 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 			}
 		}
 
-		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > config.Values().Lockout) ||
-			device.CurrentValue.Endpoint.String() != device.Previous.Endpoint.String() {
+		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > config.Values().Lockout) || // If the number of authentication attempts on a device has exceeded the max
+			device.CurrentValue.Endpoint.String() != device.Previous.Endpoint.String() || // If the client ip has changed
+			device.CurrentValue.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(device.CurrentValue.Address)
 			if err != nil {
 				log.Println(err)
@@ -51,7 +55,11 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 		}
 
 		if device.CurrentValue.Authorised != device.Previous.Authorised {
-			if device.CurrentValue.Attempts <= config.Values().Lockout {
+			log.Println("authorisation state changed on device")
+
+			if !device.CurrentValue.Authorised.IsZero() && device.CurrentValue.Attempts <= config.Values().Lockout {
+
+				log.Println("authorising device")
 				err := SetAuthorized(device.CurrentValue.Address, device.CurrentValue.Username)
 				if err != nil {
 					log.Println(err)

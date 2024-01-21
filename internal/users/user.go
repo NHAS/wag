@@ -3,6 +3,7 @@ package users
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/NHAS/wag/internal/config"
@@ -140,18 +141,16 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		}
 	}
 
-	err = u.ResetDeviceAuthAttempts(device)
-	if err != nil {
-		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
-	}
-
 	err = data.AuthoriseDevice(u.Username, device)
 	if err != nil {
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
+	log.Println("untrace")
 	return nil
 }
+
+//
 
 func (u *user) Deauthenticate(device string) error {
 	return data.DeauthenticateDevice(device)
