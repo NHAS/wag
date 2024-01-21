@@ -150,8 +150,6 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
-	// TODO gonna have to do an additional something here in order to send the statemachine a message we need to update the ebpf
-
 	return nil
 }
 

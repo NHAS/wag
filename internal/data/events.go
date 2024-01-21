@@ -94,9 +94,6 @@ func RegisterClusterHealthWatcher(fnc ClusterHealthFunc) {
 func watchEvents() {
 	wc := etcd.Watch(context.Background(), "", clientv3.WithPrefix(), clientv3.WithPrevKV())
 	for watchEvent := range wc {
-		log.Println("got event: ", watchEvent)
-
-		// TODO make sure that we account for compaction events
 		for _, event := range watchEvent.Events {
 
 			var (

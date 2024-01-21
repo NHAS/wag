@@ -17,7 +17,7 @@ import (
 
 var lock sync.RWMutex
 
-func Setup(error chan<- error, iptables bool) (err error) {
+func Setup(errorChan chan<- error, iptables bool) (err error) {
 
 	initialUsers, knownDevices, err := data.GetInitialData()
 	if err != nil {
@@ -47,14 +47,14 @@ func Setup(error chan<- error, iptables bool) (err error) {
 		return err
 	}
 
-	handleEvents()
+	handleEvents(errorChan)
 
 	go func() {
 		startup := true
 		cache := map[string]string{}
 		d, err := data.GetAllDevices()
 		if err != nil {
-			error <- err
+			errorChan <- err
 			return
 		}
 
@@ -66,7 +66,7 @@ func Setup(error chan<- error, iptables bool) (err error) {
 
 			dev, err := ctrl.Device(config.Values().Wireguard.DevName)
 			if err != nil {
-				error <- fmt.Errorf("endpoint watcher: %s", err)
+				errorChan <- fmt.Errorf("endpoint watcher: %s", err)
 				return
 			}
 

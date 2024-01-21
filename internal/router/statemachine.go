@@ -4,13 +4,14 @@ import (
 	"log"
 
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func handleEvents() {
+func handleEvents(erroChan chan<- error) {
 	data.RegisterAclsWatcher(aclsChanges)
-	data.RegisterClusterHealthWatcher(clusterState)
+	data.RegisterClusterHealthWatcher(clusterState(erroChan))
 	data.RegisterDeviceWatcher(deviceChanges)
 	data.RegisterGroupsWatcher(groupChanges)
 	data.RegisterUserWatcher(userChanges)
@@ -41,11 +42,20 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 			}
 		}
 
-		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > 5) ||
+		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > config.Values().Lockout) ||
 			device.CurrentValue.Endpoint.String() != device.Previous.Endpoint.String() {
 			err := Deauthenticate(device.CurrentValue.Address)
 			if err != nil {
 				log.Println(err)
+			}
+		}
+
+		if device.CurrentValue.Authorised != device.Previous.Authorised {
+			if device.CurrentValue.Attempts <= config.Values().Lockout {
+				err := SetAuthorized(device.CurrentValue.Address, device.CurrentValue.Username)
+				if err != nil {
+					log.Println(err)
+				}
 			}
 		}
 
@@ -117,19 +127,20 @@ func groupChanges(groupChange data.TargettedEvent[[]string], state int) {
 	}
 }
 
-func clusterState(stateText string, state int) {
-	switch stateText {
-	case "dead":
-		TearDown()
-	case "healthy":
-		errors := make(chan error)
-		go func() {
-			<-errors
-			// TODO fix this
-		}()
-		err := Setup(errors, true)
-		if err != nil {
-			log.Fatal(err)
+func clusterState(errorsChan chan<- error) data.ClusterHealthFunc {
+
+	return func(stateText string, state int) {
+		switch stateText {
+		case "dead":
+			log.Println("Cluster has entered dead state, tearing down")
+			TearDown()
+		case "healthy":
+			err := Setup(errorsChan, true)
+			if err != nil {
+				errorsChan <- err
+				log.Println("was unable to return wag member to healthy state, dying: ", err)
+				return
+			}
 		}
 	}
 }
