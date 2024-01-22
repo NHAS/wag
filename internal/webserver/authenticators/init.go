@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/data"
 )
 
 // from: https://github.com/duo-labs/webauthn.io/blob/3f03b482d21476f6b9fb82b2bf1458ff61a61d41/server/response.go#L15
@@ -25,11 +25,16 @@ func resultMessage(err error) (string, int) {
 		return "Success", http.StatusOK
 	}
 
+	mail, err := data.GetHelpMail()
+	if err != nil {
+		mail = "Server Error"
+	}
+
 	msg := "Validation failed"
 	if strings.Contains(err.Error(), "account is locked") {
-		msg = "Account is locked contact: " + config.Values().HelpMail
+		msg = "Account is locked contact: " + mail
 	} else if strings.Contains(err.Error(), "device is locked") {
-		msg = "Device is locked contact: " + config.Values().HelpMail
+		msg = "Device is locked contact: " + mail
 	}
 	return msg, http.StatusBadRequest
 }

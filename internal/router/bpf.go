@@ -102,8 +102,13 @@ func loadXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
-	value := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
-	if config.Values().SessionInactivityTimeoutMinutes < 0 {
+	sessionInactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
+	if err != nil {
+		return err
+	}
+
+	value := uint64(sessionInactivityTimeoutMinutes) * 60000000000
+	if sessionInactivityTimeoutMinutes < 0 {
 		value = math.MaxUint64
 	}
 
@@ -218,11 +223,16 @@ func isAuthed(address string) bool {
 		return false
 	}
 
+	inactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
+	if err != nil {
+		return false
+	}
+
 	currentTime := GetTimeStamp()
 
 	sessionValid := (deviceStruct.sessionExpiry > currentTime || deviceStruct.sessionExpiry == math.MaxUint64)
 
-	sessionActive := ((currentTime-deviceStruct.lastPacketTime) < uint64(config.Values().SessionInactivityTimeoutMinutes)*60000000000 || config.Values().SessionInactivityTimeoutMinutes < 0)
+	sessionActive := ((currentTime-deviceStruct.lastPacketTime) < uint64(inactivityTimeoutMinutes)*60000000000 || inactivityTimeoutMinutes < 0)
 
 	return isAccountLocked == 0 && sessionValid && sessionActive
 }
@@ -536,8 +546,13 @@ func RefreshConfiguration() []error {
 		return []error{err}
 	}
 
-	value := uint64(config.Values().SessionInactivityTimeoutMinutes) * 60000000000
-	if config.Values().SessionInactivityTimeoutMinutes < 0 {
+	inactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
+	if err != nil {
+		return []error{err}
+	}
+
+	value := uint64(inactivityTimeoutMinutes) * 60000000000
+	if inactivityTimeoutMinutes < 0 {
 		value = math.MaxUint64
 	}
 
@@ -575,8 +590,13 @@ func SetAuthorized(internalAddress, username string) error {
 	var deviceStruct fwentry
 	deviceStruct.lastPacketTime = GetTimeStamp()
 
-	deviceStruct.sessionExpiry = GetTimeStamp() + uint64(config.Values().MaxSessionLifetimeMinutes)*60000000000
-	if config.Values().MaxSessionLifetimeMinutes < 0 {
+	maxSession, err := data.GetSessionLifetimeMinutes()
+	if err != nil {
+		return err
+	}
+
+	deviceStruct.sessionExpiry = GetTimeStamp() + uint64(maxSession)*60000000000
+	if maxSession < 0 {
 		deviceStruct.sessionExpiry = math.MaxUint64 // If the session timeout is disabled, (<0) then we set to max value
 	}
 

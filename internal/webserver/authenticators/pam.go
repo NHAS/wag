@@ -135,16 +135,20 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 
 		passwd := r.FormValue("password")
 
-		serviceName := config.Values().Authenticators.PAM.ServiceName
+		pamDetails, err := data.GetPAM()
+		if err != nil {
+			http.Error(w, "Unable to get pam details: "+err.Error(), 500)
+			return err
+		}
 
-		pamRulesFile := "config /etc/pam.d/" + serviceName
-		if serviceName == "" {
-			serviceName = "login"
+		pamRulesFile := "config /etc/pam.d/" + pamDetails.ServiceName
+		if pamDetails.ServiceName == "" {
+			pamDetails.ServiceName = "login"
 			pamRulesFile = "default PAM /etc/pam.d/login"
 		}
 
 		log.Println(username, "attempting to authorise with PAM (using ", pamRulesFile, ")")
-		t, err := pam.StartFunc(serviceName, username, func(s pam.Style, msg string) (string, error) {
+		t, err := pam.StartFunc(pamDetails.ServiceName, username, func(s pam.Style, msg string) (string, error) {
 
 			switch s {
 			case pam.PromptEchoOff:

@@ -31,6 +31,7 @@ type issuer struct {
 
 type Oidc struct {
 	provider rp.RelyingParty
+	details  data.OIDC
 }
 
 func (o Oidc) state() string {
@@ -72,12 +73,12 @@ func (o *Oidc) Init() error {
 
 	log.Println("Connecting to OIDC provider")
 
-	oidc, err := data.GetOidc()
+	o.details, err = data.GetOidc()
 	if err != nil {
 		return err
 	}
 
-	o.provider, err = rp.NewRelyingPartyOIDC(oidc.IssuerURL, oidc.ClientID, oidc.ClientSecret, u.String(), []string{"openid"}, options...)
+	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
 	if err != nil {
 		return err
 	}
@@ -156,7 +157,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens, state string, rp rp.RelyingParty, info oidc.UserInfo) {
 
-		groupsIntf, ok := tokens.IDTokenClaims.GetClaim(config.Values().Authenticators.OIDC.GroupsClaimName).([]interface{})
+		groupsIntf, ok := tokens.IDTokenClaims.GetClaim(o.details.GroupsClaimName).([]interface{})
 		if !ok {
 			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
 
@@ -209,8 +210,14 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			w.WriteHeader(http.StatusUnauthorized)
 
-			err := resources.Render("oidc_error.html", w, &resources.Msg{
-				HelpMail:   config.Values().HelpMail,
+			mail, err := data.GetHelpMail()
+			if err != nil {
+				log.Println("Error getting help mail: ", err)
+				http.Error(w, "Server Error", http.StatusInternalServerError)
+				return
+			}
+			err = resources.Render("oidc_error.html", w, &resources.Msg{
+				HelpMail:   mail,
 				NumMethods: NumberOfMethods(),
 				Message:    msg,
 				URL:        rp.GetEndSessionEndpoint(),

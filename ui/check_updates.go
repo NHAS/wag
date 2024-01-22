@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/data"
 )
 
 type githubResponse struct {
@@ -32,7 +33,8 @@ var (
 
 func getUpdate() Update {
 
-	if !config.Values().CheckUpdates {
+	should, err := data.CheckUpdates()
+	if err != nil || !should {
 		return Update{}
 	}
 

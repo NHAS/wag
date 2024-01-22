@@ -262,7 +262,10 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 
 	method := r.URL.Query().Get("method")
 	if method == "" {
-		method = config.Values().Authenticators.DefaultMethod
+		method, err = data.GetDefaultMfaMethod()
+		if err != nil {
+			method = ""
+		}
 	}
 
 	if method == "" || method == "select" {
@@ -465,7 +468,12 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dnsWithOutSubnet := config.Values().Wireguard.DNS
+	dnsWithOutSubnet, err := data.GetDNS()
+	if err != nil {
+		log.Println(username, remoteAddr, "unable get dns: ", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
 
 	for i := 0; i < len(dnsWithOutSubnet); i++ {
 		dnsWithOutSubnet[i] = strings.TrimSuffix(dnsWithOutSubnet[i], "/32")
@@ -543,7 +551,8 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
-		w.Header().Set("Content-Disposition", "attachment; filename="+config.Values().DownloadConfigFileName)
+
+		w.Header().Set("Content-Disposition", "attachment; filename="+data.GetWireguardConfigName())
 
 		err = resources.RenderWithFuncs("interface.tmpl", w, &wireguardInterface, template.FuncMap{
 			"StringsJoin": strings.Join,

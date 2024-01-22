@@ -16,7 +16,7 @@ type OIDC struct {
 	IssuerURL       string
 	ClientSecret    string
 	ClientID        string
-	GroupsClaimName string `json:",omitempty"`
+	GroupsClaimName string
 }
 
 type PAM struct {
@@ -140,8 +140,26 @@ func SetWireguardConfigName(wgConfig string) error {
 	return err
 }
 
-func GetWireguardConfigName() (string, error) {
-	return getGeneric(defaultWGFileNameKey)
+func GetWireguardConfigName() string {
+	k, err := getGeneric(defaultWGFileNameKey)
+	if err != nil {
+		return "wg0.conf"
+	}
+
+	if k == "" {
+		return "wg0.conf"
+	}
+
+	return k
+}
+
+func SetDefaultMfaMethod(method string) error {
+	_, err := etcd.Put(context.Background(), defaultMFAMethodKey, method)
+	return err
+}
+
+func GetDefaultMfaMethod() (string, error) {
+	return getGeneric(defaultMFAMethodKey)
 }
 
 func SetAuthenticationMethods(methods []string) error {
