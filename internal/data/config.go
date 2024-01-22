@@ -5,22 +5,50 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
+	"strings"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+type OIDC struct {
+	IssuerURL       string
+	ClientSecret    string
+	ClientID        string
+	GroupsClaimName string `json:",omitempty"`
+}
+
+type PAM struct {
+	ServiceName string
+}
+
+type Webauthn struct {
+	DisplayName string
+	ID          string
+	Origin      string
+}
+
 const (
-	fullJsonConfigKey    = "wag-config-full"
+	fullJsonConfigKey = "wag-config-full"
+
 	helpMailKey          = "wag-config-general-help-mail"
+	defaultWGFileNameKey = "wag-config-general-wg-filename"
+	checkUpdatesKey      = "wag-config-general-check-updates"
+
 	inactivityTimeoutKey = "wag-config-authentication-inactivity-timeout"
 	sessionLifetimeKey   = "wag-config-authentication-max-session-lifetime"
 	lockoutKey           = "wag-config-authentication-lockout"
 	issuerKey            = "wag-config-authentication-issuer"
 	domainKey            = "wag-config-authentication-domain"
+	methodsEnabledKey    = "wag-config-authentication-methods"
 	defaultMFAMethodKey  = "wag-config-authentication-default-method"
-	externalAddressKey   = "wag-config-network-external-address"
-	dnsKey               = "wag-config-network-dns"
+
+	oidcDetailsKey = "wag-config-authentication-oidc"
+	pamDetailsKey  = "wag-config-authentication-pam"
+
+	externalAddressKey = "wag-config-network-external-address"
+	dnsKey             = "wag-config-network-dns"
 )
 
 func getGeneric(key string) (string, error) {
@@ -34,6 +62,119 @@ func getGeneric(key string) (string, error) {
 	}
 
 	return string(resp.Kvs[0].Value), nil
+}
+
+func SetPAM(details PAM) error {
+	d, err := json.Marshal(details)
+	if err != nil {
+		return err
+	}
+
+	_, err = etcd.Put(context.Background(), pamDetailsKey, string(d))
+	return err
+}
+
+func GetPAM() (details PAM, err error) {
+
+	v, err := getGeneric(pamDetailsKey)
+	if err != nil {
+		return PAM{}, nil
+	}
+
+	err = json.Unmarshal([]byte(v), &details)
+	return
+}
+
+func SetOidc(details OIDC) error {
+	d, err := json.Marshal(details)
+	if err != nil {
+		return err
+	}
+
+	_, err = etcd.Put(context.Background(), oidcDetailsKey, string(d))
+	return err
+}
+
+func GetOidc() (details OIDC, err error) {
+
+	v, err := getGeneric(oidcDetailsKey)
+	if err != nil {
+		return OIDC{}, nil
+	}
+
+	err = json.Unmarshal([]byte(v), &details)
+	return
+}
+
+func GetWebauthn() (wba Webauthn, err error) {
+
+	txn := etcd.Txn(context.Background())
+	response, err := txn.Then(clientv3.OpGet(issuerKey),
+		clientv3.OpGet(domainKey)).Commit()
+	if err != nil {
+		return wba, err
+	}
+
+	if response.Responses[0].GetResponseRange().Count != 1 {
+		return wba, errors.New("no issuer set")
+	}
+
+	if response.Responses[1].GetResponseRange().Count != 1 {
+		return wba, errors.New("no domain set")
+	}
+
+	tunnelURL, err := url.Parse(string(response.Responses[1].GetResponseRange().Kvs[0].Value))
+	if err != nil {
+		return wba, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
+	}
+
+	wba.Origin = tunnelURL.String()
+	wba.DisplayName = string(response.Responses[0].GetResponseRange().Kvs[0].Value)
+	wba.ID = strings.Split(tunnelURL.Host, ":")[0]
+
+	return
+}
+
+func SetWireguardConfigName(wgConfig string) error {
+	_, err := etcd.Put(context.Background(), defaultWGFileNameKey, wgConfig)
+	return err
+}
+
+func GetWireguardConfigName() (string, error) {
+	return getGeneric(defaultWGFileNameKey)
+}
+
+func SetAuthenticationMethods(methods []string) error {
+	data, _ := json.Marshal(methods)
+	_, err := etcd.Put(context.Background(), methodsEnabledKey, string(data))
+	return err
+}
+
+func GetAuthenicationMethods() (result []string, err error) {
+
+	val, err := getGeneric(methodsEnabledKey)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal([]byte(val), &result)
+
+	return
+}
+
+func SetCheckUpdates(doChecks bool) error {
+	_, err := etcd.Put(context.Background(), checkUpdatesKey, strconv.FormatBool(doChecks))
+	return err
+}
+
+func CheckUpdates() (bool, error) {
+
+	val, err := getGeneric(checkUpdatesKey)
+	if err != nil {
+		return false, err
+	}
+
+	return val == "true", nil
 }
 
 func SetDomain(domain string) error {

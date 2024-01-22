@@ -1,27 +1,107 @@
 package authenticators
 
 import (
+	"log"
 	"net/http"
+	"sort"
+	"sync"
+
+	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 )
 
-// This is passed to the users.Authenticate(...) function
-type AuthenticatorFunc func(mfaSecret, username string) error
-
-// All supported mfa methods, altered in config based on users selection
-var MFA = map[string]Authenticator{}
-
-const (
-	UnsetMFA    = "unset"
-	TotpMFA     = "totp"
-	WebauthnMFA = "webauthn"
-	OidcMFA     = "oidc"
-	PamMFA      = "pam"
+var (
+	mfa = map[types.MFA]Authenticator{}
+	lck sync.RWMutex
 )
+
+func GetMethod(method string) (Authenticator, bool) {
+	lck.RLock()
+	defer lck.RUnlock()
+
+	v, ok := mfa[types.MFA(method)]
+	return v, ok
+}
+
+func RemoveMethod(method types.MFA) {
+	lck.Lock()
+	defer lck.Unlock()
+
+	delete(mfa, method)
+}
+
+func NumberOfMethods() int {
+	lck.RLock()
+	defer lck.RUnlock()
+	return len(mfa)
+}
+
+func GetAllEnabledMethods() (r []Authenticator) {
+	lck.RLock()
+	defer lck.RUnlock()
+
+	order := []string{}
+	for k := range mfa {
+		order = append(order, string(k))
+	}
+
+	sort.Strings(order)
+
+	for _, m := range order {
+		r = append(r, mfa[types.MFA(m)])
+	}
+
+	return
+}
+
+func SetRoutesFromMethods(mux *http.ServeMux) {
+
+	enabledMethods, err := data.GetAuthenicationMethods()
+	if err != nil {
+		log.Println("error fetching cluster data for authentication methods: ", err)
+		return
+	}
+
+	lck.Lock()
+	newMap := make(map[types.MFA]Authenticator)
+	for _, method := range enabledMethods {
+		switch types.MFA(method) {
+		case types.Totp:
+			newMap[types.MFA(method)] = new(Totp)
+
+		case types.Webauthn:
+			newMap[types.MFA(method)] = new(Webauthn)
+
+		case types.Oidc:
+			newMap[types.MFA(method)] = new(Oidc)
+
+		case types.Pam:
+			newMap[types.MFA(method)] = new(Pam)
+		default:
+			log.Println("not adding unknown mfa method: ", method)
+			continue
+		}
+
+		err = newMap[types.MFA(method)].Init()
+		if err != nil {
+			log.Println("could not initalise auth method: ", method, "this method will not be enabled, err: ", err)
+			continue
+		}
+	}
+	mfa = newMap
+	lck.Unlock()
+
+	lck.RLock()
+	for method, handler := range mfa {
+		mux.HandleFunc("/authorise/"+string(method)+"/", handler.AuthorisationAPI)
+		mux.HandleFunc("/register_mfa/"+string(method)+"/", handler.RegistrationAPI)
+
+	}
+	lck.RUnlock()
+}
 
 type Authenticator interface {
-
-	// An ugly hack to be able to initalise authenticators with settings from config at runtime
-	Init(settings map[string]string) error
+	Init() error
 
 	Type() string
 

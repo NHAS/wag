@@ -7,7 +7,7 @@ import (
 	"net"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -24,7 +24,7 @@ func (u *user) ResetDeviceAuthAttempts(address string) error {
 func (u *user) ResetMfa() error {
 
 	// the MFA column is marked as "unique" so just set it as the username as that is also unique
-	err := data.SetUserMfa(u.Username, u.Username, authenticators.UnsetMFA)
+	err := data.SetUserMfa(u.Username, u.Username, string(types.Unset))
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (u *user) Delete() error {
 	return data.DeleteUser(u.Username)
 }
 
-func (u *user) Authenticate(device, mfaType string, authenticator authenticators.AuthenticatorFunc) error {
+func (u *user) Authenticate(device, mfaType string, authenticator types.AuthenticatorFunc) error {
 
 	// Make sure that the attempts is always incremented first to stop race condition attacks
 	err := data.IncrementAuthenticationAttempt(u.Username, device)
@@ -118,10 +118,12 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 
 	lockout, err := data.GetLockout()
 	if err != nil {
-		return err
+		return errors.New("could not get lockout value")
 	}
 
-	if attempts > lockout {
+	log.Println("mfa: ", mfa, "type:", userMfaType, "attempts: ", attempts, "locked: ", locked, "lockout: ", lockout)
+
+	if attempts >= lockout {
 		return errors.New("device is locked")
 	}
 
@@ -150,11 +152,8 @@ func (u *user) Authenticate(device, mfaType string, authenticator authenticators
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
-	log.Println("untrace")
 	return nil
 }
-
-//
 
 func (u *user) Deauthenticate(device string) error {
 	return data.DeauthenticateDevice(device)
@@ -173,7 +172,7 @@ func (u *user) GetMFAType() string {
 	mType, err := data.GetMFAType(u.Username)
 
 	if err != nil {
-		mType = authenticators.UnsetMFA
+		mType = string(types.Unset)
 	}
 
 	return mType

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -14,9 +13,7 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/routetypes"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/pkg/control"
-	"github.com/NHAS/webauthn/webauthn"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -52,7 +49,7 @@ type Config struct {
 	path          string
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
-	CheckUpdates  bool   `json:",omitempty"`
+	CheckUpdates  bool   `json:",omitempty"` // Done
 	NumberProxies int
 	Proxied       bool
 	ExposePorts   []string `json:",omitempty"`
@@ -60,11 +57,11 @@ type Config struct {
 
 	MFATemplatesDirectory string `json:",omitempty"`
 
-	HelpMail                        string
-	Lockout                         int
-	ExternalAddress                 string
-	MaxSessionLifetimeMinutes       int
-	SessionInactivityTimeoutMinutes int
+	HelpMail                        string // Done
+	Lockout                         int    // Done
+	ExternalAddress                 string // Done
+	MaxSessionLifetimeMinutes       int    // Done
+	SessionInactivityTimeoutMinutes int    // Done
 
 	DownloadConfigFileName string `json:",omitempty"`
 
@@ -87,10 +84,10 @@ type Config struct {
 	}
 
 	Authenticators struct {
-		DefaultMethod string `json:",omitempty"`
-		Issuer        string
+		DefaultMethod string   `json:",omitempty"` // Done
+		Issuer        string   // Done
 		Methods       []string `json:",omitempty"`
-		DomainURL     string
+		DomainURL     string   // Done
 
 		OIDC struct {
 			IssuerURL       string
@@ -102,9 +99,6 @@ type Config struct {
 		PAM struct {
 			ServiceName string
 		} `json:",omitempty"`
-
-		//Not externally configurable
-		Webauthn *webauthn.WebAuthn `json:"-"`
 	}
 	Wireguard struct {
 		DevName    string
@@ -365,111 +359,9 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	if len(c.Authenticators.Methods) == 0 {
-		for method := range authenticators.MFA {
-			c.Authenticators.Methods = append(c.Authenticators.Methods, method)
-		}
-	}
-
-	resultMFAMap := make(map[string]authenticators.Authenticator)
-	for _, method := range c.Authenticators.Methods {
-		_, ok := authenticators.MFA[method]
-		if !ok {
-			return c, errors.New("mfa method invalid: " + method)
-		}
-
-		resultMFAMap[method] = authenticators.MFA[method]
-
-		settings := make(map[string]string)
-		switch method {
-
-		case "oidc":
-			if c.Authenticators.DomainURL == "" {
-				return c, errors.New("Authenticators.DomainURL unset, needed for oidc")
-			}
-
-			if c.Authenticators.OIDC.GroupsClaimName == "" {
-				c.Authenticators.OIDC.GroupsClaimName = "groups"
-			}
-
-			if c.Authenticators.OIDC.IssuerURL == "" {
-				return c, errors.New("OIDC issuer url is not set, but oidc authentication method is enabled")
-			}
-
-			tunnelURL, err := url.Parse(c.Authenticators.OIDC.IssuerURL)
-			if err != nil {
-				return c, errors.New("unable to parse Authenticators.OIDC.IssuerURL: " + err.Error())
-			}
-
-			if tunnelURL.Scheme != "https" && tunnelURL.Scheme != "http" {
-				return c, errors.New("Authenticators.OIDC.IssuerURL was not HTTP/HTTPS")
-			}
-
-			if tunnelURL.Scheme == "http" {
-				log.Println("[WARNING] OIDC issuer url is http, this may be insecure")
-			}
-
-			if c.Authenticators.OIDC.ClientSecret == "" {
-				return c, errors.New("Authenticators.OIDC.ClientSecret is empty, but oidc authentication method is enabled")
-			}
-
-			if c.Authenticators.OIDC.ClientID == "" {
-				return c, errors.New("Authenticators.OIDC.ClientID is empty, but oidc authentication method is enabled")
-			}
-
-			settings["ClientID"] = c.Authenticators.OIDC.ClientID
-			settings["ClientSecret"] = c.Authenticators.OIDC.ClientSecret
-			settings["IssuerURL"] = c.Authenticators.OIDC.IssuerURL
-			settings["DomainURL"] = c.Authenticators.DomainURL
-
-		case "webauthn":
-
-			if c.Authenticators.DomainURL == "" {
-				return c, errors.New("Authenticators.DomainURL unset, needed for webauthn")
-			}
-
-			tunnelURL, err := url.Parse(c.Authenticators.DomainURL)
-			if err != nil {
-				return c, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
-			}
-
-			if !c.Webserver.Tunnel.SupportsTLS() && c.NumberProxies == 0 {
-				return c, errors.New("tunnel does not support TLS (no cert/key given) required by webauthn")
-			}
-
-			if tunnelURL.Scheme != "https" {
-				return c, errors.New("Authenticators.DomainURL was not HTTPS, yet webauthn was enabled (javascript wont be able to access window.PublicKeyCredential)")
-			}
-
-			c.Authenticators.Webauthn, err = webauthn.New(&webauthn.Config{
-				RPDisplayName: c.Authenticators.Issuer,               // Display Name for your site
-				RPID:          strings.Split(tunnelURL.Host, ":")[0], // Generally the domain name for your site
-				RPOrigin:      c.Authenticators.DomainURL,            // The origin URL for WebAuthn requests
-			})
-
-			if err != nil {
-				return c, errors.New("could not configure webauthn domain: " + err.Error())
-			}
-		}
-
-		if err := resultMFAMap[method].Init(settings); err != nil {
-			return c, err
-		}
-	}
-
-	if c.Authenticators.DefaultMethod != "" {
-		_, ok := resultMFAMap[c.Authenticators.DefaultMethod]
-		if !ok {
-			return c, errors.New("default mfa method invalid: " + c.Authenticators.DefaultMethod + " valid methods: " + strings.Join(c.Authenticators.Methods, ","))
-		}
-	}
-
 	if len(c.Authenticators.Methods) == 1 {
 		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
 	}
-
-	// Remove all uneeded MFA methods from the MFA map
-	authenticators.MFA = resultMFAMap
 
 	return c, nil
 }

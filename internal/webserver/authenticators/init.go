@@ -1,4 +1,4 @@
-package methods
+package authenticators
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
 )
 
 // from: https://github.com/duo-labs/webauthn.io/blob/3f03b482d21476f6b9fb82b2bf1458ff61a61d41/server/response.go#L15
@@ -19,13 +18,6 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(c)
 	fmt.Fprintf(w, "%s", dj)
-}
-
-func init() {
-	authenticators.MFA[authenticators.TotpMFA] = new(Totp)
-	authenticators.MFA[authenticators.WebauthnMFA] = new(Webauthn)
-	authenticators.MFA[authenticators.OidcMFA] = new(Oidc)
-	authenticators.MFA[authenticators.PamMFA] = new(Pam)
 }
 
 func resultMessage(err error) (string, int) {

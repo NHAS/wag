@@ -38,6 +38,7 @@ type WatcherFuncType[T any] interface {
 type (
 	DeviceChangesFunc func(BasicEvent[Device], int)
 	UserChangesFunc   func(BasicEvent[UserModel], int)
+	ConfigChangesFunc func(BasicEvent[string], int)
 
 	AclChangesFunc   func(TargettedEvent[acls.Acl], int)
 	GroupChangesFunc func(TargettedEvent[[]string], int)
@@ -50,6 +51,7 @@ var (
 	usersWatchers         []UserChangesFunc
 	aclsWatchers          []AclChangesFunc
 	groupsWatchers        []GroupChangesFunc
+	configWatchers        []ConfigChangesFunc
 	clusterHealthWatchers []ClusterHealthFunc
 
 	lck sync.RWMutex
@@ -89,6 +91,10 @@ func RegisterGroupsWatcher(fnc GroupChangesFunc) {
 
 func RegisterClusterHealthWatcher(fnc ClusterHealthFunc) {
 	addWatcher(fnc, &clusterHealthWatchers)
+}
+
+func RegisterConfigWatcher(fnc ConfigChangesFunc) {
+	addWatcher(fnc, &configWatchers)
 }
 
 func watchEvents() {
@@ -154,6 +160,10 @@ func watchEvents() {
 						Key:     string(event.Kv.Key),
 						Value:   groupMembers,
 					}, state)
+
+			case bytes.HasPrefix(event.Kv.Key, []byte("wag-config-")):
+				execWatchers(configWatchers, BasicEvent[string]{Key: string(event.Kv.Key)}, state)
+
 			default:
 				continue
 			}

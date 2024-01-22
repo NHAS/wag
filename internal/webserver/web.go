@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"sort"
 	"strings"
 	"time"
 
@@ -29,8 +28,6 @@ import (
 	"github.com/boombuler/barcode/qr"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-
-	_ "github.com/NHAS/wag/internal/webserver/authenticators/methods"
 )
 
 func Start(errChan chan<- error) error {
@@ -132,11 +129,12 @@ func Start(errChan chan<- error) error {
 
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
-	for method, handler := range authenticators.MFA {
-		tunnel.HandleFunc("/authorise/"+method+"/", handler.AuthorisationAPI)
-		tunnel.HandleFunc("/register_mfa/"+method+"/", handler.RegistrationAPI)
+	// Do inital state setup for our authentication methods
+	authenticators.SetRoutesFromMethods(tunnel)
 
-	}
+	// For any change to the authentication config re-up
+	data.RegisterConfigWatcher(watchConfigChanges(tunnel))
+
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/register_mfa/", registerMFA)
 
@@ -272,16 +270,11 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 
 		var menu resources.Menu
 
-		keys := make([]string, 0, len(authenticators.MFA))
-		for k := range authenticators.MFA {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+		for _, method := range authenticators.GetAllEnabledMethods() {
 
-		for _, method := range keys {
 			menu.MFAMethods = append(menu.MFAMethods, resources.MenuEntry{
-				Path:         authenticators.MFA[method].Type(),
-				FriendlyName: authenticators.MFA[method].FriendlyName(),
+				Path:         method.Type(),
+				FriendlyName: method.FriendlyName(),
 			})
 		}
 
@@ -296,7 +289,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mfaMethod, ok := authenticators.MFA[method]
+	mfaMethod, ok := authenticators.GetMethod(method)
 	if !ok {
 		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", method)
 		http.NotFound(w, r)
@@ -333,7 +326,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mfaMethod, ok := authenticators.MFA[user.GetMFAType()]
+	mfaMethod, ok := authenticators.GetMethod(user.GetMFAType())
 	if !ok {
 		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", user.GetMFAType())
 
@@ -452,7 +445,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	acl := data.GetEffectiveAcl(username)
 
-	wgPublicKey, wgPort, err := router.ServerDetails()
+	wgPublicKey, _, err := router.ServerDetails()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access wireguard device: ", err)
 		http.Error(w, "Server Error", 500)
@@ -488,11 +481,17 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	wireguardInterface := resources.Interface{
 		ClientPrivateKey:   keyStr,
 		ClientAddress:      address,
-		ServerAddress:      fmt.Sprintf("%s:%d", config.Values().ExternalAddress, wgPort),
 		ServerPublicKey:    wgPublicKey.String(),
 		CapturedAddresses:  routes,
 		DNS:                dnsWithOutSubnet,
 		ClientPresharedKey: presharedKey,
+	}
+
+	wireguardInterface.ServerAddress, err = data.GetExternalAddress()
+	if err != nil {
+		log.Println(username, remoteAddr, "unable to get server external address from datastore: ", err)
+		http.Error(w, "Server Error", 500)
+		return
 	}
 
 	if r.URL.Query().Get("type") == "mobile" {
@@ -592,15 +591,20 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.Deauthenticate(clientTunnelIp.String())
+	err = user.Deauthenticate(clientTunnelIp.String())
+	if err != nil {
+		log.Println("unknown", clientTunnelIp, "could not deauthenticate:", err)
+		http.Error(w, "Server Error", 500)
+		return
+	}
 
-	method, ok := authenticators.MFA[user.GetMFAType()]
+	method, ok := authenticators.GetMethod(user.GetMFAType())
 	if !ok {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
 	}
 
 	http.Redirect(w, r, method.LogoutPath(), http.StatusTemporaryRedirect)
-
 }
 
 func routes(w http.ResponseWriter, r *http.Request) {

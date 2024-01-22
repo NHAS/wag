@@ -1,4 +1,4 @@
-package methods
+package authenticators
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/msteinert/pam"
 )
@@ -20,12 +20,12 @@ import (
 type Pam struct {
 }
 
-func (t *Pam) Init(settings map[string]string) error {
+func (t *Pam) Init() error {
 	return nil
 }
 
 func (t *Pam) Type() string {
-	return authenticators.PamMFA
+	return string(types.Pam)
 }
 
 func (t *Pam) FriendlyName() string {
@@ -57,7 +57,7 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
-		err = data.SetUserMfa(user.Username, "PAMauth", authenticators.PamMFA)
+		err = data.SetUserMfa(user.Username, "PAMauth", t.Type())
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
 			http.Error(w, "Unknown error", 500)
@@ -125,7 +125,7 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticators.AuthenticatorFunc {
+func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.AuthenticatorFunc {
 	return func(mfaSecret, username string) error {
 		err := r.ParseForm()
 		if err != nil {
@@ -181,7 +181,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticato
 func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("prompt_mfa_pam.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render pam prompt template: ", err)
 	}
@@ -190,7 +190,7 @@ func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip s
 func (t *Pam) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("register_mfa_pam.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render pam mfa template: ", err)
 	}

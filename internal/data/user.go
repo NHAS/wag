@@ -41,7 +41,7 @@ func IncrementAuthenticationAttempt(username, device string) error {
 			return "", err
 		}
 
-		if userDevice.Attempts < l {
+		if userDevice.Attempts <= l {
 			userDevice.Attempts++
 		}
 
@@ -54,15 +54,25 @@ func IncrementAuthenticationAttempt(username, device string) error {
 
 func GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
-	userResponse, err := etcd.Get(context.Background(), "users-"+username+"-")
+	txn := etcd.Txn(context.Background())
+	resp, err := txn.Then(clientv3.OpGet("users-"+username+"-"), clientv3.OpGet("devices-"+username+"-"+device)).Commit()
 	if err != nil {
 		return
 	}
 
-	if len(userResponse.Kvs) != 1 {
+	if resp.Responses[0].GetResponseRange().Count != 1 {
 		err = errors.New("invalid number of user entries")
 		return
 	}
+
+	userResponse := resp.Responses[0].GetResponseRange()
+
+	if resp.Responses[1].GetResponseRange().Count != 1 {
+		err = errors.New("invalid number of device entries")
+		return
+	}
+
+	deviceResponse := resp.Responses[1].GetResponseRange()
 
 	var user UserModel
 	err = json.Unmarshal(userResponse.Kvs[0].Value, &user)
@@ -73,16 +83,6 @@ func GetAuthenticationDetails(username, device string) (mfa, mfaType string, att
 	mfa = user.Mfa
 	mfaType = user.MfaType
 	locked = user.Locked
-
-	deviceResponse, err := etcd.Get(context.Background(), "devices-"+username+"-"+device)
-	if err != nil {
-		return
-	}
-
-	if len(deviceResponse.Kvs) != 1 {
-		err = errors.New("invalid number of device entries")
-		return
-	}
 
 	var deviceModel Device
 	err = json.Unmarshal(deviceResponse.Kvs[0].Value, &deviceModel)

@@ -1,4 +1,4 @@
-package methods
+package authenticators
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -27,18 +27,20 @@ type entry struct {
 }
 
 // Make sure that one time passwords (OTPs) are truly one time, store used codes
-var lockULock sync.Mutex
-var usedCodes = map[string]entry{}
+var (
+	lockULock sync.Mutex
+	usedCodes = map[string]entry{}
+)
 
 type Totp struct {
 }
 
-func (t *Totp) Init(settings map[string]string) error {
+func (t *Totp) Init() error {
 	return nil
 }
 
 func (t *Totp) Type() string {
-	return authenticators.TotpMFA
+	return string(types.Totp)
 }
 
 func (t *Totp) FriendlyName() string {
@@ -81,7 +83,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = data.SetUserMfa(user.Username, key.URL(), authenticators.TotpMFA)
+		err = data.SetUserMfa(user.Username, key.URL(), t.Type())
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
 			http.Error(w, "Unknown error", 500)
@@ -174,7 +176,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticators.AuthenticatorFunc {
+func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.AuthenticatorFunc {
 	return func(mfaSecret, username string) error {
 		err := r.ParseForm()
 		if err != nil {
@@ -210,7 +212,7 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) authenticat
 func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("prompt_mfa_totp.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render totp prompt template: ", err)
 	}
@@ -219,7 +221,7 @@ func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip 
 func (t *Totp) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("register_mfa_totp.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render totp mfa template: ", err)
 	}

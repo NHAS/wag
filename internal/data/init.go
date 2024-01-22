@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -104,9 +105,6 @@ func Load(path string) error {
 		etcdServer.Server.Stop() // trigger a shutdown
 		return errors.New("etcd took too long to start")
 	}
-
-	log.Println("etcd server started!")
-	log.Println("Connecting to etcd")
 
 	etcd, err = clientv3.New(clientv3.Config{
 		Endpoints:   []string{"127.0.0.1:2480"},
@@ -233,6 +231,34 @@ func loadInitialSettings() error {
 	}
 
 	err = putIfNotFound(domainKey, config.Values().Authenticators.DomainURL, "domain url")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(defaultWGFileNameKey, config.Values().DownloadConfigFileName, "wireguard config file")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(checkUpdatesKey, strconv.FormatBool(config.Values().CheckUpdates), "update check settings")
+	if err != nil {
+		return err
+	}
+
+	b, _ := json.Marshal(config.Values().Authenticators.Methods)
+	err = putIfNotFound(methodsEnabledKey, string(b), "authorisation methods")
+	if err != nil {
+		return err
+	}
+
+	b, _ = json.Marshal(config.Values().Authenticators.OIDC)
+	err = putIfNotFound(oidcDetailsKey, string(b), "oidc settings")
+	if err != nil {
+		return err
+	}
+
+	b, _ = json.Marshal(config.Values().Authenticators.PAM)
+	err = putIfNotFound(pamDetailsKey, string(b), "pam settings")
 	if err != nil {
 		return err
 	}

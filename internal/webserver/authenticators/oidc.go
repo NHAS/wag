@@ -1,4 +1,4 @@
-package methods
+package authenticators
 
 import (
 	"crypto/rand"
@@ -17,7 +17,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/zitadel/oidc/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/pkg/http"
@@ -43,7 +43,7 @@ func (o *Oidc) LogoutPath() string {
 	return o.provider.GetEndSessionEndpoint()
 }
 
-func (o *Oidc) Init(settings map[string]string) error {
+func (o *Oidc) Init() error {
 	key := make([]byte, 32)
 	_, err := rand.Read(key)
 	if err != nil {
@@ -57,7 +57,12 @@ func (o *Oidc) Init(settings map[string]string) error {
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 	}
 
-	u, err := url.Parse(settings["DomainURL"])
+	domain, err := data.GetDomain()
+	if err != nil {
+		return err
+	}
+
+	u, err := url.Parse(domain)
 	if err != nil {
 		return err
 	}
@@ -66,7 +71,13 @@ func (o *Oidc) Init(settings map[string]string) error {
 	log.Println("OIDC callback: ", u.String())
 
 	log.Println("Connecting to OIDC provider")
-	o.provider, err = rp.NewRelyingPartyOIDC(settings["IssuerURL"], settings["ClientID"], settings["ClientSecret"], u.String(), []string{"openid"}, options...)
+
+	oidc, err := data.GetOidc()
+	if err != nil {
+		return err
+	}
+
+	o.provider, err = rp.NewRelyingPartyOIDC(oidc.IssuerURL, oidc.ClientID, oidc.ClientSecret, u.String(), []string{"openid"}, options...)
 	if err != nil {
 		return err
 	}
@@ -75,7 +86,7 @@ func (o *Oidc) Init(settings map[string]string) error {
 }
 
 func (o *Oidc) Type() string {
-	return authenticators.OidcMFA
+	return string(types.Oidc)
 }
 
 func (o *Oidc) FriendlyName() string {
@@ -116,7 +127,7 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	value, _ := json.Marshal(issuer)
 
-	err = data.SetUserMfa(user.Username, string(value), authenticators.OidcMFA)
+	err = data.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
 		http.Error(w, "Unknown error", 500)
@@ -200,7 +211,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			err := resources.Render("oidc_error.html", w, &resources.Msg{
 				HelpMail:   config.Values().HelpMail,
-				NumMethods: len(authenticators.MFA),
+				NumMethods: NumberOfMethods(),
 				Message:    msg,
 				URL:        rp.GetEndSessionEndpoint(),
 			})

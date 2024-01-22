@@ -1,4 +1,4 @@
-package methods
+package authenticators
 
 import (
 	"crypto/rand"
@@ -16,24 +16,39 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/NHAS/webauthn/protocol"
 	"github.com/NHAS/webauthn/webauthn"
 )
 
 type Webauthn struct {
-	sessions *session.SessionStore[*webauthn.SessionData]
+	sessions         *session.SessionStore[*webauthn.SessionData]
+	webauthnExecutor *webauthn.WebAuthn
 }
 
-func (wa *Webauthn) Init(settings map[string]string) (err error) {
+func (wa *Webauthn) Init() error {
+
+	d, err := data.GetWebauthn()
+	if err != nil {
+		return err
+	}
+
+	wa.webauthnExecutor, err = webauthn.New(&webauthn.Config{
+		RPDisplayName: d.DisplayName, // Display Name for your site
+		RPID:          d.ID,          // Generally the domain name for your site
+		RPOrigin:      d.Origin,      // The origin URL for WebAuthn requests
+	})
+	if err != nil {
+		return err
+	}
 
 	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", "WAG-CSRF", 30*time.Minute, 1800, false)
 	return err
 }
 
 func (wa *Webauthn) Type() string {
-	return authenticators.WebauthnMFA
+	return string(types.Webauthn)
 }
 
 func (wa *Webauthn) FriendlyName() string {
@@ -69,7 +84,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		webauthnUser := NewUser(user.Username, user.Username)
 
 		// generate PublicKeyCredentialCreationOptions, session data
-		options, sessionData, err := config.Values().Authenticators.Webauthn.BeginRegistration(
+		options, sessionData, err := wa.webauthnExecutor.BeginRegistration(
 			webauthnUser,
 		)
 
@@ -88,7 +103,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = data.SetUserMfa(user.Username, string(webauthdata), authenticators.WebauthnMFA)
+		err = data.SetUserMfa(user.Username, string(webauthdata), wa.Type())
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
 			jsonResponse(w, "Server Error", http.StatusInternalServerError)
@@ -114,7 +129,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 				webauthnSession := *sessionData
 
-				credential, err := config.Values().Authenticators.Webauthn.FinishRegistration(webauthnUser, *webauthnSession, r)
+				credential, err := wa.webauthnExecutor.FinishRegistration(webauthnUser, *webauthnSession, r)
 				if err != nil {
 					return err
 				}
@@ -126,7 +141,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				err = data.SetUserMfa(username, string(webauthdata), authenticators.WebauthnMFA)
+				err = data.SetUserMfa(username, string(webauthdata), wa.Type())
 				if err != nil {
 
 					return err
@@ -197,7 +212,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// generate PublicKeyCredentialRequestOptions, session data
-		options, sessionData, err := config.Values().Authenticators.Webauthn.BeginLogin(webauthnUser)
+		options, sessionData, err := wa.webauthnExecutor.BeginLogin(webauthnUser)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
 			jsonResponse(w, "Server Error", http.StatusInternalServerError)
@@ -226,7 +241,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 
-				c, err := config.Values().Authenticators.Webauthn.FinishLogin(webauthnUser, **sessionData, r)
+				c, err := wa.webauthnExecutor.FinishLogin(webauthnUser, **sessionData, r)
 				if err != nil {
 					return err
 				}
@@ -242,7 +257,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Store the updated credentials (credential counter incremented by one)
-				err = data.SetUserMfa(username, string(webauthdata), authenticators.WebauthnMFA)
+				err = data.SetUserMfa(username, string(webauthdata), wa.Type())
 				if err != nil {
 					return err
 				}
@@ -270,7 +285,7 @@ func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username
 
 	if err := resources.Render("prompt_mfa_webauthn.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}
@@ -280,7 +295,7 @@ func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, r *http.Request, usern
 
 	if err := resources.Render("register_mfa_webauthn.html", w, &resources.Msg{
 		HelpMail:   config.Values().HelpMail,
-		NumMethods: len(authenticators.MFA),
+		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
 	}
