@@ -91,6 +91,14 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		err = data.IncrementAdminAuthenticationAttempt(r.Form.Get("username"))
+		if err != nil {
+			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
+
+			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			return
+		}
+
 		err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
 		if err != nil {
 			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
@@ -199,6 +207,15 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s, err := data.GetAllSettings()
+	if err != nil {
+		log.Println("error getting server settings: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		renderDefaults(w, r, nil, "error.html")
+		return
+	}
+
 	d := Dashboard{
 		Page: Page{
 			Update:      getUpdate(),
@@ -210,7 +227,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 		Port:            port,
 		PublicKey:       pubkey.String(),
-		ExternalAddress: config.Values().ExternalAddress,
+		ExternalAddress: s.ExternalAddress,
 		Subnet:          config.Values().Wireguard.Range.String(),
 
 		NumUsers:           len(allUsers),
@@ -1197,14 +1214,19 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := []UsersData{}
+		usersData := []UsersData{}
 
 		for _, u := range users {
 			devices, _ := ctrl.ListDevice(u.Username)
 
-			groups := append([]string{"*"}, config.Values().Acls.GetUserGroups(u.Username)...)
+			groups, err := data.GetUserGroupMembership(u.Username)
+			if err != nil {
+				log.Println("unable to get users groups: ", err)
+				http.Error(w, "Server error", 500)
+				return
+			}
 
-			data = append(data, UsersData{
+			usersData = append(usersData, UsersData{
 				Username: u.Username,
 				Locked:   u.Locked,
 				Devices:  len(devices),
@@ -1213,7 +1235,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		b, err := json.Marshal(data)
+		b, err := json.Marshal(usersData)
 		if err != nil {
 			log.Println("unable to marshal users data: ", err)
 			http.Error(w, "Server error", 500)

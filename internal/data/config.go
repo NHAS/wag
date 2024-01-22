@@ -158,11 +158,11 @@ func GetAllSettings() (s Settings, err error) {
 	}
 
 	if response.Responses[6].GetResponseRange().Count == 1 {
-		s.HelpMail = string(response.Responses[6].GetResponseRange().Kvs[0].Value)
+		s.Issuer = string(response.Responses[6].GetResponseRange().Kvs[0].Value)
 	}
 
 	if response.Responses[7].GetResponseRange().Count == 1 {
-		s.ExternalAddress = string(response.Responses[7].GetResponseRange().Kvs[0].Value)
+		s.Domain = string(response.Responses[7].GetResponseRange().Kvs[0].Value)
 	}
 
 	return

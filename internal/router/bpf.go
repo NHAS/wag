@@ -300,6 +300,7 @@ func SetLockAccount(username string, locked uint32) error {
 
 // Takes the LPM table and associates a route to a policy
 func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls acls.Acl) error {
+
 	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
 	if err != nil {
 		return err
@@ -359,6 +360,7 @@ func AddUser(username string, acls acls.Acl) error {
 
 func setSingleUserMap(userid [20]byte, acls acls.Acl) error {
 	// Adds LPM trie to existing map (hashmap to map)
+	// Or if we have an existing map, update it
 
 	if _, ok := userPolicyMaps[userid]; !ok {
 		policiesInnerTable, err := ebpf.NewMap(routesMapSpec)
@@ -366,7 +368,7 @@ func setSingleUserMap(userid [20]byte, acls acls.Acl) error {
 			return fmt.Errorf("%s creating new map: %s", xdpObjects.PoliciesTable.String(), err)
 		}
 
-		err = xdpObjects.PoliciesTable.Put(userid, uint32(policiesInnerTable.FD()))
+		err = xdpObjects.PoliciesTable.Update(userid, uint32(policiesInnerTable.FD()), ebpf.UpdateNoExist)
 		if err != nil {
 			return fmt.Errorf("%s adding new map to table: %s", xdpObjects.PoliciesTable.String(), err)
 		}
@@ -374,11 +376,46 @@ func setSingleUserMap(userid [20]byte, acls acls.Acl) error {
 		userPolicyMaps[userid] = policiesInnerTable
 	}
 
-	if err := xdpAddRoute(userPolicyMaps[userid], acls); err != nil {
+	mapRef := userPolicyMaps[userid]
+	if err := clearPolicyMap(mapRef); err != nil {
+		return err
+	}
+
+	if err := xdpAddRoute(mapRef, acls); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func clearPolicyMap(toClear *ebpf.Map) error {
+	var (
+		lastKey []byte
+		err     error
+	)
+
+	// Due to type inference we cant just set lastKey to nil to get the first key
+	lastKey, err = toClear.NextKeyBytes(nil)
+	if err != nil {
+		return err
+	}
+
+	for {
+
+		if lastKey == nil {
+			return nil
+		}
+
+		err = toClear.Delete(lastKey)
+		if err != nil && err != ebpf.ErrKeyNotExist {
+			return err
+		}
+
+		lastKey, err = toClear.NextKeyBytes(lastKey)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // I've tried my hardest not to make this stateful. But alas we must cache the user policy maps or things become unreasonbly slow
@@ -394,8 +431,6 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 		maps = map[string]*ebpf.Map{}
 	)
 
-	x := 0
-
 	for _, user := range users {
 		userid := sha1.Sum([]byte(user.Username))
 
@@ -403,13 +438,15 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 		// This speeds up things like refresh acls, but not wag start up
 		if policiesInnerTable, ok := userPolicyMaps[userid]; ok {
 
+			if err := clearPolicyMap(policiesInnerTable); err != nil {
+				errors = append(errors, err)
+				continue
+			}
+
 			err := xdpAddRoute(policiesInnerTable, data.GetEffectiveAcl(user.Username))
 
 			if err != nil {
 				errors = append(errors, err)
-			} else {
-				x++
-				continue
 			}
 		}
 
@@ -437,7 +474,7 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 	}
 
 	n, err := xdpObjects.PoliciesTable.BatchUpdate(keys, values, &ebpf.BatchOptions{
-		Flags: uint64(ebpf.UpdateAny),
+		Flags: uint64(ebpf.UpdateNoExist),
 	})
 
 	if err != nil {
@@ -448,6 +485,7 @@ func bulkCreateUserMaps(users []data.UserModel) []error {
 		return []error{fmt.Errorf("batch update could not write all keys to map: expected %d got %d", len(keys), n)}
 	}
 
+	// As we created maps for this, we dont need to clear things
 	for username, m := range maps {
 		err := xdpAddRoute(m, data.GetEffectiveAcl(username))
 		if err != nil {

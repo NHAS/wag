@@ -48,19 +48,6 @@ type Acls struct {
 	Policies     map[string]*acls.Acl
 }
 
-func (a Acls) GetUserGroups(username string) (result []string) {
-	if values.Acls.rGroupLookup == nil {
-		return []string{}
-	}
-
-	result = make([]string, 0, len(values.Acls.rGroupLookup[username]))
-	for group := range values.Acls.rGroupLookup[username] {
-		result = append(result, group)
-	}
-
-	return
-}
-
 type Config struct {
 	path          string
 	Socket        string `json:",omitempty"`

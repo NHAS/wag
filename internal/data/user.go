@@ -24,21 +24,21 @@ func (um *UserModel) GetID() [20]byte {
 
 // Make sure that the attempts is always incremented first to stop race condition attacks
 func IncrementAuthenticationAttempt(username, device string) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, device), func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), deviceKey(username, device), func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("invalid number of users")
+			return "", errors.New("invalid number of users")
 		}
 
 		var userDevice Device
 		err = json.Unmarshal(gr.Kvs[0].Value, &userDevice)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		l, err := GetLockout()
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		if userDevice.Attempts < l {
@@ -47,7 +47,7 @@ func IncrementAuthenticationAttempt(username, device string) error {
 
 		b, _ := json.Marshal(userDevice)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
@@ -97,18 +97,18 @@ func GetAuthenticationDetails(username, device string) (mfa, mfaType string, att
 
 // Disable authentication for user
 func SetUserLock(username string) error {
-	err := doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, bool, error) {
+	err := doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.Locked = true
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 	if err != nil {
@@ -119,18 +119,18 @@ func SetUserLock(username string) error {
 }
 
 func SetUserUnlock(username string) error {
-	err := doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, bool, error) {
+	err := doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.Locked = false
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 	if err != nil {
@@ -164,36 +164,36 @@ func IsEnforcingMFA(username string) bool {
 // Stop displaying MFA secrets for user
 func SetEnforceMFAOn(username string) error {
 
-	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.Enforcing = true
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
 
 func SetEnforceMFAOff(username string) error {
-	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.Enforcing = false
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
@@ -302,11 +302,11 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 
 func SetUserMfa(username, value, mfaType string) error {
 
-	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "users-"+username+"-", func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.Mfa = value
@@ -314,7 +314,7 @@ func SetUserMfa(username, value, mfaType string) error {
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }

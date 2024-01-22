@@ -6,12 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -28,25 +25,6 @@ type Device struct {
 	Authorised   time.Time
 }
 
-func stringToUDPaddr(address string) (r *net.UDPAddr) {
-	parts := strings.Split(address, ":")
-	if len(parts) < 2 {
-		return nil
-	}
-
-	port, err := strconv.Atoi(parts[len(parts)-1])
-	if err != nil {
-		return nil
-	}
-
-	r = &net.UDPAddr{
-		IP:   net.ParseIP(utils.GetIP(address)),
-		Port: port,
-	}
-
-	return
-}
-
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 
 	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
@@ -58,22 +36,22 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("user device has multiple keys")
+			return "", errors.New("user device has multiple keys")
 		}
 
 		var device Device
 		err := json.Unmarshal(gr.Kvs[0].Value, &device)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		device.Endpoint = endpoint
 
 		b, _ := json.Marshal(device)
 
-		return string(b), false, err
+		return string(b), err
 	})
 }
 
@@ -99,25 +77,25 @@ func GetDevice(username, id string) (device Device, err error) {
 
 // Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("user device has multiple keys")
+			return "", errors.New("user device has multiple keys")
 		}
 
 		var device Device
 		err := json.Unmarshal(gr.Kvs[0].Value, &device)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		u, err := GetUserData(device.Username)
 		if err != nil {
 			// We may want to make this lock the device if the user is not found. At the moment settle with doing nothing
-			return "", false, err
+			return "", err
 		}
 
 		if u.Locked {
-			return "", false, errors.New("account is locked")
+			return "", errors.New("account is locked")
 		}
 
 		device.Authorised = time.Now()
@@ -125,7 +103,7 @@ func AuthoriseDevice(username, address string) error {
 
 		b, _ := json.Marshal(device)
 
-		return string(b), false, err
+		return string(b), err
 	})
 }
 
@@ -140,42 +118,42 @@ func DeauthenticateDevice(address string) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("user device has multiple keys")
+			return "", errors.New("user device has multiple keys")
 		}
 
 		var device Device
 		err := json.Unmarshal(gr.Kvs[0].Value, &device)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		device.Authorised = time.Time{}
 
 		b, _ := json.Marshal(device)
 
-		return string(b), false, err
+		return string(b), err
 	})
 }
 
 func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("user device has multiple keys")
+			return "", errors.New("user device has multiple keys")
 		}
 
 		var device Device
 		err := json.Unmarshal(gr.Kvs[0].Value, &device)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		device.Attempts = attempts
 
 		b, _ := json.Marshal(device)
 
-		return string(b), false, err
+		return string(b), err
 	})
 }
 
@@ -326,22 +304,22 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 		return err
 	}
 
-	err = doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, bool, error) {
+	err = doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("user device has multiple keys")
+			return "", errors.New("user device has multiple keys")
 		}
 
 		var device Device
 		err := json.Unmarshal(gr.Kvs[0].Value, &device)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		device.Publickey = publicKey.String()
 
 		b, _ := json.Marshal(device)
 
-		return string(b), false, err
+		return string(b), err
 	})
 
 	if err != nil {

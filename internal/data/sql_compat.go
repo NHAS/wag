@@ -3,7 +3,11 @@ package data
 import (
 	"database/sql"
 	"encoding/json"
+	"net"
+	"strconv"
+	"strings"
 
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 )
 
@@ -118,4 +122,23 @@ func sqlGetAllDevices() (devices []Device, err error) {
 	}
 
 	return devices, nil
+}
+
+func stringToUDPaddr(address string) (r *net.UDPAddr) {
+	parts := strings.Split(address, ":")
+	if len(parts) < 2 {
+		return nil
+	}
+
+	port, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return nil
+	}
+
+	r = &net.UDPAddr{
+		IP:   net.ParseIP(utils.GetIP(address)),
+		Port: port,
+	}
+
+	return
 }

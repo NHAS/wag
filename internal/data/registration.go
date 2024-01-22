@@ -78,12 +78,12 @@ func DeleteRegistrationToken(identifier string) error {
 func FinaliseRegistration(token string) error {
 
 	errVal := errors.New("registration token has expired")
-	err := doSafeUpdate(context.Background(), "tokens-"+token, func(gr *clientv3.GetResponse) (string, bool, error) {
+	err := doSafeUpdate(context.Background(), "tokens-"+token, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result control.RegistrationResult
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		result.NumUses--
@@ -94,7 +94,7 @@ func FinaliseRegistration(token string) error {
 
 		b, _ := json.Marshal(result)
 
-		return string(b), false, err
+		return string(b), err
 	})
 
 	if err == errVal {

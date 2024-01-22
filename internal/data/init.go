@@ -369,7 +369,7 @@ func TearDown() {
 	}
 }
 
-func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.GetResponse) (value string, onErrwrite bool, err error)) error {
+func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
 	opts := []clientv3.OpOption{}
 
@@ -387,8 +387,8 @@ func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.Get
 			return errors.New("no record found")
 		}
 
-		newValue, onErrwrite, err := mutateFunc(origState)
-		if err != nil && !onErrwrite {
+		newValue, err := mutateFunc(origState)
+		if err != nil {
 			return err
 		}
 

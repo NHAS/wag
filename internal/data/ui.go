@@ -41,6 +41,35 @@ func generateSalt() ([]byte, error) {
 	return randomData, nil
 }
 
+func IncrementAdminAuthenticationAttempt(username string) error {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, err error) {
+
+		if len(gr.Kvs) != 1 {
+			return "", errors.New("invalid number of admin keys")
+		}
+
+		var admin admin
+		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
+		if err != nil {
+			return "", err
+		}
+
+		l, err := GetLockout()
+		if err != nil {
+			return "", err
+		}
+
+		if admin.Attempts < l {
+			admin.Attempts++
+		}
+
+		b, _ := json.Marshal(admin)
+
+		return string(b), nil
+
+	})
+}
+
 func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
@@ -80,39 +109,38 @@ func CompareAdminKeys(username, password string) error {
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	err := doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
+	err := doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
-		if result.Attempts >= 5 {
+		lockout, err := GetLockout()
+		if err != nil {
+			return "", err
+		}
+		if result.Attempts >= lockout {
 			wasteTime()
-			return "", false, errors.New("account locked")
+			return "", errors.New("account locked")
 		}
 
 		rawHashSalt, err := base64.RawStdEncoding.DecodeString(result.Hash)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		thisHash := argon2.IDKey([]byte(password), rawHashSalt[len(rawHashSalt)-16:], 1, 10*1024, 4, 32)
 
 		if subtle.ConstantTimeCompare(thisHash, rawHashSalt[:len(rawHashSalt)-16]) != 1 {
-			result.Attempts++
-
-			b, _ := json.Marshal(result)
-
-			// For this specific error we need to write the attempts to the entry
-			return string(b), true, errors.New("passwords did not match")
+			return "", errors.New("passwords did not match")
 		}
 
 		result.Attempts = 0
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 	})
 
 	return err
@@ -121,19 +149,20 @@ func CompareAdminKeys(username, password string) error {
 // Lock admin account and make them unable to login
 func SetAdminUserLock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
-		result.Attempts = 6
-
-		result.Attempts = 0
+		result.Attempts, err = GetLockout()
+		if err != nil {
+			return "", err
+		}
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
@@ -141,19 +170,17 @@ func SetAdminUserLock(username string) error {
 // Unlock admin account
 func SetAdminUserUnlock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, bool, error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
-
-		result.Attempts = 0
 
 		result.Attempts = 0
 		b, _ := json.Marshal(result)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
@@ -215,16 +242,16 @@ func SetAdminPassword(username, password string) error {
 
 	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("invalid number of admin users")
+			return "", errors.New("invalid number of admin users")
 		}
 
 		var admin admin
 		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		admin.Change = false
@@ -232,23 +259,23 @@ func SetAdminPassword(username, password string) error {
 
 		b, _ := json.Marshal(admin)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 
 }
 
 func setAdminHash(username, hash string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("invalid number of admin users")
+			return "", errors.New("invalid number of admin users")
 		}
 
 		var admin admin
 		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		admin.Change = false
@@ -256,22 +283,22 @@ func setAdminHash(username, hash string) error {
 
 		b, _ := json.Marshal(admin)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 }
 
 func SetLastLoginInformation(username, ip string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	return doSafeUpdate(context.Background(), "admin-users-"+username, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("invalid number of admin users")
+			return "", errors.New("invalid number of admin users")
 		}
 
 		var admin admin
 		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		admin.LastLogin = time.Now().Format(time.RFC3339)
@@ -279,7 +306,7 @@ func SetLastLoginInformation(username, ip string) error {
 
 		b, _ := json.Marshal(admin)
 
-		return string(b), false, nil
+		return string(b), nil
 
 	})
 

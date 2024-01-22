@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"golang.org/x/exp/maps"
 )
 
 func SetGroup(group string, members []string, overwrite bool) error {
@@ -36,16 +37,16 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("bad number of membership keys")
+			return "", errors.New("bad number of membership keys")
 		}
 
 		var rGroupLookup map[string]map[string]bool
 		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		for _, member := range oldMembers {
@@ -62,7 +63,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 
 		reverseMappingJson, _ := json.Marshal(rGroupLookup)
 
-		return string(reverseMappingJson), false, nil
+		return string(reverseMappingJson), nil
 	})
 
 	return err
@@ -111,16 +112,16 @@ func RemoveGroup(groupName string) error {
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, onErrwrite bool, err error) {
+	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
-			return "", false, errors.New("bad number of membership keys")
+			return "", errors.New("bad number of membership keys")
 		}
 
 		var rGroupLookup map[string]map[string]bool
 		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
 		if err != nil {
-			return "", false, err
+			return "", err
 		}
 
 		for _, member := range oldMembers {
@@ -129,8 +130,29 @@ func RemoveGroup(groupName string) error {
 
 		reverseMappingJson, _ := json.Marshal(rGroupLookup)
 
-		return string(reverseMappingJson), false, nil
+		return string(reverseMappingJson), nil
 	})
 
 	return err
+}
+
+func GetUserGroupMembership(username string) ([]string, error) {
+
+	response, err := etcd.Get(context.Background(), "wag-membership")
+	if err != nil {
+		return nil, err
+	}
+
+	var rGroupLookup map[string]map[string]bool
+
+	err = json.Unmarshal(response.Kvs[0].Value, &rGroupLookup)
+	if err != nil {
+		return nil, err
+	}
+
+	if rGroupLookup[username] == nil {
+		return []string{}, nil
+	}
+
+	return maps.Keys(rGroupLookup[username]), nil
 }
