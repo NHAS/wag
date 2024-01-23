@@ -102,7 +102,7 @@ func (g *start) Run() error {
 
 	error := make(chan error)
 
-	if config.Values.Clustering.WitnessNode {
+	if !config.Values.Clustering.Witness {
 
 		err = router.Setup(error, !g.noIptables)
 		if err != nil {
@@ -148,7 +148,7 @@ func (g *start) Run() error {
 	}()
 
 	wagType := "Wag"
-	if config.Values.Clustering.WitnessNode {
+	if config.Values.Clustering.Witness {
 		wagType = "Witness Node"
 	}
 

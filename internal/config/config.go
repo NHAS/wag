@@ -80,7 +80,7 @@ type Config struct {
 		Peers            map[string][]string
 		DatabaseLocation string
 		ETCDLogLevel     string
-		WitnessNode      bool
+		Witness          bool
 	}
 
 	Authenticators struct {
