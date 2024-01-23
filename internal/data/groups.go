@@ -156,3 +156,32 @@ func GetUserGroupMembership(username string) ([]string, error) {
 
 	return maps.Keys(rGroupLookup[username]), nil
 }
+
+func SetUserGroupMembership(username string, newGroups []string) error {
+
+	err := doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
+
+		if len(gr.Kvs) != 1 {
+			return "", errors.New("bad number of membership keys")
+		}
+
+		var rGroupLookup map[string]map[string]bool
+		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
+		if err != nil {
+			return "", err
+		}
+
+		groups := map[string]bool{}
+		for _, group := range newGroups {
+			groups[group] = true
+		}
+
+		rGroupLookup[username] = groups
+
+		reverseMappingJson, _ := json.Marshal(rGroupLookup)
+
+		return string(reverseMappingJson), nil
+	})
+
+	return err
+}

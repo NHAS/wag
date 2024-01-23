@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -192,12 +191,10 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if info.GetPreferredUsername() != username {
-				return errors.New("returned username did not equal device associated username")
+				return errors.New("user is not associated with device")
 			}
 
-			config.AddVirtualUser(username, groups)
-
-			return nil
+			return data.SetUserGroupMembership(username, groups)
 		})
 
 		if err != nil {

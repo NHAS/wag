@@ -50,7 +50,7 @@ func setupWireguard(devices []data.Device) error {
 
 	var c wgtypes.Config
 
-	if !config.Values().Wireguard.External {
+	if !config.Values.Wireguard.External {
 
 		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
 		if err != nil {
@@ -58,24 +58,24 @@ func setupWireguard(devices []data.Device) error {
 		}
 		defer conn.Close()
 
-		ip, network, err := net.ParseCIDR(config.Values().Wireguard.Address)
+		ip, network, err := net.ParseCIDR(config.Values.Wireguard.Address)
 		if err != nil {
 			return err
 		}
 		network.IP = ip.To4()[:4] // Stop netlink freaking out at a ipv6 length ipv4 address
 
-		err = addWg(conn, config.Values().Wireguard.DevName, *network, config.Values().Wireguard.MTU)
+		err = addWg(conn, config.Values.Wireguard.DevName, *network, config.Values.Wireguard.MTU)
 		if err != nil {
 			return err
 		}
 
-		key, err := wgtypes.ParseKey(config.Values().Wireguard.PrivateKey)
+		key, err := wgtypes.ParseKey(config.Values.Wireguard.PrivateKey)
 		if err != nil {
 			return err
 		}
 		c.PrivateKey = &key
 
-		port := config.Values().Wireguard.ListenPort
+		port := config.Values.Wireguard.ListenPort
 		c.ListenPort = &port
 	}
 
@@ -98,8 +98,8 @@ func setupWireguard(devices []data.Device) error {
 			PresharedKey:      psk,
 		}
 
-		if config.Values().Wireguard.ServerPersistentKeepAlive > 0 {
-			d := time.Duration(config.Values().Wireguard.ServerPersistentKeepAlive) * time.Second
+		if config.Values.Wireguard.ServerPersistentKeepAlive > 0 {
+			d := time.Duration(config.Values.Wireguard.ServerPersistentKeepAlive) * time.Second
 			pc.PersistentKeepaliveInterval = &d
 		}
 		c.Peers = append(c.Peers, pc)
@@ -111,7 +111,7 @@ func setupWireguard(devices []data.Device) error {
 		return fmt.Errorf("cannot start wireguard control %v", err)
 	}
 
-	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
 		return fmt.Errorf("cannot configure wireguard device %v", err)
 
@@ -127,9 +127,9 @@ func ServerDetails() (key wgtypes.Key, port int, err error) {
 	}
 	defer ctr.Close()
 
-	dev, err := ctr.Device(config.Values().Wireguard.DevName)
+	dev, err := ctr.Device(config.Values.Wireguard.DevName)
 	if err != nil {
-		return key, port, fmt.Errorf("unable to start wireguard-ctrl on device with name %s: %v", config.Values().Wireguard.DevName, err)
+		return key, port, fmt.Errorf("unable to start wireguard-ctrl on device with name %s: %v", config.Values.Wireguard.DevName, err)
 	}
 
 	return dev.PublicKey, dev.ListenPort, nil
@@ -157,7 +157,7 @@ func _removePeer(publickey, address string) error {
 	})
 
 	// Try all removals, if any work then the device is effectively blocked
-	err1 := ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err1 := ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	err2 := xdpRemoveDevice(address)
 
 	if err1 != nil {
@@ -194,7 +194,7 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 		Remove:    true,
 	})
 
-	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 		},
 	}
 
-	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func ListPeers() ([]wgtypes.Peer, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
-	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
+	dev, err := ctrl.Device(config.Values.Wireguard.DevName)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 		return err
 	}
 
-	err = ctrl.ConfigureDevice(config.Values().Wireguard.DevName, c)
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 }
 
 func GetPeerRealIp(address string) (string, error) {
-	dev, err := ctrl.Device(config.Values().Wireguard.DevName)
+	dev, err := ctrl.Device(config.Values.Wireguard.DevName)
 	if err != nil {
 		return "", err
 	}

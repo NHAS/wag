@@ -73,26 +73,26 @@ func Load(path string) error {
 	}
 
 	cfg := embed.NewConfig()
-	cfg.Name = config.Values().Clustering.Name
+	cfg.Name = config.Values.Clustering.Name
 	cfg.InitialClusterToken = "wag-test"
-	cfg.LogLevel = config.Values().Clustering.ETCDLogLevel
-	cfg.ListenPeerUrls = parseUrls(config.Values().Clustering.ListenAddresses...)
+	cfg.LogLevel = config.Values.Clustering.ETCDLogLevel
+	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = parseUrls("http://127.0.0.1:2480")
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 
-	if _, ok := config.Values().Clustering.Peers[cfg.Name]; ok {
+	if _, ok := config.Values.Clustering.Peers[cfg.Name]; ok {
 		return fmt.Errorf("clustering.peers contains the same name (%s) as this node this would trample something and break", cfg.Name)
 	}
 
-	peers := config.Values().Clustering.Peers
-	peers[cfg.Name] = config.Values().Clustering.ListenAddresses
+	peers := config.Values.Clustering.Peers
+	peers[cfg.Name] = config.Values.Clustering.ListenAddresses
 
 	cfg.InitialCluster = ""
 	for tag, addresses := range peers {
 		cfg.InitialCluster += fmt.Sprintf("%s=%s", tag, strings.Join(addresses, ","))
 	}
 
-	cfg.Dir = filepath.Join(config.Values().Clustering.DatabaseLocation, config.Values().Clustering.Name+".wag-node.etcd")
+	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, config.Values.Clustering.Name+".wag-node.etcd")
 	etcdServer, err = embed.StartEtcd(cfg)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func loadInitialSettings() error {
 	if len(response.Kvs) == 0 {
 		log.Println("no acls found in database, importing from .json file (from this point the json file will be ignored)")
 
-		for aclName, acl := range config.Values().Acls.Policies {
+		for aclName, acl := range config.Values.Acls.Policies {
 			aclJson, _ := json.Marshal(acl)
 			_, err = etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
 			if err != nil {
@@ -165,7 +165,7 @@ func loadInitialSettings() error {
 		// User to groups
 		rGroupLookup := map[string]map[string]bool{}
 
-		for groupName, members := range config.Values().Acls.Groups {
+		for groupName, members := range config.Values.Acls.Groups {
 			groupJson, _ := json.Marshal(members)
 			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
 			if err != nil {
@@ -188,76 +188,76 @@ func loadInitialSettings() error {
 		}
 	}
 
-	configData, _ := json.Marshal(config.Values())
+	configData, _ := json.Marshal(config.Values)
 	err = putIfNotFound(fullJsonConfigKey, string(configData), "full config")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(helpMailKey, config.Values().HelpMail, "help mail")
+	err = putIfNotFound(helpMailKey, config.Values.HelpMail, "help mail")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(externalAddressKey, config.Values().ExternalAddress, "external wag address")
+	err = putIfNotFound(externalAddressKey, config.Values.ExternalAddress, "external wag address")
 	if err != nil {
 		return err
 	}
 
-	dnsData, _ := json.Marshal(config.Values().Wireguard.DNS)
+	dnsData, _ := json.Marshal(config.Values.Wireguard.DNS)
 	err = putIfNotFound(dnsKey, string(dnsData), "dns")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(inactivityTimeoutKey, fmt.Sprintf("%d", config.Values().SessionInactivityTimeoutMinutes), "inactivity timeout")
+	err = putIfNotFound(inactivityTimeoutKey, fmt.Sprintf("%d", config.Values.SessionInactivityTimeoutMinutes), "inactivity timeout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(sessionLifetimeKey, fmt.Sprintf("%d", config.Values().MaxSessionLifetimeMinutes), "max session life")
+	err = putIfNotFound(sessionLifetimeKey, fmt.Sprintf("%d", config.Values.MaxSessionLifetimeMinutes), "max session life")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(lockoutKey, fmt.Sprintf("%d", config.Values().Lockout), "lockout")
+	err = putIfNotFound(lockoutKey, fmt.Sprintf("%d", config.Values.Lockout), "lockout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(issuerKey, config.Values().Authenticators.Issuer, "issuer name")
+	err = putIfNotFound(issuerKey, config.Values.Authenticators.Issuer, "issuer name")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(domainKey, config.Values().Authenticators.DomainURL, "domain url")
+	err = putIfNotFound(domainKey, config.Values.Authenticators.DomainURL, "domain url")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(defaultWGFileNameKey, config.Values().DownloadConfigFileName, "wireguard config file")
+	err = putIfNotFound(defaultWGFileNameKey, config.Values.DownloadConfigFileName, "wireguard config file")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(checkUpdatesKey, strconv.FormatBool(config.Values().CheckUpdates), "update check settings")
+	err = putIfNotFound(checkUpdatesKey, strconv.FormatBool(config.Values.CheckUpdates), "update check settings")
 	if err != nil {
 		return err
 	}
 
-	b, _ := json.Marshal(config.Values().Authenticators.Methods)
+	b, _ := json.Marshal(config.Values.Authenticators.Methods)
 	err = putIfNotFound(methodsEnabledKey, string(b), "authorisation methods")
 	if err != nil {
 		return err
 	}
 
-	b, _ = json.Marshal(config.Values().Authenticators.OIDC)
+	b, _ = json.Marshal(config.Values.Authenticators.OIDC)
 	err = putIfNotFound(oidcDetailsKey, string(b), "oidc settings")
 	if err != nil {
 		return err
 	}
 
-	b, _ = json.Marshal(config.Values().Authenticators.PAM)
+	b, _ = json.Marshal(config.Values.Authenticators.PAM)
 	err = putIfNotFound(pamDetailsKey, string(b), "pam settings")
 	if err != nil {
 		return err

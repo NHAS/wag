@@ -53,8 +53,8 @@ func Render(page string, out io.Writer, data interface{}) error {
 
 func RenderWithFuncs(page string, out io.Writer, data interface{}, templateFuncs template.FuncMap) error {
 	var currentTemplate *template.Template
-	if len(config.Values().MFATemplatesDirectory) != 0 {
-		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFiles(path.Join(config.Values().MFATemplatesDirectory, page)))
+	if len(config.Values.MFATemplatesDirectory) != 0 {
+		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFiles(path.Join(config.Values.MFATemplatesDirectory, page)))
 	} else {
 		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFS(embeddedUI, "templates/"+page))
 	}

@@ -15,7 +15,7 @@ func setupIptables() error {
 		return err
 	}
 
-	devName := config.Values().Wireguard.DevName
+	devName := config.Values.Wireguard.DevName
 
 	//So. This to the average person will look like we say "Hey server forward anything and everything from the wireguard interface"
 	//And without the xdp ebpf program it would be, however if you look at xdp.c you can see that we can manipluate maps of addresses for each user
@@ -41,23 +41,23 @@ func setupIptables() error {
 		return err
 	}
 
-	shouldNAT := config.Values().NAT == nil || (config.Values().NAT != nil && *config.Values().NAT)
+	shouldNAT := config.Values.NAT == nil || (config.Values.NAT != nil && *config.Values.NAT)
 	if shouldNAT {
-		err = ipt.Append("nat", "POSTROUTING", "-s", config.Values().Wireguard.Range.String(), "-j", "MASQUERADE")
+		err = ipt.Append("nat", "POSTROUTING", "-s", config.Values.Wireguard.Range.String(), "-j", "MASQUERADE")
 		if err != nil {
 			return err
 		}
 	}
 
-	if config.Values().NumberProxies == 0 {
+	if config.Values.NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel, if we're not behind a proxy
-		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values().Webserver.Tunnel.Port, "-j", "ACCEPT")
+		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
 
 		// Open port 80 to allow http redirection
-		if config.Values().Webserver.Tunnel.SupportsTLS() {
+		if config.Values.Webserver.Tunnel.SupportsTLS() {
 			//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
 			err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
 			if err != nil {
@@ -67,7 +67,7 @@ func setupIptables() error {
 
 	}
 
-	for _, port := range config.Values().ExposePorts {
+	for _, port := range config.Values.ExposePorts {
 		parts := strings.Split(port, "/")
 		if len(parts) < 2 {
 			return errors.New(port + " is not in a valid port format. E.g 80/tcp or 80-100/tcp")

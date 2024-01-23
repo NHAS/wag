@@ -121,9 +121,9 @@ func loadXDP() error {
 }
 
 func attachXDP() error {
-	iface, err := net.InterfaceByName(config.Values().Wireguard.DevName)
+	iface, err := net.InterfaceByName(config.Values.Wireguard.DevName)
 	if err != nil {
-		return fmt.Errorf("lookup network iface %q: %s", config.Values().Wireguard.DevName, err)
+		return fmt.Errorf("lookup network iface %q: %s", config.Values.Wireguard.DevName, err)
 	}
 
 	//Try multiple times to attach program if the link is temporarily busy (work around for link.Close requiring a sleep)

@@ -57,12 +57,12 @@ func Start(errChan chan<- error) error {
 	public.HandleFunc("/register_device", registerDevice)
 	public.HandleFunc("/reachability", reachability)
 
-	if config.Values().Webserver.Public.SupportsTLS() {
+	if config.Values.Webserver.Public.SupportsTLS() {
 
 		go func() {
 
 			srv := &http.Server{
-				Addr:         config.Values().Webserver.Public.ListenAddress,
+				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -70,13 +70,13 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Public.CertPath, config.Values().Webserver.Public.KeyPath))
+			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath))
 		}()
 
-		if config.Values().NumberProxies == 0 {
+		if config.Values.NumberProxies == 0 {
 			go func() {
 
-				address, port, err := net.SplitHostPort(config.Values().Webserver.Public.ListenAddress)
+				address, port, err := net.SplitHostPort(config.Values.Webserver.Public.ListenAddress)
 
 				if err != nil {
 					errChan <- fmt.Errorf("Malformed listen address for public listener: %v", err)
@@ -104,7 +104,7 @@ func Start(errChan chan<- error) error {
 	} else {
 		go func() {
 			srv := &http.Server{
-				Addr:         config.Values().Webserver.Public.ListenAddress,
+				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
 				IdleTimeout:  120 * time.Second,
@@ -122,8 +122,8 @@ func Start(errChan chan<- error) error {
 
 	tunnel.HandleFunc("/logout/", logout)
 
-	if config.Values().MFATemplatesDirectory != "" {
-		fs := http.FileServer(http.Dir(path.Join(config.Values().MFATemplatesDirectory, "static")))
+	if config.Values.MFATemplatesDirectory != "" {
+		fs := http.FileServer(http.Dir(path.Join(config.Values.MFATemplatesDirectory, "static")))
 		tunnel.Handle("/custom/", http.StripPrefix("/custom/", fs))
 	}
 
@@ -142,8 +142,8 @@ func Start(errChan chan<- error) error {
 
 	tunnel.HandleFunc("/", index)
 
-	tunnelListenAddress := config.Values().Wireguard.ServerAddress.String() + ":" + config.Values().Webserver.Tunnel.Port
-	if config.Values().Webserver.Tunnel.SupportsTLS() {
+	tunnelListenAddress := config.Values.Wireguard.ServerAddress.String() + ":" + config.Values.Webserver.Tunnel.Port
+	if config.Values.Webserver.Tunnel.SupportsTLS() {
 
 		go func() {
 
@@ -156,19 +156,19 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values().Webserver.Tunnel.CertPath, config.Values().Webserver.Tunnel.KeyPath))
+			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath))
 		}()
 
-		if config.Values().NumberProxies == 0 {
+		if config.Values.NumberProxies == 0 {
 			go func() {
 
-				port := ":" + config.Values().Webserver.Tunnel.Port
+				port := ":" + config.Values.Webserver.Tunnel.Port
 				if port == "443" {
 					port = ""
 				}
 
 				srv := &http.Server{
-					Addr:         config.Values().Wireguard.ServerAddress.String() + ":80",
+					Addr:         config.Values.Wireguard.ServerAddress.String() + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
@@ -195,7 +195,7 @@ func Start(errChan chan<- error) error {
 	//Group the print statement so that multithreading wont disorder them
 	log.Println("Started listening:\n",
 		"\t\t\tTunnel Listener: ", tunnelListenAddress, "\n",
-		"\t\t\tPublic Listener: ", config.Values().Webserver.Public.ListenAddress)
+		"\t\t\tPublic Listener: ", config.Values.Webserver.Public.ListenAddress)
 	return nil
 }
 
@@ -374,7 +374,12 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(groups) != 0 {
-		config.AddVirtualUser(username, groups)
+		err := data.SetUserGroupMembership(username, groups)
+		if err != nil {
+			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
+			http.Error(w, "Server error", 500)
+			return
+		}
 	}
 
 	var publickey, privatekey wgtypes.Key

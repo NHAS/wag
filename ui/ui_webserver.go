@@ -228,7 +228,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		Port:            port,
 		PublicKey:       pubkey.String(),
 		ExternalAddress: s.ExternalAddress,
-		Subnet:          config.Values().Wireguard.Range.String(),
+		Subnet:          config.Values.Wireguard.Range.String(),
 
 		NumUsers:           len(allUsers),
 		ActiveSessions:     activeSessions,
@@ -252,12 +252,12 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 func StartWebServer(errs chan<- error) error {
 
-	if !config.Values().ManagementUI.Enabled {
+	if !config.Values.ManagementUI.Enabled {
 		log.Println("Management Web UI is disabled")
 		return nil
 	}
 
-	ctrl = wagctl.NewControlClient(config.Values().Socket)
+	ctrl = wagctl.NewControlClient(config.Values.Socket)
 
 	var err error
 	WagVersion, err = ctrl.GetVersion()
@@ -758,12 +758,12 @@ func StartWebServer(errs chan<- error) error {
 			http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
 		})
 
-		if config.Values().ManagementUI.SupportsTLS() {
+		if config.Values.ManagementUI.SupportsTLS() {
 
 			go func() {
 
 				srv := &http.Server{
-					Addr:         config.Values().ManagementUI.ListenAddress,
+					Addr:         config.Values.ManagementUI.ListenAddress,
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
@@ -771,12 +771,12 @@ func StartWebServer(errs chan<- error) error {
 					Handler:      setSecurityHeaders(allRoutes),
 				}
 
-				errs <- fmt.Errorf("TLS management listener failed: %v", srv.ListenAndServeTLS(config.Values().ManagementUI.CertPath, config.Values().ManagementUI.KeyPath))
+				errs <- fmt.Errorf("TLS management listener failed: %v", srv.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath))
 			}()
 		} else {
 			go func() {
 				srv := &http.Server{
-					Addr:         config.Values().ManagementUI.ListenAddress,
+					Addr:         config.Values.ManagementUI.ListenAddress,
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
@@ -788,7 +788,7 @@ func StartWebServer(errs chan<- error) error {
 		}
 	}()
 
-	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values().ManagementUI.ListenAddress)
+	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values.ManagementUI.ListenAddress)
 
 	return nil
 }

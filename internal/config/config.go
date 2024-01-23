@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -81,6 +80,7 @@ type Config struct {
 		Peers            map[string][]string
 		DatabaseLocation string
 		ETCDLogLevel     string
+		WitnessNode      bool
 	}
 
 	Authenticators struct {
@@ -122,32 +122,8 @@ type Config struct {
 }
 
 var (
-	valuesLock sync.RWMutex
-	values     Config
+	Values Config
 )
-
-func Values() Config {
-	valuesLock.RLock()
-	defer valuesLock.RUnlock()
-
-	v := values
-	return v
-}
-
-// Used in authentication methods that can specify user groups directly (for the moment just oidc)
-// Adds groups to username, even if user does not exist in the config.json file, so GetEffectiveAcls works
-func AddVirtualUser(username string, groups []string) {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
-
-	if values.Acls.rGroupLookup[username] == nil {
-		values.Acls.rGroupLookup[username] = make(map[string]bool)
-	}
-
-	for _, group := range groups {
-		values.Acls.rGroupLookup[username][group] = true
-	}
-}
 
 func load(path string) (c Config, err error) {
 	configFile, err := os.Open(path)
@@ -399,18 +375,10 @@ func validExternalAddresses(ExternalAddress string) error {
 }
 
 func Load(path string) error {
-	valuesLock.Lock()
-	defer valuesLock.Unlock()
 
-	newConfig, err := load(path)
-	if err != nil {
-		return err
-	}
-
-	values = newConfig
-	values.path = path
-
-	return nil
+	var err error
+	Values, err = load(path)
+	return err
 }
 
 func parseAddress(address string) ([]string, error) {

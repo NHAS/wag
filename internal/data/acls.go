@@ -73,7 +73,7 @@ func RemoveAcl(effects string) error {
 func GetEffectiveAcl(username string) acls.Acl {
 	var resultingACLs acls.Acl
 	//Add the server address by default
-	resultingACLs.Allow = []string{config.Values().Wireguard.ServerAddress.String() + "/32"}
+	resultingACLs.Allow = []string{config.Values.Wireguard.ServerAddress.String() + "/32"}
 
 	txn := etcd.Txn(context.Background())
 	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet("wag-membership"), clientv3.OpGet(dnsKey))

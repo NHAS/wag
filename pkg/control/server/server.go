@@ -82,23 +82,23 @@ func shutdown(w http.ResponseWriter, r *http.Request) {
 
 func StartControlSocket() error {
 
-	l, err := net.Listen("unix", config.Values().Socket)
+	l, err := net.Listen("unix", config.Values.Socket)
 	if err != nil {
 		return err
 	}
 
 	//Yes I know this is doubling up on the umask, but meh
-	if err := os.Chmod(config.Values().Socket, 0760); err != nil {
+	if err := os.Chmod(config.Values.Socket, 0760); err != nil {
 		return err
 	}
 
-	if config.Values().GID != nil {
-		if err := os.Chown(config.Values().Socket, -1, *config.Values().GID); err != nil {
+	if config.Values.GID != nil {
+		if err := os.Chown(config.Values.Socket, -1, *config.Values.GID); err != nil {
 			return err
 		}
 	}
 
-	log.Println("Started control socket: \n\t\t\t", config.Values().Socket)
+	log.Println("Started control socket: \n\t\t\t", config.Values.Socket)
 
 	controlMux := http.NewServeMux()
 
@@ -153,7 +153,7 @@ func StartControlSocket() error {
 }
 
 func TearDown() {
-	err := os.Remove(config.Values().Socket)
+	err := os.Remove(config.Values.Socket)
 	if err != nil {
 		log.Println(err)
 	}

@@ -184,7 +184,7 @@ func AddDevice(username, publickey string) (Device, error) {
 		return Device{}, err
 	}
 
-	address, err := getNextIP(config.Values().Wireguard.Range.String())
+	address, err := getNextIP(config.Values.Wireguard.Range.String())
 	if err != nil {
 		return Device{}, err
 	}

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 )
@@ -71,7 +70,6 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		config.AddVirtualUser(username, groups)
 	}
 
 	uses, err := strconv.Atoi(usesString)
