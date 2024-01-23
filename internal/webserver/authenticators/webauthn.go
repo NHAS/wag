@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/NHAS/session"
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -284,7 +283,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 
 	if err := resources.Render("prompt_mfa_webauthn.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
@@ -294,7 +293,7 @@ func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username
 func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 
 	if err := resources.Render("register_mfa_webauthn.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render weauthn prompt template: ", err)

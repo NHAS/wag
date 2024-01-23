@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -73,8 +72,15 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
+		issuer, err := data.GetIssuer()
+		if err != nil {
+			log.Println(user.Username, clientTunnelIp, "unable to get issuer from datastore")
+
+			http.Error(w, "Bad request", 400)
+			return
+		}
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      config.Values().Authenticators.Issuer,
+			Issuer:      issuer,
 			AccountName: user.Username,
 		})
 		if err != nil {
@@ -210,8 +216,9 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authe
 }
 
 func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+
 	if err := resources.Render("prompt_mfa_totp.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render totp prompt template: ", err)
@@ -219,8 +226,9 @@ func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip 
 }
 
 func (t *Totp) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+
 	if err := resources.Render("register_mfa_totp.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render totp mfa template: ", err)

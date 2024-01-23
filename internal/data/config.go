@@ -218,8 +218,14 @@ func SetHelpMail(helpMail string) error {
 	return err
 }
 
-func GetHelpMail() (string, error) {
-	return getGeneric(helpMailKey)
+func GetHelpMail() string {
+
+	mail, err := getGeneric(helpMailKey)
+	if err != nil {
+		return "Server Error"
+	}
+
+	return mail
 }
 
 func SetExternalAddress(externalAddress string) error {

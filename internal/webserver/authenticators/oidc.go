@@ -210,14 +210,8 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			w.WriteHeader(http.StatusUnauthorized)
 
-			mail, err := data.GetHelpMail()
-			if err != nil {
-				log.Println("Error getting help mail: ", err)
-				http.Error(w, "Server Error", http.StatusInternalServerError)
-				return
-			}
 			err = resources.Render("oidc_error.html", w, &resources.Msg{
-				HelpMail:   mail,
+				HelpMail:   data.GetHelpMail(),
 				NumMethods: NumberOfMethods(),
 				Message:    msg,
 				URL:        rp.GetEndSessionEndpoint(),

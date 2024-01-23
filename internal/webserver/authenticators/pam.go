@@ -7,7 +7,6 @@ import (
 
 	"fmt"
 
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -184,7 +183,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 
 func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("prompt_mfa_pam.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render pam prompt template: ", err)
@@ -193,7 +192,7 @@ func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip s
 
 func (t *Pam) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
 	if err := resources.Render("register_mfa_pam.html", w, &resources.Msg{
-		HelpMail:   config.Values().HelpMail,
+		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
 	}); err != nil {
 		log.Println(username, ip, "unable to render pam mfa template: ", err)

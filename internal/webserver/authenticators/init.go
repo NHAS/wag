@@ -25,10 +25,7 @@ func resultMessage(err error) (string, int) {
 		return "Success", http.StatusOK
 	}
 
-	mail, err := data.GetHelpMail()
-	if err != nil {
-		mail = "Server Error"
-	}
+	mail := data.GetHelpMail()
 
 	msg := "Validation failed"
 	if strings.Contains(err.Error(), "account is locked") {
