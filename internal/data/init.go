@@ -28,7 +28,6 @@ import (
 // Or a prompt on the admin ui
 
 var (
-	database               *sql.DB
 	etcd                   *clientv3.Client
 	etcdServer             *embed.Etcd
 	allowedTokenCharacters = regexp.MustCompile(`[a-zA-Z0-9\-\_\.]+`)
@@ -53,8 +52,7 @@ func Load(path string) error {
 	if err != nil {
 		return err
 	}
-
-	database = db
+	defer db.Close()
 
 	can, err := migrations.Can(db)
 	if err != nil {
@@ -122,7 +120,7 @@ func Load(path string) error {
 
 	// This will be kept for 2 major releases with reduced support.
 	// It is a no-op if a migration has already taken place
-	err = migrateFromSql()
+	err = migrateFromSql(db)
 	if err != nil {
 		return err
 	}
@@ -284,7 +282,7 @@ func putIfNotFound(key, value, set string) error {
 	return nil
 }
 
-func migrateFromSql() error {
+func migrateFromSql(database *sql.DB) error {
 	response, err := etcd.Get(context.Background(), "wag-migrated-sql")
 	if err != nil {
 		return err
@@ -294,7 +292,7 @@ func migrateFromSql() error {
 
 		log.Println("Doing migration to etcd from sqlite3")
 
-		devices, err := sqlGetAllDevices()
+		devices, err := sqlGetAllDevices(database)
 		if err != nil {
 			return err
 		}
@@ -307,7 +305,7 @@ func migrateFromSql() error {
 		}
 		log.Println("Migrated", len(devices), "devices")
 
-		adminUsers, err := sqlgetAllAdminUsers()
+		adminUsers, err := sqlgetAllAdminUsers(database)
 		if err != nil {
 			return err
 		}
@@ -333,7 +331,7 @@ func migrateFromSql() error {
 		}
 		log.Println("Migrated", len(adminUsers), "admin users")
 
-		users, err := sqlGetAllUsers()
+		users, err := sqlGetAllUsers(database)
 		if err != nil {
 			return err
 		}
@@ -368,7 +366,7 @@ func migrateFromSql() error {
 		}
 		log.Println("Migrated", len(users), "users")
 
-		tokens, err := sqlGetRegistrationTokens()
+		tokens, err := sqlGetRegistrationTokens(database)
 		if err != nil {
 			return err
 		}

@@ -11,7 +11,7 @@ import (
 	"github.com/NHAS/wag/pkg/control"
 )
 
-func sqlgetAllAdminUsers() (adminUsers []admin, err error) {
+func sqlgetAllAdminUsers(database *sql.DB) (adminUsers []admin, err error) {
 
 	rows, err := database.Query("SELECT username, passwd_hash, attempts, last_login, ip, date_added, change FROM AdminUsers ORDER by ROWID DESC")
 	if err != nil {
@@ -40,7 +40,7 @@ func sqlgetAllAdminUsers() (adminUsers []admin, err error) {
 
 }
 
-func sqlGetAllUsers() (users []UserModel, err error) {
+func sqlGetAllUsers(database *sql.DB) (users []UserModel, err error) {
 
 	rows, err := database.Query("SELECT username, mfa, mfa_type, enforcing, locked FROM Users ORDER by ROWID DESC")
 	if err != nil {
@@ -67,7 +67,7 @@ func sqlGetAllUsers() (users []UserModel, err error) {
 
 }
 
-func sqlGetRegistrationTokens() (result []control.RegistrationResult, err error) {
+func sqlGetRegistrationTokens(database *sql.DB) (result []control.RegistrationResult, err error) {
 
 	rows, err := database.Query("SELECT token, username, overwrite, groups, uses FROM RegistrationTokens ORDER by ROWID DESC")
 	if err != nil {
@@ -97,7 +97,7 @@ func sqlGetRegistrationTokens() (result []control.RegistrationResult, err error)
 	return result, nil
 }
 
-func sqlGetAllDevices() (devices []Device, err error) {
+func sqlGetAllDevices(database *sql.DB) (devices []Device, err error) {
 	rows, err := database.Query("SELECT address, publickey, username, endpoint, attempts, preshared_key FROM Devices ORDER by ROWID DESC")
 	if err != nil {
 		return nil, err
