@@ -84,7 +84,7 @@ func (g *start) Check() error {
 		return err
 	}
 
-	err = data.Load(config.Values().DatabaseLocation)
+	err = data.Load(config.Values.DatabaseLocation)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
@@ -99,37 +99,41 @@ func (g *start) Run() error {
 	defer func() {
 		data.TearDown()
 	}()
+
 	error := make(chan error)
 
-	err = router.Setup(error, !g.noIptables)
-	if err != nil {
-		return fmt.Errorf("unable to start router: %v", err)
-	}
-	defer func() {
-		if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
-			router.TearDown()
+	if config.Values.Clustering.WitnessNode {
+
+		err = router.Setup(error, !g.noIptables)
+		if err != nil {
+			return fmt.Errorf("unable to start router: %v", err)
 		}
-	}()
+		defer func() {
+			if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
+				router.TearDown()
+			}
+		}()
 
-	err = server.StartControlSocket()
-	if err != nil {
-		return fmt.Errorf("unable to create control socket: %v", err)
-	}
-	defer func() {
-
-		if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
-			server.TearDown()
+		err = server.StartControlSocket()
+		if err != nil {
+			return fmt.Errorf("unable to create control socket: %v", err)
 		}
-	}()
+		defer func() {
 
-	err = webserver.Start(error)
-	if err != nil {
-		return fmt.Errorf("unable to start webserver: %v", err)
-	}
+			if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
+				server.TearDown()
+			}
+		}()
 
-	err = ui.StartWebServer(error)
-	if err != nil {
-		return fmt.Errorf("unable to start management web server: %v", err)
+		err = webserver.Start(error)
+		if err != nil {
+			return fmt.Errorf("unable to start webserver: %v", err)
+		}
+
+		err = ui.StartWebServer(error)
+		if err != nil {
+			return fmt.Errorf("unable to start management web server: %v", err)
+		}
 	}
 
 	go func() {
@@ -143,7 +147,13 @@ func (g *start) Run() error {
 		error <- errors.New("ignore me I am signal")
 	}()
 
-	log.Println("Wag started successfully, Ctrl + C to stop")
+	wagType := "Wag"
+	if config.Values.Clustering.WitnessNode {
+		wagType = "Witness Node"
+	}
+
+	log.Printf("%s started successfully, Ctrl + C to stop", wagType)
+
 	err = <-error
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err
