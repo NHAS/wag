@@ -48,30 +48,36 @@ func parseUrls(values ...string) []url.URL {
 
 func Load(path string) error {
 
+	doMigration := true
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	can, err := migrations.Can(db)
-	if err != nil {
-		return err
+		doMigration = false
 	}
 
-	if can && !strings.HasPrefix(path, "file::memory:") && !strings.Contains(path, "mode=memory") {
-		backupPath := path + "." + time.Now().Format("20060102150405") + ".bak"
-		log.Println("can do migrations, backing up database to ", backupPath)
+	if err == nil {
 
-		err := fsops.CopyFile(path, backupPath)
+		defer db.Close()
+
+		can, err := migrations.Can(db)
 		if err != nil {
 			return err
 		}
-	}
 
-	err = migrations.Do(db)
-	if err != nil {
-		return err
+		if can && !strings.HasPrefix(path, "file::memory:") && !strings.Contains(path, "mode=memory") {
+			backupPath := path + "." + time.Now().Format("20060102150405") + ".bak"
+			log.Println("can do migrations, backing up database to ", backupPath)
+
+			err := fsops.CopyFile(path, backupPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = migrations.Do(db)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	cfg := embed.NewConfig()
@@ -118,11 +124,13 @@ func Load(path string) error {
 
 	log.Println("Successfully connected to etcd")
 
-	// This will be kept for 2 major releases with reduced support.
-	// It is a no-op if a migration has already taken place
-	err = migrateFromSql(db)
-	if err != nil {
-		return err
+	if doMigration {
+		// This will be kept for 2 major releases with reduced support.
+		// It is a no-op if a migration has already taken place
+		err = migrateFromSql(db)
+		if err != nil {
+			return err
+		}
 	}
 
 	// This will stay, so that the config can be used to easily spin up a new wag instance.
