@@ -51,13 +51,34 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 		name = filepath.Base(content[0])
 	}
 
-	parsed, err := template.New(name).Funcs(template.FuncMap{
-		"csrfToken": func() template.HTML {
-			t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
+	var (
+		parsed *template.Template
+		err    error
+	)
+	if !config.Values.ManagementUI.Debug {
+		parsed, err = template.New(name).Funcs(template.FuncMap{
+			"csrfToken": func() template.HTML {
+				t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
 
-			return t
-		},
-	}).ParseFS(templatesContent, content...)
+				return t
+			},
+		}).ParseFS(templatesContent, content...)
+	} else {
+
+		realFiles := []string{}
+		for _, c := range content {
+			realFiles = append(realFiles, filepath.Join("ui/", c))
+		}
+
+		parsed, err = template.New(name).Funcs(template.FuncMap{
+			"csrfToken": func() template.HTML {
+				t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
+
+				return t
+			},
+		}).ParseFiles(realFiles...)
+	}
+
 	if err != nil {
 		return fmt.Errorf("parse %s: %v", content, err)
 	}

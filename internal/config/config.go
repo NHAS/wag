@@ -67,6 +67,7 @@ type Config struct {
 	ManagementUI struct {
 		usualWeb
 		Enabled bool
+		Debug   bool
 	} `json:",omitempty"`
 
 	Webserver struct {
