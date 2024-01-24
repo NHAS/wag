@@ -2,10 +2,12 @@ package ui
 
 type Page struct {
 	Update
-	Description string
-	Title       string
-	User        string
-	WagVersion  string
+	Description  string
+	Title        string
+	User         string
+	WagVersion   string
+	ClusterState string
+	ServerID     string
 }
 
 type Dashboard struct {

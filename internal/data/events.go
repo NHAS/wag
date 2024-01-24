@@ -43,7 +43,7 @@ type (
 	AclChangesFunc   func(TargettedEvent[acls.Acl], int)
 	GroupChangesFunc func(TargettedEvent[[]string], int)
 
-	ClusterHealthFunc func(state string, dead int)
+	ClusterHealthFunc func(state string, serverID int)
 )
 
 var (
@@ -210,6 +210,7 @@ func checkClusterHealth() {
 
 		select {
 		case <-etcdServer.Server.LeaderChangedNotify():
+
 			execWatchers(clusterHealthWatchers, "changed", 0)
 			leader := etcdServer.Server.Leader()
 			if leader == 0 {
@@ -219,12 +220,20 @@ func checkClusterHealth() {
 			}
 
 			if leader != 0 {
-				execWatchers(clusterHealthWatchers, "healthy", 0)
+				notfyHealthy()
 			} else {
 				execWatchers(clusterHealthWatchers, "dead", 0)
 			}
 
 		}
 
+	}
+}
+
+func notfyHealthy() {
+	if etcdServer.Server.IsLearner() {
+		execWatchers(clusterHealthWatchers, "learner", 0)
+	} else {
+		execWatchers(clusterHealthWatchers, "healthy", 0)
 	}
 }

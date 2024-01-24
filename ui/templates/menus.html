@@ -111,6 +111,13 @@
                     <span>Devices</span></a>
             </li>
 
+            <li class="nav-item">
+                <a class="nav-link" href="/management/clustering/">
+                    <i class="icon icon-users
+                    "></i>
+                    <span>Clustering</span></a>
+            </li>
+
 
             <!-- Divider -->
             <hr class="sidebar-divider">
@@ -172,7 +179,17 @@
                     <ul class="navbar-nav ml-auto">
 
 
-                        {{if .Url}}
+                        <li class="nav-item">
+                            <div class="nav-link">
+                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">
+                                    <div title="{{.ClusterState}}" class="status 
+                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"
+                                        }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
+                                </span>
+                            </div>
+                        </li>
+
+
                         <li class="nav-item dropdown no-arrow mx-1">
                             <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -197,8 +214,6 @@
                                 </a>
                             </div>
                         </li>
-                        {{end}}
-
 
 
                         <!-- Nav Item - User Information -->

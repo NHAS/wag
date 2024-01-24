@@ -239,11 +239,13 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	d := Dashboard{
 		Page: Page{
-			Update:      getUpdate(),
-			Description: "Dashboard",
-			Title:       "Dashboard",
-			User:        u.Username,
-			WagVersion:  WagVersion,
+			Update:       getUpdate(),
+			Description:  "Dashboard",
+			Title:        "Dashboard",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
 		},
 
 		Port:            port,
@@ -325,6 +327,13 @@ func StartWebServer(errs chan<- error) error {
 		return err
 	}
 
+	clusterState = "starting"
+	if data.HasLeader() {
+		clusterState = "healthy"
+	}
+	serverID = data.GetServerID()
+	data.RegisterClusterHealthWatcher(watchClusterHealth)
+
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
@@ -393,11 +402,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Wireguard Devices",
-				Title:       "wg",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Wireguard Devices",
+				Title:        "wg",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			renderDefaults(w, r, d, "diagnostics/wireguard_peers.html")
@@ -475,11 +486,13 @@ func StartWebServer(errs chan<- error) error {
 				XDPState string
 			}{
 				Page: Page{
-					Update:      getUpdate(),
-					Description: "Firewall state page",
-					Title:       "Firewall",
-					User:        u.Username,
-					WagVersion:  WagVersion,
+					Update:       getUpdate(),
+					Description:  "Firewall state page",
+					Title:        "Firewall",
+					User:         u.Username,
+					WagVersion:   WagVersion,
+					ServerID:     serverID,
+					ClusterState: clusterState,
 				},
 				XDPState: string(result),
 			}
@@ -509,11 +522,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Users Management Page",
-				Title:       "Users",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Users Management Page",
+				Title:        "Users",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "management/users.html", "delete_modal.html")
@@ -542,11 +557,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Devices Management Page",
-				Title:       "Devices",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Devices Management Page",
+				Title:        "Devices",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "management/devices.html", "delete_modal.html")
@@ -575,11 +592,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Registration Tokens Management Page",
-				Title:       "Registration",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Registration Tokens Management Page",
+				Title:        "Registration",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "management/registration_tokens.html", "delete_modal.html")
@@ -594,6 +613,39 @@ func StartWebServer(errs chan<- error) error {
 
 		protectedRoutes.HandleFunc("/management/registration_tokens/data", contentType(registrationTokens, JSON))
 
+		protectedRoutes.HandleFunc("/management/clustering/", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "GET" {
+				http.NotFound(w, r)
+				return
+			}
+
+			_, u := sessionManager.GetSessionFromRequest(r)
+			if u == nil {
+				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+				return
+			}
+
+			d := Page{
+				Update:       getUpdate(),
+				Description:  "Clustering Management Page",
+				Title:        "Clustering",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
+			}
+
+			err := renderDefaults(w, r, d, "management/clustering.html")
+
+			if err != nil {
+				log.Println("unable to render clustering page: ", err)
+
+				w.WriteHeader(http.StatusInternalServerError)
+				renderDefaults(w, r, nil, "error.html")
+				return
+			}
+		})
+
 		protectedRoutes.HandleFunc("/policy/rules/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "GET" {
 				http.NotFound(w, r)
@@ -606,11 +658,13 @@ func StartWebServer(errs chan<- error) error {
 				return
 			}
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Firewall rules",
-				Title:       "Rules",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Firewall rules",
+				Title:        "Rules",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "policy/rules.html", "delete_modal.html")
@@ -639,11 +693,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Groups",
-				Title:       "Groups",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Groups",
+				Title:        "Groups",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "policy/groups.html", "delete_modal.html")
@@ -682,11 +738,13 @@ func StartWebServer(errs chan<- error) error {
 
 			d := GeneralSettings{
 				Page: Page{
-					Update:      getUpdate(),
-					Description: "Wag settings",
-					Title:       "Settings - General",
-					User:        u.Username,
-					WagVersion:  WagVersion,
+					Update:       getUpdate(),
+					Description:  "Wag settings",
+					Title:        "Settings - General",
+					User:         u.Username,
+					WagVersion:   WagVersion,
+					ServerID:     serverID,
+					ClusterState: clusterState,
 				},
 
 				ExternalAddress:          datastoreSettings.ExternalAddress,
@@ -727,11 +785,13 @@ func StartWebServer(errs chan<- error) error {
 			}
 
 			d := Page{
-				Update:      getUpdate(),
-				Description: "Wag settings",
-				Title:       "Settings - Admin Users",
-				User:        u.Username,
-				WagVersion:  WagVersion,
+				Update:       getUpdate(),
+				Description:  "Wag settings",
+				Title:        "Settings - Admin Users",
+				User:         u.Username,
+				WagVersion:   WagVersion,
+				ServerID:     serverID,
+				ClusterState: clusterState,
 			}
 
 			err := renderDefaults(w, r, d, "settings/management_users.html")
@@ -824,11 +884,13 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	d := ChangePassword{
 		Page: Page{
-			Update:      getUpdate(),
-			Description: "Change password page",
-			Title:       "Change password",
-			User:        u.Username,
-			WagVersion:  WagVersion,
+			Update:       getUpdate(),
+			Description:  "Change password page",
+			Title:        "Change password",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
 		},
 	}
 
