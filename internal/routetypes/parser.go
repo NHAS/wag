@@ -52,7 +52,7 @@ func hash(mfa, public, deny []string) string {
 	return hex.EncodeToString(result[:])
 }
 
-func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
+func ParseRules(mfa, public, deny []string) (result []Rule, errs []error) {
 
 	cache := map[string]int{}
 
@@ -72,7 +72,8 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 
 		r, err := parseRule(0, rule)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
+			continue
 		}
 
 		for i := range r.Keys {
@@ -91,7 +92,8 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 	for _, rule := range public {
 		r, err := parseRule(PUBLIC, rule)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
+			continue
 		}
 
 		for i := range r.Keys {
@@ -110,7 +112,8 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 	for _, rule := range deny {
 		r, err := parseRule(DENY, rule)
 		if err != nil {
-			return nil, err
+			errs = append(errs, err)
+			continue
 		}
 
 		for i := range r.Keys {
@@ -128,7 +131,8 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 
 	for i := range result {
 		if len(result[i].Values) > MAX_POLICIES {
-			return nil, errors.New("number of policies defined was greather than max")
+			errs = append(errs, errors.New("number of policies defined was greather than max"))
+			return nil, errs
 		}
 
 		temp := make([]Policy, 0, MAX_POLICIES)
@@ -139,9 +143,12 @@ func ParseRules(mfa, public, deny []string) (result []Rule, err error) {
 		result[i].Values = temp[:cap(temp)]
 	}
 
-	rwLock.Lock()
-	globalCache[parseKey] = result
-	rwLock.Unlock()
+	// Dont add a cache entry if there was an error parsing
+	if len(errs) == 0 {
+		rwLock.Lock()
+		globalCache[parseKey] = result
+		rwLock.Unlock()
+	}
 	return
 }
 
@@ -237,8 +244,18 @@ func parseKeys(address string) (keys []Key, err error) {
 }
 
 func ValidateRules(mfa, public, deny []string) error {
-	_, err := ParseRules(mfa, public, deny)
-	return err
+	_, errs := ParseRules(mfa, public, deny)
+
+	if len(errs) == 0 {
+		return nil
+	}
+
+	str := ""
+	for _, err := range errs {
+		str += err.Error() + "\n"
+	}
+
+	return errors.New(str)
 }
 
 func parseService(service string) (Policy, error) {

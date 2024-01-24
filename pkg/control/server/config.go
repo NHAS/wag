@@ -42,7 +42,8 @@ func newPolicy(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := data.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes}, false); err != nil {
+	if err := data.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes, Deny: acl.DenyRoutes}, false); err != nil {
+		log.Println("Unable to set acls: ", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -66,7 +67,8 @@ func editPolicy(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes}, true); err != nil {
+	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes, Deny: polciyData.DenyRoutes}, true); err != nil {
+		log.Println("Unable to set acls: ", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -91,6 +93,7 @@ func deletePolicies(w http.ResponseWriter, r *http.Request) {
 
 	for _, policyName := range policyNames {
 		if err := data.RemoveAcl(policyName); err != nil {
+			log.Println("Unable to set remove policy: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}

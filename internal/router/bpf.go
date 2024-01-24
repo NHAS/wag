@@ -311,9 +311,9 @@ func SetLockAccount(username string, locked uint32) error {
 // Takes the LPM table and associates a route to a policy
 func xdpAddRoute(usersRouteTable *ebpf.Map, userAcls acls.Acl) error {
 
-	rules, err := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
-	if err != nil {
-		return err
+	rules, errs := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
+	if len(errs) != 0 {
+		log.Println("Parsing rules for user had errors: ", errs)
 	}
 
 	for _, rule := range rules {

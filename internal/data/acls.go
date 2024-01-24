@@ -9,12 +9,17 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
+
+	if err := routetypes.ValidateRules(policy.Mfa, policy.Allow, policy.Deny); err != nil {
+		return err
+	}
 
 	policyJson, _ := json.Marshal(policy)
 
