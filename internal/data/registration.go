@@ -101,6 +101,10 @@ func FinaliseRegistration(token string) error {
 		return DeleteRegistrationToken(token)
 	}
 
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
