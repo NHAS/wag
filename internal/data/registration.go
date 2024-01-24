@@ -110,14 +110,12 @@ func FinaliseRegistration(token string) error {
 
 // Randomly generate a token for a specific username
 func GenerateToken(username, overwrite string, groups []string, uses int) (token string, err error) {
-	tokenBytes, err := generateRandomBytes(32)
+	token, err = generateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
 
-	token = hex.EncodeToString(tokenBytes)
 	err = AddRegistrationToken(token, username, overwrite, groups, uses)
-
 	return
 }
 
@@ -159,12 +157,12 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 	return err
 }
 
-func generateRandomBytes(n uint32) ([]byte, error) {
+func generateRandomBytes(n uint32) (string, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return b, nil
+	return hex.EncodeToString(b), nil
 }

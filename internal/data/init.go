@@ -80,12 +80,18 @@ func Load(path string) error {
 
 	}
 
+	part, err := generateRandomBytes(10)
+	if err != nil {
+		return err
+	}
+	etcdUnixSocket := "unix:///tmp/wag.etcd." + part
+
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values.Clustering.Name
 	cfg.InitialClusterToken = "wag-test"
 	cfg.LogLevel = config.Values.Clustering.ETCDLogLevel
 	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
-	cfg.ListenClientUrls = parseUrls("http://127.0.0.1:2480")
+	cfg.ListenClientUrls = parseUrls(etcdUnixSocket)
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 
 	if _, ok := config.Values.Clustering.Peers[cfg.Name]; ok {
@@ -115,8 +121,7 @@ func Load(path string) error {
 	}
 
 	etcd, err = clientv3.New(clientv3.Config{
-		Endpoints:   []string{"127.0.0.1:2480"},
-		DialTimeout: 5 * time.Second,
+		Endpoints: []string{etcdUnixSocket},
 	})
 	if err != nil {
 		return err
