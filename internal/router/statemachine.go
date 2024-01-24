@@ -60,11 +60,7 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 		}
 
 		if device.CurrentValue.Authorised != device.Previous.Authorised {
-			log.Println("authorisation state changed on device")
-
 			if !device.CurrentValue.Authorised.IsZero() && device.CurrentValue.Attempts <= lockout {
-
-				log.Println("authorising device")
 				err := SetAuthorized(device.CurrentValue.Address, device.CurrentValue.Username)
 				if err != nil {
 					log.Println(err)
@@ -142,17 +138,27 @@ func groupChanges(groupChange data.TargettedEvent[[]string], state int) {
 
 func clusterState(errorsChan chan<- error) data.ClusterHealthFunc {
 
+	hasDied := false
 	return func(stateText string, state int) {
+		log.Println("entered state: ", stateText)
+
 		switch stateText {
 		case "dead":
-			log.Println("Cluster has entered dead state, tearing down")
-			TearDown()
+			if !hasDied {
+				hasDied = true
+				log.Println("Cluster has entered dead state, tearing down: ", hasDied)
+				TearDown()
+			}
 		case "healthy":
-			err := Setup(errorsChan, true)
-			if err != nil {
-				errorsChan <- err
-				log.Println("was unable to return wag member to healthy state, dying: ", err)
-				return
+			if hasDied {
+				err := Setup(errorsChan, true)
+				if err != nil {
+					log.Println("was unable to return wag member to healthy state, dying: ", err)
+					errorsChan <- err
+					return
+				}
+
+				hasDied = false
 			}
 		}
 	}

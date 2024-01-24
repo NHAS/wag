@@ -15,7 +15,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var lock sync.RWMutex
+var (
+	lock   sync.RWMutex
+	cancel = make(chan bool)
+)
 
 func Setup(errorChan chan<- error, iptables bool) (err error) {
 
@@ -64,52 +67,56 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 
 		for {
 
-			dev, err := ctrl.Device(config.Values.Wireguard.DevName)
-			if err != nil {
-				errorChan <- fmt.Errorf("endpoint watcher: %s", err)
+			select {
+			case <-cancel:
 				return
-			}
-
-			for _, p := range dev.Peers {
-
-				if len(p.AllowedIPs) != 1 {
-					log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
-					continue
+			case <-time.After(100 * time.Millisecond):
+				dev, err := ctrl.Device(config.Values.Wireguard.DevName)
+				if err != nil {
+					errorChan <- fmt.Errorf("endpoint watcher: %s", err)
+					return
 				}
 
-				ip := p.AllowedIPs[0].IP.String()
+				for _, p := range dev.Peers {
 
-				if cache[ip] != p.Endpoint.String() {
-					cache[ip] = p.Endpoint.String()
-
-					d, err := data.GetDeviceByAddress(ip)
-					if err != nil {
-						log.Println("unable to get previous device endpoint for ", ip, err)
-						if err := Deauthenticate(ip); err != nil {
-							log.Println(ip, "unable to remove forwards for device: ", err)
-						}
+					if len(p.AllowedIPs) != 1 {
+						log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
 						continue
 					}
 
-					err = data.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
-					if err != nil {
-						log.Println(ip, "unable to update device endpoint: ", err)
-					}
+					ip := p.AllowedIPs[0].IP.String()
 
-					//Dont try and remove rules, if we've just started
-					if !startup {
-						log.Println(ip, "endpoint changed", d.Endpoint.String(), "->", p.Endpoint.String())
-						if err := Deauthenticate(ip); err != nil {
-							log.Println(ip, "unable to remove forwards for device: ", err)
+					if cache[ip] != p.Endpoint.String() {
+						cache[ip] = p.Endpoint.String()
+
+						d, err := data.GetDeviceByAddress(ip)
+						if err != nil {
+							log.Println("unable to get previous device endpoint for ", ip, err)
+							if err := Deauthenticate(ip); err != nil {
+								log.Println(ip, "unable to remove forwards for device: ", err)
+							}
+							continue
+						}
+
+						err = data.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
+						if err != nil {
+							log.Println(ip, "unable to update device endpoint: ", err)
+						}
+
+						//Dont try and remove rules, if we've just started
+						if !startup {
+							log.Println(ip, "endpoint changed", d.Endpoint.String(), "->", p.Endpoint.String())
+							if err := Deauthenticate(ip); err != nil {
+								log.Println(ip, "unable to remove forwards for device: ", err)
+							}
 						}
 					}
+
 				}
 
+				startup = false
 			}
 
-			startup = false
-
-			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -132,6 +139,24 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 }
 
 func TearDown() {
+
+	cancel <- true
+
+	log.Println("Removing wireguard device")
+	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+	if err != nil {
+		log.Println("Unable to remove wireguard device, netlink connection failed: ", err.Error())
+		return
+	}
+	defer conn.Close()
+
+	err = delWg(conn, config.Values.Wireguard.DevName)
+	if err != nil {
+		log.Println("Unable to remove wireguard device, delete failed: ", err.Error())
+		return
+	}
+
+	log.Println("Wireguard device removed")
 
 	log.Println("Removing Firewall rules...")
 
@@ -200,17 +225,6 @@ func TearDown() {
 		log.Println("Unable to clean up firewall rules: ", err)
 	}
 
-	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
-	if err != nil {
-		log.Println("Unable to remove wireguard device, netlink connection failed: ", err.Error())
-		return
-	}
-	defer conn.Close()
-
-	err = delWg(conn, config.Values.Wireguard.DevName)
-	if err != nil {
-		log.Println("Unable to remove wireguard device, delete failed: ", err.Error())
-		return
-	}
+	log.Println("Firewall rules removed.")
 
 }

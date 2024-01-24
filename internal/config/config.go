@@ -82,6 +82,7 @@ type Config struct {
 		DatabaseLocation string
 		ETCDLogLevel     string
 		Witness          bool
+		ClusterState     string
 	}
 
 	Authenticators struct {
@@ -221,6 +222,10 @@ func load(path string) (c Config, err error) {
 
 	if c.Clustering.ListenAddresses == nil {
 		c.Clustering.ListenAddresses = []string{"http://localhost:2380"}
+	}
+
+	if c.Clustering.ClusterState == "" {
+		c.Clustering.ClusterState = "new"
 	}
 
 	if c.NAT == nil {

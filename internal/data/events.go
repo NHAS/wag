@@ -210,19 +210,19 @@ func checkClusterHealth() {
 
 		select {
 		case <-etcdServer.Server.LeaderChangedNotify():
+			notfyHealthy()
 
-			execWatchers(clusterHealthWatchers, "changed", 0)
+		case <-time.After(1 * time.Second):
 			leader := etcdServer.Server.Leader()
 			if leader == 0 {
 				execWatchers(clusterHealthWatchers, "electing", 0)
 				<-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2)
 				leader = etcdServer.Server.Leader()
-			}
-
-			if leader != 0 {
-				notfyHealthy()
-			} else {
-				execWatchers(clusterHealthWatchers, "dead", 0)
+				if leader == 0 {
+					execWatchers(clusterHealthWatchers, "dead", 0)
+				} else {
+					notfyHealthy()
+				}
 			}
 
 		}

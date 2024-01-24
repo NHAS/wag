@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -49,12 +50,13 @@ func parseUrls(values ...string) []url.URL {
 func Load(path string) error {
 
 	doMigration := true
-	db, err := sql.Open("sqlite3", path)
-	if err != nil {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		doMigration = false
 	}
 
-	if err == nil {
+	var db *sql.DB
+	if doMigration {
+		db, _ = sql.Open("sqlite3", path)
 
 		defer db.Close()
 
@@ -77,7 +79,6 @@ func Load(path string) error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	part, err := generateRandomBytes(10)
@@ -88,6 +89,7 @@ func Load(path string) error {
 
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values.Clustering.Name
+	cfg.ClusterState = config.Values.Clustering.ClusterState
 	cfg.InitialClusterToken = "wag-test"
 	cfg.LogLevel = config.Values.Clustering.ETCDLogLevel
 	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
@@ -103,8 +105,10 @@ func Load(path string) error {
 
 	cfg.InitialCluster = ""
 	for tag, addresses := range peers {
-		cfg.InitialCluster += fmt.Sprintf("%s=%s", tag, strings.Join(addresses, ","))
+		cfg.InitialCluster += fmt.Sprintf("%s=%s", tag, strings.Join(addresses, ",")) + ","
 	}
+
+	cfg.InitialCluster = cfg.InitialCluster[:len(cfg.InitialCluster)-1]
 
 	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, config.Values.Clustering.Name+".wag-node.etcd")
 	etcdServer, err = embed.StartEtcd(cfg)
