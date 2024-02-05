@@ -1,6 +1,7 @@
 package webserver
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -10,7 +11,9 @@ import (
 
 func watchConfigChanges(serveMux *http.ServeMux) data.ConfigChangesFunc {
 	return func(be data.BasicEvent[string], i int) {
-		if strings.HasPrefix(be.Key, "wag-config-authenticaton-") {
+		if strings.HasPrefix(be.Key, "wag-config-authentication-") {
+
+			log.Println("authentication settings have changed, updating auth handlers")
 			authenticators.SetRoutesFromMethods(serveMux)
 		}
 	}

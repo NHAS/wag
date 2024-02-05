@@ -12,22 +12,6 @@
             </p>
         </div>
     </div>
-    <div class="card-body">
-        <div id="toolbar">
-            <button id="add" class="btn btn-primary">
-                <i class="icon-plus"></i> Add
-            </button>
-            <button id="removeStart" class="btn btn-danger" disabled data-toggle='modal' data-target='#deleteModal'>
-                <i class="icon-trash"></i> Remove
-            </button>
-        </div>
-        <table id="devicesTable" data-toolbar="#toolbar" data-search="true" data-show-refresh="true"
-            data-show-columns="true" data-show-columns-toggle-all="true" data-minimum-count-columns="2"
-            data-show-pagination-switch="true" data-pagination="true" data-id-field="username"
-            data-page-list="[10, 25, 50, 100, all]" data-side-pagination="client" data-url="/management/clustering/data"
-            data-response-handler="responseHandler">
-        </table>
-    </div>
 </div>
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
