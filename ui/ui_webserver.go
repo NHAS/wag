@@ -332,7 +332,8 @@ func StartWebServer(errs chan<- error) error {
 		clusterState = "healthy"
 	}
 	serverID = data.GetServerID()
-	data.RegisterClusterHealthWatcher(watchClusterHealth)
+
+	data.RegisterClusterHealthListener(watchClusterHealth)
 
 	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
 

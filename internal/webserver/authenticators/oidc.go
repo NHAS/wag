@@ -29,6 +29,8 @@ type issuer struct {
 }
 
 type Oidc struct {
+	enable
+
 	provider rp.RelyingParty
 	details  data.OIDC
 }
@@ -70,7 +72,7 @@ func (o *Oidc) Init() error {
 	u.Path = path.Join(u.Path, "/authorise/oidc/")
 	log.Println("OIDC callback: ", u.String())
 
-	log.Println("Connecting to OIDC provider")
+	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
 	o.details, err = data.GetOidc()
 	if err != nil {
@@ -81,6 +83,8 @@ func (o *Oidc) Init() error {
 	if err != nil {
 		return err
 	}
+
+	log.Println("Connected!")
 
 	return nil
 }

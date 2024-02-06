@@ -150,7 +150,6 @@ func Load(path string) error {
 	}
 
 	go checkClusterHealth()
-	go watchEvents()
 
 	return nil
 }
@@ -229,27 +228,27 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(inactivityTimeoutKey, fmt.Sprintf("%d", config.Values.SessionInactivityTimeoutMinutes), "inactivity timeout")
+	err = putIfNotFound(InactivityTimeoutKey, fmt.Sprintf("%d", config.Values.SessionInactivityTimeoutMinutes), "inactivity timeout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(sessionLifetimeKey, fmt.Sprintf("%d", config.Values.MaxSessionLifetimeMinutes), "max session life")
+	err = putIfNotFound(SessionLifetimeKey, fmt.Sprintf("%d", config.Values.MaxSessionLifetimeMinutes), "max session life")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(lockoutKey, fmt.Sprintf("%d", config.Values.Lockout), "lockout")
+	err = putIfNotFound(LockoutKey, fmt.Sprintf("%d", config.Values.Lockout), "lockout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(issuerKey, config.Values.Authenticators.Issuer, "issuer name")
+	err = putIfNotFound(IssuerKey, config.Values.Authenticators.Issuer, "issuer name")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(domainKey, config.Values.Authenticators.DomainURL, "domain url")
+	err = putIfNotFound(DomainKey, config.Values.Authenticators.DomainURL, "domain url")
 	if err != nil {
 		return err
 	}
@@ -265,19 +264,19 @@ func loadInitialSettings() error {
 	}
 
 	b, _ := json.Marshal(config.Values.Authenticators.Methods)
-	err = putIfNotFound(methodsEnabledKey, string(b), "authorisation methods")
+	err = putIfNotFound(MethodsEnabledKey, string(b), "authorisation methods")
 	if err != nil {
 		return err
 	}
 
 	b, _ = json.Marshal(config.Values.Authenticators.OIDC)
-	err = putIfNotFound(oidcDetailsKey, string(b), "oidc settings")
+	err = putIfNotFound(OidcDetailsKey, string(b), "oidc settings")
 	if err != nil {
 		return err
 	}
 
 	b, _ = json.Marshal(config.Values.Authenticators.PAM)
-	err = putIfNotFound(pamDetailsKey, string(b), "pam settings")
+	err = putIfNotFound(PamDetailsKey, string(b), "pam settings")
 	if err != nil {
 		return err
 	}

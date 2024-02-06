@@ -11,7 +11,12 @@ import (
 )
 
 var (
-	mfa = map[types.MFA]Authenticator{}
+	allMfa = map[types.MFA]Authenticator{
+		types.Totp:     new(Totp),
+		types.Webauthn: new(Webauthn),
+		types.Oidc:     new(Oidc),
+		types.Pam:      new(Pam),
+	}
 	lck sync.RWMutex
 )
 
@@ -19,21 +24,59 @@ func GetMethod(method string) (Authenticator, bool) {
 	lck.RLock()
 	defer lck.RUnlock()
 
-	v, ok := mfa[types.MFA(method)]
-	return v, ok
+	v, ok := allMfa[types.MFA(method)]
+	if ok && v.IsEnabled() {
+		return v, true
+	}
+	return nil, false
 }
 
-func RemoveMethod(method types.MFA) {
+func DisableMethods(method ...types.MFA) {
 	lck.Lock()
 	defer lck.Unlock()
 
-	delete(mfa, method)
+	for _, m := range method {
+		if a, ok := allMfa[m]; ok {
+			a.Disable()
+		}
+	}
+}
+
+func EnableMethods(method ...types.MFA) {
+	lck.Lock()
+	defer lck.Unlock()
+
+	for _, m := range method {
+		if a, ok := allMfa[m]; ok {
+			a.Enable()
+		}
+	}
+}
+
+func ReinitaliseMethods(method ...types.MFA) {
+	lck.Lock()
+	defer lck.Unlock()
+
+	for _, m := range method {
+		if a, ok := allMfa[m]; ok {
+			err := a.Init()
+			if err != nil {
+				log.Println("error reinitialising type: ", err)
+			}
+		}
+	}
 }
 
 func NumberOfMethods() int {
 	lck.RLock()
 	defer lck.RUnlock()
-	return len(mfa)
+	ret := 0
+	for _, a := range allMfa {
+		if a.IsEnabled() {
+			ret++
+		}
+	}
+	return ret
 }
 
 func GetAllEnabledMethods() (r []Authenticator) {
@@ -41,67 +84,63 @@ func GetAllEnabledMethods() (r []Authenticator) {
 	defer lck.RUnlock()
 
 	order := []string{}
-	for k := range mfa {
+	for k := range allMfa {
 		order = append(order, string(k))
 	}
 
 	sort.Strings(order)
 
 	for _, m := range order {
-		r = append(r, mfa[types.MFA(m)])
+		if auth, ok := allMfa[types.MFA(m)]; ok && auth.IsEnabled() {
+			r = append(r, allMfa[types.MFA(m)])
+		}
 	}
 
 	return
 }
 
-func SetRoutesFromMethods(mux *http.ServeMux) {
+func AddMFARoutes(mux *http.ServeMux) error {
+	for method, handler := range allMfa {
+		mux.HandleFunc("/authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
+		mux.HandleFunc("/register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
+	}
 
 	enabledMethods, err := data.GetAuthenicationMethods()
 	if err != nil {
-		log.Println("error fetching cluster data for authentication methods: ", err)
-		return
+		return err
 	}
 
-	lck.Lock()
-	newMap := make(map[types.MFA]Authenticator)
 	for _, method := range enabledMethods {
-		switch types.MFA(method) {
-		case types.Totp:
-			newMap[types.MFA(method)] = new(Totp)
-
-		case types.Webauthn:
-			newMap[types.MFA(method)] = new(Webauthn)
-
-		case types.Oidc:
-			newMap[types.MFA(method)] = new(Oidc)
-
-		case types.Pam:
-			newMap[types.MFA(method)] = new(Pam)
-		default:
-			log.Println("not adding unknown mfa method: ", method)
-			continue
-		}
-
-		err = newMap[types.MFA(method)].Init()
+		err := allMfa[types.MFA(method)].Init()
 		if err != nil {
-			log.Println("could not initalise auth method: ", method, "this method will not be enabled, err: ", err)
+			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}
-	}
-	mfa = newMap
-	lck.Unlock()
 
-	lck.RLock()
-	for method, handler := range mfa {
-		mux.HandleFunc("/authorise/"+string(method)+"/", handler.AuthorisationAPI)
-		mux.HandleFunc("/register_mfa/"+string(method)+"/", handler.RegistrationAPI)
-
+		allMfa[types.MFA(method)].Enable()
 	}
-	lck.RUnlock()
+
+	return nil
+}
+
+func checkEnabled(a Authenticator, f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		if !a.IsEnabled() {
+			http.NotFound(w, r)
+			return
+		}
+
+		f(w, r)
+	}
 }
 
 type Authenticator interface {
 	Init() error
+
+	IsEnabled() bool
+	Enable()
+	Disable()
 
 	Type() string
 
@@ -122,4 +161,11 @@ type Authenticator interface {
 
 	// Executed in /register_mfa/ path to show the UI for registration
 	RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string)
+}
+
+func StringsToMFA(methods []string) (ret []types.MFA) {
+	for _, s := range methods {
+		ret = append(ret, types.MFA(s))
+	}
+	return
 }

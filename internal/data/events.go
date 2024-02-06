@@ -1,207 +1,143 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/NHAS/wag/internal/acls"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+type EventType int
+
 const (
-	CREATED = iota
+	CREATED = EventType(iota)
 	DELETED
 	MODIFIED
 )
 
-type BasicEvent[T any] struct {
-	Key          string
-	CurrentValue T
-	Previous     T
-}
-
-type TargettedEvent[T any] struct {
-	Key     string
-	Effects string
-	Value   T
-}
-
-type WatcherFuncType[T any] interface {
-	~func(data T, state int)
-}
-
-type (
-	DeviceChangesFunc func(BasicEvent[Device], int)
-	UserChangesFunc   func(BasicEvent[UserModel], int)
-	ConfigChangesFunc func(BasicEvent[string], int)
-
-	AclChangesFunc   func(TargettedEvent[acls.Acl], int)
-	GroupChangesFunc func(TargettedEvent[[]string], int)
-
-	ClusterHealthFunc func(state string, serverID int)
+const (
+	DevicesPrefix        = "devices-"
+	UsersPrefix          = "users-"
+	AclsPrefix           = "wag-acls-"
+	GroupsPrefix         = "wag-groups-"
+	ConfigPrefix         = "wag-config-"
+	AuthenticationPrefix = "wag-config-authentication-"
 )
 
 var (
-	deviceWatchers        []DeviceChangesFunc
-	usersWatchers         []UserChangesFunc
-	aclsWatchers          []AclChangesFunc
-	groupsWatchers        []GroupChangesFunc
-	configWatchers        []ConfigChangesFunc
-	clusterHealthWatchers []ClusterHealthFunc
+	lck         sync.RWMutex
+	contextMaps = map[string]context.CancelFunc{}
 
-	lck sync.RWMutex
+	clusterHealthLck sync.RWMutex
+	clusterHealth    = map[string]func(string){}
 )
 
-func addWatcher[I any, T WatcherFuncType[I]](watcher T, existingWatches *[]T) {
-	lck.Lock()
-	*existingWatches = append(*existingWatches, watcher)
-	lck.Unlock()
-}
+func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType)) (string, error) {
 
-func execWatchers[I any, T WatcherFuncType[I]](watchers []T, data I, state int) {
-	lck.RLock()
-
-	for _, watcher := range watchers {
-		go watcher(data, state)
+	options := []clientv3.OpOption{
+		clientv3.WithPrevKV(),
 	}
 
-	lck.RUnlock()
-}
-
-func RegisterDeviceWatcher(fnc DeviceChangesFunc) {
-	addWatcher(fnc, &deviceWatchers)
-}
-
-func RegisterUserWatcher(fnc UserChangesFunc) {
-	addWatcher(fnc, &usersWatchers)
-}
-
-func RegisterAclsWatcher(fnc AclChangesFunc) {
-	addWatcher(fnc, &aclsWatchers)
-}
-
-func RegisterGroupsWatcher(fnc GroupChangesFunc) {
-	addWatcher(fnc, &groupsWatchers)
-}
-
-func RegisterClusterHealthWatcher(fnc ClusterHealthFunc) {
-	addWatcher(fnc, &clusterHealthWatchers)
-}
-
-func RegisterConfigWatcher(fnc ConfigChangesFunc) {
-	addWatcher(fnc, &configWatchers)
-}
-
-func watchEvents() {
-	wc := etcd.Watch(context.Background(), "", clientv3.WithPrefix(), clientv3.WithPrevKV())
-	for watchEvent := range wc {
-		for _, event := range watchEvent.Events {
-
-			var (
-				value []byte = event.Kv.Value
-				state int
-			)
-			if event.Type == clientv3.EventTypeDelete {
-				state = DELETED
-				value = event.PrevKv.Value
-			} else if event.PrevKv == nil {
-				state = CREATED
-			} else {
-				state = MODIFIED
-			}
-
-			switch {
-			case bytes.HasPrefix(event.Kv.Key, []byte("devices-")):
-
-				be, err := makeBasicEvent[Device](event)
-				if err != nil {
-					log.Println("unable to make basic device event: ", err)
-					continue
-				}
-
-				execWatchers(deviceWatchers, be, state)
-
-			case bytes.HasPrefix(event.Kv.Key, []byte("users-")):
-
-				be, err := makeBasicEvent[UserModel](event)
-				if err != nil {
-					log.Println("unable to make basic user event: ", err)
-					continue
-				}
-
-				execWatchers(usersWatchers, be, state)
-			case bytes.HasPrefix(event.Kv.Key, []byte("wag-acls-")):
-
-				var a acls.Acl
-				err := json.Unmarshal(value, &a)
-				if err != nil {
-					log.Println("Got an event for a acls that I could not decode: ", err)
-					continue
-				}
-
-				execWatchers(aclsWatchers, TargettedEvent[acls.Acl]{Effects: string(bytes.TrimPrefix(event.Kv.Key, []byte("wag-acls-"))), Key: string(event.Kv.Key), Value: a}, state)
-			case bytes.HasPrefix(event.Kv.Key, []byte("wag-groups-")):
-
-				var groupMembers []string
-				err := json.Unmarshal(value, &groupMembers)
-				if err != nil {
-					log.Println("Got an event for a group members that I could not decode: ", err)
-					continue
-
-				}
-				execWatchers(groupsWatchers,
-					TargettedEvent[[]string]{
-						Effects: string(bytes.TrimPrefix(event.Kv.Key, []byte("wag-groups-"))),
-						Key:     string(event.Kv.Key),
-						Value:   groupMembers,
-					}, state)
-
-			case bytes.HasPrefix(event.Kv.Key, []byte("wag-config-")):
-				execWatchers(configWatchers, BasicEvent[string]{Key: string(event.Kv.Key)}, state)
-
-			default:
-				continue
-			}
-
-		}
-
-	}
-}
-
-func makeBasicEvent[T any](event *clientv3.Event) (BasicEvent[T], error) {
-	var d T
-
-	value := event.Kv.Value
-	if event.Type == clientv3.EventTypeDelete {
-		if event.PrevKv == nil {
-			return BasicEvent[T]{}, fmt.Errorf("key was deleted and has no previous state: %s", event.Kv.Key)
-		}
-		value = event.PrevKv.Value
+	if isPrefix {
+		options = append(options, clientv3.WithPrefix())
 	}
 
-	err := json.Unmarshal(value, &d)
+	key, err := generateRandomBytes(16)
 	if err != nil {
-		return BasicEvent[T]{}, err
+		return "", nil
 	}
 
-	be := BasicEvent[T]{
-		CurrentValue: d,
-		Key:          string(event.Kv.Key),
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	lck.Lock()
+	contextMaps[key] = cancel
+	lck.Unlock()
 
-	if event.PrevKv != nil {
-		err = json.Unmarshal(event.PrevKv.Value, &be.Previous)
-		if err != nil {
-			return BasicEvent[T]{}, err
+	wc := etcd.Watch(ctx, path, options...)
+	go func(wc clientv3.WatchChan) {
+		defer cancel()
+		for watchEvent := range wc {
+			for _, event := range watchEvent.Events {
+
+				var (
+					value []byte = event.Kv.Value
+					state EventType
+				)
+				if event.Type == clientv3.EventTypeDelete {
+					state = DELETED
+					value = event.PrevKv.Value
+				} else if event.PrevKv == nil {
+					state = CREATED
+				} else {
+					state = MODIFIED
+				}
+
+				var currentValue, previousValue T
+				err := json.Unmarshal(value, &currentValue)
+				if err != nil {
+					log.Println("unable to unmarshal current type: ", err)
+					continue
+				}
+
+				if event.PrevKv != nil {
+					err = json.Unmarshal(event.PrevKv.Value, &previousValue)
+					if err != nil {
+						log.Println("unable to unmarshal previous type: ", err)
+						continue
+					}
+				}
+
+				go f(string(event.Kv.Key), currentValue, previousValue, state)
+
+			}
 		}
+	}(wc)
+
+	return key, nil
+}
+
+func DeregisterEventListener(key string) {
+	lck.Lock()
+	defer lck.Unlock()
+
+	if cancel, ok := contextMaps[key]; ok {
+		if cancel != nil {
+			cancel()
+		}
+		delete(contextMaps, key)
+	}
+}
+
+func RegisterClusterHealthListener(f func(status string)) (string, error) {
+	clusterHealthLck.Lock()
+	defer clusterHealthLck.Unlock()
+
+	key, err := generateRandomBytes(16)
+	if err != nil {
+		return "", nil
 	}
 
-	return be, nil
+	clusterHealth[key] = f
+
+	return key, nil
+}
+
+func DeregisterClusterHealthListener(key string) {
+	clusterHealthLck.Lock()
+	defer clusterHealthLck.Unlock()
+
+	delete(clusterHealth, key)
+}
+
+func notifyClusterHealthListeners(event string) {
+	clusterHealthLck.RLock()
+	defer clusterHealthLck.RUnlock()
+
+	for _, f := range clusterHealth {
+		go f(event)
+	}
 }
 
 func checkClusterHealth() {
@@ -215,11 +151,11 @@ func checkClusterHealth() {
 		case <-time.After(1 * time.Second):
 			leader := etcdServer.Server.Leader()
 			if leader == 0 {
-				execWatchers(clusterHealthWatchers, "electing", 0)
+				notifyClusterHealthListeners("electing")
 				<-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2)
 				leader = etcdServer.Server.Leader()
 				if leader == 0 {
-					execWatchers(clusterHealthWatchers, "dead", 0)
+					notifyClusterHealthListeners("dead")
 				} else {
 					notfyHealthy()
 				}
@@ -232,8 +168,8 @@ func checkClusterHealth() {
 
 func notfyHealthy() {
 	if etcdServer.Server.IsLearner() {
-		execWatchers(clusterHealthWatchers, "learner", 0)
+		notifyClusterHealthListeners("learner")
 	} else {
-		execWatchers(clusterHealthWatchers, "healthy", 0)
+		notifyClusterHealthListeners("healthy")
 	}
 }

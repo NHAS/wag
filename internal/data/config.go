@@ -36,16 +36,16 @@ const (
 	defaultWGFileNameKey = "wag-config-general-wg-filename"
 	checkUpdatesKey      = "wag-config-general-check-updates"
 
-	inactivityTimeoutKey = "wag-config-authentication-inactivity-timeout"
-	sessionLifetimeKey   = "wag-config-authentication-max-session-lifetime"
-	lockoutKey           = "wag-config-authentication-lockout"
-	issuerKey            = "wag-config-authentication-issuer"
-	domainKey            = "wag-config-authentication-domain"
-	methodsEnabledKey    = "wag-config-authentication-methods"
-	defaultMFAMethodKey  = "wag-config-authentication-default-method"
+	InactivityTimeoutKey = "wag-config-authentication-inactivity-timeout"
+	SessionLifetimeKey   = "wag-config-authentication-max-session-lifetime"
+	LockoutKey           = "wag-config-authentication-lockout"
+	IssuerKey            = "wag-config-authentication-issuer"
+	DomainKey            = "wag-config-authentication-domain"
+	MethodsEnabledKey    = "wag-config-authentication-methods"
+	DefaultMFAMethodKey  = "wag-config-authentication-default-method"
 
-	oidcDetailsKey = "wag-config-authentication-oidc"
-	pamDetailsKey  = "wag-config-authentication-pam"
+	OidcDetailsKey = "wag-config-authentication-oidc"
+	PamDetailsKey  = "wag-config-authentication-pam"
 
 	externalAddressKey = "wag-config-network-external-address"
 	dnsKey             = "wag-config-network-dns"
@@ -70,13 +70,13 @@ func SetPAM(details PAM) error {
 		return err
 	}
 
-	_, err = etcd.Put(context.Background(), pamDetailsKey, string(d))
+	_, err = etcd.Put(context.Background(), PamDetailsKey, string(d))
 	return err
 }
 
 func GetPAM() (details PAM, err error) {
 
-	v, err := getGeneric(pamDetailsKey)
+	v, err := getGeneric(PamDetailsKey)
 	if err != nil {
 		return PAM{}, nil
 	}
@@ -91,13 +91,13 @@ func SetOidc(details OIDC) error {
 		return err
 	}
 
-	_, err = etcd.Put(context.Background(), oidcDetailsKey, string(d))
+	_, err = etcd.Put(context.Background(), OidcDetailsKey, string(d))
 	return err
 }
 
 func GetOidc() (details OIDC, err error) {
 
-	v, err := getGeneric(oidcDetailsKey)
+	v, err := getGeneric(OidcDetailsKey)
 	if err != nil {
 		return OIDC{}, nil
 	}
@@ -109,8 +109,8 @@ func GetOidc() (details OIDC, err error) {
 func GetWebauthn() (wba Webauthn, err error) {
 
 	txn := etcd.Txn(context.Background())
-	response, err := txn.Then(clientv3.OpGet(issuerKey),
-		clientv3.OpGet(domainKey)).Commit()
+	response, err := txn.Then(clientv3.OpGet(IssuerKey),
+		clientv3.OpGet(DomainKey)).Commit()
 	if err != nil {
 		return wba, err
 	}
@@ -154,23 +154,23 @@ func GetWireguardConfigName() string {
 }
 
 func SetDefaultMfaMethod(method string) error {
-	_, err := etcd.Put(context.Background(), defaultMFAMethodKey, method)
+	_, err := etcd.Put(context.Background(), DefaultMFAMethodKey, method)
 	return err
 }
 
 func GetDefaultMfaMethod() (string, error) {
-	return getGeneric(defaultMFAMethodKey)
+	return getGeneric(DefaultMFAMethodKey)
 }
 
 func SetAuthenticationMethods(methods []string) error {
 	data, _ := json.Marshal(methods)
-	_, err := etcd.Put(context.Background(), methodsEnabledKey, string(data))
+	_, err := etcd.Put(context.Background(), MethodsEnabledKey, string(data))
 	return err
 }
 
 func GetAuthenicationMethods() (result []string, err error) {
 
-	val, err := getGeneric(methodsEnabledKey)
+	val, err := getGeneric(MethodsEnabledKey)
 	if err != nil {
 		return nil, err
 	}
@@ -196,21 +196,21 @@ func CheckUpdates() (bool, error) {
 }
 
 func SetDomain(domain string) error {
-	_, err := etcd.Put(context.Background(), domainKey, domain)
+	_, err := etcd.Put(context.Background(), DomainKey, domain)
 	return err
 }
 
 func GetDomain() (string, error) {
-	return getGeneric(domainKey)
+	return getGeneric(DomainKey)
 }
 
 func SetIssuer(issuer string) error {
-	_, err := etcd.Put(context.Background(), issuerKey, issuer)
+	_, err := etcd.Put(context.Background(), IssuerKey, issuer)
 	return err
 }
 
 func GetIssuer() (string, error) {
-	return getGeneric(issuerKey)
+	return getGeneric(IssuerKey)
 }
 
 func SetHelpMail(helpMail string) error {
@@ -275,12 +275,12 @@ func GetAllSettings() (s Settings, err error) {
 	txn := etcd.Txn(context.Background())
 	response, err := txn.Then(clientv3.OpGet(helpMailKey),
 		clientv3.OpGet(externalAddressKey),
-		clientv3.OpGet(inactivityTimeoutKey),
-		clientv3.OpGet(sessionLifetimeKey),
-		clientv3.OpGet(lockoutKey),
+		clientv3.OpGet(InactivityTimeoutKey),
+		clientv3.OpGet(SessionLifetimeKey),
+		clientv3.OpGet(LockoutKey),
 		clientv3.OpGet(dnsKey),
-		clientv3.OpGet(issuerKey),
-		clientv3.OpGet(domainKey)).Commit()
+		clientv3.OpGet(IssuerKey),
+		clientv3.OpGet(DomainKey)).Commit()
 	if err != nil {
 		return s, err
 	}
@@ -336,12 +336,12 @@ func GetAllSettings() (s Settings, err error) {
 // Due to how these functions are used there is quite a highlikelihood that splicing will occur
 // We need to update these to make it that it checks the key revision against the pulled version
 func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
-	_, err := etcd.Put(context.Background(), sessionLifetimeKey, strconv.Itoa(lifetimeMinutes))
+	_, err := etcd.Put(context.Background(), SessionLifetimeKey, strconv.Itoa(lifetimeMinutes))
 	return err
 }
 
 func GetSessionLifetimeMinutes() (int, error) {
-	sessionLifeTime, err := getGeneric(sessionLifetimeKey)
+	sessionLifeTime, err := getGeneric(SessionLifetimeKey)
 	if err != nil {
 		return 0, err
 	}
@@ -350,12 +350,12 @@ func GetSessionLifetimeMinutes() (int, error) {
 }
 
 func SetSessionInactivityTimeoutMinutes(InactivityTimeout int) error {
-	_, err := etcd.Put(context.Background(), inactivityTimeoutKey, strconv.Itoa(InactivityTimeout))
+	_, err := etcd.Put(context.Background(), InactivityTimeoutKey, strconv.Itoa(InactivityTimeout))
 	return err
 }
 
 func GetSessionInactivityTimeoutMinutes() (int, error) {
-	inactivityTimeout, err := getGeneric(inactivityTimeoutKey)
+	inactivityTimeout, err := getGeneric(InactivityTimeoutKey)
 	if err != nil {
 		return 0, err
 	}
@@ -367,12 +367,12 @@ func SetLockout(accountLockout int) error {
 	if accountLockout < 1 {
 		return errors.New("cannot set lockout to be below 1 as all accounts would be locked out")
 	}
-	_, err := etcd.Put(context.Background(), lockoutKey, strconv.Itoa(accountLockout))
+	_, err := etcd.Put(context.Background(), LockoutKey, strconv.Itoa(accountLockout))
 	return err
 }
 
 func GetLockout() (int, error) {
-	lockout, err := getGeneric(lockoutKey)
+	lockout, err := getGeneric(LockoutKey)
 	if err != nil {
 		return 0, err
 	}

@@ -32,6 +32,7 @@ var (
 )
 
 type Totp struct {
+	enable
 }
 
 func (t *Totp) Init() error {

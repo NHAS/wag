@@ -9,36 +9,62 @@ import (
 )
 
 func handleEvents(erroChan chan<- error) {
-	data.RegisterAclsWatcher(aclsChanges)
-	data.RegisterClusterHealthWatcher(clusterState(erroChan))
-	data.RegisterDeviceWatcher(deviceChanges)
-	data.RegisterGroupsWatcher(groupChanges)
-	data.RegisterUserWatcher(userChanges)
+
+	_, err := data.RegisterEventListener[data.Device](data.DevicesPrefix, true, deviceChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+	_, err = data.RegisterEventListener[data.UserModel](data.UsersPrefix, true, userChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+	_, err = data.RegisterEventListener[acls.Acl](data.AclsPrefix, true, aclsChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+	_, err = data.RegisterEventListener[[]string](data.GroupsPrefix, true, groupChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+	_, err = data.RegisterClusterHealthListener(clusterState(erroChan))
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
 }
 
-func deviceChanges(device data.BasicEvent[data.Device], state int) {
+func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) {
 
-	log.Printf("state: %d, event: %+v", state, device)
+	log.Printf("state: %d, event: %+v", et, current)
 
-	switch state {
+	switch et {
 	case data.DELETED:
-		err := RemovePeer(device.CurrentValue.Publickey, device.CurrentValue.Address)
+		err := RemovePeer(current.Publickey, current.Address)
 		if err != nil {
 			log.Println("could not remove peer: ", err)
 		}
 
 	case data.CREATED:
 
-		key, _ := wgtypes.ParseKey(device.CurrentValue.Publickey)
-		err := AddPeer(key, device.CurrentValue.Username, device.CurrentValue.Address, device.CurrentValue.PresharedKey)
+		key, _ := wgtypes.ParseKey(current.Publickey)
+		err := AddPeer(key, current.Username, current.Address, current.PresharedKey)
 		if err != nil {
 			log.Println("error creating peer: ", err)
 		}
 
 	case data.MODIFIED:
-		if device.CurrentValue.Publickey != device.Previous.Publickey {
-			key, _ := wgtypes.ParseKey(device.CurrentValue.Publickey)
-			err := ReplacePeer(device.Previous, key)
+		if current.Publickey != previous.Publickey {
+			key, _ := wgtypes.ParseKey(current.Publickey)
+			err := ReplacePeer(previous, key)
 			if err != nil {
 				log.Println(err)
 			}
@@ -50,18 +76,18 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 			return
 		}
 
-		if (device.CurrentValue.Attempts != device.Previous.Attempts && device.CurrentValue.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
-			device.CurrentValue.Endpoint.String() != device.Previous.Endpoint.String() || // If the client ip has changed
-			device.CurrentValue.Authorised.IsZero() { // If we've explicitly deauthorised a device
-			err := Deauthenticate(device.CurrentValue.Address)
+		if (current.Attempts != previous.Attempts && current.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
+			current.Endpoint.String() != previous.Endpoint.String() || // If the client ip has changed
+			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
+			err := Deauthenticate(current.Address)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 
-		if device.CurrentValue.Authorised != device.Previous.Authorised {
-			if !device.CurrentValue.Authorised.IsZero() && device.CurrentValue.Attempts <= lockout {
-				err := SetAuthorized(device.CurrentValue.Address, device.CurrentValue.Username)
+		if current.Authorised != previous.Authorised {
+			if !current.Authorised.IsZero() && current.Attempts <= lockout {
+				err := SetAuthorized(current.Address, current.Username)
 				if err != nil {
 					log.Println(err)
 				}
@@ -73,36 +99,36 @@ func deviceChanges(device data.BasicEvent[data.Device], state int) {
 	}
 }
 
-func userChanges(user data.BasicEvent[data.UserModel], state int) {
-	switch state {
+func userChanges(key string, current data.UserModel, previous data.UserModel, et data.EventType) {
+	switch et {
 	case data.CREATED:
-		acls := data.GetEffectiveAcl(user.CurrentValue.Username)
-		err := AddUser(user.CurrentValue.Username, acls)
+		acls := data.GetEffectiveAcl(current.Username)
+		err := AddUser(current.Username, acls)
 		if err != nil {
 			log.Println(err)
 		}
 	case data.DELETED:
-		err := RemoveUser(user.CurrentValue.Username)
+		err := RemoveUser(current.Username)
 		if err != nil {
 			log.Println(err)
 		}
 	case data.MODIFIED:
 
-		if user.CurrentValue.Locked != user.Previous.Locked {
+		if current.Locked != previous.Locked {
 
 			lock := uint32(1)
-			if !user.CurrentValue.Locked {
+			if !current.Locked {
 				lock = 0
 			}
 
-			err := SetLockAccount(user.CurrentValue.Username, lock)
+			err := SetLockAccount(current.Username, lock)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 
-		if user.CurrentValue.Mfa != user.Previous.Mfa || user.CurrentValue.MfaType != user.Previous.MfaType {
-			err := DeauthenticateAllDevices(user.CurrentValue.Username)
+		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType {
+			err := DeauthenticateAllDevices(current.Username)
 			if err != nil {
 				log.Println(err)
 			}
@@ -111,8 +137,8 @@ func userChanges(user data.BasicEvent[data.UserModel], state int) {
 	}
 }
 
-func aclsChanges(aclChange data.TargettedEvent[acls.Acl], state int) {
-	switch state {
+func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventType) {
+	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 		err := RefreshConfiguration()
 		if err != nil {
@@ -122,11 +148,11 @@ func aclsChanges(aclChange data.TargettedEvent[acls.Acl], state int) {
 	}
 }
 
-func groupChanges(groupChange data.TargettedEvent[[]string], state int) {
-	switch state {
+func groupChanges(key string, current []string, previous []string, et data.EventType) {
+	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 
-		for _, username := range groupChange.Value {
+		for _, username := range current {
 			err := RefreshUserAcls(username)
 			if err != nil {
 				log.Println(err)
@@ -136,10 +162,10 @@ func groupChanges(groupChange data.TargettedEvent[[]string], state int) {
 	}
 }
 
-func clusterState(errorsChan chan<- error) data.ClusterHealthFunc {
+func clusterState(errorsChan chan<- error) func(string) {
 
 	hasDied := false
-	return func(stateText string, state int) {
+	return func(stateText string) {
 		log.Println("entered state: ", stateText)
 
 		switch stateText {

@@ -17,6 +17,7 @@ import (
 )
 
 type Pam struct {
+	enable
 }
 
 func (t *Pam) Init() error {

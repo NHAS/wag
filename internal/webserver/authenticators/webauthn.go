@@ -22,6 +22,7 @@ import (
 )
 
 type Webauthn struct {
+	enable
 	sessions         *session.SessionStore[*webauthn.SessionData]
 	webauthnExecutor *webauthn.WebAuthn
 }
@@ -43,6 +44,8 @@ func (wa *Webauthn) Init() error {
 	}
 
 	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", "WAG-CSRF", 30*time.Minute, 1800, false)
+	log.Println("initialised webauthn provider")
+
 	return err
 }
 

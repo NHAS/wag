@@ -7,7 +7,7 @@ var (
 	serverID     string
 )
 
-func watchClusterHealth(state string, _ int) {
+func watchClusterHealth(state string) {
 	clusterState = state
 	serverID = data.GetServerID()
 }

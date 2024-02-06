@@ -130,10 +130,16 @@ func Start(errChan chan<- error) error {
 	tunnel.HandleFunc("/static/", embeddedStatic)
 
 	// Do inital state setup for our authentication methods
-	authenticators.SetRoutesFromMethods(tunnel)
+	err := authenticators.AddMFARoutes(tunnel)
+	if err != nil {
+		return err
+	}
 
 	// For any change to the authentication config re-up
-	data.RegisterConfigWatcher(watchConfigChanges(tunnel))
+	err = registerListeners()
+	if err != nil {
+		return err
+	}
 
 	tunnel.HandleFunc("/authorise/", authorise)
 	tunnel.HandleFunc("/register_mfa/", registerMFA)
