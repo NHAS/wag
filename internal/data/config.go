@@ -115,6 +115,7 @@ func GetWebauthn() (wba Webauthn, err error) {
 		return wba, err
 	}
 
+	// Issuer: GetIssuer()
 	if response.Responses[0].GetResponseRange().Count != 1 {
 		return wba, errors.New("no issuer set")
 	}

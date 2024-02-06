@@ -111,14 +111,6 @@
                     <span>Devices</span></a>
             </li>
 
-            <li class="nav-item">
-                <a class="nav-link" href="/management/clustering/">
-                    <i class="icon icon-users
-                    "></i>
-                    <span>Clustering</span></a>
-            </li>
-
-
             <!-- Divider -->
             <hr class="sidebar-divider">
 
@@ -153,6 +145,7 @@
                     data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <a class="collapse-item" href="/settings/general">General</a>
+                        <a class="collapse-item" href="/settings/clustering/">Clustering</a>
                         <a class="collapse-item" href="/settings/management_users">Admin Users</a>
                     </div>
                 </div>
@@ -183,7 +176,7 @@
                             <div class="nav-link">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">
                                     <div title="{{.ClusterState}}" class="status 
-                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"
+                                    {{if eq .ClusterState " healthy" }}open{{ else if eq .ClusterState "dead"
                                         }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
                                 </span>
                             </div>
