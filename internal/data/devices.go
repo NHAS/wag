@@ -36,7 +36,10 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
+	var realDeviceAddr string
+	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
+
+	return doSafeUpdate(context.Background(), realDeviceAddr, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -118,7 +121,10 @@ func DeauthenticateDevice(address string) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
+	var realDeviceAddr string
+	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
+
+	return doSafeUpdate(context.Background(), realDeviceAddr, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -200,13 +206,18 @@ func AddDevice(username, publickey string) (Device, error) {
 	key := deviceKey(username, address)
 
 	_, err = etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(address)), key),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(publickey)), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
 
 	return d, err
+}
+
+func toJson(s string) string {
+	data, _ := json.Marshal(s)
+	return string(data)
 }
 
 func SetDevice(username, address, publickey, preshared_key string) (Device, error) {
@@ -225,8 +236,8 @@ func SetDevice(username, address, publickey, preshared_key string) (Device, erro
 	key := deviceKey(username, address)
 
 	_, err := etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(address)), key),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(publickey)), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
@@ -251,7 +262,10 @@ func DeleteDevice(username, id string) error {
 		return errors.New("no reference found")
 	}
 
-	deviceEntry, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	var realDeviceAddr string
+	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
+
+	deviceEntry, err := etcd.Get(context.Background(), realDeviceAddr)
 	if err != nil {
 		return err
 	}
@@ -346,7 +360,10 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 		return Device{}, errors.New("incorrect number of keys for device reference")
 	}
 
-	response, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	var realDeviceAddr string
+	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
+
+	response, err := etcd.Get(context.Background(), realDeviceAddr)
 	if err != nil {
 		return Device{}, err
 	}

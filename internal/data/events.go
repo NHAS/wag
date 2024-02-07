@@ -77,7 +77,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 				var currentValue, previousValue T
 				err := json.Unmarshal(value, &currentValue)
 				if err != nil {
-					log.Println("unable to unmarshal current type: ", err)
+					log.Println("unable to unmarshal current type: ", path, string(value), err)
 					continue
 				}
 

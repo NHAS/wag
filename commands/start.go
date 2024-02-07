@@ -100,17 +100,17 @@ func (g *start) Run() error {
 		data.TearDown()
 	}()
 
-	error := make(chan error)
+	errorChan := make(chan error)
 
 	if !config.Values.Clustering.Witness {
 
-		err = router.Setup(error, !g.noIptables)
+		err = router.Setup(errorChan, !g.noIptables)
 		if err != nil {
 			return fmt.Errorf("unable to start router: %v", err)
 		}
 		defer func() {
 			if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
-				router.TearDown()
+				router.TearDown(false)
 			}
 		}()
 
@@ -125,12 +125,12 @@ func (g *start) Run() error {
 			}
 		}()
 
-		err = webserver.Start(error)
+		err = webserver.Start(errorChan)
 		if err != nil {
 			return fmt.Errorf("unable to start webserver: %v", err)
 		}
 
-		err = ui.StartWebServer(error)
+		err = ui.StartWebServer(errorChan)
 		if err != nil {
 			return fmt.Errorf("unable to start management web server: %v", err)
 		}
@@ -144,7 +144,7 @@ func (g *start) Run() error {
 
 		log.Printf("Got signal %s gracefully exiting\n", s)
 
-		error <- errors.New("ignore me I am signal")
+		errorChan <- errors.New("ignore me I am signal")
 	}()
 
 	wagType := "Wag"
@@ -154,7 +154,7 @@ func (g *start) Run() error {
 
 	log.Printf("%s started successfully, Ctrl + C to stop", wagType)
 
-	err = <-error
+	err = <-errorChan
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err
 	}

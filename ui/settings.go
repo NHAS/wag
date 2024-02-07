@@ -120,8 +120,8 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := struct {
-		Page       Page
-		Settings   data.Settings
+		Page
+		Settings   data.AllSettings
 		MFAMethods []authenticators.Authenticator
 	}{
 		Page: Page{
@@ -163,28 +163,13 @@ func generalSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Query().Get("type") {
 	case "general":
 
-		var general = struct {
-			HelpMail        string   `json:"help_mail"`
-			ExternalAddress string   `json:"external_address"`
-			DNS             []string `json:"dns"`
-		}{}
-
-		if err := json.NewDecoder(r.Body).Decode(&general); err != nil {
+		var generalSettings data.GeneralSettings
+		if err := json.NewDecoder(r.Body).Decode(&generalSettings); err != nil {
 			http.Error(w, "Bad Request", 400)
 			return
 		}
 
-		if err := data.SetHelpMail(general.HelpMail); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-
-		if err := data.SetExternalAddress(general.ExternalAddress); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-
-		if err := data.SetDNS(general.DNS); err != nil {
+		if err := data.SetGeneralSettings(generalSettings); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -193,28 +178,13 @@ func generalSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	case "login":
 
-		var login = struct {
-			SessionLifetime   int `json:"session_lifetime"`
-			InactivityTimeout int `json:"session_inactivity"`
-			Lockout           int `json:"lockout"`
-		}{}
-
-		if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
+		var loginSettings data.LoginSettings
+		if err := json.NewDecoder(r.Body).Decode(&loginSettings); err != nil {
 			http.Error(w, "Bad Request", 400)
 			return
 		}
 
-		if err := data.SetSessionLifetimeMinutes(login.SessionLifetime); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-
-		if err := data.SetSessionInactivityTimeoutMinutes(login.InactivityTimeout); err != nil {
-			http.Error(w, err.Error(), 400)
-			return
-		}
-
-		if err := data.SetLockout(login.Lockout); err != nil {
+		if err := data.SetLoginSettings(loginSettings); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}

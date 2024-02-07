@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -41,7 +40,7 @@ const (
 	LockoutKey           = "wag-config-authentication-lockout"
 	IssuerKey            = "wag-config-authentication-issuer"
 	DomainKey            = "wag-config-authentication-domain"
-	MethodsEnabledKey    = "wag-config-authentication-methods"
+	MFAMethodsEnabledKey = "wag-config-authentication-methods"
 	DefaultMFAMethodKey  = "wag-config-authentication-default-method"
 
 	OidcDetailsKey = "wag-config-authentication-oidc"
@@ -51,7 +50,7 @@ const (
 	dnsKey             = "wag-config-network-dns"
 )
 
-func getGeneric(key string) (string, error) {
+func getString(key string) (ret string, err error) {
 	resp, err := etcd.Get(context.Background(), key)
 	if err != nil {
 		return "", err
@@ -61,7 +60,30 @@ func getGeneric(key string) (string, error) {
 		return "", fmt.Errorf("incorrect number of %s keys", key)
 	}
 
-	return string(resp.Kvs[0].Value), nil
+	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
+	if err != nil {
+		return "", err
+	}
+
+	return ret, nil
+}
+
+func getInt(key string) (ret int, err error) {
+	resp, err := etcd.Get(context.Background(), key)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(resp.Kvs) != 1 {
+		return 0, fmt.Errorf("incorrect number of %s keys", key)
+	}
+
+	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
+	if err != nil {
+		return 0, err
+	}
+
+	return ret, nil
 }
 
 func SetPAM(details PAM) error {
@@ -76,7 +98,7 @@ func SetPAM(details PAM) error {
 
 func GetPAM() (details PAM, err error) {
 
-	v, err := getGeneric(PamDetailsKey)
+	v, err := getString(PamDetailsKey)
 	if err != nil {
 		return PAM{}, nil
 	}
@@ -97,7 +119,7 @@ func SetOidc(details OIDC) error {
 
 func GetOidc() (details OIDC, err error) {
 
-	v, err := getGeneric(OidcDetailsKey)
+	v, err := getString(OidcDetailsKey)
 	if err != nil {
 		return OIDC{}, nil
 	}
@@ -124,25 +146,30 @@ func GetWebauthn() (wba Webauthn, err error) {
 		return wba, errors.New("no domain set")
 	}
 
-	tunnelURL, err := url.Parse(string(response.Responses[1].GetResponseRange().Kvs[0].Value))
+	var urlData string
+	json.Unmarshal(response.Responses[0].GetResponseRange().Kvs[0].Value, &wba.DisplayName)
+	json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &urlData)
+
+	tunnelURL, err := url.Parse(urlData)
 	if err != nil {
 		return wba, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
 	}
 
 	wba.Origin = tunnelURL.String()
-	wba.DisplayName = string(response.Responses[0].GetResponseRange().Kvs[0].Value)
 	wba.ID = strings.Split(tunnelURL.Host, ":")[0]
 
 	return
 }
 
 func SetWireguardConfigName(wgConfig string) error {
-	_, err := etcd.Put(context.Background(), defaultWGFileNameKey, wgConfig)
+	data, _ := json.Marshal(wgConfig)
+
+	_, err := etcd.Put(context.Background(), defaultWGFileNameKey, string(data))
 	return err
 }
 
 func GetWireguardConfigName() string {
-	k, err := getGeneric(defaultWGFileNameKey)
+	k, err := getString(defaultWGFileNameKey)
 	if err != nil {
 		return "wg0.conf"
 	}
@@ -155,73 +182,100 @@ func GetWireguardConfigName() string {
 }
 
 func SetDefaultMfaMethod(method string) error {
-	_, err := etcd.Put(context.Background(), DefaultMFAMethodKey, method)
+
+	data, _ := json.Marshal(method)
+
+	_, err := etcd.Put(context.Background(), DefaultMFAMethodKey, string(data))
 	return err
 }
 
 func GetDefaultMfaMethod() (string, error) {
-	return getGeneric(DefaultMFAMethodKey)
+	return getString(DefaultMFAMethodKey)
 }
 
 func SetAuthenticationMethods(methods []string) error {
 	data, _ := json.Marshal(methods)
-	_, err := etcd.Put(context.Background(), MethodsEnabledKey, string(data))
+	_, err := etcd.Put(context.Background(), MFAMethodsEnabledKey, string(data))
 	return err
 }
 
 func GetAuthenicationMethods() (result []string, err error) {
 
-	val, err := getGeneric(MethodsEnabledKey)
+	resp, err := etcd.Get(context.Background(), MFAMethodsEnabledKey)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal([]byte(val), &result)
+	if len(resp.Kvs) != 1 {
+		return nil, fmt.Errorf("incorrect number of %s keys", MFAMethodsEnabledKey)
+	}
+
+	err = json.Unmarshal(resp.Kvs[0].Value, &result)
+	if err != nil {
+		return nil, err
+	}
 
 	return
 }
 
 func SetCheckUpdates(doChecks bool) error {
-	_, err := etcd.Put(context.Background(), checkUpdatesKey, strconv.FormatBool(doChecks))
+
+	data, _ := json.Marshal(doChecks)
+
+	_, err := etcd.Put(context.Background(), checkUpdatesKey, string(data))
 	return err
 }
 
 func CheckUpdates() (bool, error) {
 
-	val, err := getGeneric(checkUpdatesKey)
+	resp, err := etcd.Get(context.Background(), checkUpdatesKey)
 	if err != nil {
 		return false, err
 	}
 
-	return val == "true", nil
+	var ret bool
+
+	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
+	if err != nil {
+		return false, err
+	}
+
+	if len(resp.Kvs) != 1 {
+		return false, fmt.Errorf("incorrect number of %s keys", checkUpdatesKey)
+	}
+
+	return ret, nil
 }
 
 func SetDomain(domain string) error {
-	_, err := etcd.Put(context.Background(), DomainKey, domain)
+	data, _ := json.Marshal(domain)
+	_, err := etcd.Put(context.Background(), DomainKey, string(data))
 	return err
 }
 
 func GetDomain() (string, error) {
-	return getGeneric(DomainKey)
+	return getString(DomainKey)
 }
 
 func SetIssuer(issuer string) error {
-	_, err := etcd.Put(context.Background(), IssuerKey, issuer)
+	data, _ := json.Marshal(issuer)
+	_, err := etcd.Put(context.Background(), IssuerKey, string(data))
 	return err
 }
 
 func GetIssuer() (string, error) {
-	return getGeneric(IssuerKey)
+	return getString(IssuerKey)
 }
 
 func SetHelpMail(helpMail string) error {
-	_, err := etcd.Put(context.Background(), helpMailKey, helpMail)
+	data, _ := json.Marshal(helpMail)
+	_, err := etcd.Put(context.Background(), helpMailKey, string(data))
 	return err
 }
 
 func GetHelpMail() string {
 
-	mail, err := getGeneric(helpMailKey)
+	mail, err := getString(helpMailKey)
 	if err != nil {
 		return "Server Error"
 	}
@@ -230,12 +284,13 @@ func GetHelpMail() string {
 }
 
 func SetExternalAddress(externalAddress string) error {
-	_, err := etcd.Put(context.Background(), externalAddressKey, externalAddress)
+	data, _ := json.Marshal(externalAddress)
+	_, err := etcd.Put(context.Background(), externalAddressKey, string(data))
 	return err
 }
 
 func GetExternalAddress() (string, error) {
-	return getGeneric(externalAddressKey)
+	return getString(externalAddressKey)
 }
 
 func SetDNS(dns []string) error {
@@ -245,14 +300,17 @@ func SetDNS(dns []string) error {
 }
 
 func GetDNS() ([]string, error) {
-
-	jsonData, err := getGeneric(dnsKey)
+	resp, err := etcd.Get(context.Background(), dnsKey)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(resp.Kvs) != 1 {
+		return nil, fmt.Errorf("incorrect number of %s keys", dnsKey)
+	}
+
 	var servers []string
-	err = json.Unmarshal([]byte(jsonData), &servers)
+	err = json.Unmarshal(resp.Kvs[0].Value, &servers)
 	if err != nil {
 		return nil, err
 	}
@@ -260,27 +318,88 @@ func GetDNS() ([]string, error) {
 	return servers, nil
 }
 
-type Settings struct {
-	ExternalAddress                 string
-	Lockout                         int
-	Issuer                          string
-	Domain                          string
-	WireguardConfigFilename         string
+type AllSettings struct {
+	LoginSettings
+	GeneralSettings
+}
+
+type LoginSettings struct {
 	SessionInactivityTimeoutMinutes int
 	MaxSessionLifetimeMinutes       int
-	HelpMail                        string
-	DNS                             []string
+	Lockout                         int
 
 	DefaultMFAMethod  string
 	EnabledMFAMethods []string
 
+	Domain string
+	Issuer string
+
 	OidcDetails OIDC
 	PamDetails  PAM
-
-	CheckUpdates bool
 }
 
-func GetAllSettings() (s Settings, err error) {
+func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op) {
+
+	b, _ := json.Marshal(lg.SessionInactivityTimeoutMinutes)
+	ret = append(ret, clientv3.OpPut(InactivityTimeoutKey, string(b)))
+
+	b, _ = json.Marshal(lg.MaxSessionLifetimeMinutes)
+	ret = append(ret, clientv3.OpPut(SessionLifetimeKey, string(b)))
+
+	b, _ = json.Marshal(lg.Lockout)
+	ret = append(ret, clientv3.OpPut(LockoutKey, string(b)))
+
+	b, _ = json.Marshal(lg.DefaultMFAMethod)
+	ret = append(ret, clientv3.OpPut(DefaultMFAMethodKey, string(b)))
+
+	b, _ = json.Marshal(lg.EnabledMFAMethods)
+	ret = append(ret, clientv3.OpPut(MFAMethodsEnabledKey, string(b)))
+
+	b, _ = json.Marshal(lg.Domain)
+	ret = append(ret, clientv3.OpPut(DomainKey, string(b)))
+
+	b, _ = json.Marshal(lg.Issuer)
+	ret = append(ret, clientv3.OpPut(IssuerKey, string(b)))
+
+	b, _ = json.Marshal(lg.OidcDetails)
+	ret = append(ret, clientv3.OpPut(OidcDetailsKey, string(b)))
+
+	b, _ = json.Marshal(lg.PamDetails)
+	ret = append(ret, clientv3.OpPut(PamDetailsKey, string(b)))
+
+	return
+}
+
+type GeneralSettings struct {
+	HelpMail        string
+	ExternalAddress string
+	DNS             []string
+
+	WireguardConfigFilename string
+	CheckUpdates            bool
+}
+
+func (gs *GeneralSettings) ToWriteOps() (ret []clientv3.Op) {
+
+	b, _ := json.Marshal(gs.HelpMail)
+	ret = append(ret, clientv3.OpPut(helpMailKey, string(b)))
+
+	b, _ = json.Marshal(gs.ExternalAddress)
+	ret = append(ret, clientv3.OpPut(externalAddressKey, string(b)))
+
+	b, _ = json.Marshal(gs.DNS)
+	ret = append(ret, clientv3.OpPut(dnsKey, string(b)))
+
+	b, _ = json.Marshal(gs.WireguardConfigFilename)
+	ret = append(ret, clientv3.OpPut(defaultWGFileNameKey, string(b)))
+
+	b, _ = json.Marshal(gs.CheckUpdates)
+	ret = append(ret, clientv3.OpPut(checkUpdatesKey, string(b)))
+
+	return
+}
+
+func GetAllSettings() (s AllSettings, err error) {
 
 	txn := etcd.Txn(context.Background())
 	response, err := txn.Then(clientv3.OpGet(helpMailKey),
@@ -292,7 +411,7 @@ func GetAllSettings() (s Settings, err error) {
 		clientv3.OpGet(IssuerKey),
 		clientv3.OpGet(DomainKey),
 		clientv3.OpGet(DefaultMFAMethodKey),
-		clientv3.OpGet(MethodsEnabledKey),
+		clientv3.OpGet(MFAMethodsEnabledKey),
 		clientv3.OpGet(checkUpdatesKey),
 		clientv3.OpGet(OidcDetailsKey),
 		clientv3.OpGet(PamDetailsKey),
@@ -302,31 +421,37 @@ func GetAllSettings() (s Settings, err error) {
 	}
 
 	if response.Responses[0].GetResponseRange().Count == 1 {
-		s.HelpMail = string(response.Responses[0].GetResponseRange().Kvs[0].Value)
+		err = json.Unmarshal(response.Responses[0].GetResponseRange().Kvs[0].Value, &s.HelpMail)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[1].GetResponseRange().Count == 1 {
-		s.ExternalAddress = string(response.Responses[1].GetResponseRange().Kvs[0].Value)
+		err = json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &s.ExternalAddress)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[2].GetResponseRange().Count == 1 {
-		s.SessionInactivityTimeoutMinutes, err = strconv.Atoi(string(response.Responses[2].GetResponseRange().Kvs[0].Value))
+		err = json.Unmarshal(response.Responses[2].GetResponseRange().Kvs[0].Value, &s.SessionInactivityTimeoutMinutes)
 		if err != nil {
-			return
+			return s, err
 		}
 	}
 
 	if response.Responses[3].GetResponseRange().Count == 1 {
-		s.MaxSessionLifetimeMinutes, err = strconv.Atoi(string(response.Responses[3].GetResponseRange().Kvs[0].Value))
+		err = json.Unmarshal(response.Responses[3].GetResponseRange().Kvs[0].Value, &s.MaxSessionLifetimeMinutes)
 		if err != nil {
-			return
+			return s, err
 		}
 	}
 
 	if response.Responses[4].GetResponseRange().Count == 1 {
-		s.Lockout, err = strconv.Atoi(string(response.Responses[4].GetResponseRange().Kvs[0].Value))
+		err = json.Unmarshal(response.Responses[4].GetResponseRange().Kvs[0].Value, &s.Lockout)
 		if err != nil {
-			return
+			return s, err
 		}
 	}
 
@@ -335,33 +460,45 @@ func GetAllSettings() (s Settings, err error) {
 		if err != nil {
 			return s, err
 		}
-
 	}
 
 	if response.Responses[6].GetResponseRange().Count == 1 {
-		s.Issuer = string(response.Responses[6].GetResponseRange().Kvs[0].Value)
+		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Issuer)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[7].GetResponseRange().Count == 1 {
-		s.Domain = string(response.Responses[7].GetResponseRange().Kvs[0].Value)
+		err = json.Unmarshal(response.Responses[7].GetResponseRange().Kvs[0].Value, &s.Domain)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[8].GetResponseRange().Count == 1 {
-		s.DefaultMFAMethod = string(response.Responses[8].GetResponseRange().Kvs[0].Value)
+		err = json.Unmarshal(response.Responses[8].GetResponseRange().Kvs[0].Value, &s.DefaultMFAMethod)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[9].GetResponseRange().Count == 1 {
-		err := json.Unmarshal(response.Responses[9].GetResponseRange().Kvs[0].Value, &s.EnabledMFAMethods)
+		err = json.Unmarshal(response.Responses[9].GetResponseRange().Kvs[0].Value, &s.EnabledMFAMethods)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[10].GetResponseRange().Count == 1 {
-		s.CheckUpdates = string(response.Responses[10].GetResponseRange().Kvs[0].Value) == "true"
+		err = json.Unmarshal(response.Responses[10].GetResponseRange().Kvs[0].Value, &s.CheckUpdates)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	if response.Responses[11].GetResponseRange().Count == 1 {
+		s.OidcDetails.GroupsClaimName = "groups"
 		err := json.Unmarshal(response.Responses[11].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
 		if err != nil {
 			return s, err
@@ -376,55 +513,75 @@ func GetAllSettings() (s Settings, err error) {
 	}
 
 	if response.Responses[13].GetResponseRange().Count == 1 {
-		s.WireguardConfigFilename = string(response.Responses[13].GetResponseRange().Kvs[0].Value)
+		err := json.Unmarshal(response.Responses[13].GetResponseRange().Kvs[0].Value, &s.WireguardConfigFilename)
+		if err != nil {
+			return s, err
+		}
 	}
 
 	return
 }
 
+func SetLoginSettings(loginSettings LoginSettings) error {
+	txn := etcd.Txn(context.Background())
+	_, err := txn.Then(loginSettings.ToWriteOps()...).Commit()
+	return err
+}
+
+func SetGeneralSettings(generalSettings GeneralSettings) error {
+	txn := etcd.Txn(context.Background())
+	_, err := txn.Then(generalSettings.ToWriteOps()...).Commit()
+	return err
+}
+
 // Due to how these functions are used there is quite a highlikelihood that splicing will occur
 // We need to update these to make it that it checks the key revision against the pulled version
 func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
-	_, err := etcd.Put(context.Background(), SessionLifetimeKey, strconv.Itoa(lifetimeMinutes))
+	data, _ := json.Marshal(lifetimeMinutes)
+	_, err := etcd.Put(context.Background(), SessionLifetimeKey, string(data))
 	return err
 }
 
 func GetSessionLifetimeMinutes() (int, error) {
-	sessionLifeTime, err := getGeneric(SessionLifetimeKey)
+	sessionLifeTime, err := getInt(SessionLifetimeKey)
 	if err != nil {
 		return 0, err
 	}
 
-	return strconv.Atoi(sessionLifeTime)
+	return sessionLifeTime, nil
 }
 
 func SetSessionInactivityTimeoutMinutes(InactivityTimeout int) error {
-	_, err := etcd.Put(context.Background(), InactivityTimeoutKey, strconv.Itoa(InactivityTimeout))
+	data, _ := json.Marshal(InactivityTimeout)
+
+	_, err := etcd.Put(context.Background(), InactivityTimeoutKey, string(data))
 	return err
 }
 
 func GetSessionInactivityTimeoutMinutes() (int, error) {
-	inactivityTimeout, err := getGeneric(InactivityTimeoutKey)
+	inactivityTimeout, err := getInt(InactivityTimeoutKey)
 	if err != nil {
 		return 0, err
 	}
 
-	return strconv.Atoi(inactivityTimeout)
+	return inactivityTimeout, nil
 }
 
 func SetLockout(accountLockout int) error {
 	if accountLockout < 1 {
 		return errors.New("cannot set lockout to be below 1 as all accounts would be locked out")
 	}
-	_, err := etcd.Put(context.Background(), LockoutKey, strconv.Itoa(accountLockout))
+
+	data, _ := json.Marshal(accountLockout)
+	_, err := etcd.Put(context.Background(), LockoutKey, string(data))
 	return err
 }
 
 func GetLockout() (int, error) {
-	lockout, err := getGeneric(LockoutKey)
+	lockout, err := getInt(LockoutKey)
 	if err != nil {
 		return 0, err
 	}
 
-	return strconv.Atoi(lockout)
+	return lockout, nil
 }

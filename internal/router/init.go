@@ -39,16 +39,16 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 		}
 	}
 
-	defer func() {
-		if err != nil {
-			TearDown()
-		}
-	}()
-
 	err = setupXDP(initialUsers, knownDevices)
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		if err != nil {
+			TearDown(true)
+		}
+	}()
 
 	handleEvents(errorChan)
 
@@ -138,9 +138,11 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 	return nil
 }
 
-func TearDown() {
+func TearDown(force bool) {
 
-	cancel <- true
+	if !force {
+		cancel <- true
+	}
 
 	log.Println("Removing wireguard device")
 	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)

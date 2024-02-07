@@ -1,11 +1,11 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -290,7 +290,10 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 		return
 	}
 
-	parts := bytes.Split(refResponse.Kvs[0].Value, []byte("-"))
+	var realDeviceAddr string
+	json.Unmarshal(refResponse.Kvs[0].Value, &realDeviceAddr)
+
+	parts := strings.Split(realDeviceAddr, "-")
 	if len(parts) != 3 {
 		err = errors.New("invalid number of reference key parts to extract username")
 		return

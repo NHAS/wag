@@ -20,7 +20,7 @@ func registerListeners() error {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.MethodsEnabledKey, false, enabledMethodsChanged)
+	_, err = data.RegisterEventListener(data.MFAMethodsEnabledKey, false, enabledMethodsChanged)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,6 @@ func oidcChanges(key string, current data.OIDC, previous data.OIDC, et data.Even
 		authenticators.DisableMethods(types.Oidc)
 	case data.CREATED, data.MODIFIED:
 		// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
-		authenticators.ReinitaliseMethods(types.Oidc)
 		methods, err := data.GetAuthenicationMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)
@@ -47,7 +46,7 @@ func oidcChanges(key string, current data.OIDC, previous data.OIDC, et data.Even
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			authenticators.EnableMethods(types.Oidc)
+			authenticators.ReinitaliseMethods(types.Oidc)
 		}
 	}
 }
@@ -68,6 +67,7 @@ func enabledMethodsChanged(key string, current []string, previous []string, et d
 	case data.CREATED:
 		authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
 		authenticators.EnableMethods(authenticators.StringsToMFA(current)...)
+
 	case data.MODIFIED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
 

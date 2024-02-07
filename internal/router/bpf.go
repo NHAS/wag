@@ -149,7 +149,6 @@ func attachXDP() error {
 }
 
 func setupXDP(users []data.UserModel, knownDevices []data.Device) error {
-
 	if err := loadXDP(); err != nil {
 		return err
 	}

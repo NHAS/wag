@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -222,23 +221,22 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	dnsData, _ := json.Marshal(config.Values.Wireguard.DNS)
-	err = putIfNotFound(dnsKey, string(dnsData), "dns")
+	err = putIfNotFound(dnsKey, config.Values.Wireguard.DNS, "dns")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(InactivityTimeoutKey, fmt.Sprintf("%d", config.Values.SessionInactivityTimeoutMinutes), "inactivity timeout")
+	err = putIfNotFound(InactivityTimeoutKey, config.Values.SessionInactivityTimeoutMinutes, "inactivity timeout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(SessionLifetimeKey, fmt.Sprintf("%d", config.Values.MaxSessionLifetimeMinutes), "max session life")
+	err = putIfNotFound(SessionLifetimeKey, config.Values.MaxSessionLifetimeMinutes, "max session life")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(LockoutKey, fmt.Sprintf("%d", config.Values.Lockout), "lockout")
+	err = putIfNotFound(LockoutKey, config.Values.Lockout, "lockout")
 	if err != nil {
 		return err
 	}
@@ -258,25 +256,27 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(checkUpdatesKey, strconv.FormatBool(config.Values.CheckUpdates), "update check settings")
+	err = putIfNotFound(checkUpdatesKey, config.Values.CheckUpdates, "update check settings")
 	if err != nil {
 		return err
 	}
 
-	b, _ := json.Marshal(config.Values.Authenticators.Methods)
-	err = putIfNotFound(MethodsEnabledKey, string(b), "authorisation methods")
+	err = putIfNotFound(MFAMethodsEnabledKey, config.Values.Authenticators.Methods, "authorisation methods")
 	if err != nil {
 		return err
 	}
 
-	b, _ = json.Marshal(config.Values.Authenticators.OIDC)
-	err = putIfNotFound(OidcDetailsKey, string(b), "oidc settings")
+	err = putIfNotFound(DefaultMFAMethodKey, config.Values.Authenticators.DefaultMethod, "default mfa method")
 	if err != nil {
 		return err
 	}
 
-	b, _ = json.Marshal(config.Values.Authenticators.PAM)
-	err = putIfNotFound(PamDetailsKey, string(b), "pam settings")
+	err = putIfNotFound(OidcDetailsKey, config.Values.Authenticators.OIDC, "oidc settings")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(PamDetailsKey, config.Values.Authenticators.PAM, "pam settings")
 	if err != nil {
 		return err
 	}
@@ -284,9 +284,15 @@ func loadInitialSettings() error {
 	return nil
 }
 
-func putIfNotFound(key, value, set string) error {
+func putIfNotFound[T any](key string, value T, set string) error {
+
+	d, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
 	txn := etcd.Txn(context.Background())
-	resp, err := txn.If(clientv3util.KeyMissing(key)).Then(clientv3.OpPut(key, value)).Commit()
+	resp, err := txn.If(clientv3util.KeyMissing(key)).Then(clientv3.OpPut(key, string(d))).Commit()
 	if err != nil {
 		return err
 	}

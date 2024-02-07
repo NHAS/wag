@@ -56,7 +56,6 @@ func EnableMethods(method ...types.MFA) {
 func ReinitaliseMethods(method ...types.MFA) {
 	lck.Lock()
 	defer lck.Unlock()
-
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
 			err := a.Init()
@@ -117,6 +116,9 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 }
 
 func AddMFARoutes(mux *http.ServeMux) error {
+	lck.Lock()
+	defer lck.Unlock()
+
 	for method, handler := range allMfa {
 		mux.HandleFunc("/authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
 		mux.HandleFunc("/register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
@@ -133,7 +135,6 @@ func AddMFARoutes(mux *http.ServeMux) error {
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}
-
 		allMfa[types.MFA(method)].Enable()
 	}
 

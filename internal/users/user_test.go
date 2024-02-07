@@ -35,7 +35,7 @@ func TestCreateUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to setup wg: %s", err)
 	}
-	defer router.TearDown()
+	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -70,7 +70,7 @@ func TestAddDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to setup wg: %s", err)
 	}
-	defer router.TearDown()
+	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -107,7 +107,7 @@ func TestDeleteDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to setup wg: %s", err)
 	}
-	defer router.TearDown()
+	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {

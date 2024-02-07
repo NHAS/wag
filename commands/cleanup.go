@@ -61,7 +61,7 @@ func (g *cleanup) Run() error {
 
 	if result != "0" && result != "3" {
 		log.Println("Cleaning up")
-		router.TearDown()
+		router.TearDown(true)
 		server.TearDown()
 		exec.Command("/usr/bin/wg-quick", "save", config.Values.Wireguard.DevName).Run()
 

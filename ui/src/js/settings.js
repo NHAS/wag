@@ -2,9 +2,11 @@ $(function () {
 
     $(document).on('submit', '#generalSettings', function () {
         let data = {
-            "help_mail": $('#inputHelpMail').val(),
-            "external_address": $('#inputWgAddress').val(),
-            "dns": $('#dns').val().split("\n").filter(element => element)
+            "HelpMail": $('#inputHelpMail').val(),
+            "ExternalAddress": $('#inputWgAddress').val(),
+            "DNS": $('#dns').val().split("\n").filter(element => element),
+            "WireguardConfigFilename": $('#inputConfFileName').val(),
+            "CheckUpdates": $("#checkUpdates").is(':checked')
         }
 
         fetch("/settings/general/data?type=general", {
@@ -39,10 +41,35 @@ $(function () {
     });
 
     $(document).on('submit', '#loginSettings', function () {
+
+        let selectMFAMethods = document.querySelectorAll('input[type="checkbox"].mfaselection:checked');
+
+        // Create an empty array to store the values
+        let checkedValues = [];
+        selectMFAMethods.forEach(function (checkbox) {
+            checkedValues.push(checkbox.value);
+        });
+
+
         let data = {
-            "session_lifetime": parseInt($('#inputSessionLife').val()),
-            "session_inactivity": parseInt($('#inputInactivity').val()),
-            "lockout": parseInt($('#numAttempts').val())
+            "MaxSessionLifetimeMinutes": parseInt($('#inputSessionLife').val()),
+            "SessionInactivityTimeoutMinutes": parseInt($('#inputInactivity').val()),
+            "Lockout": parseInt($('#numAttempts').val()),
+            "DefaultMFAMethod": $('#defaultMFA').val(),
+            "EnabledMFAMethods": checkedValues,
+            "Domain": $('#inputVPNDomain').val(),
+
+
+            "Issuer": $('#issuer').val(),
+            "OidcDetails": {
+                "IssuerURL": $('#oidcIssuerURL').val(),
+                "ClientSecret": $('#oidcClientSecret').val(),
+                "ClientID": $('#oidcClientID').val(),
+                "GroupsClaimName": $('#oidcGroupsClaimName').val(),
+            },
+            "PamDetails": {
+                "ServiceName": $('#pamServiceName').val(),
+            }
         }
 
         fetch("/settings/general/data?type=login", {

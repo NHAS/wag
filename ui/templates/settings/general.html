@@ -28,20 +28,16 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label for="inputConf">Wireguard Config Filename</label>
-                            <input type="email" class="form-control" name="inputConfFileName" id="inputConf"
+                            <label for="inputConfFileName">Wireguard Config Filename</label>
+                            <input type="text" class="form-control" name="inputConfFileName" id="inputConfFileName"
                                 value="{{.Settings.WireguardConfigFilename}}">
-                        </div>
-                        <div class="form-group col-md-6">
-                            <label for="inputVPNDomain">VPN Domain</label>
-                            <input type="text" class="form-control" name="inputVPNDomain" id="inputVPNDomain"
-                                value="{{.Settings.Domain}}">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label for="dns">DNS</label>
-                        <textarea class="form-control" id="dns" name="dns" rows="3">{{.Settings.DNS}}</textarea>
+                        <textarea class="form-control" id="dns" name="dns" rows="3">{{range .Settings.DNS}}{{.}}
+                            {{end}}</textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-6">
@@ -76,12 +72,12 @@
                         <div class="col-md-6">
                             <label for="inputSessionLife">Session Life Time (Minutes)</label>
                             <input type="number" class="form-control" id="inputSessionLife" name="inputSessionLife"
-                                value="{{.Settings.SessionLifeTimeMinutes}}">
+                                value="{{.Settings.MaxSessionLifetimeMinutes}}">
                         </div>
                         <div class="col-md-6">
                             <label for="inputInactivity">Inactivity Timeout (Minutes)</label>
                             <input type="number" class="form-control" id="inputInactivity" name="inputInactivity"
-                                value="{{.Settings.InactivityTimeoutMinutes}}">
+                                value="{{.Settings.SessionInactivityTimeoutMinutes}}">
                         </div>
                     </div>
 
@@ -102,13 +98,14 @@
                     </div>
 
                     <div class="form-group mb-3">
-                        <label>MFA Methods</label>
+                        <label>Enabled MFA Methods</label>
                         <div class="form-row mb-3">
-                            {{range $index, $method := .Settings.MFAMethods}}
+                            {{range $index, $method := .MFAMethods}}
                             <div class="col-md">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="{{$method.Type}}"
-                                        name="{{$method.Type}}" {{if $method.Enabled}}checked{{done}}>
+                                    <input class="form-check-input mfaselection" type="checkbox"
+                                        value="{{$method.Type}}" name="{{$method.Type}}" {{if
+                                        $method.IsEnabled}}checked{{end}}>
                                     <label class="form-check-label" for="{{$method.Type}}">{{$method.Type}}</label>
                                 </div>
                             </div>
@@ -116,11 +113,19 @@
                         </div>
                     </div>
 
+                    <div class="form-group mb-3">
+                        <label for="inputVPNDomain">VPN IP/Domain</label>
+                        <input type="text" class="form-control" name="inputVPNDomain" id="inputVPNDomain"
+                            value="{{.Settings.Domain}}">
+                    </div>
+
+
                     <!-- Webauthn/TOTP Settings -->
                     <div class="form-group mb-3">
                         <label for="issuer">Issuer</label>
                         <input type="text" class="form-control" id="issuer" name="issuer" value="{{.Settings.Issuer}}">
                     </div>
+
 
                     <!-- OIDC Settings -->
                     <div class="form-group mb-3">
