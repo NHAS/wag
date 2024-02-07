@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/webserver/authenticators"
 )
 
 func adminUsersUI(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 		ClusterState: clusterState,
 	}
 
-	err := renderDefaults(w, r, d, "management/clustering.html")
+	err := renderDefaults(w, r, d, "settings/clustering.html")
 
 	if err != nil {
 		log.Println("unable to render clustering page: ", err)
@@ -119,7 +119,11 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := GeneralSettings{
+	d := struct {
+		Page       Page
+		Settings   data.Settings
+		MFAMethods []authenticators.Authenticator
+	}{
 		Page: Page{
 			Update:       getUpdate(),
 			Description:  "Wag settings",
@@ -130,17 +134,8 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 			ClusterState: clusterState,
 		},
 
-		ExternalAddress:          datastoreSettings.ExternalAddress,
-		Lockout:                  datastoreSettings.Lockout,
-		Issuer:                   datastoreSettings.Issuer,
-		Domain:                   datastoreSettings.Domain,
-		InactivityTimeoutMinutes: datastoreSettings.SessionInactivityTimeoutMinutes,
-		SessionLifeTimeMinutes:   datastoreSettings.MaxSessionLifetimeMinutes,
-		HelpMail:                 datastoreSettings.HelpMail,
-		DNS:                      strings.Join(datastoreSettings.DNS, "\n"),
-		TotpEnabled:              true,
-		OidcEnabled:              false,
-		WebauthnEnabled:          false,
+		Settings:   datastoreSettings,
+		MFAMethods: authenticators.GetAllAvaliableMethods(),
 	}
 
 	err = renderDefaults(w, r, d, "settings/general.html")

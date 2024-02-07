@@ -265,10 +265,19 @@ type Settings struct {
 	Lockout                         int
 	Issuer                          string
 	Domain                          string
+	WireguardConfigFilename         string
 	SessionInactivityTimeoutMinutes int
 	MaxSessionLifetimeMinutes       int
 	HelpMail                        string
 	DNS                             []string
+
+	DefaultMFAMethod  string
+	EnabledMFAMethods []string
+
+	OidcDetails OIDC
+	PamDetails  PAM
+
+	CheckUpdates bool
 }
 
 func GetAllSettings() (s Settings, err error) {
@@ -281,7 +290,13 @@ func GetAllSettings() (s Settings, err error) {
 		clientv3.OpGet(LockoutKey),
 		clientv3.OpGet(dnsKey),
 		clientv3.OpGet(IssuerKey),
-		clientv3.OpGet(DomainKey)).Commit()
+		clientv3.OpGet(DomainKey),
+		clientv3.OpGet(DefaultMFAMethodKey),
+		clientv3.OpGet(MethodsEnabledKey),
+		clientv3.OpGet(checkUpdatesKey),
+		clientv3.OpGet(OidcDetailsKey),
+		clientv3.OpGet(PamDetailsKey),
+		clientv3.OpGet(defaultWGFileNameKey)).Commit()
 	if err != nil {
 		return s, err
 	}
@@ -329,6 +344,39 @@ func GetAllSettings() (s Settings, err error) {
 
 	if response.Responses[7].GetResponseRange().Count == 1 {
 		s.Domain = string(response.Responses[7].GetResponseRange().Kvs[0].Value)
+	}
+
+	if response.Responses[8].GetResponseRange().Count == 1 {
+		s.DefaultMFAMethod = string(response.Responses[8].GetResponseRange().Kvs[0].Value)
+	}
+
+	if response.Responses[9].GetResponseRange().Count == 1 {
+		err := json.Unmarshal(response.Responses[9].GetResponseRange().Kvs[0].Value, &s.EnabledMFAMethods)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[10].GetResponseRange().Count == 1 {
+		s.CheckUpdates = string(response.Responses[10].GetResponseRange().Kvs[0].Value) == "true"
+	}
+
+	if response.Responses[11].GetResponseRange().Count == 1 {
+		err := json.Unmarshal(response.Responses[11].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[12].GetResponseRange().Count == 1 {
+		err := json.Unmarshal(response.Responses[12].GetResponseRange().Kvs[0].Value, &s.PamDetails)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[13].GetResponseRange().Count == 1 {
+		s.WireguardConfigFilename = string(response.Responses[13].GetResponseRange().Kvs[0].Value)
 	}
 
 	return

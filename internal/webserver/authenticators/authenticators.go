@@ -99,6 +99,23 @@ func GetAllEnabledMethods() (r []Authenticator) {
 	return
 }
 
+func GetAllAvaliableMethods() (r []Authenticator) {
+	lck.RLock()
+	defer lck.RUnlock()
+
+	order := []string{}
+	for k := range allMfa {
+		order = append(order, string(k))
+	}
+
+	sort.Strings(order)
+
+	for _, m := range order {
+		r = append(r, allMfa[types.MFA(m)])
+	}
+	return
+}
+
 func AddMFARoutes(mux *http.ServeMux) error {
 	for method, handler := range allMfa {
 		mux.HandleFunc("/authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
