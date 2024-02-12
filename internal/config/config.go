@@ -44,6 +44,16 @@ type Acls struct {
 	Policies     map[string]*acls.Acl
 }
 
+type ClusteringDetails struct {
+	Name             string
+	ListenAddresses  []string
+	Peers            map[string][]string
+	DatabaseLocation string
+	ETCDLogLevel     string
+	Witness          bool
+	ClusterState     string
+}
+
 type Config struct {
 	path          string
 	Socket        string `json:",omitempty"`
@@ -75,15 +85,7 @@ type Config struct {
 		Tunnel tunnelWeb
 	}
 
-	Clustering struct {
-		Name             string
-		ListenAddresses  []string
-		Peers            map[string][]string
-		DatabaseLocation string
-		ETCDLogLevel     string
-		Witness          bool
-		ClusterState     string
-	}
+	Clustering ClusteringDetails
 
 	Authenticators struct {
 		DefaultMethod string   `json:",omitempty"` // Done
