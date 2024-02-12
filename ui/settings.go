@@ -7,6 +7,8 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
+	"go.etcd.io/etcd/client/pkg/v3/types"
+	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
 func adminUsersUI(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,7 @@ func adminUsersUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Wag settings",
 		Title:        "Settings - Admin Users",
 		User:         u.Username,
@@ -77,14 +79,24 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := Page{
-		Update:       getUpdate(),
-		Description:  "Clustering Management Page",
-		Title:        "Clustering",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+	d := struct {
+		Page
+		Members     []*membership.Member
+		Leader      types.ID
+		CurrentNode string
+	}{
+		Page: Page{
+			Notification: getUpdate(),
+			Description:  "Clustering Management Page",
+			Title:        "Clustering",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
+		},
+		Members:     data.GetMembers(),
+		Leader:      data.GetLeader(),
+		CurrentNode: data.GetServerID(),
 	}
 
 	err := renderDefaults(w, r, d, "settings/clustering.html")
@@ -125,7 +137,7 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 		MFAMethods []authenticators.Authenticator
 	}{
 		Page: Page{
-			Update:       getUpdate(),
+			Notification: getUpdate(),
 			Description:  "Wag settings",
 			Title:        "Settings - General",
 			User:         u.Username,

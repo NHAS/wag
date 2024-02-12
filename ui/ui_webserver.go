@@ -295,6 +295,8 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/settings/management_users", adminUsersUI)
 		protectedRoutes.HandleFunc("/settings/management_users/data", adminUsersData)
 
+		protectedRoutes.HandleFunc("/notifications", notificationsWS)
+
 		protectedRoutes.HandleFunc("/change_password", changePassword)
 
 		protectedRoutes.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
@@ -351,7 +353,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	d := ChangePassword{
 		Page: Page{
-			Update:       getUpdate(),
+			Notification: getUpdate(),
 			Description:  "Change password page",
 			Title:        "Change password",
 			User:         u.Username,

@@ -40,7 +40,7 @@ func firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 		XDPState string
 	}{
 		Page: Page{
-			Update:       getUpdate(),
+			Notification: getUpdate(),
 			Description:  "Firewall state page",
 			Title:        "Firewall",
 			User:         u.Username,
@@ -75,7 +75,7 @@ func wgDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Wireguard Devices",
 		Title:        "wg",
 		User:         u.Username,

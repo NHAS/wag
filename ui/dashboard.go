@@ -93,7 +93,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 
 	d := Dashboard{
 		Page: Page{
-			Update:       getUpdate(),
+			Notification: getUpdate(),
 			Description:  "Dashboard",
 			Title:        "Dashboard",
 			User:         u.Username,

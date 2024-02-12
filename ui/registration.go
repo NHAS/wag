@@ -21,7 +21,7 @@ func registrationUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Registration Tokens Management Page",
 		Title:        "Registration",
 		User:         u.Username,

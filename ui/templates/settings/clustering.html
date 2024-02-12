@@ -3,16 +3,20 @@
 
 <link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
 
+{{range .Members}}
 <div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h1 class="m-0 text-gray-900">Cluster</h1>
-        <div class="d-sm-flex justify-content-between">
-            <p>
-                Wag ETCd cluster nodes
-            </p>
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div>
+            <div class="status {{if eq .ClusterState " healthy" }}open{{else if eq .ClusterState "dead"
+                }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
+            <h1 class="m-0 text-gray-900">{{.Name}}
+            </h1>
+            <p>{{.ID}}</p>
         </div>
     </div>
 </div>
+
+{{end}}
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
 <script src="/vendor/bootstrap-table/js/bootstrap-table-locale-all.min.js"></script>

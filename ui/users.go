@@ -23,7 +23,7 @@ func usersUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Users Management Page",
 		Title:        "Users",
 		User:         u.Username,

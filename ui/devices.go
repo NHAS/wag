@@ -21,7 +21,7 @@ func devicesMgmtUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Devices Management Page",
 		Title:        "Devices",
 		User:         u.Username,

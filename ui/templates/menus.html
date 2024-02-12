@@ -34,6 +34,17 @@
 
 </head>
 
+<template id="notificationTemplate">
+    <a class="dropdown-item d-flex align-items-center" id="external" target="_blank" rel="noopener noreferrer">
+        <div>
+            <div class="small text-gray-500" id="date"></div>
+            <span class="font-weight-bold" id="heading"></span>
+
+            <div id="message"></div>
+        </div>
+    </a>
+</template>
+
 <body id="page-top">
     <!-- Main CSRF guard so that JS can read this value and use it -->
     {{ csrfToken }}
@@ -176,7 +187,8 @@
                             <div class="nav-link">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">
                                     <div title="{{.ClusterState}}" class="status 
-                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"}}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
+                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"
+                                        }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
                                 </span>
                             </div>
                         </li>
@@ -186,24 +198,11 @@
                             <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="icon-bell"></i>
-                                <!-- Counter - Alerts -->
-                                {{if .New}}
-                                <span class="badge badge-danger badge-counter">1</span>
-                                {{end}}
+                                <span class="badge badge-danger badge-counter" id="numNotifications" hidden></span>
                             </a>
                             <!-- Dropdown - Alerts -->
                             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
-                                aria-labelledby="alertsDropdown">
-                                <a class="dropdown-item d-flex align-items-center" href="{{.Url}}" target="_blank"
-                                    rel="noopener noreferrer">
-                                    <div>
-                                        <div class="small text-gray-500">{{.Released}}</div>
-                                        <span class="font-weight-bold">{{.UpdateVersion}}</span>
-                                        {{range $val := .UpdateMessage}}
-                                        <p>{{$val}}</p>
-                                        {{end}}
-                                    </div>
-                                </a>
+                                aria-labelledby="alertsDropdown" id="notificationsDropDown">
                             </div>
                         </li>
 
@@ -296,6 +295,7 @@
 
     <!-- Custom scripts for all pages-->
     <script src="/js/sb-admin-2.min.js"></script>
+    <script src="/js/notifications.js"></script>
 
 </body>
 

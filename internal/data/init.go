@@ -94,6 +94,8 @@ func Load(path string) error {
 	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = parseUrls(etcdUnixSocket)
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
+	cfg.AutoCompactionMode = "periodic"
+	cfg.AutoCompactionRetention = "1h"
 
 	if _, ok := config.Values.Clustering.Peers[cfg.Name]; ok {
 		return fmt.Errorf("clustering.peers contains the same name (%s) as this node this would trample something and break", cfg.Name)

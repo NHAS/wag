@@ -20,7 +20,7 @@ func policiesUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := Page{
-		Update:       getUpdate(),
+		Notification: getUpdate(),
 		Description:  "Firewall rules",
 		Title:        "Rules",
 		User:         u.Username,

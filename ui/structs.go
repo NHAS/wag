@@ -1,7 +1,7 @@
 package ui
 
 type Page struct {
-	Update
+	Notification
 	Description  string
 	Title        string
 	User         string

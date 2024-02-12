@@ -226,7 +226,7 @@ func SetCheckUpdates(doChecks bool) error {
 	return err
 }
 
-func CheckUpdates() (bool, error) {
+func ShouldCheckUpdates() (bool, error) {
 
 	resp, err := etcd.Get(context.Background(), checkUpdatesKey)
 	if err != nil {
