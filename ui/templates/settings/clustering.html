@@ -19,9 +19,21 @@
             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="m-0 text-gray-900">{{.Name}}</h1>
-                    <p>{{.ID}}</p>
+                    <p>{{.ID}}{{if eq .ID.String $.ServerID}} (This node){{end}}</p>
+                </div>
+                <div>
+                    <h4>Member</h4>
+                </div>
+                <div>
+                    <h4>0</h4>
+                </div>
+                <div class="mr-4">
+                    <h4>
+                        <i class="ml-2 icon-bars"></i>
+                    </h4>
                 </div>
             </div>
+
         </div>
     </div>
 </div>
