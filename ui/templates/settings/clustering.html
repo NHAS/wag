@@ -3,24 +3,66 @@
 
 <link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
 
+<div class="row mb-3">
+    <div class="col text-right">
+        <a class="btn btn-primary" href="#" data-toggle="modal" data-target="#clusterAddModal">
+            <i class="icon-plus"></i> Add cluster member
+        </a>
+    </div>
+</div>
+
+
 {{range .Members}}
-<div class="card shadow mb-4">
-    <div class="card-header py-3 d-flex justify-content-between align-items-center">
-        <div>
-            <div class="status {{if eq .ClusterState " healthy" }}open{{else if eq .ClusterState "dead"
-                }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
-            <h1 class="m-0 text-gray-900">{{.Name}}
-            </h1>
-            <p>{{.ID}}</p>
+<div class="row mb-3">
+    <div class="col">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="m-0 text-gray-900">{{.Name}}</h1>
+                    <p>{{.ID}}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<!-- Cluster add modal-->
+<div class="modal fade" id="clusterAddModal" tabindex="-1" role="dialog" aria-labelledby="clusterAddModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clusterAddModalLabel">Add Node</h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="clusterAddForm">
+                    <div class="form-group">
+                        <label for="newNodeName">Name:</label>
+                        <input type="text" class="form-control" id="newNodeName" name="newNodeName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="nodeURL">Node URL:</label>
+                        <input type="url" class="form-control" id="nodeURL" name="nodeURL" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" type="submit" form="clusterAddForm">Add</button>
+            </div>
         </div>
     </div>
 </div>
 
-{{end}}
 
 <script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
 <script src="/vendor/bootstrap-table/js/bootstrap-table-locale-all.min.js"></script>
-<script src="/js/default_table.min.js"></script>
-<script src="/js/clustering.min.js"></script>
+
+{{staticContent "default_table"}}
+{{staticContent "clustering"}}
 
 {{end}}

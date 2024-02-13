@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"log"
@@ -70,6 +71,18 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 				t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
 
 				return t
+			},
+			"staticContent": func(functionalityName string) template.HTML {
+
+				functionalityName = html.EscapeString(functionalityName)
+
+				if config.Values.ManagementUI.Debug {
+					functionalityName += ".js"
+				} else {
+					functionalityName += ".min.js"
+				}
+
+				return template.HTML(fmt.Sprintf("<script src=\"/js/%s\"></script>", functionalityName))
 			},
 		}).ParseFiles(realFiles...)
 	}
@@ -243,7 +256,13 @@ func StartWebServer(errs chan<- error) error {
 		allRoutes := http.NewServeMux()
 		allRoutes.HandleFunc("/login", doLogin)
 
-		allRoutes.Handle("/js/", static)
+		if config.Values.ManagementUI.Debug {
+			static := http.FileServer(http.Dir("./ui/src/"))
+			allRoutes.Handle("/js/", static)
+		} else {
+			allRoutes.Handle("/js/", static)
+		}
+
 		allRoutes.Handle("/css/", static)
 		allRoutes.Handle("/img/", static)
 		allRoutes.Handle("/fonts/", static)
