@@ -1,6 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.21.5
+go 1.22.0
 
 require (
 	github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462
@@ -24,6 +24,7 @@ require (
 )
 
 require (
+	github.com/NHAS/autoetcdtls v0.0.0-20240221023445-6e32bd1fd042 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

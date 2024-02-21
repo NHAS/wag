@@ -11,29 +11,80 @@
     </div>
 </div>
 
-
 {{range .Members}}
 <div class="row mb-3">
     <div class="col">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="m-0 text-gray-900">{{.Name}}</h1>
-                    <p>{{.ID}}{{if eq .ID.String $.ServerID}} (This node){{end}}</p>
+        <div class="card shadow mb-2">
+            <div class="card-header py-3 d-flex justify-content-between">
+
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h2 class="text-gray-900">{{.Name}}</h2>
+                    </div>
+                    <div class="col">
+                        {{.ID}}{{if eq .ID.String $.ServerID}}{{end}}
+                    </div>
+                    <div class="col">
+                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else}}Member{{end}}
+                    </div>
+
                 </div>
-                <div>
-                    <h4>Member</h4>
-                </div>
-                <div>
-                    <h4>0</h4>
-                </div>
-                <div class="mr-4">
-                    <h4>
-                        <i class="ml-2 icon-bars"></i>
-                    </h4>
+                <div class="row align-items-center">
+                    <div class="col">
+                        <span class="badge badge-danger badge-counter">1</span>
+                    </div>
+                    <div class="mr-2 col">
+                        <i class="icon-bars" data-toggle="collapse" data-target="#tray-{{.ID}}" role="button"
+                            aria-expanded="false" aria-controls="tray-{{.ID}}"></i>
+                    </div>
                 </div>
             </div>
+            <div class="collapse card-body" id="tray-{{.ID}}">
+                <div class="row">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-curved table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th scope="col">Event Details</th>
+                                    <th scope="col">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Event 1</td>
+                                    <td>2024-02-14</td>
+                                </tr>
+                                <tr>
+                                    <td>Event 2</td>
+                                    <td>2024-02-15</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
+
+                </div>
+
+                <div class="row">
+                    <div class="col d-flex justify-content-center">
+                        <a class="btn {{if .IsLearner}}btn-success{{else}}btn-secondary disabled{{end}}" href="#">
+                            Promote
+                        </a>
+                    </div>
+                    <div class="col d-flex justify-content-center">
+                        <a class="btn btn-warning" href="#" data-toggle='modal' data-target='#deleteModal'>
+                            Drain
+                        </a>
+                    </div>
+
+                    <div class="col d-flex justify-content-center">
+                        <a class="btn btn-danger" href="#" data-toggle='modal' data-target='#deleteModal'>
+                            Remove
+                        </a>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -70,9 +121,10 @@
     </div>
 </div>
 
+{{block "deleteConfirmationModal" .}}
+{{end}}
 
-<script src="/vendor/bootstrap-table/js/bootstrap-table.min.js"></script>
-<script src="/vendor/bootstrap-table/js/bootstrap-table-locale-all.min.js"></script>
+<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 {{staticContent "default_table"}}
 {{staticContent "clustering"}}

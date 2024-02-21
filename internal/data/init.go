@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NHAS/autoetcdtls/manager"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data/migrations"
 	"github.com/NHAS/wag/pkg/fsops"
@@ -31,6 +32,7 @@ var (
 	etcd                   *clientv3.Client
 	etcdServer             *embed.Etcd
 	allowedTokenCharacters = regexp.MustCompile(`[a-zA-Z0-9\-\_\.]+`)
+	TLSManager             *manager.Manager
 )
 
 func parseUrls(values ...string) []url.URL {
@@ -46,7 +48,7 @@ func parseUrls(values ...string) []url.URL {
 	return urls
 }
 
-func Load(path string) error {
+func Load(path, joinToken string) error {
 
 	doMigration := true
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
@@ -80,6 +82,31 @@ func Load(path string) error {
 		}
 	}
 
+	var err error
+
+	if joinToken == "" {
+		TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
+		if err != nil {
+			return err
+		}
+	} else {
+		TLSManager, err = manager.Join(joinToken, config.Values.Clustering.TLSManagerStorage, map[string]func(name string, data string){
+			"config.json": func(name, data string) {
+				err := os.WriteFile("config.json", []byte(data), 0600)
+				if err != nil {
+					log.Fatal("failed to create config.json from other cluster members config: ", err)
+				}
+
+				err = config.Load("config.json")
+				if err != nil {
+					log.Fatal("config supplied by other cluster member was invalid (potential version issues?): ", err)
+				}
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
 	part, err := generateRandomBytes(10)
 	if err != nil {
 		return err
@@ -96,6 +123,11 @@ func Load(path string) error {
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 	cfg.AutoCompactionMode = "periodic"
 	cfg.AutoCompactionRetention = "1h"
+
+	cfg.PeerTLSInfo.ClientCertAuth = true
+	cfg.PeerTLSInfo.TrustedCAFile = TLSManager.GetCACertPath()
+	cfg.PeerTLSInfo.CertFile = TLSManager.GetPeerCertPath()
+	cfg.PeerTLSInfo.KeyFile = TLSManager.GetPeerKeyPath()
 
 	if _, ok := config.Values.Clustering.Peers[cfg.Name]; ok {
 		return fmt.Errorf("clustering.peers contains the same name (%s) as this node this would trample something and break", cfg.Name)

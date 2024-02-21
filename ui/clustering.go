@@ -41,7 +41,7 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 		CurrentNode: data.GetServerID(),
 	}
 
-	err := renderDefaults(w, r, d, "settings/clustering.html")
+	err := renderDefaults(w, r, d, "settings/clustering.html", "delete_modal.html")
 
 	if err != nil {
 		log.Println("unable to render clustering page: ", err)

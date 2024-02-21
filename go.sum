@@ -9,6 +9,14 @@ cloud.google.com/go/compute/metadata v0.2.3 h1:mg4jlk7mCAj6xXp9UJ4fjI9VUI5rubuGB
 cloud.google.com/go/compute/metadata v0.2.3/go.mod h1:VAV5nSsACxMJvgaAuX6Pk2AawlZn8kiOGuCv6gTkwuA=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/NHAS/autoetcdtls v0.0.0-20240221011358-6b14ef7f5e54 h1:pheSrYhiCF/fRFnUoPhe/WUDAtknvJPIDr6osfstGy8=
+github.com/NHAS/autoetcdtls v0.0.0-20240221011358-6b14ef7f5e54/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
+github.com/NHAS/autoetcdtls v0.0.0-20240221011932-91c910f20359 h1:R0xK96K2CqZTcwYoHw5WVg0q7M7IyJjeSJ3+sKPOArs=
+github.com/NHAS/autoetcdtls v0.0.0-20240221011932-91c910f20359/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
+github.com/NHAS/autoetcdtls v0.0.0-20240221020222-3677599fe1d0 h1:kiKdKoUUoN+cr5RyhiZ8EeyOrgCVMhTcWmtDNHyVVP8=
+github.com/NHAS/autoetcdtls v0.0.0-20240221020222-3677599fe1d0/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
+github.com/NHAS/autoetcdtls v0.0.0-20240221023445-6e32bd1fd042 h1:Xm79fRVzG1LEsldr2zJzWVCblp2wZOjwcQJgwJVaL98=
+github.com/NHAS/autoetcdtls v0.0.0-20240221023445-6e32bd1fd042/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
 github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462 h1:i11v8Eu/H9myD2moKmbpTybGBvdxc4urIezqH5sZHig=
 github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/webauthn v0.0.0-20231125055213-62271cf1ca6b h1:8u7ipJi28WYhEZwqd4cEyy62MrUVlgP/l69LeKjwBNI=

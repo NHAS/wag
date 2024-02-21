@@ -52,6 +52,9 @@ type ClusteringDetails struct {
 	ETCDLogLevel     string
 	Witness          bool
 	ClusterState     string
+
+	TLSManagerStorage   string
+	TLSManagerListenURL string
 }
 
 type Config struct {
@@ -157,6 +160,14 @@ func load(path string) (c Config, err error) {
 		c.NumberProxies = 1
 	}
 
+	if c.Clustering.TLSManagerStorage == "" {
+		c.Clustering.TLSManagerStorage = "certificates"
+	}
+
+	if c.Clustering.TLSManagerListenURL == "" {
+		return c, fmt.Errorf("no listen url was specified for the etcd cluster TLS manager, new wag servers will not be able to join")
+	}
+
 	i, err := net.InterfaceByName(c.Wireguard.DevName)
 	if err == nil {
 		//A device already exists, so we're assuming it was externally set up (with something like wg-quick)
@@ -223,7 +234,7 @@ func load(path string) (c Config, err error) {
 	}
 
 	if c.Clustering.ListenAddresses == nil {
-		c.Clustering.ListenAddresses = []string{"http://localhost:2380"}
+		c.Clustering.ListenAddresses = []string{"https://localhost:2380"}
 	}
 
 	if c.Clustering.ClusterState == "" {

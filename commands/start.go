@@ -20,9 +20,10 @@ import (
 )
 
 type start struct {
-	fs         *flag.FlagSet
-	config     string
-	noIptables bool
+	fs               *flag.FlagSet
+	config           string
+	clusterJoinToken string
+	noIptables       bool
 }
 
 func Start() *start {
@@ -30,6 +31,7 @@ func Start() *start {
 		fs: flag.NewFlagSet("start", flag.ContinueOnError),
 	}
 
+	gc.fs.StringVar(&gc.clusterJoinToken, "join", "", "Cluster join token")
 	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
 
 	gc.fs.Bool("noiptables", false, "Do not add iptables rules")
@@ -79,12 +81,14 @@ func (g *start) Check() error {
 		return errors.New("kernel is too old(" + kernelVersion + "), wag requires kernel version > 5.9")
 	}
 
-	err = config.Load(g.config)
-	if err != nil {
-		return err
+	if g.clusterJoinToken == "" {
+		err = config.Load(g.config)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = data.Load(config.Values.DatabaseLocation)
+	err = data.Load(config.Values.DatabaseLocation, g.clusterJoinToken)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
