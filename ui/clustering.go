@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -50,4 +51,76 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 		renderDefaults(w, r, nil, "error.html")
 		return
 	}
+}
+
+func newNode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	var newNodeReq data.NewNodeRequest
+	err := json.NewDecoder(r.Body).Decode(&newNodeReq)
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	if newNodeReq.ManagerURL == "" {
+		newNodeReq.ManagerURL = "https://localhost:4545"
+	}
+
+	token, err := data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	newNodeResp := data.NewNodeResponse{
+		JoinToken: token,
+	}
+	b, _ := json.Marshal(newNodeResp)
+
+	log.Println("added new node: ", newNodeReq.NodeName, newNodeReq.ConnectionURL)
+
+	w.Write(b)
+}
+
+func nodeControl(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	var ncR data.NodeControlRequest
+	err := json.NewDecoder(r.Body).Decode(&ncR)
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	switch ncR.Action {
+	case "promote":
+	case "drain":
+	case "remove":
+		if data.GetServerID() == ncR.Node {
+			http.Error(w, "cannot remove current node", http.StatusBadRequest)
+
+			return
+		}
+
+		err = data.RemoveMember(ncR.Node)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+	default:
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	w.Write([]byte("OK"))
+
 }

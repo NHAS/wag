@@ -310,6 +310,8 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/settings/general/data", contentType(generalSettings, JSON))
 
 		protectedRoutes.HandleFunc("/settings/clustering/", clusteringUI)
+		protectedRoutes.HandleFunc("/settings/clustering/new-node", contentType(newNode, JSON))
+		protectedRoutes.HandleFunc("/settings/clustering/node-control", contentType(nodeControl, JSON))
 
 		protectedRoutes.HandleFunc("/settings/management_users", adminUsersUI)
 		protectedRoutes.HandleFunc("/settings/management_users/data", adminUsersData)

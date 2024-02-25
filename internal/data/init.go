@@ -87,9 +87,14 @@ func Load(path, joinToken string) error {
 	if joinToken == "" {
 		TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
 		if err != nil {
-			return err
+			return fmt.Errorf("tls manager: %s", err)
 		}
 	} else {
+
+		if config.Values.Clustering.TLSManagerStorage == "" {
+			config.Values.Clustering.TLSManagerStorage = "certificates"
+		}
+
 		TLSManager, err = manager.Join(joinToken, config.Values.Clustering.TLSManagerStorage, map[string]func(name string, data string){
 			"config.json": func(name, data string) {
 				err := os.WriteFile("config.json", []byte(data), 0600)
@@ -97,6 +102,7 @@ func Load(path, joinToken string) error {
 					log.Fatal("failed to create config.json from other cluster members config: ", err)
 				}
 
+				log.Println("got additional, loading config file")
 				err = config.Load("config.json")
 				if err != nil {
 					log.Fatal("config supplied by other cluster member was invalid (potential version issues?): ", err)
@@ -146,7 +152,7 @@ func Load(path, joinToken string) error {
 	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, config.Values.Clustering.Name+".wag-node.etcd")
 	etcdServer, err = embed.StartEtcd(cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("error starting etcd: %s", err)
 	}
 
 	select {

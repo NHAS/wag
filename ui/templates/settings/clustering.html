@@ -65,25 +65,26 @@
 
                 </div>
 
-                <div class="row">
+
+                <node-control node="{{.ID.String}}" class="row">
                     <div class="col d-flex justify-content-center">
-                        <a class="btn {{if .IsLearner}}btn-success{{else}}btn-secondary disabled{{end}}" href="#">
+                        <a class="btn {{if .IsLearner}}btn-success{{else}}btn-secondary disabled{{end}}" href="#"
+                            id="promote">
                             Promote
                         </a>
                     </div>
                     <div class="col d-flex justify-content-center">
-                        <a class="btn btn-warning" href="#" data-toggle='modal' data-target='#deleteModal'>
+                        <a class="btn btn-warning" href="#" id="drain">
                             Drain
                         </a>
                     </div>
 
                     <div class="col d-flex justify-content-center">
-                        <a class="btn btn-danger" href="#" data-toggle='modal' data-target='#deleteModal'>
+                        <a class="btn btn-danger" href="#" id="remove">
                             Remove
                         </a>
                     </div>
-
-                </div>
+                </node-control>
             </div>
         </div>
     </div>
@@ -102,20 +103,33 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form id="clusterAddForm">
-                    <div class="form-group">
-                        <label for="newNodeName">Name:</label>
-                        <input type="text" class="form-control" id="newNodeName" name="newNodeName" required>
+                <add-node>
+                    <div id="inputForm">
+                        <div class="form-group">
+                            <label for="newNodeName">Name:</label>
+                            <input type="text" class="form-control" id="newNodeName" name="newNodeName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nodeURL">ETCd Peer URL:</label>
+                            <input type="url" class="form-control" id="nodeURL" name="nodeURL" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="managerURL">Manager URL:</label>
+                            <input type="url" class="form-control" id="managerURL" name="managerURL" required
+                                placeholder="(Optional)">
+                        </div>
+
+                        <div>
+                            <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                            <button class="btn btn-primary float-right" type="submit" id="add">Add</button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="nodeURL">Node URL:</label>
-                        <input type="url" class="form-control" id="nodeURL" name="nodeURL" required>
+                    <div id="result" class="fade">
+                        <code id="joinToken">
+                        </code><span id="btn-copy-token" class="btn btn-sm fs-6 btn-link text-secondary">Copy</span>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                <button class="btn btn-primary" type="submit" form="clusterAddForm">Add</button>
+                </add-node>
             </div>
         </div>
     </div>

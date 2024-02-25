@@ -168,6 +168,10 @@ func load(path string) (c Config, err error) {
 		return c, fmt.Errorf("no listen url was specified for the etcd cluster TLS manager, new wag servers will not be able to join")
 	}
 
+	if !strings.HasPrefix(c.Clustering.TLSManagerListenURL, "https://") {
+		return c, fmt.Errorf("tls manager listen url must be https://")
+	}
+
 	i, err := net.InterfaceByName(c.Wireguard.DevName)
 	if err == nil {
 		//A device already exists, so we're assuming it was externally set up (with something like wg-quick)
@@ -217,14 +221,6 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	if len(c.Acls.Policies) == 0 {
-		return c, errors.New("no policies set under acls.Policies")
-	}
-
-	if len(c.Authenticators.Issuer) == 0 {
-		return c, errors.New("no issuer specified")
-	}
-
 	if c.Clustering.Peers == nil {
 		c.Clustering.Peers = make(map[string][]string)
 	}
@@ -253,10 +249,6 @@ func load(path string) (c Config, err error) {
 
 	if c.Lockout <= 0 {
 		return c, errors.New("lockout policy unconfigured")
-	}
-
-	if c.HelpMail == "" {
-		return c, fmt.Errorf("no help email address specified")
 	}
 
 	if c.MaxSessionLifetimeMinutes == 0 {

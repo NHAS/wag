@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -12,6 +13,21 @@ import (
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
+
+type NewNodeRequest struct {
+	NodeName      string
+	ConnectionURL string
+	ManagerURL    string
+}
+
+type NewNodeResponse struct {
+	JoinToken string
+}
+
+type NodeControlRequest struct {
+	Node   string
+	Action string
+}
 
 func GetServerID() string {
 	return etcdServer.Server.ID().String()
@@ -37,40 +53,59 @@ func GetMembers() []*membership.Member {
 	return etcdServer.Server.Cluster().Members()
 }
 
-func AddMember(name, urlAddress string) (ret config.ClusteringDetails, err error) {
+func AddMember(name, etcPeerUrlAddress, managerAddressURL string) (joinToken string, err error) {
 
-	newUrl, err := url.Parse(urlAddress)
+	if !strings.HasPrefix(etcPeerUrlAddress, "https://") {
+		return "", errors.New("url must be https://")
+	}
+
+	newUrl, err := url.Parse(etcPeerUrlAddress)
 	if err != nil {
-		return ret, err
+		return "", err
 	}
 
-	if !strings.Contains(newUrl.Host, ":") {
-		return ret, errors.New("url must contain port")
+	if newUrl.Port() == "" {
+		newUrl.Host = newUrl.Host + ":443"
 	}
 
-	resp, err := etcd.MemberAddAsLearner(context.Background(), []string{urlAddress})
+	token, err := TLSManager.CreateToken(etcPeerUrlAddress)
 	if err != nil {
-		return ret, err
+		return "", err
 	}
 
-	newID := resp.Member.ID
+	copyValues := config.Values
 
-	ret.Name = name
+	response, err := etcd.MemberList(context.Background())
+	if err != nil {
+		return "", err
+	}
 
-	ret.ListenAddresses = []string{newUrl.Host}
-
-	// Effectively making our version of this
-	// https://github.com/etcd-io/etcd/blob/42f0cb9762cafa440a3f77884b0deb454ccb22c5/etcdctl/ctlv3/command/member_command.go#L125
-
-	for _, memb := range resp.Members {
-		n := memb.Name
-		if memb.ID == newID {
-			n = name
+	for _, m := range response.Members {
+		if m.IsLearner {
+			continue
 		}
-		ret.Peers[n] = memb.PeerURLs
+		copyValues.Clustering.Peers[m.Name] = m.GetPeerURLs()
 	}
 
-	return ret, nil
+	delete(copyValues.Clustering.Peers, name)
+
+	copyValues.Clustering.ClusterState = "existing"
+	copyValues.Clustering.Name = name
+	copyValues.Clustering.ListenAddresses = []string{newUrl.String()}
+	copyValues.Clustering.TLSManagerListenURL = managerAddressURL
+
+	copyValues.Acls = config.Acls{}
+	copyValues.Acls.Groups = map[string][]string{}
+
+	b, _ := json.Marshal(copyValues)
+	token.SetAdditional("config.json", string(b))
+
+	_, err = etcd.MemberAddAsLearner(context.Background(), []string{etcPeerUrlAddress})
+	if err != nil {
+		return "", err
+	}
+
+	return token.Token, nil
 }
 
 func PromoteMember(idHex string) error {
@@ -80,6 +115,20 @@ func PromoteMember(idHex string) error {
 	}
 
 	_, err = etcd.MemberPromote(context.Background(), id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func RemoveMember(idHex string) error {
+	id, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
+	}
+
+	_, err = etcd.MemberRemove(context.Background(), id)
 	if err != nil {
 		return err
 	}
