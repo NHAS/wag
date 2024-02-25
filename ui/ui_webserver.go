@@ -51,14 +51,29 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 		parsed *template.Template
 		err    error
 	)
-	if !config.Values.ManagementUI.Debug {
-		parsed, err = template.New(name).Funcs(template.FuncMap{
-			"csrfToken": func() template.HTML {
-				t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
 
-				return t
-			},
-		}).ParseFS(templatesContent, content...)
+	funcsMap := template.FuncMap{
+		"csrfToken": func() template.HTML {
+			t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
+
+			return t
+		},
+		"staticContent": func(functionalityName string) template.HTML {
+
+			functionalityName = html.EscapeString(functionalityName)
+
+			if config.Values.ManagementUI.Debug {
+				functionalityName += ".js"
+			} else {
+				functionalityName += ".min.js"
+			}
+
+			return template.HTML(fmt.Sprintf("<script src=\"/js/%s\"></script>", functionalityName))
+		},
+	}
+
+	if !config.Values.ManagementUI.Debug {
+		parsed, err = template.New(name).Funcs(funcsMap).ParseFS(templatesContent, content...)
 	} else {
 
 		realFiles := []string{}
@@ -66,25 +81,7 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 			realFiles = append(realFiles, filepath.Join("ui/", c))
 		}
 
-		parsed, err = template.New(name).Funcs(template.FuncMap{
-			"csrfToken": func() template.HTML {
-				t, _ := sessionManager.GenerateCSRFTokenTemplateHTML(r)
-
-				return t
-			},
-			"staticContent": func(functionalityName string) template.HTML {
-
-				functionalityName = html.EscapeString(functionalityName)
-
-				if config.Values.ManagementUI.Debug {
-					functionalityName += ".js"
-				} else {
-					functionalityName += ".min.js"
-				}
-
-				return template.HTML(fmt.Sprintf("<script src=\"/js/%s\"></script>", functionalityName))
-			},
-		}).ParseFiles(realFiles...)
+		parsed, err = template.New(name).Funcs(funcsMap).ParseFiles(realFiles...)
 	}
 
 	if err != nil {
