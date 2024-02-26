@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -53,7 +54,11 @@ func GetMembers() []*membership.Member {
 	return etcdServer.Server.Cluster().Members()
 }
 
-func AddMember(name, etcPeerUrlAddress, managerAddressURL string) (joinToken string, err error) {
+// AddMember adds a new node to the etcd cluster, and subsequently wag.
+// This is done by creating a join token which allows an existing member to issue the CA private key, and download the wag config
+// etcPeerUrlAddress is where the new node etcd instance is contactable
+// newManagerAddressURL is where the tls manager will listen (i.e the place that serves tls certs and config)
+func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken string, err error) {
 
 	if !strings.HasPrefix(etcPeerUrlAddress, "https://") {
 		return "", errors.New("url must be https://")
@@ -68,7 +73,35 @@ func AddMember(name, etcPeerUrlAddress, managerAddressURL string) (joinToken str
 		newUrl.Host = newUrl.Host + ":443"
 	}
 
-	token, err := TLSManager.CreateToken(etcPeerUrlAddress)
+	// Determine the listen ip address
+	listenAddr := newUrl.Hostname()
+
+	if net.ParseIP(newUrl.Hostname()) == nil {
+
+		addresses, err := net.LookupIP(newUrl.Hostname())
+		if err != nil {
+			return "", fmt.Errorf("unable to lookup new etcd listen address hostname: %s", err)
+		}
+
+		if len(addresses) == 0 {
+			return "", fmt.Errorf("no addresses found for hostname: %s", newUrl.Hostname())
+		}
+
+		listenAddr = addresses[0].String()
+	}
+
+	if newUrl.Port() != "" {
+		listenAddr += ":" + newUrl.Port()
+	} else {
+		listenAddr += ":443"
+	}
+	newUrl.Host = listenAddr
+
+	if newManagerAddressURL == "" {
+		newManagerAddressURL = "https://" + newUrl.Hostname() + ":4545"
+	}
+
+	token, err := TLSManager.CreateToken(newManagerAddressURL)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +125,7 @@ func AddMember(name, etcPeerUrlAddress, managerAddressURL string) (joinToken str
 	copyValues.Clustering.ClusterState = "existing"
 	copyValues.Clustering.Name = name
 	copyValues.Clustering.ListenAddresses = []string{newUrl.String()}
-	copyValues.Clustering.TLSManagerListenURL = managerAddressURL
+	copyValues.Clustering.TLSManagerListenURL = newManagerAddressURL
 
 	copyValues.Acls = config.Acls{}
 	copyValues.Acls.Groups = map[string][]string{}

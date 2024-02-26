@@ -1,0 +1,117 @@
+{
+    "Socket": "/tmp/wag.sock",
+    "NumberProxies": 0,
+    "Proxied": false,
+    "ExposePorts": [
+        "10/tcp",
+        "100-500/tcp"
+    ],
+    "NAT": true,
+    "HelpMail": "help@example.com",
+    "Lockout": 5,
+    "ExternalAddress": "192.168.121.61",
+    "MaxSessionLifetimeMinutes": 2,
+    "SessionInactivityTimeoutMinutes": 1,
+    "DownloadConfigFileName": "wg0.conf",
+    "ManagementUI": {
+        "ListenAddress": "container2:4433",
+        "Enabled": true,
+        "Debug": false
+    },
+    "Webserver": {
+        "Public": {
+            "ListenAddress": ":8081"
+        },
+        "Tunnel": {
+            "Port": "8080"
+        }
+    },
+    "Authenticators": {
+        "DefaultMethod": "totp",
+        "Issuer": "vpn.test",
+        "Methods": [
+            "totp"
+        ],
+        "DomainURL": "https://vpn.test:8080",
+        "OIDC": {
+            "IssuerURL": "",
+            "ClientSecret": "",
+            "ClientID": ""
+        },
+        "PAM": {
+            "ServiceName": ""
+        }
+    },
+    "Wireguard": {
+        "DevName": "wg1",
+        "ListenPort": 53230,
+        "PrivateKey": "uP2iyvfBFkz7Ks6yZmXbTN2PDSOaLb0zKTziMhBYs0E=",
+        "Address": "192.168.122.1/24",
+        "ServerPersistentKeepAlive": 0
+    },
+    "Clustering": {
+        "ClusterState": "new",
+        "ListenAddresses": [
+            "https://172.20.0.3:2380"
+        ],
+        "ETCDLogLevel": "info",
+        "TLSManagerListenURL": "https://container2:3434"
+    },
+    "DatabaseLocation": "devices.db",
+    "Acls": {
+        "Groups": {
+            "group:administrators": [
+                "toaster",
+                "tester"
+            ],
+            "group:nerds": [
+                "toaster",
+                "tester",
+                "abc"
+            ]
+        },
+        "Policies": {
+            "*": {
+                "Mfa": [
+                    "1.1.1.1",
+                    "12.2.3.2",
+                    "22.22.22.2",
+                    "33.33.33.33",
+                    "4.4.5.5",
+                    "5.5.5.5"
+                ],
+                "Allow": [
+                    "7.7.7.7",
+                    "google.com"
+                ]
+            },
+            "group:administrators": {
+                "Mfa": [
+                    "8.8.8.8"
+                ]
+            },
+            "group:nerds": {
+                "Mfa": [
+                    "192.168.3.4/32"
+                ],
+                "Allow": [
+                    "192.168.3.5/32"
+                ]
+            },
+            "tester": {
+                "Mfa": [
+                    "192.168.3.0/24",
+                    "192.168.5.0/24"
+                ],
+                "Allow": [
+                    "4.3.3.3/32"
+                ]
+            },
+            "toaster": {
+                "Allow": [
+                    "1.1.1.1/32"
+                ]
+            }
+        }
+    }
+}

@@ -21,6 +21,8 @@ github.com/NHAS/autoetcdtls v0.0.0-20240225075350-f723fdcc4f13 h1:UZaHXSm58Lhzhk
 github.com/NHAS/autoetcdtls v0.0.0-20240225075350-f723fdcc4f13/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
 github.com/NHAS/autoetcdtls v0.0.0-20240225081804-acd04dff69ee h1:HFVRgY8Tg6b0r7+n/C48r5dDpcXiofUPtDb2PzKkuXw=
 github.com/NHAS/autoetcdtls v0.0.0-20240225081804-acd04dff69ee/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
+github.com/NHAS/autoetcdtls v0.0.0-20240225231227-9d5906c5b4f2 h1:Vdm10gX7bQ46IB19wgqIxUV0btxBj1NjEpp7XPjMidE=
+github.com/NHAS/autoetcdtls v0.0.0-20240225231227-9d5906c5b4f2/go.mod h1:fuY7v/jzCIxBZALo5dW81OYO9pY9tyiinI+LOtWt0a0=
 github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462 h1:i11v8Eu/H9myD2moKmbpTybGBvdxc4urIezqH5sZHig=
 github.com/NHAS/session v0.0.0-20231102064618-2b73ec5c2462/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/webauthn v0.0.0-20231125055213-62271cf1ca6b h1:8u7ipJi28WYhEZwqd4cEyy62MrUVlgP/l69LeKjwBNI=
