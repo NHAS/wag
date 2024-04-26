@@ -244,8 +244,8 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 				// load the session data
 				_, sessionData := wa.sessions.GetSessionFromRequest(r)
-				if err != nil {
-					return err
+				if sessionData == nil {
+					return errors.New("session was not found in request")
 				}
 
 				c, err := wa.webauthnExecutor.FinishLogin(webauthnUser, **sessionData, r)

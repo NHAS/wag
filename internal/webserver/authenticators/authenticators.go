@@ -53,17 +53,19 @@ func EnableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitaliseMethods(method ...types.MFA) {
+func ReinitaliseMethods(method ...types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
 			err := a.Init()
 			if err != nil {
-				log.Println("error reinitialising type: ", err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 func NumberOfMethods() int {

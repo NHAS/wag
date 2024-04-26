@@ -75,11 +75,21 @@
 
             <hr class="sidebar-divider">
 
+            <div class="sidebar-heading">
+                Cluster
+            </div>
+
+            <li class="nav-item">
+                <a class="nav-link" href="/cluster/events/">
+                    <i class="icon icon-file-text"></i>
+                    <span>Events</span></a>
+            </li>
+
             <!-- Nav Item - Clustering Settings -->
             <li class="nav-item">
-                <a class="nav-link" href="/management/cluster/">
+                <a class="nav-link" href="/cluster/members">
                     <i class="icon icon-tree"></i>
-                    <span>Cluster</span></a>
+                    <span>Members</span></a>
             </li>
 
 
@@ -197,7 +207,7 @@
                             <div class="nav-link">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">
                                     <div title="{{.ClusterState}}" class="status 
-                                    {{if eq .ClusterState " healthy" }}open{{ else if eq .ClusterState "dead"
+                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"
                                         }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
                                 </span>
                             </div>

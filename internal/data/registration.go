@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/NHAS/wag/pkg/control"
@@ -127,6 +128,10 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 
 	if !allowedTokenCharacters.Match([]byte(token)) {
 		return errors.New("registration token contains illegal characters (allowed characters a-z A-Z - . _ )")
+	}
+
+	if strings.Contains(username, "-") {
+		return errors.New("usernames cannot contain '-' ")
 	}
 
 	var err error

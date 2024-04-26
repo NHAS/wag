@@ -10,7 +10,7 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
-func clusteringUI(w http.ResponseWriter, r *http.Request) {
+func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
 		return
@@ -24,7 +24,10 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 
 	d := struct {
 		Page
-		Members     []*membership.Member
+		Members []struct {
+			*membership.Member
+			IsDrained bool
+		}
 		Leader      types.ID
 		CurrentNode string
 	}{
@@ -37,12 +40,31 @@ func clusteringUI(w http.ResponseWriter, r *http.Request) {
 			ServerID:     serverID,
 			ClusterState: clusterState,
 		},
-		Members:     data.GetMembers(),
+
 		Leader:      data.GetLeader(),
 		CurrentNode: data.GetServerID(),
 	}
 
-	err := renderDefaults(w, r, d, "management/cluster.html", "delete_modal.html")
+	members := data.GetMembers()
+	for i := range data.GetMembers() {
+		drained, err := data.IsDrained(members[i].ID.String())
+		if err != nil {
+			log.Println("unable to render clustering page: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		d.Members = append(d.Members, struct {
+			*membership.Member
+			IsDrained bool
+		}{
+			Member:    members[i],
+			IsDrained: drained,
+		})
+
+	}
+
+	err := renderDefaults(w, r, d, "cluster/members.html", "delete_modal.html")
 
 	if err != nil {
 		log.Println("unable to render clustering page: ", err)
@@ -102,8 +124,26 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 
 	switch ncR.Action {
 	case "promote":
-	case "drain":
+		log.Println("promoting node ", ncR.Node)
+
+		err = data.PromoteMember(ncR.Node)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	case "drain", "restore":
+		log.Println(ncR.Action, "node", ncR.Node)
+		// Doesnt do anything to the node itself, just marks it as unhealthy so load balancers will no longer direct clients its way.
+		err = data.SetDrained(ncR.Node, ncR.Action == "drain")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 	case "remove":
+
+		log.Println("attempting to remove node ", ncR.Node)
+
 		if data.GetServerID() == ncR.Node {
 			http.Error(w, "cannot remove current node", http.StatusBadRequest)
 
@@ -123,4 +163,55 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("OK"))
 
+}
+
+func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.NotFound(w, r)
+		return
+	}
+
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	d := struct {
+		Page
+		EventLog []string
+		Errors   []data.EventError
+	}{
+		Page: Page{
+			Notification: getUpdate(),
+			Description:  "Clustering Management Page",
+			Title:        "Clustering",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
+		},
+
+		EventLog: data.EventsQueue.ReadAll(),
+	}
+
+	var err error
+	d.Errors, err = data.GetAllErrors()
+	if err != nil {
+		log.Println("unable to render clustering events page: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		renderDefaults(w, r, nil, "error.html")
+		return
+	}
+
+	err = renderDefaults(w, r, d, "cluster/events.html", "delete_modal.html")
+
+	if err != nil {
+		log.Println("unable to render clustering events page: ", err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		renderDefaults(w, r, nil, "error.html")
+		return
+	}
 }

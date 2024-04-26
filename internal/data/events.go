@@ -3,14 +3,30 @@ package data
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"path"
 	"sync"
 	"time"
 
+	"github.com/NHAS/wag/pkg/queue"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type EventType int
+
+func (ev EventType) String() string {
+	switch ev {
+	case CREATED:
+		return "created"
+	case DELETED:
+		return "deleted"
+	case MODIFIED:
+		return "modified"
+	}
+
+	return "unknown event type"
+}
 
 const (
 	CREATED = EventType(iota)
@@ -25,17 +41,20 @@ const (
 	GroupsPrefix         = "wag-groups-"
 	ConfigPrefix         = "wag-config-"
 	AuthenticationPrefix = "wag-config-authentication-"
+	NodeEvents           = "wag/node/"
 )
 
 var (
 	lck         sync.RWMutex
 	contextMaps = map[string]context.CancelFunc{}
 
-	clusterHealthLck sync.RWMutex
-	clusterHealth    = map[string]func(string){}
+	clusterHealthLck       sync.RWMutex
+	clusterHealthListeners = map[string]func(string){}
+
+	EventsQueue = queue.NewQueue(40)
 )
 
-func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType)) (string, error) {
+func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
 
 	options := []clientv3.OpOption{
 		clientv3.WithPrevKV(),
@@ -62,7 +81,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 			for _, event := range watchEvent.Events {
 
 				var (
-					value []byte = event.Kv.Value
+					value = event.Kv.Value
 					state EventType
 				)
 				if event.Type == clientv3.EventTypeDelete {
@@ -89,7 +108,18 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					}
 				}
 
-				go f(string(event.Kv.Key), currentValue, previousValue, state)
+				go func(key []byte) {
+					if err := f(string(key), currentValue, previousValue, state); err != nil {
+						log.Println("applying event failed: ", currentValue, "err:", err)
+						err = RaiseError(GetServerID(), err, value)
+						if err != nil {
+							log.Println("failed to raise error with cluster: ", err)
+							return
+						}
+						return
+					}
+					EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s", key, state, string(value))))
+				}(event.Kv.Key)
 
 			}
 		}
@@ -119,7 +149,7 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 		return "", nil
 	}
 
-	clusterHealth[key] = f
+	clusterHealthListeners[key] = f
 
 	return key, nil
 }
@@ -128,14 +158,14 @@ func DeregisterClusterHealthListener(key string) {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
 
-	delete(clusterHealth, key)
+	delete(clusterHealthListeners, key)
 }
 
 func notifyClusterHealthListeners(event string) {
 	clusterHealthLck.RLock()
 	defer clusterHealthLck.RUnlock()
 
-	for _, f := range clusterHealth {
+	for _, f := range clusterHealthListeners {
 		go f(event)
 	}
 }
@@ -172,4 +202,55 @@ func notifyHealthy() {
 	} else {
 		notifyClusterHealthListeners("healthy")
 	}
+}
+
+type EventError struct {
+	NodeID          string
+	ErrorID         string
+	FailedEventData []byte
+	Error           string
+}
+
+func RaiseError(idHex string, raisedError error, value []byte) (err error) {
+
+	ee := EventError{
+		NodeID:          idHex,
+		FailedEventData: value,
+		Error:           raisedError.Error(),
+	}
+
+	ee.ErrorID, err = generateRandomBytes(16)
+	if err != nil {
+		return err
+	}
+
+	eventErrorBytes, _ := json.Marshal(ee)
+	_, err = etcd.Put(context.Background(), path.Join(NodeEvents, "errors", ee.ErrorID), string(eventErrorBytes))
+
+	return err
+
+}
+
+func GetAllErrors() (ret []EventError, err error) {
+	response, err := etcd.Get(context.Background(), path.Join(NodeEvents, "errors"), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, res := range response.Kvs {
+		var ee EventError
+		err := json.Unmarshal(res.Value, &ee)
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, ee)
+	}
+
+	return ret, nil
+}
+
+func ResolveError(errorId string) error {
+	_, err := etcd.Delete(context.Background(), path.Join(NodeEvents, "errors", errorId))
+	return err
 }

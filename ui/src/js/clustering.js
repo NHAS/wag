@@ -46,7 +46,7 @@ class AddNode extends HTMLElement {
         }
 
         try {
-            let res = await fetch("/settings/clustering/new-node", {
+            let res = await fetch("/cluster/members/new", {
                 method: "POST",
                 body: JSON.stringify(data),
                 headers: {
@@ -89,7 +89,7 @@ class NodeControls extends HTMLElement {
         this.ourNode = this.getAttribute("node")
 
         this.promteBtn.addEventListener("click", () => this.nodeAction("promote"))
-        this.drainBtn.addEventListener("click", () => this.nodeAction("drain"))
+        this.drainBtn.addEventListener("click", (e) => this.nodeAction(e.target.getAttribute("action")))
         this.removeBtn.addEventListener("click", () => this.nodeAction("remove"))
     }
 
@@ -102,7 +102,7 @@ class NodeControls extends HTMLElement {
         }
 
         try {
-            let res = await fetch("/settings/clustering/node-control", {
+            let res = await fetch("/cluster/members/control", {
                 method: "POST",
                 body: JSON.stringify(data),
                 headers: {
@@ -119,7 +119,7 @@ class NodeControls extends HTMLElement {
             window.location.reload();
 
         } catch (err) {
-
+            console.log("error acting on node: ", err)
         }
     }
 

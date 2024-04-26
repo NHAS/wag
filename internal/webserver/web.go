@@ -347,9 +347,23 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 }
 
 func reachability(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "text/plain")
-	w.Write([]byte("OK"))
+
+	isDrained, err := data.IsDrained(data.GetServerID())
+	if err != nil {
+		http.Error(w, "Failed to fetch state", http.StatusInternalServerError)
+		return
+	}
+
+	if !isDrained {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+		return
+	}
+
+	w.WriteHeader(http.StatusGone)
+	w.Write([]byte("Drained"))
+
 }
 
 func registerDevice(w http.ResponseWriter, r *http.Request) {

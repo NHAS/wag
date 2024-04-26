@@ -1,0 +1,113 @@
+{{define "Content"}}
+
+
+<link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
+
+<div class="row mb-3">
+    <div class="col text-right">
+        <a class="btn btn-primary" href="#" data-toggle="modal" data-target="#clusterAddModal">
+            <i class="icon-plus"></i> Add cluster member
+        </a>
+    </div>
+</div>
+
+{{range .Members}}
+<div class="row mb-3">
+    <div class="col">
+        <div class="card shadow mb-2">
+            <div class="card-header py-3 d-flex justify-content-between">
+
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h2 class="text-gray-900">{{.Name}}</h2>
+                    </div>
+                    <div class="col">
+                        {{.ID}}{{if eq .ID.String $.ServerID}}{{end}}
+                    </div>
+                    <div class="col">
+                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else if
+                        .IsDrained}}Drained{{else}}Member{{end}}
+                    </div>
+
+                </div>
+                <div>
+                    <node-control node="{{.ID.String}}" class="row">
+                        <div class="col d-flex justify-content-center">
+                            <a class="btn {{if .IsLearner}}btn-success{{else}}btn-secondary disabled{{end}}" href="#"
+                                id="promote">
+                                Promote
+                            </a>
+                        </div>
+                        <div class="col d-flex justify-content-center">
+                            <a class="btn btn-{{if .IsDrained}}success{{else}}warning{{end}}" href="#" id="drain"
+                                action="{{if .IsDrained}}restore{{else}}drain{{end}}">
+                                {{if .IsDrained}}Restore{{else}}Drain{{end}}
+                            </a>
+                        </div>
+
+                        <div class="col d-flex justify-content-center">
+                            <a class="btn btn-danger" href="#" id="remove">
+                                Remove
+                            </a>
+                        </div>
+                    </node-control>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+<!-- Cluster add modal-->
+<div class="modal fade" id="clusterAddModal" tabindex="-1" role="dialog" aria-labelledby="clusterAddModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clusterAddModalLabel">Add Node</h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <add-node>
+                    <div id="inputForm">
+                        <div class="form-group">
+                            <label for="newNodeName">Name:</label>
+                            <input type="text" class="form-control" id="newNodeName" name="newNodeName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nodeURL">ETCd Peer URL:</label>
+                            <input type="url" class="form-control" id="nodeURL" name="nodeURL" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="managerURL">Manager URL:</label>
+                            <input type="url" class="form-control" id="managerURL" name="managerURL" required
+                                placeholder="(Optional)">
+                        </div>
+
+                        <div>
+                            <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                            <button class="btn btn-primary float-right" type="submit" id="add">Add</button>
+                        </div>
+                    </div>
+                    <div id="result" class="fade">
+                        <code id="joinToken">
+                        </code><span id="btn-copy-token" class="btn btn-sm fs-6 btn-link text-secondary">Copy</span>
+                    </div>
+                </add-node>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{block "deleteConfirmationModal" .}}
+{{end}}
+
+<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+{{staticContent "default_table"}}
+{{staticContent "clustering"}}
+
+{{end}}

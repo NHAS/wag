@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/NHAS/wag/internal/acls"
@@ -42,7 +43,7 @@ func handleEvents(erroChan chan<- error) {
 
 }
 
-func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) {
+func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) error {
 
 	log.Printf("state: %d, event: %+v", et, current)
 
@@ -67,13 +68,14 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 			err := ReplacePeer(previous, key)
 			if err != nil {
 				log.Println(err)
+				return err
 			}
 		}
 
 		lockout, err := data.GetLockout()
 		if err != nil {
 			log.Println("cannot get lockout:", err)
-			return
+			return err
 		}
 
 		if (current.Attempts != previous.Attempts && current.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
@@ -82,6 +84,7 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 			err := Deauthenticate(current.Address)
 			if err != nil {
 				log.Println(err)
+				return err
 			}
 		}
 
@@ -90,6 +93,7 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 				err := SetAuthorized(current.Address, current.Username)
 				if err != nil {
 					log.Println(err)
+					return err
 				}
 			}
 		}
@@ -97,20 +101,24 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 	default:
 		panic("unknown state")
 	}
+
+	return nil
 }
 
-func userChanges(key string, current data.UserModel, previous data.UserModel, et data.EventType) {
+func userChanges(key string, current data.UserModel, previous data.UserModel, et data.EventType) error {
 	switch et {
 	case data.CREATED:
 		acls := data.GetEffectiveAcl(current.Username)
 		err := AddUser(current.Username, acls)
 		if err != nil {
 			log.Println(err)
+			return err
 		}
 	case data.DELETED:
 		err := RemoveUser(current.Username)
 		if err != nil {
 			log.Println(err)
+			return err
 		}
 	case data.MODIFIED:
 
@@ -124,6 +132,7 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 			err := SetLockAccount(current.Username, lock)
 			if err != nil {
 				log.Println(err)
+				return err
 			}
 		}
 
@@ -131,24 +140,30 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 			err := DeauthenticateAllDevices(current.Username)
 			if err != nil {
 				log.Println(err)
+				return err
 			}
 		}
 
 	}
+
+	return nil
 }
 
-func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventType) {
+func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 		err := RefreshConfiguration()
 		if err != nil {
 			log.Println(err)
+			return fmt.Errorf("failed to refresh configuration: %s", err)
 		}
 
 	}
+
+	return nil
 }
 
-func groupChanges(key string, current []string, previous []string, et data.EventType) {
+func groupChanges(key string, current []string, previous []string, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 
@@ -156,10 +171,12 @@ func groupChanges(key string, current []string, previous []string, et data.Event
 			err := RefreshUserAcls(username)
 			if err != nil {
 				log.Println(err)
+				return err
 			}
 		}
 
 	}
+	return nil
 }
 
 func clusterState(errorsChan chan<- error) func(string) {

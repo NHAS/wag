@@ -5,6 +5,10 @@ LDFLAGS_RELEASE = $(LDFLAGS) -s -w
 ID=$(shell id -u)
 GID=$(shell id -g)
 
+
+goonly:
+	go build -ldflags="$(LDFLAGS)"
+
 debug: .generate_ebpf  .build_ui
 	go build -ldflags="$(LDFLAGS)"
 

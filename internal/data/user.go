@@ -290,10 +290,7 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 		return
 	}
 
-	var realDeviceAddr string
-	json.Unmarshal(refResponse.Kvs[0].Value, &realDeviceAddr)
-
-	parts := strings.Split(realDeviceAddr, "-")
+	parts := strings.Split(string(refResponse.Kvs[0].Value), "-")
 	if len(parts) != 3 {
 		err = errors.New("invalid number of reference key parts to extract username")
 		return
@@ -323,6 +320,10 @@ func SetUserMfa(username, value, mfaType string) error {
 }
 
 func CreateUserDataAccount(username string) (UserModel, error) {
+
+	if strings.Contains(username, "-") {
+		return UserModel{}, errors.New("usernames may not contain '-' ")
+	}
 
 	newUser := UserModel{
 		Username: username,

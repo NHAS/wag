@@ -206,18 +206,13 @@ func AddDevice(username, publickey string) (Device, error) {
 	key := deviceKey(username, address)
 
 	_, err = etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(address)), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(publickey)), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
 
 	return d, err
-}
-
-func toJson(s string) string {
-	data, _ := json.Marshal(s)
-	return string(data)
 }
 
 func SetDevice(username, address, publickey, preshared_key string) (Device, error) {
@@ -236,8 +231,8 @@ func SetDevice(username, address, publickey, preshared_key string) (Device, erro
 	key := deviceKey(username, address)
 
 	_, err := etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(address)), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", toJson(publickey)), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
+		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
@@ -262,12 +257,9 @@ func DeleteDevice(username, id string) error {
 		return errors.New("no reference found")
 	}
 
-	var realDeviceAddr string
-	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
-
-	deviceEntry, err := etcd.Get(context.Background(), realDeviceAddr)
+	deviceEntry, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get real device entry from reference: %s", err)
 	}
 
 	var d Device
@@ -360,10 +352,7 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 		return Device{}, errors.New("incorrect number of keys for device reference")
 	}
 
-	var realDeviceAddr string
-	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
-
-	response, err := etcd.Get(context.Background(), realDeviceAddr)
+	response, err := etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
 	if err != nil {
 		return Device{}, err
 	}

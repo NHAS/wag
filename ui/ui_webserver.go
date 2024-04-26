@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control/wagctl"
+	"github.com/NHAS/wag/pkg/queue"
 )
 
 var (
@@ -26,7 +27,7 @@ var (
 
 	WagVersion string
 
-	LogQueue = NewQueue(40)
+	LogQueue = queue.NewQueue(40)
 )
 
 func renderDefaults(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
@@ -222,7 +223,7 @@ func StartWebServer(errs chan<- error) error {
 
 	data.RegisterClusterHealthListener(watchClusterHealth)
 
-	log.SetOutput(io.MultiWriter(os.Stdout, &LogQueue))
+	log.SetOutput(io.MultiWriter(os.Stdout, LogQueue))
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -283,12 +284,16 @@ func StartWebServer(errs chan<- error) error {
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
 
+		protectedRoutes.HandleFunc("/cluster/members/", clusterMembersUI)
+		protectedRoutes.HandleFunc("/cluster/members/new", contentType(newNode, JSON))
+		protectedRoutes.HandleFunc("/cluster/members/control", contentType(nodeControl, JSON))
+
+		protectedRoutes.HandleFunc("/cluster/events/", clusterEventsUI)
+
 		protectedRoutes.HandleFunc("/diag/wg", wgDiagnositicsUI)
 		protectedRoutes.HandleFunc("/diag/wg/data", wgDiagnositicsData)
 
 		protectedRoutes.HandleFunc("/diag/firewall", firewallDiagnositicsUI)
-
-		protectedRoutes.HandleFunc("/management/cluster/", clusteringUI)
 
 		protectedRoutes.HandleFunc("/management/users/", usersUI)
 		protectedRoutes.HandleFunc("/management/users/data", contentType(manageUsers, JSON))
@@ -307,9 +312,6 @@ func StartWebServer(errs chan<- error) error {
 
 		protectedRoutes.HandleFunc("/settings/general", generalSettingsUI)
 		protectedRoutes.HandleFunc("/settings/general/data", contentType(generalSettings, JSON))
-
-		protectedRoutes.HandleFunc("/settings/clustering/new-node", contentType(newNode, JSON))
-		protectedRoutes.HandleFunc("/settings/clustering/node-control", contentType(nodeControl, JSON))
 
 		protectedRoutes.HandleFunc("/settings/management_users", adminUsersUI)
 		protectedRoutes.HandleFunc("/settings/management_users/data", adminUsersData)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,35 @@ func IsLeader() bool {
 
 func GetMembers() []*membership.Member {
 	return etcdServer.Server.Cluster().Members()
+}
+
+func SetDrained(idHex string, on bool) error {
+	_, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return err
+	}
+
+	if on {
+		_, err = etcd.Put(context.Background(), path.Join(NodeEvents, idHex, "drain"), fmt.Sprintf("%t", on))
+		return err
+	}
+
+	_, err = etcd.Delete(context.Background(), path.Join(NodeEvents, idHex, "drain"))
+	return err
+}
+
+func IsDrained(idHex string) (bool, error) {
+	_, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
+	}
+
+	isDrained, err := etcd.Get(context.Background(), path.Join(NodeEvents, idHex, "drain"))
+	if err != nil {
+		return false, err
+	}
+
+	return isDrained.Count != 0, nil
 }
 
 // AddMember adds a new node to the etcd cluster, and subsequently wag.
