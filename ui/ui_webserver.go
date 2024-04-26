@@ -390,6 +390,8 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 		err := renderDefaults(w, r, d, "change_password.html")
 		if err != nil {
 			log.Println("unable to render change password page: ", err)
+
+			w.WriteHeader(http.StatusInternalServerError)
 			renderDefaults(w, r, nil, "error.html")
 			return
 		}

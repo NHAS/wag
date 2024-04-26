@@ -46,14 +46,14 @@ func groups(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		data, err := ctrl.GetGroups()
 		if err != nil {
-			log.Println("unable to marshal rules data: ", err)
-			http.Error(w, "Server error", 500)
+			log.Println("unable to get group data from server: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		b, err := json.Marshal(data)
 		if err != nil {
 			log.Println("unable to marshal groups data: ", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
@@ -64,14 +64,14 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		var groupsToRemove []string
 		err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding group names to remove: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		if err := ctrl.RemoveGroup(groupsToRemove); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error removing groups: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -80,14 +80,14 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		var group control.GroupData
 		err := json.NewDecoder(r.Body).Decode(&group)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding group data to edit new group/s: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		if err := ctrl.EditGroup(group); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error editing group: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -96,14 +96,16 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		var group control.GroupData
 		err := json.NewDecoder(r.Body).Decode(&group)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding group data to add new group: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+
 			return
 		}
 
 		if err := ctrl.AddGroup(group); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error adding group: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+
 			return
 		}
 

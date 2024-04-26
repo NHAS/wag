@@ -94,7 +94,8 @@ func newNode(w http.ResponseWriter, r *http.Request) {
 
 	token, err := data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusConflict)
+		log.Println("failed to add member: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -128,6 +129,7 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 
 		err = data.PromoteMember(ncR.Node)
 		if err != nil {
+			log.Println("failed to promote member: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -136,6 +138,7 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 		// Doesnt do anything to the node itself, just marks it as unhealthy so load balancers will no longer direct clients its way.
 		err = data.SetDrained(ncR.Node, ncR.Action == "drain")
 		if err != nil {
+			log.Println("failed to set/reset node drain: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -145,13 +148,14 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 		log.Println("attempting to remove node ", ncR.Node)
 
 		if data.GetServerID() == ncR.Node {
+			log.Println("user tried to remove current operating node from cluster")
 			http.Error(w, "cannot remove current node", http.StatusBadRequest)
-
 			return
 		}
 
 		err = data.RemoveMember(ncR.Node)
 		if err != nil {
+			log.Println("failed to remove member from cluster: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

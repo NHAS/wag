@@ -48,7 +48,9 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 		allDevices, err := ctrl.ListDevice("")
 		if err != nil {
 			log.Println("error getting devices: ", err)
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			renderDefaults(w, r, nil, "error.html")
 			return
 		}
 
@@ -103,11 +105,15 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 				err := ctrl.LockDevice(address)
 				if err != nil {
 					log.Println("Error locking device: ", address, " err:", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
 				}
 			case "unlock":
 				err := ctrl.UnlockDevice(address)
 				if err != nil {
 					log.Println("Error unlocking device: ", address, " err:", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
 				}
 			default:
 				http.Error(w, "invalid action", 400)
@@ -130,6 +136,9 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			err := ctrl.DeleteDevice(address)
 			if err != nil {
 				log.Println("Error Deleting device: ", address, "err:", err)
+
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 		}
 		w.Write([]byte("OK"))

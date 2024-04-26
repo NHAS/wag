@@ -577,6 +577,7 @@ func SetLockout(accountLockout int) error {
 	return err
 }
 
+// Get account lockout threshold setting
 func GetLockout() (int, error) {
 	lockout, err := getInt(LockoutKey)
 	if err != nil {

@@ -44,13 +44,20 @@ func usersUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func manageUsers(w http.ResponseWriter, r *http.Request) {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
 
 	switch r.Method {
 	case "GET":
 		users, err := ctrl.ListUsers("")
 		if err != nil {
 			log.Println("error getting users: ", err)
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			renderDefaults(w, r, nil, "error.html")
 			return
 		}
 
@@ -62,7 +69,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			groups, err := data.GetUserGroupMembership(u.Username)
 			if err != nil {
 				log.Println("unable to get users groups: ", err)
-				http.Error(w, "Server error", 500)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
@@ -77,9 +84,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 
 		b, err := json.Marshal(usersData)
 		if err != nil {
-			log.Println("unable to marshal users data: ", err)
-			http.Error(w, "Server error", 500)
-
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
@@ -93,7 +98,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 
 		err := json.NewDecoder(r.Body).Decode(&action)
 		if err != nil {
-			http.Error(w, "Bad request", 400)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
@@ -111,17 +116,19 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 				err = ctrl.ResetUserMFA(username)
 
 			default:
-				http.Error(w, "invalid action", 400)
+				http.Error(w, "Bad Request", http.StatusBadRequest)
 				return
 			}
 
 			if err != nil {
+				log.Println("failed to", action.Action, "on user: ", username, "err:", err)
 				errs = append(errs, err.Error())
 			}
 		}
 
 		if len(errs) > 0 {
-			http.Error(w, fmt.Sprintf("%d/%d failed with errors:\n%s", len(errs), len(action.Usernames), strings.Join(errs, "\n")), 400)
+
+			http.Error(w, fmt.Sprintf("%d/%d failed with errors:\n%s", len(errs), len(action.Usernames), strings.Join(errs, "\n")), http.StatusInternalServerError)
 			return
 		}
 
@@ -132,16 +139,26 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 
 		err := json.NewDecoder(r.Body).Decode(&usernames)
 		if err != nil {
-			http.Error(w, "Bad request", 400)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
+
+		errs := ""
 
 		for _, user := range usernames {
 			err := ctrl.DeleteUser(user)
 			if err != nil {
 				log.Println("Error deleting user: ", user, "err: ", err)
+				errs = errs + "\n" + err.Error()
 			}
 		}
+
+		if len(errs) > 0 {
+			log.Println("failed to delete users: ", errs)
+			http.Error(w, errs, http.StatusInternalServerError)
+			return
+		}
+
 		w.Write([]byte("OK"))
 
 	default:

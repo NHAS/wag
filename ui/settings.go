@@ -50,14 +50,15 @@ func adminUsersData(w http.ResponseWriter, r *http.Request) {
 
 	adminUsers, err := ctrl.ListAdminUsers("")
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		log.Println("failed to get list of admin users: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b, err := json.Marshal(adminUsers)
 	if err != nil {
 		log.Println("unable to marshal management users data: ", err)
-		http.Error(w, "Server error", 500)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
@@ -132,12 +133,13 @@ func generalSettings(w http.ResponseWriter, r *http.Request) {
 
 		var generalSettings data.GeneralSettings
 		if err := json.NewDecoder(r.Body).Decode(&generalSettings); err != nil {
-			http.Error(w, "Bad Request", 400)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		if err := data.SetGeneralSettings(generalSettings); err != nil {
-			http.Error(w, err.Error(), 400)
+			log.Println("failed to set general settings: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -147,12 +149,13 @@ func generalSettings(w http.ResponseWriter, r *http.Request) {
 
 		var loginSettings data.LoginSettings
 		if err := json.NewDecoder(r.Body).Decode(&loginSettings); err != nil {
-			http.Error(w, "Bad Request", 400)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		if err := data.SetLoginSettings(loginSettings); err != nil {
-			http.Error(w, err.Error(), 400)
+			log.Println("failed to set login settings: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 

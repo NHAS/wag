@@ -41,6 +41,11 @@ func registrationUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func registrationTokens(w http.ResponseWriter, r *http.Request) {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
 
 	switch r.Method {
 	case "GET":
@@ -48,7 +53,9 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		registrations, err := ctrl.Registrations()
 		if err != nil {
 			log.Println("error getting registrations: ", err)
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			renderDefaults(w, r, nil, "error.html")
 			return
 		}
 
@@ -66,8 +73,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 
 		b, err := json.Marshal(data)
 		if err != nil {
-			log.Println("unable to marshal registration_tokens data: ", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
@@ -81,16 +87,24 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 
 		err := json.NewDecoder(r.Body).Decode(&tokens)
 		if err != nil {
-			http.Error(w, "Bad request", 400)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 
+		errs := ""
 		for _, token := range tokens {
 			err := ctrl.DeleteRegistration(token)
 			if err != nil {
 				log.Println("Error deleting registration token: ", token, "err:", err)
+				errs = errs + "\n" + err.Error()
 			}
 		}
+
+		if len(errs) > 0 {
+			http.Error(w, errs, http.StatusInternalServerError)
+			return
+		}
+
 		w.Write([]byte("OK"))
 
 	case "POST":
@@ -106,18 +120,19 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		err := json.NewDecoder(r.Body).Decode(&b)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		uses, err := strconv.Atoi(b.Uses)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			log.Println("client sent invalid number for token number of usees")
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		if uses <= 0 {
-			http.Error(w, "cannot create token with <= 0 uses", 400)
+			http.Error(w, "cannot create token with <= 0 uses", http.StatusBadRequest)
 			return
 		}
 
@@ -128,7 +143,8 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 
 		_, err = ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, uses, groups...)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			log.Println("unable to create new registration token: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 

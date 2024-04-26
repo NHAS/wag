@@ -24,14 +24,14 @@ func firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 	rules, err := ctrl.FirewallRules()
 	if err != nil {
 		log.Println("error getting firewall rules data", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	result, err := json.MarshalIndent(rules, "", "    ")
 	if err != nil {
 		log.Println("error marshalling data", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
@@ -96,7 +96,7 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 	peers, err := router.ListPeers()
 	if err != nil {
 		log.Println("unable to list wg peers: ", err)
-		http.Error(w, "Server error", 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -123,7 +123,7 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 	result, err := json.Marshal(data)
 	if err != nil {
 		log.Println("unable to marshal peers data: ", err)
-		http.Error(w, "Server error", 500)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 

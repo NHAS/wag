@@ -32,6 +32,9 @@
     <script src="/vendor/jquery/jquery.min.js"></script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
+    <!-- Toastify for notifications-->
+    <script src="/vendor/toastify/js/toastify.js"></script>
+    <link rel="stylesheet" type="text/css" href="/vendor/toastify/css/toastify.css">
 </head>
 
 <template id="notificationTemplate">
@@ -207,7 +210,7 @@
                             <div class="nav-link">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">
                                     <div title="{{.ClusterState}}" class="status 
-                                    {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"
+                                    {{if eq .ClusterState " healthy" }}open{{ else if eq .ClusterState "dead"
                                         }}dead{{else}}in-progress{{end}}">{{.ServerID}}</div>
                                 </span>
                             </div>

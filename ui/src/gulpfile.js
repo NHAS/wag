@@ -18,7 +18,7 @@ const pkg = require('./package.json');
 // Set the banner content
 const banner = ['/*!\n',
   ' * Wag UI - <%= pkg.title %> v<%= pkg.version %> (<%= pkg.homepage %>)\n',
-  ' * Copyright 2013-' + (new Date()).getFullYear(), ' <%= pkg.author %>\n',
+  ' * Copyright 2020-' + (new Date()).getFullYear(), ' <%= pkg.author %>\n',
   ' */\n',
   '\n'
 ].join('');
@@ -31,6 +31,14 @@ function clean() {
 
 // Bring third party dependencies from node_modules into vendor directory
 function modules() {
+
+  // toastify-js
+  var toastifyJS = gulp.src('./node_modules/toastify-js/src/toastify.js')
+    .pipe(gulp.dest('../vendor/toastify/js'));
+
+  var toastifyCSS = gulp.src('./node_modules/toastify-js/src/toastify.css')
+    .pipe(gulp.dest('../vendor/toastify/css'));
+
   // Bootstrap JS
   var bootstrapJS = gulp.src('./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js')
     .pipe(gulp.dest('../vendor/bootstrap/js'));
@@ -46,7 +54,7 @@ function modules() {
   var bootstrapTableCSS = gulp.src('./node_modules/bootstrap-table/dist/bootstrap-table.min.css')
     .pipe(gulp.dest('../vendor/bootstrap-table/css'));
 
-    var jqueryEasing = gulp.src('./node_modules/jquery.easing/*.min.js')
+  var jqueryEasing = gulp.src('./node_modules/jquery.easing/*.min.js')
     .pipe(gulp.dest('../vendor/jquery-easing'));
 
   // jQuery
@@ -55,7 +63,7 @@ function modules() {
     '!./node_modules/jquery/dist/core.js'
   ])
     .pipe(gulp.dest('../vendor/jquery'));
-  return merge(bootstrapJS, bootstrapSCSS, bootstrapTableJS, bootstrapTableCSS, jquery, jqueryEasing);
+  return merge(bootstrapJS, bootstrapSCSS, bootstrapTableJS, bootstrapTableCSS, jquery, jqueryEasing, toastifyJS, toastifyCSS);
 }
 
 // SCSS task

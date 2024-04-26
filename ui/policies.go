@@ -45,15 +45,15 @@ func policies(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		data, err := ctrl.GetPolicies()
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Println("unable to get policies: ", err)
-			http.Error(w, "Server error", 500)
 			return
 		}
 
 		b, err := json.Marshal(data)
 		if err != nil {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			log.Println("unable to marshal policies data: ", err)
-			http.Error(w, "Server error", 500)
 			return
 		}
 
@@ -64,14 +64,15 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		var policiesToRemove []string
 		err := json.NewDecoder(r.Body).Decode(&policiesToRemove)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding policy names to remove: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+
 			return
 		}
 
 		if err := ctrl.RemovePolicies(policiesToRemove); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error removing policy: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -80,14 +81,16 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		var group control.PolicyData
 		err := json.NewDecoder(r.Body).Decode(&group)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding policy data to edit new group/s: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+
 			return
 		}
 
 		if err := ctrl.EditPolicies(group); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error editing policy: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+
 			return
 		}
 
@@ -96,14 +99,16 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		var policy control.PolicyData
 		err := json.NewDecoder(r.Body).Decode(&policy)
 		if err != nil {
-			http.Error(w, "Bad Request", 400)
 			log.Println("error decoding group data to add new group: ", err)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+
 			return
 		}
 
 		if err := ctrl.AddPolicy(policy); err != nil {
-			http.Error(w, err.Error(), 500)
 			log.Println("error adding policy: ", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
 			return
 		}
 
