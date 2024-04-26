@@ -146,7 +146,7 @@ func checkClusterHealth() {
 
 		select {
 		case <-etcdServer.Server.LeaderChangedNotify():
-			notfyHealthy()
+			notifyHealthy()
 
 		case <-time.After(1 * time.Second):
 			leader := etcdServer.Server.Leader()
@@ -157,7 +157,7 @@ func checkClusterHealth() {
 				if leader == 0 {
 					notifyClusterHealthListeners("dead")
 				} else {
-					notfyHealthy()
+					notifyHealthy()
 				}
 			}
 
@@ -166,7 +166,7 @@ func checkClusterHealth() {
 	}
 }
 
-func notfyHealthy() {
+func notifyHealthy() {
 	if etcdServer.Server.IsLearner() {
 		notifyClusterHealthListeners("learner")
 	} else {

@@ -288,6 +288,8 @@ func StartWebServer(errs chan<- error) error {
 
 		protectedRoutes.HandleFunc("/diag/firewall", firewallDiagnositicsUI)
 
+		protectedRoutes.HandleFunc("/management/cluster/", clusteringUI)
+
 		protectedRoutes.HandleFunc("/management/users/", usersUI)
 		protectedRoutes.HandleFunc("/management/users/data", contentType(manageUsers, JSON))
 
@@ -306,7 +308,6 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/settings/general", generalSettingsUI)
 		protectedRoutes.HandleFunc("/settings/general/data", contentType(generalSettings, JSON))
 
-		protectedRoutes.HandleFunc("/settings/clustering/", clusteringUI)
 		protectedRoutes.HandleFunc("/settings/clustering/new-node", contentType(newNode, JSON))
 		protectedRoutes.HandleFunc("/settings/clustering/node-control", contentType(nodeControl, JSON))
 

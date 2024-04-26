@@ -12,6 +12,7 @@ type Page struct {
 
 type Dashboard struct {
 	Page
+
 	NumUsers           int
 	LockedDevices      int
 	Devices            int
@@ -66,6 +67,8 @@ type TokensData struct {
 }
 
 type WgDevicesData struct {
+	ReceiveBytes      int64  `json:"rx"`
+	TransmitBytes     int64  `json:"tx"`
 	PublicKey         string `json:"public_key"`
 	Address           string `json:"address"`
 	EndpointAddress   string `json:"last_endpoint"`

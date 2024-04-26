@@ -109,6 +109,10 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data = append(data, WgDevicesData{
+
+			ReceiveBytes:  peer.ReceiveBytes,
+			TransmitBytes: peer.TransmitBytes,
+
 			PublicKey:         peer.PublicKey.String(),
 			Address:           ip,
 			EndpointAddress:   peer.Endpoint.String(),

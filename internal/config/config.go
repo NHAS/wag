@@ -65,7 +65,7 @@ type Config struct {
 	NumberProxies int
 	Proxied       bool
 	ExposePorts   []string `json:",omitempty"`
-	NAT           *bool
+	NAT           *bool    `json:",omitempty"`
 
 	MFATemplatesDirectory string `json:",omitempty"`
 
