@@ -88,6 +88,9 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		// generate PublicKeyCredentialCreationOptions, session data
 		options, sessionData, err := wa.webauthnExecutor.BeginRegistration(
 			webauthnUser,
+			func(pkcco *protocol.PublicKeyCredentialCreationOptions) {
+				pkcco.AuthenticatorSelection.UserVerification = "discouraged"
+			},
 		)
 
 		if err != nil {
@@ -214,7 +217,9 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// generate PublicKeyCredentialRequestOptions, session data
-		options, sessionData, err := wa.webauthnExecutor.BeginLogin(webauthnUser)
+		options, sessionData, err := wa.webauthnExecutor.BeginLogin(webauthnUser, func(pkcro *protocol.PublicKeyCredentialRequestOptions) {
+			pkcro.UserVerification = "discouraged"
+		})
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
 			jsonResponse(w, "Server Error", http.StatusInternalServerError)
