@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 }
 
 func setupWgTest() error {
-	if err := config.Load("../config/test_in_memory_db.json"); err != nil {
+	if err := config.Load("../config/testing_config.json"); err != nil {
 		return err
 	}
 

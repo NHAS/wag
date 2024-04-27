@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"math"
 	"math/rand"
 	"net"
@@ -31,6 +32,9 @@ func getNextIP(subnet string) (string, error) {
 
 	used, _ := cidr.Mask.Size()
 	addresses := int(math.Pow(2, float64(32-used))) - 2 // Do not allocate largest address or 0
+	if addresses < 1 {
+		return "", errors.New("no addresses available")
+	}
 
 	// Choose a random number that cannot be 0
 	addressAttempt := rand.Intn(addresses) + 1
