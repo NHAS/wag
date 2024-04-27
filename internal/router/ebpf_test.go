@@ -1302,5 +1302,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
+	data.TearDown()
+
 	os.Exit(code)
 }
