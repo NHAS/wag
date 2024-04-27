@@ -39,7 +39,7 @@
 </head>
 
 <template id="notificationTemplate">
-    <a class="dropdown-item d-flex align-items-center" id="external" target="_blank" rel="noopener noreferrer">
+    <a class="notification dropdown-item d-flex align-items-center" id="external">
         <div>
             <div class="small text-gray-500" id="date"></div>
             <span class="font-weight-bold" id="heading"></span>
@@ -48,6 +48,7 @@
         </div>
     </a>
 </template>
+
 
 <body id="page-top">
     <!-- Main CSRF guard so that JS can read this value and use it -->
@@ -229,7 +230,7 @@
                                 aria-labelledby="alertsDropdown" id="notificationsDropDown">
 
                                 {{range $val := notifications}}
-                                <a id={{$val.ID}} class="notification dropdown-item d-flex align-items-center"
+                                <a id="{{$val.ID}}" class="notification dropdown-item d-flex align-items-center"
                                     href="{{$val.Url}}" {{if $val.OpenNewTab}}target="_blank" rel="noopener noreferrer"
                                     {{end}}>
                                     <div>
