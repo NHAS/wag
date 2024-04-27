@@ -550,17 +550,32 @@ func RefreshConfiguration() []error {
 		return []error{err}
 	}
 
+	err = setInactivityTimeout(inactivityTimeoutMinutes)
+	if err != nil {
+		return []error{err}
+	}
+
+	return bulkCreateUserMaps(users)
+}
+
+func SetInactivityTimeout(inactivityTimeoutMinutes int) error {
+	lock.Lock()
+	defer lock.Unlock()
+	return setInactivityTimeout(inactivityTimeoutMinutes)
+}
+
+func setInactivityTimeout(inactivityTimeoutMinutes int) error {
 	value := uint64(inactivityTimeoutMinutes) * 60000000000
 	if inactivityTimeoutMinutes < 0 {
 		value = math.MaxUint64
 	}
 
-	err = xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
+	err := xdpObjects.InactivityTimeoutMinutes.Put(uint32(0), value)
 	if err != nil {
-		return []error{fmt.Errorf("could not set inactivity timeout: %s", err)}
+		return fmt.Errorf("could not set inactivity timeout: %s", err)
 	}
 
-	return bulkCreateUserMaps(users)
+	return nil
 }
 
 // Update FW routes for specific user

@@ -41,6 +41,25 @@ func handleEvents(erroChan chan<- error) {
 		return
 	}
 
+	_, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, inactivityTimeoutChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+}
+
+func inactivityTimeoutChanges(key string, current int, previous int, et data.EventType) error {
+
+	switch et {
+	case data.MODIFIED, data.CREATED:
+		if err := SetInactivityTimeout(current); err != nil {
+			return fmt.Errorf("unable to set inactivity timeout: %s", err)
+		}
+		log.Println("inactivity timeout changed")
+	}
+
+	return nil
 }
 
 func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) error {

@@ -336,7 +336,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	}
 
 	if !res.Succeeded {
-		return UserModel{}, errors.New("user exists")
+		return UserModel{}, errors.New("user " + username + " exists")
 	}
 
 	return newUser, err

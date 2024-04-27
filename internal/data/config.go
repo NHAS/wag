@@ -37,6 +37,7 @@ const (
 
 	InactivityTimeoutKey = "wag-config-authentication-inactivity-timeout"
 	SessionLifetimeKey   = "wag-config-authentication-max-session-lifetime"
+
 	LockoutKey           = "wag-config-authentication-lockout"
 	IssuerKey            = "wag-config-authentication-issuer"
 	DomainKey            = "wag-config-authentication-domain"
@@ -534,8 +535,6 @@ func SetGeneralSettings(generalSettings GeneralSettings) error {
 	return err
 }
 
-// Due to how these functions are used there is quite a highlikelihood that splicing will occur
-// We need to update these to make it that it checks the key revision against the pulled version
 func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
 	data, _ := json.Marshal(lifetimeMinutes)
 	_, err := etcd.Put(context.Background(), SessionLifetimeKey, string(data))

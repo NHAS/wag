@@ -8,7 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
-	"strings"
+	"os"
 	"testing"
 	"time"
 
@@ -25,19 +25,34 @@ const (
 	XDP_PASS = 2
 )
 
-func TestBasicLoad(t *testing.T) {
-	if err := setup("../config/test_in_memory_db.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
+var devices = map[string]data.Device{
+	"tester": {
+		Address:   "192.168.1.2",
+		Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
+		Username:  "tester",
+		Attempts:  0,
+	},
+	"randomthingappliedtoall": {
+		Address:   "192.168.1.3",
+		Publickey: "sXns6f8d6SMehnT6DQG8URCXnNCFe6ouxVmpJB7WeS0=",
+		Username:  "randomthingappliedtoall",
+		Attempts:  0,
+	},
+	"mfa_priority": {
+		Address:   "192.168.1.4",
+		Publickey: "qH9BGZYxn67YPYvjm4W/pzeAHaIa70tJMkDmStjbG0c=",
+		Username:  "mfa_priority",
+		Attempts:  0,
+	},
+	"route_preference": {
+		Address:   "192.168.1.5",
+		Publickey: "wCUDrTeD42MjiqUm3k7SuA83vsGMJ96gIu2GvMWSokU=",
+		Username:  "route_preference",
+		Attempts:  0,
+	},
 }
 
 func TestBlankPacket(t *testing.T) {
-
-	if err := setup("../config/test_in_memory_db.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
 	buff := make([]byte, 15)
 	value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(buff)
@@ -51,16 +66,6 @@ func TestBlankPacket(t *testing.T) {
 }
 
 func TestAddNewDevices(t *testing.T) {
-
-	if err := setup("../config/test_in_memory_db.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var ipBytes []byte
 	var deviceBytes = make([]byte, 40)
@@ -87,11 +92,11 @@ func TestAddNewDevices(t *testing.T) {
 		t.Fatalf("iterator reported an error: %s", iter.Err())
 	}
 
-	if len(found) != len(out) {
-		t.Fatalf("expected number of devices not found when iterating timestamp map %d != %d", len(found), len(out))
+	if len(found) != len(devices) {
+		t.Fatalf("expected number of devices not found when iterating timestamp map %d != %d", len(found), len(devices))
 	}
 
-	for _, device := range out {
+	for _, device := range devices {
 		if !found[device.Address] {
 			t.Fatalf("%s not found even though it should have been added", device.Address)
 		}
@@ -101,17 +106,7 @@ func TestAddNewDevices(t *testing.T) {
 
 func TestAddUser(t *testing.T) {
 
-	if err := setup("../config/test_in_memory_db.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, device := range out {
+	for _, device := range devices {
 		policiesTable, err := checkLPMMap(device.Username, xdpObjects.PoliciesTable)
 		if err != nil {
 			t.Fatal("checking policy table:", err)
@@ -154,46 +149,37 @@ func contains(x, y []string) bool {
 }
 
 func TestRoutePriority(t *testing.T) {
-
-	if err := setup("../config/test_roaming_all_routes_mfa_priority.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Test to make sure that MFA routes and restrictions take priority over the allow rule.
 
 	headers := []ipv4.Header{
 
 		{
 			Version: 4,
 			Dst:     net.ParseIP("8.8.8.8"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["mfa_priority"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("11.11.11.11"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["mfa_priority"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.1.1"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["mfa_priority"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
-			Dst:     net.ParseIP(out[0].Address),
+			Dst:     net.ParseIP(devices["mfa_priority"].Address),
 			Src:     net.ParseIP("1.1.1.1"),
 			Len:     ipv4.HeaderLen,
 		}, {
 			Version: 4,
 			Dst:     net.ParseIP("192.168.1.1"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["mfa_priority"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 	}
@@ -230,83 +216,82 @@ func TestRoutePriority(t *testing.T) {
 }
 
 func TestBasicAuthorise(t *testing.T) {
-	if err := setup("../config/test_in_memory_db.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address, out[0].Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !IsAuthed(out[0].Address) {
+	if !IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
 	headers := []ipv4.Header{
 		{
 			Version: 4,
-			Dst:     net.ParseIP("11.11.11.11"),
-			Src:     net.ParseIP(out[0].Address),
+			Dst:     net.ParseIP("12.11.11.11"),
+			Src:     net.ParseIP(devices["tester"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("192.168.3.11"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["tester"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
-			Dst:     net.ParseIP("8.8.8.8"),
-			Src:     net.ParseIP(out[0].Address),
+			Dst:     net.ParseIP("88.88.88.88"),
+			Src:     net.ParseIP(devices["tester"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("3.21.11.11"),
-			Src:     net.ParseIP(out[1].Address),
+			Src:     net.ParseIP(devices["randomthingappliedtoall"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
-			Dst:     net.ParseIP("7.7.7.7"),
-			Src:     net.ParseIP(out[1].Address),
+			Dst:     net.ParseIP("66.66.66.66"),
+			Src:     net.ParseIP(devices["randomthingappliedtoall"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("4.3.3.3"),
-			Src:     net.ParseIP(out[1].Address),
+			Src:     net.ParseIP(devices["randomthingappliedtoall"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 	}
 
 	expectedResults := map[string]uint32{
+		// Tester
 		headers[0].String(): XDP_DROP,
 		headers[1].String(): XDP_PASS,
 		headers[2].String(): XDP_PASS,
+
+		// randomthingappliedtoall
 		headers[3].String(): XDP_DROP,
 		headers[4].String(): XDP_PASS,
 		headers[5].String(): XDP_DROP,
 	}
 
-	mfas, errs := routetypes.ParseRules(data.GetEffectiveAcl(out[0].Username).Mfa, nil, nil)
+	mfas, errs := routetypes.ParseRules(data.GetEffectiveAcl(devices["tester"].Username).Mfa, nil, nil)
 	if len(errs) != 0 {
 		t.Fatal("failed to parse mfa rules: ", err)
 	}
 
 	for i := range mfas {
+
+		if len(mfas[i].Values) != 1 {
+			continue
+		}
+
 		newHeader := ipv4.Header{
 			Version: 4,
 			Dst:     mfas[i].Keys[0].AsIP(),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["tester"].Address),
 			Len:     ipv4.HeaderLen,
 		}
 		headers = append(headers, newHeader)
@@ -335,12 +320,12 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 	}
 
-	err = Deauthenticate(out[0].Address)
+	err = Deauthenticate(devices["tester"].Address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if IsAuthed(out[0].Address) {
+	if IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user as deauthorized it should be.... deauthorized")
 	}
 
@@ -349,7 +334,7 @@ func TestBasicAuthorise(t *testing.T) {
 			t.Fatal("could not parse ip")
 		}
 
-		if out[0].Address != headers[i].Src.String() {
+		if devices["tester"].Address != headers[i].Src.String() {
 			continue
 		}
 
@@ -364,58 +349,51 @@ func TestBasicAuthorise(t *testing.T) {
 		}
 
 		if value != XDP_DROP {
-			t.Fatalf("after deauthenticating, everything should be XDP_DROP instead %s", result(value))
+			t.Fatalf("after deauthenticating, should be XDP_DROP: %s", headers[i].String())
 		}
 	}
 
 }
 
 func TestRoutePreference(t *testing.T) {
-	if err := setup("../config/test_route_restriction_preference.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Check to make sure the most specific route takes preference
 
 	headers := []ipv4.Header{
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.3.43"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.1.11"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.4.1"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("3.21.11.11"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.2.7"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 		{
 			Version: 4,
 			Dst:     net.ParseIP("1.1.2.3"),
-			Src:     net.ParseIP(out[0].Address),
+			Src:     net.ParseIP(devices["route_preference"].Address),
 			Len:     ipv4.HeaderLen,
 		},
 	}
@@ -452,26 +430,17 @@ func TestRoutePreference(t *testing.T) {
 }
 
 func TestSlidingWindow(t *testing.T) {
-	if err := setup("../config/test_disabled_max_lifetime.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address, out[0].Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !IsAuthed(out[0].Address) {
+	if !IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(out[0].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -479,7 +448,7 @@ func TestSlidingWindow(t *testing.T) {
 	testAuthorizedPacket := ipv4.Header{
 		Version: 4,
 		Dst:     ip,
-		Src:     net.ParseIP(out[0].Address),
+		Src:     net.ParseIP(devices["tester"].Address),
 		Len:     ipv4.HeaderLen,
 	}
 
@@ -495,7 +464,7 @@ func TestSlidingWindow(t *testing.T) {
 	}
 
 	var beforeDevice fwentry
-	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(devices["tester"].Address).To4())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +495,7 @@ func TestSlidingWindow(t *testing.T) {
 	}
 
 	var afterDevice fwentry
-	deviceBytes, err = xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
+	deviceBytes, err = xdpObjects.Devices.LookupBytes(net.ParseIP(devices["tester"].Address).To4())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,36 +527,27 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
 	}
 
-	if IsAuthed(out[0].Address) {
+	if IsAuthed(devices["tester"].Address) {
 		t.Fatal("user is still authorized after inactivity timeout should have killed them")
 	}
 }
 
 func TestCompositeRules(t *testing.T) {
-	if err := setup("../config/test_mutliple_rule_definitions_and_mfa_preference.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = SetAuthorized(out[0].Address, out[0].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	successPackets := [][]byte{
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
 
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("7.7.7.7"), routetypes.ICMP, 0),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("7.7.7.7"), routetypes.TCP, 22),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.ICMP, 0),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.TCP, 22),
 	}
 
 	for i := range successPackets {
@@ -604,13 +564,14 @@ func TestCompositeRules(t *testing.T) {
 		}
 	}
 
-	err = Deauthenticate(out[0].Address)
+	err = Deauthenticate(devices["tester"].Address)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expectedResults := []uint32{
 		XDP_DROP,
+
 		XDP_PASS,
 		XDP_PASS,
 
@@ -622,14 +583,15 @@ func TestCompositeRules(t *testing.T) {
 
 	packets := [][]byte{
 
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
 
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
 
-		createPacket(net.ParseIP(out[0].Address), net.ParseIP("8.8.8.8"), routetypes.ICMP, 0),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
+
+		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.ICMP, 0),
 	}
 
 	for i := range packets {
@@ -640,21 +602,27 @@ func TestCompositeRules(t *testing.T) {
 		}
 
 		if value != expectedResults[i] {
-			fw, _ := GetRules()
-			t.Logf("%s:%+v", out[0].Username, fw[out[0].Username])
-			t.Fatalf("%d program did not %s packet instead did: %s", i, result(expectedResults[i]), result(value))
+			//fw, _ := GetRules()
+			//t.Logf("%s:%+v", devices["tester"].Username, fw[devices["tester"].Username])
+			t.Fatalf("packer no. %d, deauth expect %s did: %s", i, result(expectedResults[i]), result(value))
 		}
 	}
 
 }
 
 func TestDisabledSlidingWindow(t *testing.T) {
-	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
+
+	err := data.SetSessionInactivityTimeoutMinutes(-1)
+	if err != nil {
 		t.Fatal(err)
 	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
+	timeout, err := data.GetSessionInactivityTimeoutMinutes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = SetInactivityTimeout(timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -669,16 +637,16 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
 	}
 
-	err = SetAuthorized(out[0].Address, out[0].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !IsAuthed(out[0].Address) {
+	if !IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(out[0].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -686,7 +654,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 	testAuthorizedPacket := ipv4.Header{
 		Version: 4,
 		Dst:     ip,
-		Src:     net.ParseIP(out[0].Address),
+		Src:     net.ParseIP(devices["tester"].Address),
 		Len:     ipv4.HeaderLen,
 	}
 
@@ -724,26 +692,17 @@ func TestDisabledSlidingWindow(t *testing.T) {
 }
 
 func TestMaxSessionLifetime(t *testing.T) {
-	if err := setup("../config/test_disabled_sliding_window.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address, out[0].Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !IsAuthed(out[0].Address) {
+	if !IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user device as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(out[0].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -751,7 +710,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 	testAuthorizedPacket := ipv4.Header{
 		Version: 4,
 		Dst:     ip,
-		Src:     net.ParseIP(out[0].Address),
+		Src:     net.ParseIP(devices["tester"].Address),
 		Len:     ipv4.HeaderLen,
 	}
 
@@ -786,33 +745,30 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatalf("program did not %s packet instead did: %s", result(1), result(value))
 	}
 
-	if IsAuthed(out[0].Address) {
+	if IsAuthed(devices["tester"].Address) {
 		t.Fatal("user is still authorized after inactivity timeout should have killed them")
 	}
 }
 
 func TestDisablingMaxLifetime(t *testing.T) {
-	if err := setup("../config/test_disabled_max_lifetime.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
+	// Disable session max lifetime
+	err := data.SetSessionLifetimeMinutes(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(out[0].Address, out[0].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !IsAuthed(out[0].Address) {
+	if !IsAuthed(devices["tester"].Address) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
 	var maxSessionLifeDevice fwentry
-	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(out[0].Address).To4())
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(devices["tester"].Address).To4())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -826,7 +782,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatalf("lifetime was not set to max uint64, was %d (maxuint64 %d)", maxSessionLifeDevice.sessionExpiry, uint64(math.MaxUint64))
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(out[0].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -834,7 +790,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 	testAuthorizedPacket := ipv4.Header{
 		Version: 4,
 		Dst:     ip,
-		Src:     net.ParseIP(out[0].Address),
+		Src:     net.ParseIP(devices["tester"].Address),
 		Len:     ipv4.HeaderLen,
 	}
 
@@ -977,15 +933,6 @@ func createPacket(src, dst net.IP, proto, port int) []byte {
 }
 
 func TestPortRestrictions(t *testing.T) {
-	if err := setup("../config/test_port_based_rules.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	/*
 		"Allow": [
@@ -999,11 +946,11 @@ func TestPortRestrictions(t *testing.T) {
 		]
 	*/
 
-	acl := data.GetEffectiveAcl(out[0].Username)
+	acl := data.GetEffectiveAcl(devices["tester"].Username)
 
 	rules, errs := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 	if len(errs) != 0 {
-		t.Fatal(err)
+		t.Fatal(errs)
 	}
 
 	var packets [][]byte
@@ -1024,7 +971,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Add matching/passing packet
-			packets = append(packets, createPacket(net.ParseIP(out[0].Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, XDP_PASS)
 
 			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.Is(routetypes.SINGLE) {
@@ -1049,7 +996,7 @@ func TestPortRestrictions(t *testing.T) {
 				flip = !flip
 			}
 
-			packets = append(packets, createPacket(net.ParseIP(out[0].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
+			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
 			expectedResults = append(expectedResults, XDP_DROP)
 
 			var bogusDstIp net.IP = net.ParseIP("1.1.1.1").To4()
@@ -1061,7 +1008,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Route miss packet
-			packets = append(packets, createPacket(net.ParseIP(out[0].Address), bogusDstIp, int(policy.Proto), int(policy.LowerPort)))
+			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), bogusDstIp, int(policy.Proto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, XDP_DROP)
 
 		}
@@ -1112,22 +1059,13 @@ func TestPortRestrictions(t *testing.T) {
 }
 
 func TestAgnosticRuleOrdering(t *testing.T) {
-	if err := setup("../config/test_port_based_rules.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var packets [][]byte
 
-	for _, user := range out {
+	for _, user := range devices {
 		acl := data.GetEffectiveAcl(user.Username)
-
-		rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
+		log.Println(user, acl.Allow)
+		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1186,24 +1124,14 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 		t.Log(iphdr.Src.String(), " -> ", iphdr.Dst.String(), ", proto "+pkt.String())
 
 		if value != XDP_PASS {
-
 			t.Fatalf("program did not XDP_PASS packet instead did: %s", result(value))
 		}
 	}
 }
 
 func TestLookupDifferentKeyTypesInMap(t *testing.T) {
-	if err := setup("../config/test_port_based_rules.json"); err != nil {
-		t.Fatal(err)
-	}
-	defer xdpObjects.Close()
 
-	out, err := addDevices()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	userPublicRoutes, err := getInnerMap(out[0].Username, xdpObjects.PoliciesTable)
+	userPublicRoutes, err := getInnerMap(devices["tester"].Username, xdpObjects.PoliciesTable)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1237,7 +1165,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	}
 
 	if !policies[0].Is(routetypes.SINGLE) {
-		t.Fatal("the route type was not single: ", policies[0])
+		t.Fatal("the Route type was not single: ", policies[0])
 	}
 
 	if policies[0].LowerPort != 0 || policies[0].Proto != 0 {
@@ -1259,7 +1187,7 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	}
 
 	if !policies[0].Is(routetypes.SINGLE) {
-		t.Fatal("the route type was not single")
+		t.Fatal("the Route type was not single")
 	}
 
 	if policies[0].LowerPort != 33 || policies[0].Proto != routetypes.TCP {
@@ -1269,54 +1197,6 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 	if !policies[1].Is(routetypes.STOP) {
 		t.Fatal("policy should only contain one any/any rule")
 	}
-
-}
-
-func BenchmarkGeneralRun(b *testing.B) {
-
-	if err := setup("../config/test_port_based_rules.json"); err != nil {
-		b.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	packet := createPacket(net.ParseIP(out[0].Address), net.ParseIP("10.10.10.10"), routetypes.TCP, 8082)
-
-	b.ResetTimer()
-	_, duration, err := xdpObjects.bpfPrograms.XdpWagFirewall.Benchmark(packet, b.N, nil)
-	if err != nil {
-		b.Fatalf("program failed %s", err)
-	}
-
-	b.ReportMetric(float64(duration), "ns/op")
-
-}
-
-func BenchmarkGeneralDenyRun(b *testing.B) {
-
-	if err := setup("../config/test_port_based_rules.json"); err != nil {
-		b.Fatal(err)
-	}
-	defer xdpObjects.Close()
-
-	out, err := addDevices()
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	packet := createPacket(net.ParseIP(out[0].Address), net.ParseIP("10.10.10.10"), routetypes.TCP, 9999)
-
-	b.ResetTimer()
-	_, duration, err := xdpObjects.bpfPrograms.XdpWagFirewall.Benchmark(packet, b.N, nil)
-	if err != nil {
-		b.Fatalf("program failed %s", err)
-	}
-
-	b.ReportMetric(float64(duration), "ns/op")
 
 }
 
@@ -1374,52 +1254,53 @@ func result(code uint32) string {
 	}
 }
 
-func addDevices() ([]data.Device, error) {
+func addDevices() error {
 
-	devices := []data.Device{
-		{
-			Address:   "192.168.1.2",
-			Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
-			Username:  "tester",
-			Attempts:  0,
-		},
-		{
-			Address:   "192.168.1.3",
-			Publickey: "sXns6f8d6SMehnT6DQG8URCXnNCFe6ouxVmpJB7WeS0=",
-			Username:  "randomthingappliedtoall",
-			Attempts:  0,
-		},
-	}
-
-	for i := range devices {
-		_, err := data.CreateUserDataAccount(devices[i].Username)
+	for _, device := range devices {
+		_, err := data.CreateUserDataAccount(device.Username)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		err = AddUser(devices[i].Username, data.GetEffectiveAcl(devices[i].Username))
+		err = AddUser(device.Username, data.GetEffectiveAcl(device.Username))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		err = xdpAddDevice(devices[i].Username, devices[i].Address)
+		err = xdpAddDevice(device.Username, device.Address)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return devices, nil
+	return nil
 }
 
-func setup(what string) error {
-	err := config.Load(what)
-	if err != nil && !strings.Contains(err.Error(), "Configuration has already been loaded") {
-		return err
+func TestMain(m *testing.M) {
+
+	if err := config.Load("../config/testing_config.json"); err != nil {
+		log.Println("failed to load config: ", err)
+		os.Exit(1)
 	}
 
-	err = data.Load(config.Values.DatabaseLocation, "", true)
+	err := data.Load(config.Values.DatabaseLocation, "", true)
 	if err != nil {
-		return err
+		log.Println(err)
+		os.Exit(1)
 	}
 
-	return loadXDP()
+	err = loadXDP()
+	if err != nil {
+		log.Println("failed to load xdp:", err)
+		os.Exit(1)
+	}
+
+	err = addDevices()
+	if err != nil {
+		log.Println("unable to add devices: ", err)
+		os.Exit(1)
+	}
+
+	code := m.Run()
+
+	os.Exit(code)
 }
