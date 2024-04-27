@@ -12,6 +12,19 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+func TestMain(m *testing.M) {
+
+	err := setupWgTest()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	teatDown()
+
+	os.Exit(code)
+}
+
 func setupWgTest() error {
 	if err := config.Load("../config/test_in_memory_db.json"); err != nil {
 		return err
@@ -35,19 +48,6 @@ func setupWgTest() error {
 func teatDown() {
 	router.TearDown(true)
 	data.TearDown()
-}
-
-func TestMain(m *testing.M) {
-
-	err := setupWgTest()
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-	code := m.Run()
-	teatDown()
-
-	os.Exit(code)
 }
 
 func TestCreateUser(t *testing.T) {

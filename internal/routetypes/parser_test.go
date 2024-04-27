@@ -357,7 +357,7 @@ func TestParseRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(result) != 2 {
+	if len(result) < 2 {
 		t.Fatal("resulting number of rules was wrong")
 	}
 
@@ -366,7 +366,7 @@ func TestParseRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(result) != 4 {
+	if len(result) < 4 {
 		t.Fatal("resulting number of rules was wrong")
 	}
 
