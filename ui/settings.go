@@ -22,7 +22,7 @@ func adminUsersUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Notification: getUpdate(),
+
 		Description:  "Wag settings",
 		Title:        "Settings - Admin Users",
 		User:         u.Username,
@@ -93,7 +93,7 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 		MFAMethods []authenticators.Authenticator
 	}{
 		Page: Page{
-			Notification: getUpdate(),
+
 			Description:  "Wag settings",
 			Title:        "Settings - General",
 			User:         u.Username,

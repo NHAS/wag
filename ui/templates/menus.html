@@ -35,6 +35,7 @@
     <!-- Toastify for notifications-->
     <script src="/vendor/toastify/js/toastify.js"></script>
     <link rel="stylesheet" type="text/css" href="/vendor/toastify/css/toastify.css">
+
 </head>
 
 <template id="notificationTemplate">
@@ -226,6 +227,20 @@
                             <!-- Dropdown - Alerts -->
                             <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="alertsDropdown" id="notificationsDropDown">
+
+                                {{range $val := notifications}}
+                                <a id={{$val.ID}} class="notification dropdown-item d-flex align-items-center"
+                                    href="{{$val.Url}}" {{if $val.OpenNewTab}}target="_blank" rel="noopener noreferrer"
+                                    {{end}}>
+                                    <div>
+                                        <div class="small text-gray-500">{{$val.Time}}</div>
+                                        <span class="font-weight-bold">{{$val.Heading}}</span>
+                                        {{range $val := $val.Message}}
+                                        <p>{{$val}}</p>
+                                        {{end}}
+                                    </div>
+                                </a>
+                                {{end}}
                             </div>
                         </li>
 

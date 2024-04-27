@@ -32,7 +32,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		CurrentNode string
 	}{
 		Page: Page{
-			Notification: getUpdate(),
+
 			Description:  "Clustering Management Page",
 			Title:        "Clustering",
 			User:         u.Username,
@@ -187,7 +187,7 @@ func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
 		Errors   []data.EventError
 	}{
 		Page: Page{
-			Notification: getUpdate(),
+
 			Description:  "Clustering Management Page",
 			Title:        "Clustering",
 			User:         u.Username,

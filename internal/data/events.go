@@ -42,6 +42,7 @@ const (
 	ConfigPrefix         = "wag-config-"
 	AuthenticationPrefix = "wag-config-authentication-"
 	NodeEvents           = "wag/node/"
+	NodeErrors           = "wag/node/errors"
 )
 
 var (
@@ -66,7 +67,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 
 	key, err := generateRandomBytes(16)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

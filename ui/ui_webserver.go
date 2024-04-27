@@ -71,6 +71,9 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 
 			return template.HTML(fmt.Sprintf("<script src=\"/js/%s\"></script>", functionalityName))
 		},
+		"notifications": func() []Notification {
+			return getNotifications()
+		},
 	}
 
 	if !config.Values.ManagementUI.Debug {
@@ -221,7 +224,10 @@ func StartWebServer(errs chan<- error) error {
 	}
 	serverID = data.GetServerID()
 
-	data.RegisterClusterHealthListener(watchClusterHealth)
+	_, err = data.RegisterClusterHealthListener(watchClusterHealth)
+	if err != nil {
+		return err
+	}
 
 	log.SetOutput(io.MultiWriter(os.Stdout, LogQueue))
 
@@ -316,7 +322,14 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/settings/management_users", adminUsersUI)
 		protectedRoutes.HandleFunc("/settings/management_users/data", adminUsersData)
 
-		protectedRoutes.HandleFunc("/notifications", notificationsWS)
+		notifications := make(chan Notification, 1)
+		protectedRoutes.HandleFunc("/notifications", notificationsWS(notifications))
+		data.RegisterEventListener(data.NodeErrors, true, recieveErrorNotifications(notifications))
+
+		should, err := data.ShouldCheckUpdates()
+		if err == nil && should {
+			startUpdateChecker(notifications)
+		}
 
 		protectedRoutes.HandleFunc("/change_password", changePassword)
 
@@ -374,7 +387,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 	d := ChangePassword{
 		Page: Page{
-			Notification: getUpdate(),
+
 			Description:  "Change password page",
 			Title:        "Change password",
 			User:         u.Username,

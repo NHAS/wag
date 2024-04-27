@@ -21,7 +21,7 @@ func groupsUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-		Notification: getUpdate(),
+
 		Description:  "Groups",
 		Title:        "Groups",
 		User:         u.Username,

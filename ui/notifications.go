@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/gorilla/websocket"
+	"golang.org/x/exp/maps"
 )
 
 var upgrader = websocket.Upgrader{
@@ -21,19 +24,55 @@ type Acknowledgement struct {
 	ID   string
 }
 
-func notificationsWS(w http.ResponseWriter, r *http.Request) {
-	// Upgrade HTTP connection to WebSocket connection
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer conn.Close()
+func notificationsWS(notifications <-chan Notification) func(w http.ResponseWriter, r *http.Request) {
+
+	var mapLck sync.RWMutex
+	servingConnections := map[string]chan<- Notification{}
 
 	go func() {
-
+		for notification := range notifications {
+			for key := range servingConnections {
+				go func(key string, notification Notification) {
+					servingConnections[key] <- notification
+				}(key, notification)
+			}
+		}
 	}()
 
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Upgrade HTTP connection to WebSocket connection
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		connectionChan := make(chan Notification)
+		defer func() {
+			mapLck.Lock()
+			delete(servingConnections, r.RemoteAddr)
+			mapLck.Unlock()
+
+			close(connectionChan)
+			conn.Close()
+		}()
+
+		mapLck.Lock()
+		servingConnections[r.RemoteAddr] = connectionChan
+		mapLck.Unlock()
+
+		for notf := range connectionChan {
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+
+			err := conn.WriteJSON(notf)
+			if err != nil {
+				return
+			}
+
+			conn.SetWriteDeadline(time.Time{})
+		}
+
+	}
 }
 
 type githubResponse struct {
@@ -45,43 +84,78 @@ type githubResponse struct {
 }
 
 type Notification struct {
-	ID      string
-	Heading string
-	Message []string
-	Url     string
+	ID         string
+	Heading    string
+	Message    []string
+	Url        string
+	Time       time.Time
+	Color      string
+	OpenNewTab bool
 }
 
 var (
-	mostRecentUpdate *Notification
-	lastChecked      time.Time
+	notifications = map[string]Notification{}
 )
 
-func getUpdate() Notification {
+func getNotifications() []Notification {
 
-	should, err := data.ShouldCheckUpdates()
-	if err != nil || !should {
-		return Notification{}
+	notfs := maps.Values(notifications)
+	sort.Slice(notfs, func(i, j int) bool {
+		return notfs[i].Time.After(notfs[j].Time)
+	})
+
+	return notfs
+}
+
+func startUpdateChecker(notifications chan<- Notification) {
+	go func() {
+
+		for {
+			resp, err := http.Get("https://api.github.com/repos/NHAS/wag/releases/latest")
+			if err != nil {
+				log.Println("unable to fetch updates: ", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			var gr githubResponse
+			err = json.NewDecoder(resp.Body).Decode(&gr)
+			if err != nil {
+				log.Println("unable to parse update json: ", err)
+				return
+			}
+
+			notifications <- Notification{
+				Heading:    gr.TagName,
+				Message:    strings.Split(gr.Body, "\r\n"),
+				Url:        gr.Url,
+				Time:       time.Now(),
+				OpenNewTab: true,
+				Color:      "#0bb329",
+			}
+
+			<-time.After(15 * time.Minute)
+		}
+	}()
+}
+
+func recieveErrorNotifications(notifications chan<- Notification) func(key string, current, previous data.EventError, et data.EventType) error {
+
+	return func(key string, current, previous data.EventError, et data.EventType) error {
+		if et == data.CREATED {
+
+			msg := Notification{
+				ID:         current.ErrorID,
+				Heading:    "Node Error",
+				Message:    []string{"Node " + current.NodeID, current.Error},
+				Url:        "/cluster/events/",
+				Time:       time.Now(),
+				OpenNewTab: false,
+				Color:      "#db0b3c",
+			}
+
+			notifications <- msg
+		}
+		return nil
 	}
-
-	if time.Now().After(lastChecked.Add(15*time.Minute)) || mostRecentUpdate == nil {
-		resp, err := http.Get("https://api.github.com/repos/NHAS/wag/releases/latest")
-		if err != nil {
-			return Notification{}
-		}
-		defer resp.Body.Close()
-
-		var gr githubResponse
-		err = json.NewDecoder(resp.Body).Decode(&gr)
-		if err != nil {
-			return Notification{}
-		}
-
-		mostRecentUpdate = &Notification{
-			Heading: gr.TagName,
-			Message: strings.Split(gr.Body, "\r\n"),
-			Url:     gr.Url,
-		}
-	}
-
-	return *mostRecentUpdate
 }
