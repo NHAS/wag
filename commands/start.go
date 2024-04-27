@@ -145,6 +145,11 @@ func (g *start) Run() error {
 		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, os.Interrupt, syscall.SIGQUIT)
 
 		s := <-cancel
+		go func(chan os.Signal) {
+			<-cancel
+			log.Println("got force quit, killing without exiting nicely")
+			os.Exit(1)
+		}(cancel)
 
 		log.Printf("Got signal %s gracefully exiting\n", s)
 
