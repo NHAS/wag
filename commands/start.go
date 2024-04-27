@@ -106,7 +106,15 @@ func (g *start) Run() error {
 
 	errorChan := make(chan error)
 
-	if !config.Values.Clustering.Witness {
+	if config.Values.Clustering.Witness {
+		log.Println("this node is a witness, and will not start a wireguard device")
+	}
+
+	if data.IsLearner() {
+		log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
+	}
+
+	if !config.Values.Clustering.Witness && !data.IsLearner() {
 
 		err = router.Setup(errorChan, !g.noIptables)
 		if err != nil {
@@ -159,6 +167,10 @@ func (g *start) Run() error {
 	wagType := "Wag"
 	if config.Values.Clustering.Witness {
 		wagType = "Witness Node"
+	}
+
+	if data.IsLearner() {
+		wagType += " Learner"
 	}
 
 	log.Printf("%s started successfully, Ctrl + C to stop", wagType)
