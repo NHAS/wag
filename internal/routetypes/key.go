@@ -29,7 +29,7 @@ func (l Key) Bytes() []byte {
 
 func (l *Key) Unpack(b []byte) error {
 	if len(b) != 8 {
-		return errors.New("too short")
+		return errors.New("firewall key too short")
 	}
 
 	l.Prefixlen = binary.LittleEndian.Uint32(b[:4])

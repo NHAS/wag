@@ -527,7 +527,7 @@ func RemoveUser(username string) error {
 	for address, publicKey := range usersToAddresses[username] {
 		err = _removePeer(publicKey, address)
 		if err != nil {
-			log.Println("unable to remove peer: ", err)
+			log.Println("unable to remove peer: ", address, err)
 		}
 	}
 

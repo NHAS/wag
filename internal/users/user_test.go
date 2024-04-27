@@ -2,6 +2,8 @@ package users
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/NHAS/wag/internal/config"
@@ -20,22 +22,35 @@ func setupWgTest() error {
 		return err
 	}
 
-	err = data.Load(fmt.Sprintf("file:%s?mode=memory&cache=shared", m.String()), "")
+	err = data.Load(fmt.Sprintf("file:%s?mode=memory&cache=shared", m.String()), "", true)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}
 
 	errChan := make(chan error)
+	err = router.Setup(errChan, false)
+	return err
+}
 
-	return router.Setup(errChan, false)
+func teatDown() {
+	router.TearDown(true)
+	data.TearDown()
+}
+
+func TestMain(m *testing.M) {
+
+	err := setupWgTest()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	teatDown()
+
+	os.Exit(code)
 }
 
 func TestCreateUser(t *testing.T) {
-	err := setupWgTest()
-	if err != nil {
-		t.Fatalf("failed to setup wg: %s", err)
-	}
-	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -66,11 +81,6 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestAddDevice(t *testing.T) {
-	err := setupWgTest()
-	if err != nil {
-		t.Fatalf("failed to setup wg: %s", err)
-	}
-	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -103,11 +113,6 @@ func TestAddDevice(t *testing.T) {
 }
 
 func TestDeleteDevice(t *testing.T) {
-	err := setupWgTest()
-	if err != nil {
-		t.Fatalf("failed to setup wg: %s", err)
-	}
-	defer router.TearDown(false)
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -134,16 +139,16 @@ func TestDeleteDevice(t *testing.T) {
 		t.Fatal("unable to get all devices:", err)
 	}
 
-	if len(devices) != 0 {
-		t.Fatal("removed only device, should be no devices left in db")
+	for _, device := range devices {
+		if device.Publickey == pubkey.String() {
+			t.Fatal("device with matching public key was found in db")
+			return
+		}
 	}
+
 }
 
 func TestDeleteUser(t *testing.T) {
-	err := setupWgTest()
-	if err != nil {
-		t.Fatalf("failed to setup wg: %s", err)
-	}
 
 	user, err := CreateUser("fronk")
 	if err != nil {
@@ -181,6 +186,8 @@ func TestDeleteUser(t *testing.T) {
 	}
 
 	if len(devices) != 0 {
+		t.Log(len(devices))
+		t.Log(devices)
 		t.Fatal("removed only user, should be no devices left in db")
 	}
 
@@ -192,4 +199,5 @@ func TestDeleteUser(t *testing.T) {
 	if len(users) != 0 {
 		t.Fatal("removed only user, should be no users left in db")
 	}
+
 }

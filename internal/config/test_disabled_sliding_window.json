@@ -16,6 +16,12 @@
     "Authenticators": {
         "Issuer": "192.168.121.61"
     },
+    "Clustering": {
+        "ClusterState": "new",
+        "ETCDLogLevel": "error",
+        "Witness": false,
+        "TLSManagerListenURL": "https://localhost:3434"
+    },
     "Wireguard": {
         "DevName": "wg0",
         "ListenPort": 53230,

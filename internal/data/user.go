@@ -249,12 +249,7 @@ func DeleteUser(username string) error {
 		return err
 	}
 
-	_, err = etcd.Delete(context.Background(), "devices-"+username+"-", clientv3.WithPrefix())
-	if err != nil {
-		return err
-	}
-
-	return err
+	return DeleteDevices(username)
 }
 
 func GetUserData(username string) (u UserModel, err error) {

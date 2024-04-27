@@ -25,6 +25,16 @@ type Device struct {
 	Authorised   time.Time
 }
 
+func (d Device) String() string {
+
+	authorised := "no"
+	if !d.Authorised.Equal(time.Time{}) {
+		authorised = d.Authorised.Format(time.DateTime)
+	}
+
+	return fmt.Sprintf("device[%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.Active, d.Attempts, authorised)
+}
+
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 
 	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
@@ -36,10 +46,7 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		return errors.New("device was not found")
 	}
 
-	var realDeviceAddr string
-	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
-
-	return doSafeUpdate(context.Background(), realDeviceAddr, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}

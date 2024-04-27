@@ -111,7 +111,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 
 				go func(key []byte) {
 					if err := f(string(key), currentValue, previousValue, state); err != nil {
-						log.Println("applying event failed: ", currentValue, "err:", err)
+						log.Println("applying event failed: ", state, currentValue, "err:", err)
 						err = RaiseError(GetServerID(), err, value)
 						if err != nil {
 							log.Println("failed to raise error with cluster: ", err)
@@ -180,6 +180,10 @@ func checkClusterHealth() {
 			notifyHealthy()
 
 		case <-time.After(1 * time.Second):
+			if etcdServer == nil {
+				return
+			}
+
 			leader := etcdServer.Server.Leader()
 			if leader == 0 {
 				notifyClusterHealthListeners("electing")

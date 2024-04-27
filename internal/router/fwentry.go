@@ -37,7 +37,7 @@ func (d fwentry) Bytes() []byte {
 
 func (d *fwentry) Unpack(b []byte) error {
 	if len(b) != 40 {
-		return errors.New("too short")
+		return errors.New("firewall entry is too short")
 	}
 
 	d.sessionExpiry = binary.LittleEndian.Uint64(b[:8])

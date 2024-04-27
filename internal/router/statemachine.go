@@ -11,25 +11,25 @@ import (
 
 func handleEvents(erroChan chan<- error) {
 
-	_, err := data.RegisterEventListener[data.Device](data.DevicesPrefix, true, deviceChanges)
+	_, err := data.RegisterEventListener(data.DevicesPrefix, true, deviceChanges)
 	if err != nil {
 		erroChan <- err
 		return
 	}
 
-	_, err = data.RegisterEventListener[data.UserModel](data.UsersPrefix, true, userChanges)
+	_, err = data.RegisterEventListener(data.UsersPrefix, true, userChanges)
 	if err != nil {
 		erroChan <- err
 		return
 	}
 
-	_, err = data.RegisterEventListener[acls.Acl](data.AclsPrefix, true, aclsChanges)
+	_, err = data.RegisterEventListener(data.AclsPrefix, true, aclsChanges)
 	if err != nil {
 		erroChan <- err
 		return
 	}
 
-	_, err = data.RegisterEventListener[[]string](data.GroupsPrefix, true, groupChanges)
+	_, err = data.RegisterEventListener(data.GroupsPrefix, true, groupChanges)
 	if err != nil {
 		erroChan <- err
 		return
@@ -45,37 +45,37 @@ func handleEvents(erroChan chan<- error) {
 
 func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) error {
 
-	log.Printf("state: %d, event: %+v", et, current)
-
 	switch et {
 	case data.DELETED:
 		err := RemovePeer(current.Publickey, current.Address)
 		if err != nil {
-			log.Println("could not remove peer: ", err)
+			return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
 		}
+		log.Println("removed peer: ", current.Address)
 
 	case data.CREATED:
 
 		key, _ := wgtypes.ParseKey(current.Publickey)
 		err := AddPeer(key, current.Username, current.Address, current.PresharedKey)
 		if err != nil {
-			log.Println("error creating peer: ", err)
+			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 		}
+
+		log.Println("added peer: ", current.Address)
 
 	case data.MODIFIED:
 		if current.Publickey != previous.Publickey {
 			key, _ := wgtypes.ParseKey(current.Publickey)
 			err := ReplacePeer(previous, key)
 			if err != nil {
-				log.Println(err)
-				return err
+				return fmt.Errorf("failed to replace peer pub key: %s", err)
 			}
+			log.Println("replaced peer public key: ", current.Address)
 		}
 
 		lockout, err := data.GetLockout()
 		if err != nil {
-			log.Println("cannot get lockout:", err)
-			return err
+			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
 		if (current.Attempts != previous.Attempts && current.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
@@ -83,18 +83,19 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(current.Address)
 			if err != nil {
-				log.Println(err)
-				return err
+				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
+			log.Println("deauthed device: ", current.Address)
+
 		}
 
 		if current.Authorised != previous.Authorised {
 			if !current.Authorised.IsZero() && current.Attempts <= lockout {
 				err := SetAuthorized(current.Address, current.Username)
 				if err != nil {
-					log.Println(err)
-					return err
+					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 				}
+				log.Println("authorized device: ", current.Address)
 			}
 		}
 
@@ -111,14 +112,14 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 		acls := data.GetEffectiveAcl(current.Username)
 		err := AddUser(current.Username, acls)
 		if err != nil {
-			log.Println(err)
-			return err
+			log.Printf("cannot create user %s: %s", current.Username, err)
+			return fmt.Errorf("cannot create user %s: %s", current.Username, err)
 		}
 	case data.DELETED:
 		err := RemoveUser(current.Username)
 		if err != nil {
-			log.Println(err)
-			return err
+			log.Printf("cannot remove user %s: %s", current.Username, err)
+			return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
 		}
 	case data.MODIFIED:
 
@@ -131,16 +132,16 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 
 			err := SetLockAccount(current.Username, lock)
 			if err != nil {
-				log.Println(err)
-				return err
+				log.Printf("cannot lock user %s: %s", current.Username, err)
+				return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
 			}
 		}
 
 		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType {
 			err := DeauthenticateAllDevices(current.Username)
 			if err != nil {
-				log.Println(err)
-				return err
+				log.Printf("cannot deauthenticate user %s: %s", current.Username, err)
+				return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
 			}
 		}
 
@@ -154,7 +155,6 @@ func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventT
 	case data.CREATED, data.DELETED, data.MODIFIED:
 		err := RefreshConfiguration()
 		if err != nil {
-			log.Println(err)
 			return fmt.Errorf("failed to refresh configuration: %s", err)
 		}
 
@@ -170,8 +170,7 @@ func groupChanges(key string, current []string, previous []string, et data.Event
 		for _, username := range current {
 			err := RefreshUserAcls(username)
 			if err != nil {
-				log.Println(err)
-				return err
+				return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
 			}
 		}
 

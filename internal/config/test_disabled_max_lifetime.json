@@ -13,6 +13,12 @@
             "Port": "8080"
         }
     },
+    "Clustering": {
+        "ClusterState": "new",
+        "ETCDLogLevel": "error",
+        "Witness": false,
+        "TLSManagerListenURL": "https://localhost:3434"
+    },
     "Authenticators": {
         "Issuer": "192.168.121.61"
     },

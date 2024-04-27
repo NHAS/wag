@@ -56,7 +56,7 @@ func (r Policy) Bytes() []byte {
 
 func (r *Policy) Unpack(b []byte) error {
 	if len(b) < 8 {
-		return errors.New("too short")
+		return errors.New("firewall policy is too short")
 	}
 
 	r.PolicyType = binary.LittleEndian.Uint16(b[0:])

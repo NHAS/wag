@@ -88,7 +88,7 @@ func (g *start) Check() error {
 		}
 	}
 
-	err = data.Load(config.Values.DatabaseLocation, g.clusterJoinToken)
+	err = data.Load(config.Values.DatabaseLocation, g.clusterJoinToken, false)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %v", err)
 	}

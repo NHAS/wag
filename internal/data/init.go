@@ -48,7 +48,7 @@ func parseUrls(values ...string) []url.URL {
 	return urls
 }
 
-func Load(path, joinToken string) error {
+func Load(path, joinToken string, testing bool) error {
 
 	doMigration := true
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
@@ -84,33 +84,35 @@ func Load(path, joinToken string) error {
 
 	var err error
 
-	if joinToken == "" {
-		TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
-		if err != nil {
-			return fmt.Errorf("tls manager: %s", err)
-		}
-	} else {
+	if TLSManager == nil {
+		if joinToken == "" {
+			TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
+			if err != nil {
+				return fmt.Errorf("tls manager: %s", err)
+			}
+		} else {
 
-		if config.Values.Clustering.TLSManagerStorage == "" {
-			config.Values.Clustering.TLSManagerStorage = "certificates"
-		}
+			if config.Values.Clustering.TLSManagerStorage == "" {
+				config.Values.Clustering.TLSManagerStorage = "certificates"
+			}
 
-		TLSManager, err = manager.Join(joinToken, config.Values.Clustering.TLSManagerStorage, map[string]func(name string, data string){
-			"config.json": func(name, data string) {
-				err := os.WriteFile("config.json", []byte(data), 0600)
-				if err != nil {
-					log.Fatal("failed to create config.json from other cluster members config: ", err)
-				}
+			TLSManager, err = manager.Join(joinToken, config.Values.Clustering.TLSManagerStorage, map[string]func(name string, data string){
+				"config.json": func(name, data string) {
+					err := os.WriteFile("config.json", []byte(data), 0600)
+					if err != nil {
+						log.Fatal("failed to create config.json from other cluster members config: ", err)
+					}
 
-				log.Println("got additional, loading config file")
-				err = config.Load("config.json")
-				if err != nil {
-					log.Fatal("config supplied by other cluster member was invalid (potential version issues?): ", err)
-				}
-			},
-		})
-		if err != nil {
-			return err
+					log.Println("got additional, loading config file")
+					err = config.Load("config.json")
+					if err != nil {
+						log.Fatal("config supplied by other cluster member was invalid (potential version issues?): ", err)
+					}
+				},
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	part, err := generateRandomBytes(10)
@@ -121,8 +123,11 @@ func Load(path, joinToken string) error {
 
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values.Clustering.Name
+	if testing {
+		cfg.Name += part
+	}
 	cfg.ClusterState = config.Values.Clustering.ClusterState
-	cfg.InitialClusterToken = "wag-test"
+	cfg.InitialClusterToken = "wag"
 	cfg.LogLevel = config.Values.Clustering.ETCDLogLevel
 	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = parseUrls(etcdUnixSocket)
@@ -149,7 +154,7 @@ func Load(path, joinToken string) error {
 
 	cfg.InitialCluster = cfg.InitialCluster[:len(cfg.InitialCluster)-1]
 
-	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, config.Values.Clustering.Name+".wag-node.etcd")
+	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, cfg.Name+".wag-node.etcd")
 	etcdServer, err = embed.StartEtcd(cfg)
 	if err != nil {
 		return fmt.Errorf("error starting etcd: %s", err)
@@ -454,8 +459,11 @@ func migrateFromSql(database *sql.DB) error {
 
 func TearDown() {
 	if etcdServer != nil {
-		log.Println("Tearing down server")
+		etcd.Close()
 		etcdServer.Close()
+
+		etcd = nil
+		etcdServer = nil
 	}
 }
 
