@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	code := m.Run()
-	teatDown()
+	data.TearDown()
 
 	os.Exit(code)
 }
@@ -43,11 +43,6 @@ func setupWgTest() error {
 	errChan := make(chan error)
 	err = router.Setup(errChan, false)
 	return err
-}
-
-func teatDown() {
-	router.TearDown(true)
-	data.TearDown()
 }
 
 func TestCreateUser(t *testing.T) {

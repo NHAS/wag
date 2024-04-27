@@ -17,7 +17,10 @@
         "ClusterState": "new",
         "ETCDLogLevel": "error",
         "Witness": false,
-        "TLSManagerListenURL": "https://localhost:3433"
+        "TLSManagerListenURL": "https://localhost:3433",
+        "ListenAddresses": [
+            "https://localhost:2381"
+        ]
     },
     "Authenticators": {
         "Issuer": "192.168.121.61"
