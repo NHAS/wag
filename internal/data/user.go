@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 type UserModel struct {
@@ -325,7 +326,18 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	}
 	b, _ := json.Marshal(&newUser)
 
-	_, err := etcd.Put(context.Background(), "users-"+username+"-", string(b))
+	txn := etcd.Txn(context.Background())
+	txn.If(clientv3util.KeyMissing("users-" + username + "-"))
+	txn.Then(clientv3.OpPut("users-"+username+"-", string(b)))
+
+	res, err := txn.Commit()
+	if err != nil {
+		return UserModel{}, err
+	}
+
+	if !res.Succeeded {
+		return UserModel{}, errors.New("user exists")
+	}
 
 	return newUser, err
 }
