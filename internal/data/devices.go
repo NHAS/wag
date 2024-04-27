@@ -289,7 +289,8 @@ func DeleteDevice(username, id string) error {
 }
 
 func DeleteDevices(username string) error {
-	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("device-%s-", username), clientv3.WithPrefix())
+
+	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("devices-%s-", username), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
