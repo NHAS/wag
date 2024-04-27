@@ -233,7 +233,8 @@
                                     href="{{$val.Url}}" {{if $val.OpenNewTab}}target="_blank" rel="noopener noreferrer"
                                     {{end}}>
                                     <div>
-                                        <div class="small text-gray-500">{{$val.Time}}</div>
+                                        <div class="small text-gray-500">{{$val.Time.Format "02 Jan 06 15:04 MST"}}
+                                        </div>
                                         <span class="font-weight-bold">{{$val.Heading}}</span>
                                         {{range $val := $val.Message}}
                                         <p>{{$val}}</p>

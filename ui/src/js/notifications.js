@@ -27,7 +27,8 @@ socket.onmessage = function (e) {
         position: "right",
         gravity: "top",
         offset: {
-            y: 30,
+            y: 60,
+            x: 10,
         },
         stopOnFocus: true,
         style: {

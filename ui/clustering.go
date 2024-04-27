@@ -219,3 +219,27 @@ func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func clusterEventsAcknowledge(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.NotFound(w, r)
+		return
+	}
+
+	var acknowledgeError struct {
+		ErrorID string
+	}
+	err := json.NewDecoder(r.Body).Decode(&acknowledgeError)
+	if err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	err = data.ResolveError(acknowledgeError.ErrorID)
+	if err != nil {
+		log.Println("failed to resolve error: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	w.Write([]byte("Success!"))
+}

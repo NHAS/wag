@@ -1,8 +1,6 @@
 {{define "Content"}}
 
-
 <link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
-
 
 <div class="row">
     <div class="col-sm">
@@ -51,8 +49,8 @@
                             {{range $line := .Errors}}
                             <tr>
                                 <td>{{.NodeID}} {{.FailedEventData}} {{.Error}}</td>
-                                <td> <button id="unlock" errorid="{{.ErrorID}}"
-                                        class="btn btn-danger">Acknowledge</button> </td>
+                                <td> <button class="acknowledge btn btn-danger"
+                                        errorid="{{.ErrorID}}">Acknowledge</button> </td>
                             </tr>
                             {{else}}
                             <tr>
@@ -68,6 +66,6 @@
 </div>
 
 
-
+{{staticContent "events"}}
 
 {{end}}

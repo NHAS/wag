@@ -30,7 +30,13 @@ func notificationsWS(notifications <-chan Notification) func(w http.ResponseWrit
 	servingConnections := map[string]chan<- Notification{}
 
 	go func() {
+
 		for notification := range notifications {
+
+			notificationsMapLck.Lock()
+			notificationsMap[notification.ID] = notification
+			notificationsMapLck.Unlock()
+
 			for key := range servingConnections {
 				go func(key string, notification Notification) {
 					servingConnections[key] <- notification
@@ -94,12 +100,16 @@ type Notification struct {
 }
 
 var (
-	notifications = map[string]Notification{}
+	notificationsMapLck sync.RWMutex
+	notificationsMap    = map[string]Notification{}
 )
 
 func getNotifications() []Notification {
 
-	notfs := maps.Values(notifications)
+	notificationsMapLck.RLock()
+	notfs := maps.Values(notificationsMap)
+	notificationsMapLck.RUnlock()
+
 	sort.Slice(notfs, func(i, j int) bool {
 		return notfs[i].Time.After(notfs[j].Time)
 	})
@@ -139,10 +149,11 @@ func startUpdateChecker(notifications chan<- Notification) {
 	}()
 }
 
-func recieveErrorNotifications(notifications chan<- Notification) func(key string, current, previous data.EventError, et data.EventType) error {
+func receiveErrorNotifications(notifications chan<- Notification) func(key string, current, previous data.EventError, et data.EventType) error {
 
 	return func(key string, current, previous data.EventError, et data.EventType) error {
-		if et == data.CREATED {
+		switch et {
+		case data.CREATED:
 
 			msg := Notification{
 				ID:         current.ErrorID,
@@ -155,6 +166,11 @@ func recieveErrorNotifications(notifications chan<- Notification) func(key strin
 			}
 
 			notifications <- msg
+		case data.DELETED:
+
+			notificationsMapLck.Lock()
+			delete(notificationsMap, previous.ErrorID)
+			notificationsMapLck.Unlock()
 		}
 		return nil
 	}

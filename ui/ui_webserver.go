@@ -295,6 +295,7 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes.HandleFunc("/cluster/members/control", contentType(nodeControl, JSON))
 
 		protectedRoutes.HandleFunc("/cluster/events/", clusterEventsUI)
+		protectedRoutes.HandleFunc("/cluster/events/acknowledge", clusterEventsAcknowledge)
 
 		protectedRoutes.HandleFunc("/diag/wg", wgDiagnositicsUI)
 		protectedRoutes.HandleFunc("/diag/wg/data", wgDiagnositicsData)
@@ -324,7 +325,7 @@ func StartWebServer(errs chan<- error) error {
 
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", notificationsWS(notifications))
-		data.RegisterEventListener(data.NodeErrors, true, recieveErrorNotifications(notifications))
+		data.RegisterEventListener(data.NodeErrors, true, receiveErrorNotifications(notifications))
 
 		should, err := data.ShouldCheckUpdates()
 		if err == nil && should {
