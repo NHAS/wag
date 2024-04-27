@@ -72,18 +72,21 @@
             <div class="modal-body">
                 <add-node>
                     <div id="inputForm">
+
                         <div class="form-group">
-                            <label for="newNodeName">Name:</label>
-                            <input type="text" class="form-control" id="newNodeName" name="newNodeName" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="nodeURL">ETCd Peer URL:</label>
+                            <label for="nodeURL">Peer URL:</label>
                             <input type="url" class="form-control" id="nodeURL" name="nodeURL" required>
                         </div>
 
                         <div class="form-group">
+                            <label for="newNodeName">Label:</label>
+                            <input type="text" class="form-control" id="newNodeName" name="newNodeName"
+                                placeholder="(Optional)">
+                        </div>
+
+                        <div class="form-group">
                             <label for="managerURL">Manager URL:</label>
-                            <input type="url" class="form-control" id="managerURL" name="managerURL" required
+                            <input type="url" class="form-control" id="managerURL" name="managerURL"
                                 placeholder="(Optional)">
                         </div>
 

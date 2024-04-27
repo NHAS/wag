@@ -88,10 +88,6 @@ func newNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if newNodeReq.ManagerURL == "" {
-		newNodeReq.ManagerURL = "https://localhost:4545"
-	}
-
 	token, err := data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
 	if err != nil {
 		log.Println("failed to add member: ", err)

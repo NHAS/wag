@@ -40,8 +40,8 @@ class AddNode extends HTMLElement {
 
     async submitNode() {
         let data = {
-            "NodeName": this.newNodeName.value,
             "ConnectionURL": this.nodeURL.value,
+            "NodeName": this.newNodeName.value,
             "ManagerURL": this.managerURL.value,
         }
 
@@ -56,6 +56,19 @@ class AddNode extends HTMLElement {
             })
 
             if (res.status !== 200) {
+                Toastify({
+                    text: await res.text(),
+                    position: "right",
+                    gravity: "top",
+                    offset: {
+                        y: 60,
+                        x: 10,
+                    },
+                    stopOnFocus: true,
+                    style: {
+                        background: "#db0b3c",
+                    }
+                }).showToast();
                 console.log("failed: ", await res.text())
                 return
             }

@@ -20,7 +20,6 @@ acknowledgementButtons.forEach(el => el.addEventListener('click', event => {
                 console.log("failed to acknowledge error: ", txt)
                 Toastify({
                     text: txt,
-                    className: "error",
                     position: "right",
                     gravity: "bottom",
                     stopOnFocus: true,

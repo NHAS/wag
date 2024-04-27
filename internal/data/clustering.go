@@ -99,12 +99,14 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 		return "", err
 	}
 
-	if newUrl.Port() == "" {
-		newUrl.Host = newUrl.Host + ":443"
+	// If no name is supplied, use the hostname
+	if name == "" {
+		name = newUrl.Hostname()
 	}
 
-	// Determine the listen ip address
-	listenAddr := newUrl.Hostname()
+	if newManagerAddressURL == "" {
+		newManagerAddressURL = "https://" + newUrl.Hostname() + ":4545"
+	}
 
 	if net.ParseIP(newUrl.Hostname()) == nil {
 
@@ -117,19 +119,14 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 			return "", fmt.Errorf("no addresses found for hostname: %s", newUrl.Hostname())
 		}
 
-		listenAddr = addresses[0].String()
+		newUrl.Host = addresses[0].String()
 	}
 
-	if newUrl.Port() != "" {
-		listenAddr += ":" + newUrl.Port()
-	} else {
-		listenAddr += ":443"
+	if newUrl.Port() == "" {
+		newUrl.Host = newUrl.Host + ":2380"
 	}
-	newUrl.Host = listenAddr
 
-	if newManagerAddressURL == "" {
-		newManagerAddressURL = "https://" + newUrl.Hostname() + ":4545"
-	}
+	// From this point forward the newURL will contain the IP address of the etcd cluster member
 
 	token, err := TLSManager.CreateToken(newManagerAddressURL)
 	if err != nil {
@@ -160,10 +157,16 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 	copyValues.Acls = config.Acls{}
 	copyValues.Acls.Groups = map[string][]string{}
 
+	copyValues.ManagementUI.Enabled = false
+	copyValues.ManagementUI.ListenAddress = ""
+	copyValues.ManagementUI.KeyPath = ""
+	copyValues.ManagementUI.CertPath = ""
+	copyValues.ManagementUI.Debug = false
+
 	b, _ := json.Marshal(copyValues)
 	token.SetAdditional("config.json", string(b))
 
-	_, err = etcd.MemberAddAsLearner(context.Background(), []string{etcPeerUrlAddress})
+	_, err = etcd.MemberAddAsLearner(context.Background(), []string{newUrl.String()})
 	if err != nil {
 		return "", err
 	}
