@@ -365,7 +365,11 @@ func GetDeviceByAddress(address string) (device Device, err error) {
 		return Device{}, err
 	}
 
-	if len(response.Kvs) != 1 {
+	if len(response.Kvs) == 0 {
+		return Device{}, errors.New("device was not found")
+	}
+
+	if len(response.Kvs) > 1 {
 		return Device{}, errors.New("user device has multiple keys")
 	}
 

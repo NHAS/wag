@@ -91,9 +91,9 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 
 						d, err := data.GetDeviceByAddress(ip)
 						if err != nil {
-							log.Println("unable to get previous device endpoint for ", ip, err)
+							log.Println("unable to get previous device endpoint for", ip, "err:", err)
 							if err := Deauthenticate(ip); err != nil {
-								log.Println(ip, "unable to remove forwards for device: ", err)
+								log.Println(ip, "unable to remove forwards for device:", err)
 							}
 							continue
 						}

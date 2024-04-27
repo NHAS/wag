@@ -52,12 +52,12 @@ func TestMain(m *testing.M) {
 
 func TestCreateUser(t *testing.T) {
 
-	user, err := CreateUser("fronk")
+	user, err := CreateUser("fronk1")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
 
-	if user.Username != "fronk" {
+	if user.Username != "fronk1" {
 		t.Fatal("usernames not equal")
 	}
 
@@ -82,7 +82,7 @@ func TestCreateUser(t *testing.T) {
 
 func TestAddDevice(t *testing.T) {
 
-	user, err := CreateUser("fronk")
+	user, err := CreateUser("fronk2")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -114,7 +114,7 @@ func TestAddDevice(t *testing.T) {
 
 func TestDeleteDevice(t *testing.T) {
 
-	user, err := CreateUser("fronk")
+	user, err := CreateUser("fronk3")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -150,7 +150,7 @@ func TestDeleteDevice(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 
-	user, err := CreateUser("fronk")
+	user, err := CreateUser("fronk4")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -185,19 +185,20 @@ func TestDeleteUser(t *testing.T) {
 		t.Fatal("unable to get all devices:", err)
 	}
 
-	if len(devices) != 0 {
-		t.Log(len(devices))
-		t.Log(devices)
-		t.Fatal("removed only user, should be no devices left in db")
+	for _, device := range devices {
+		if device.Username == "fronk4" {
+			t.Fatal("removed fronk4 user, but devices still exist in db for that user")
+		}
 	}
-
 	users, err := data.GetAllUsers()
 	if err != nil {
 		t.Fatal("unable to get all users:", err)
 	}
 
-	if len(users) != 0 {
-		t.Fatal("removed only user, should be no users left in db")
+	for u := range users {
+		if users[u].Username == "fronk4" {
+			t.Fatal("removed fronk4 user, but is still present in the db")
+		}
 	}
 
 }
