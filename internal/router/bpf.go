@@ -561,6 +561,7 @@ func RefreshConfiguration() []error {
 func SetInactivityTimeout(inactivityTimeoutMinutes int) error {
 	lock.Lock()
 	defer lock.Unlock()
+
 	return setInactivityTimeout(inactivityTimeoutMinutes)
 }
 

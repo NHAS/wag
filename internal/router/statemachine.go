@@ -35,12 +35,6 @@ func handleEvents(erroChan chan<- error) {
 		return
 	}
 
-	_, err = data.RegisterClusterHealthListener(clusterState(erroChan))
-	if err != nil {
-		erroChan <- err
-		return
-	}
-
 	_, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, inactivityTimeoutChanges)
 	if err != nil {
 		erroChan <- err
@@ -195,33 +189,4 @@ func groupChanges(key string, current []string, previous []string, et data.Event
 
 	}
 	return nil
-}
-
-func clusterState(errorsChan chan<- error) func(string) {
-
-	hasDied := false
-	return func(stateText string) {
-		log.Println("entered state: ", stateText)
-
-		switch stateText {
-		case "dead":
-			if !hasDied {
-				hasDied = true
-				log.Println("Cluster has entered dead state, tearing down: ", hasDied)
-				TearDown(false)
-				log.Println("cluster finished tearing down")
-			}
-		case "healthy":
-			if hasDied {
-				err := Setup(errorsChan, true)
-				if err != nil {
-					log.Println("was unable to return wag member to healthy state, dying: ", err)
-					errorsChan <- err
-					return
-				}
-
-				hasDied = false
-			}
-		}
-	}
 }

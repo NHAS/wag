@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/NHAS/wag/internal/config"
@@ -97,14 +98,86 @@ func (g *start) Check() error {
 
 }
 
+func teardown() {
+	router.TearDown(false)
+	// Tear down Unix socket
+	server.TearDown()
+
+}
+
+func clusterState(noIptables bool, errorChan chan<- error) func(string) {
+
+	// Make sure that node states are sync'd
+	var lck sync.Mutex
+	wasDead := true
+	lastState := ""
+	return func(stateText string) {
+		lck.Lock()
+		defer lck.Unlock()
+
+		if lastState != stateText {
+			log.Println("node entered state: ", stateText)
+			lastState = stateText
+		}
+
+		switch stateText {
+		case "dead":
+			if !wasDead {
+				log.Println("Tearing down node")
+
+				teardown()
+
+				log.Println("Tear down complete")
+
+				// Only teardown if we were at one point alive
+				wasDead = true
+			}
+		case "healthy":
+			if wasDead {
+
+				if !config.Values.Clustering.Witness {
+					err := router.Setup(errorChan, !noIptables)
+					if err != nil {
+						errorChan <- fmt.Errorf("unable to start router: %v", err)
+						return
+					}
+
+					err = server.StartControlSocket()
+					if err != nil {
+						errorChan <- fmt.Errorf("unable to create control socket: %v", err)
+						return
+					}
+
+					err = webserver.Start(errorChan)
+					if err != nil {
+						errorChan <- fmt.Errorf("unable to start webserver: %v", err)
+						return
+					}
+
+					err = ui.StartWebServer(errorChan)
+					if err != nil {
+						errorChan <- fmt.Errorf("unable to start management web server: %v", err)
+						return
+					}
+				}
+
+				wasDead = false
+			}
+		}
+	}
+}
+
 func (g *start) Run() error {
 
 	var err error
-	defer func() {
-		data.TearDown()
-	}()
+	defer data.TearDown()
 
 	errorChan := make(chan error)
+
+	_, err = data.RegisterClusterHealthListener(clusterState(g.noIptables, errorChan))
+	if err != nil {
+		return err
+	}
 
 	if config.Values.Clustering.Witness {
 		log.Println("this node is a witness, and will not start a wireguard device")
@@ -112,40 +185,6 @@ func (g *start) Run() error {
 
 	if data.IsLearner() {
 		log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
-	}
-
-	if !config.Values.Clustering.Witness && !data.IsLearner() {
-
-		err = router.Setup(errorChan, !g.noIptables)
-		if err != nil {
-			return fmt.Errorf("unable to start router: %v", err)
-		}
-		defer func() {
-			if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
-				router.TearDown(false)
-			}
-		}()
-
-		err = server.StartControlSocket()
-		if err != nil {
-			return fmt.Errorf("unable to create control socket: %v", err)
-		}
-		defer func() {
-
-			if !(strings.Contains(err.Error(), "listen unix") && strings.Contains(err.Error(), "address already in use")) {
-				server.TearDown()
-			}
-		}()
-
-		err = webserver.Start(errorChan)
-		if err != nil {
-			return fmt.Errorf("unable to start webserver: %v", err)
-		}
-
-		err = ui.StartWebServer(errorChan)
-		if err != nil {
-			return fmt.Errorf("unable to start management web server: %v", err)
-		}
 	}
 
 	go func() {
@@ -159,9 +198,10 @@ func (g *start) Run() error {
 			os.Exit(1)
 		}(cancel)
 
+		errorChan <- errors.New("ignore me I am signal")
+
 		log.Printf("Got signal %s gracefully exiting\n", s)
 
-		errorChan <- errors.New("ignore me I am signal")
 	}()
 
 	wagType := "Wag"
@@ -173,9 +213,10 @@ func (g *start) Run() error {
 		wagType += " Learner"
 	}
 
-	log.Printf("%s started successfully, Ctrl + C to stop", wagType)
+	log.Printf("%s starting, Ctrl + C to stop", wagType)
 
 	err = <-errorChan
+	teardown()
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err
 	}

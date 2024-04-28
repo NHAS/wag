@@ -53,6 +53,9 @@ var (
 	clusterHealthListeners = map[string]func(string){}
 
 	EventsQueue = queue.NewQueue(40)
+
+	checkState chan bool
+	exit       chan bool
 )
 
 func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
@@ -147,7 +150,7 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 
 	key, err := generateRandomBytes(16)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	clusterHealthListeners[key] = f
@@ -176,29 +179,33 @@ func checkClusterHealth() {
 	for {
 
 		select {
+
+		case <-exit:
+			notifyClusterHealthListeners("dead")
+			return
 		case <-etcdServer.Server.LeaderChangedNotify():
 			notifyHealthy()
 
 		case <-time.After(1 * time.Second):
-			if etcdServer == nil {
-				return
-			}
-
-			leader := etcdServer.Server.Leader()
-			if leader == 0 {
-				notifyClusterHealthListeners("electing")
-				<-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2)
-				leader = etcdServer.Server.Leader()
-				if leader == 0 {
-					notifyClusterHealthListeners("dead")
-				} else {
-					notifyHealthy()
-				}
-			}
+			testState()
 
 		}
 
 	}
+}
+
+func testState() {
+	if etcdServer.Server.Leader() == 0 {
+		notifyClusterHealthListeners("electing")
+		<-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2)
+		if etcdServer.Server.Leader() == 0 {
+			notifyClusterHealthListeners("dead")
+			return
+		}
+		// Intentional drop through
+	}
+
+	notifyHealthy()
 }
 
 func notifyHealthy() {
