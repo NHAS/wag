@@ -77,6 +77,8 @@ Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `regist
 ```
 Usage of start:
   Start wag server (does not daemonise)
+  -join string
+        Cluster join token
   -config string
         Configuration file location (default "./config.json")
 ```
@@ -281,6 +283,12 @@ The web interface itself cannot add administrative users.
   
 `Authenticators.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`  will default to `/etc/pam.d/login` if unset or empty  
   
+`Clustering`: Object containing the clustering details  
+`Clustering.ClusterState`: Same as the etcd cluster state setting, can be either `new`, create a new cluster, or `existing`. If you are joining an existing cluster, use `start -join` rather than this  
+`Clustering.ETCDLogLevel`: Level of logging for the embedded etcd server to emit, options `info`, `error`  
+`Clustering.Witness`: Is the node a witness node, i.e one that does not start a wireguard device, or management UI, but replicates events for the RAFT concensus  
+`Clustering.TLSManagerListenURL`: URL for generating certificates for the wag cluster, must be reachable by all nodes, typically automatically set by `start -join`  
+  
 `Wireguard`: Object that contains the wireguard device configuration  
 `Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
 `Wireguard.ListenPort`: Port that wireguard will listen on  
@@ -339,6 +347,12 @@ Full config example
             "ClientID": "account",
             "GroupsClaimName": "groups"
         }
+    },
+    "Clustering": {
+        "ClusterState": "new",
+        "ETCDLogLevel": "error",
+        "Witness": false,
+        "TLSManagerListenURL": "https://wag.server:3434"
     },
     "Wireguard": {
         "DevName": "wg0",
