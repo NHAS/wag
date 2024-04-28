@@ -1,6 +1,6 @@
 {{define "Content"}}
 
-
+<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
 
 <div class="row mb-3">
@@ -95,9 +95,13 @@
                             <button class="btn btn-primary float-right" type="submit" id="add">Add</button>
                         </div>
                     </div>
-                    <div id="result" class="fade">
+                    <div id="result" class="fade" hidden>
+                        <h4 class="text-center">Token expires in <span id="countdown">30</span> seconds</h4>
                         <code id="joinToken">
-                        </code><span id="btn-copy-token" class="btn btn-sm fs-6 btn-link text-secondary">Copy</span>
+                        </code>
+                        <div class="text-center mt-2">
+                            <span id="btn-copy-token" class="btn btn-sm btn-primary">Copy</span>
+                        </div>
                     </div>
                 </add-node>
             </div>
@@ -108,7 +112,7 @@
 {{block "deleteConfirmationModal" .}}
 {{end}}
 
-<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
 
 {{staticContent "default_table"}}
 {{staticContent "clustering"}}

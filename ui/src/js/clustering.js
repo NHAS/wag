@@ -9,12 +9,11 @@ class AddNode extends HTMLElement {
         this.inputForm = this.querySelector("#inputForm")
         this.resultForm = this.querySelector("#result")
 
-        const inputForm = this.inputForm
-        const resultForm = this.resultForm
-        this.inputForm.addEventListener("transitionend", function (e) {
-            if (e.target === this) {
-                inputForm.hidden = true
-                resultForm.classList.add("show")
+        this.inputForm.addEventListener("transitionend", (e) => {
+            if (e.target === this.inputForm) {
+                this.inputForm.hidden = true
+                this.resultForm.hidden = false
+                this.resultForm.classList.add("show")
             }
         })
 
@@ -26,12 +25,31 @@ class AddNode extends HTMLElement {
         this.addBtn = this.querySelector("#add")
         this.addBtn.addEventListener("click", () => this.submitNode())
 
+        $("#clusterAddModal").on('hidden.bs.modal', () => {
+            this.inputForm.hidden = false
+            this.resultForm.hidden = true
+
+            this.inputForm.classList.remove("fade")
+            this.resultForm.classList.remove("show")
+
+            this.newNodeName.value = ""
+            this.nodeURL.value = ""
+            this.managerURL.value = ""
+        });
 
 
         this.joinToken = this.querySelector("#joinToken")
         this.copyJoinToken = this.querySelector("#btn-copy-token")
         this.copyJoinToken.addEventListener("click", () => {
-
+            navigator.clipboard.writeText(this.joinToken.textContent);
+            Toastify({
+                text: "Copied!",
+                position: "right",
+                gravity: "bottom",
+                style: {
+                    background: "#0bb329",
+                }
+            }).showToast();
         })
 
         this.csrfToken = document.querySelector("#csrf_token").value
@@ -56,8 +74,9 @@ class AddNode extends HTMLElement {
             })
 
             if (res.status !== 200) {
+                let errText = await res.text()
                 Toastify({
-                    text: await res.text(),
+                    text: errText,
                     position: "right",
                     gravity: "top",
                     offset: {
@@ -69,7 +88,7 @@ class AddNode extends HTMLElement {
                         background: "#db0b3c",
                     }
                 }).showToast();
-                console.log("failed: ", await res.text())
+                console.log("failed: ", errText)
                 return
             }
 
@@ -80,7 +99,20 @@ class AddNode extends HTMLElement {
 
 
         } catch (err) {
-
+            console.log("failed: ", err)
+            Toastify({
+                text: err,
+                position: "right",
+                gravity: "top",
+                offset: {
+                    y: 60,
+                    x: 10,
+                },
+                stopOnFocus: true,
+                style: {
+                    background: "#db0b3c",
+                }
+            }).showToast();
         }
     }
 }
@@ -125,7 +157,21 @@ class NodeControls extends HTMLElement {
             })
 
             if (res.status !== 200) {
-                console.log("failed: ", await res.text())
+                let errText = await res.text()
+                console.log("failed: ", errText)
+                Toastify({
+                    text: errText,
+                    position: "right",
+                    gravity: "top",
+                    offset: {
+                        y: 60,
+                        x: 10,
+                    },
+                    stopOnFocus: true,
+                    style: {
+                        background: "#db0b3c",
+                    }
+                }).showToast();
                 return
             }
 
@@ -133,6 +179,19 @@ class NodeControls extends HTMLElement {
 
         } catch (err) {
             console.log("error acting on node: ", err)
+            Toastify({
+                text: err,
+                position: "right",
+                gravity: "top",
+                offset: {
+                    y: 60,
+                    x: 10,
+                },
+                stopOnFocus: true,
+                style: {
+                    background: "#db0b3c",
+                }
+            }).showToast();
         }
     }
 
