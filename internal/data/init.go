@@ -177,20 +177,24 @@ func Load(path, joinToken string, testing bool) error {
 
 	log.Println("Successfully connected to etcd")
 
-	if doMigration {
-		// This will be kept for 2 major releases with reduced support.
-		// It is a no-op if a migration has already taken place
-		err = migrateFromSql(db)
+	if !etcdServer.Server.IsLearner() {
+
+		if doMigration {
+			// This will be kept for 2 major releases with reduced support.
+			// It is a no-op if a migration has already taken place
+			err = migrateFromSql(db)
+			if err != nil {
+				return err
+			}
+		}
+
+		// This will stay, so that the config can be used to easily spin up a new wag instance.
+		// After first run this will be a no-op
+		err = loadInitialSettings()
 		if err != nil {
 			return err
 		}
-	}
 
-	// This will stay, so that the config can be used to easily spin up a new wag instance.
-	// After first run this will be a no-op
-	err = loadInitialSettings()
-	if err != nil {
-		return err
 	}
 
 	go checkClusterHealth()
@@ -459,6 +463,7 @@ func migrateFromSql(database *sql.DB) error {
 
 func TearDown() {
 	if etcdServer != nil {
+
 		etcd.Close()
 		etcdServer.Close()
 

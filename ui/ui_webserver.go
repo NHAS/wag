@@ -28,6 +28,9 @@ var (
 	WagVersion string
 
 	LogQueue = queue.NewQueue(40)
+
+	HTTPSServer *http.Server
+	HTTPServer  *http.Server
 )
 
 func renderDefaults(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
@@ -347,7 +350,7 @@ func StartWebServer(errs chan<- error) error {
 
 			go func() {
 
-				srv := &http.Server{
+				HTTPSServer = &http.Server{
 					Addr:         config.Values.ManagementUI.ListenAddress,
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
@@ -356,19 +359,24 @@ func StartWebServer(errs chan<- error) error {
 					Handler:      setSecurityHeaders(allRoutes),
 				}
 
-				errs <- fmt.Errorf("TLS management listener failed: %v", srv.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath))
+				if err := HTTPSServer.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath); err != nil && err != http.ErrServerClosed {
+					errs <- fmt.Errorf("TLS management listener failed: %v", err)
+				}
+
 			}()
 		} else {
 			go func() {
-				srv := &http.Server{
+				HTTPServer = &http.Server{
 					Addr:         config.Values.ManagementUI.ListenAddress,
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
 					Handler:      setSecurityHeaders(allRoutes),
 				}
+				if err := HTTPServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					errs <- fmt.Errorf("webserver management listener failed: %v", HTTPServer.ListenAndServe())
+				}
 
-				errs <- fmt.Errorf("webserver management listener failed: %v", srv.ListenAndServe())
 			}()
 		}
 	}()
@@ -376,6 +384,22 @@ func StartWebServer(errs chan<- error) error {
 	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values.ManagementUI.ListenAddress)
 
 	return nil
+}
+
+func Teardown() {
+
+	if HTTPServer != nil {
+		HTTPServer.Close()
+	}
+
+	if HTTPSServer != nil {
+		HTTPSServer.Close()
+	}
+
+	if config.Values.ManagementUI.Enabled {
+		log.Println("Stopped MFA portal")
+	}
+
 }
 
 func changePassword(w http.ResponseWriter, r *http.Request) {

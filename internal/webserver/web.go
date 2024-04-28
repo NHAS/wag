@@ -30,6 +30,35 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var (
+	tunnelHTTPServ *http.Server
+	tunnelTLSServ  *http.Server
+
+	publicHTTPServ *http.Server
+	publicTLSServ  *http.Server
+)
+
+func Teardown() {
+
+	if tunnelHTTPServ != nil {
+		tunnelHTTPServ.Close()
+	}
+
+	if tunnelTLSServ != nil {
+		tunnelTLSServ.Close()
+	}
+
+	if publicHTTPServ != nil {
+		publicHTTPServ.Close()
+	}
+
+	if publicTLSServ != nil {
+		publicTLSServ.Close()
+	}
+
+	log.Println("Stopped MFA portal")
+}
+
 func Start(errChan chan<- error) error {
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
@@ -61,7 +90,7 @@ func Start(errChan chan<- error) error {
 
 		go func() {
 
-			srv := &http.Server{
+			publicTLSServ = &http.Server{
 				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -70,7 +99,9 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			errChan <- fmt.Errorf("TLS webserver public listener failed: %v", srv.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath))
+			if err := publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && err != http.ErrServerClosed {
+				errChan <- fmt.Errorf("TLS webserver public listener failed: %v", err)
+			}
 		}()
 
 		if config.Values.NumberProxies == 0 {
@@ -79,7 +110,7 @@ func Start(errChan chan<- error) error {
 				address, port, err := net.SplitHostPort(config.Values.Webserver.Public.ListenAddress)
 
 				if err != nil {
-					errChan <- fmt.Errorf("Malformed listen address for public listener: %v", err)
+					errChan <- fmt.Errorf("malformed listen address for public listener: %v", err)
 					return
 				}
 
@@ -89,7 +120,7 @@ func Start(errChan chan<- error) error {
 					port = ""
 				}
 
-				srv := &http.Server{
+				publicHTTPServ = &http.Server{
 					Addr:         address + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
@@ -97,13 +128,13 @@ func Start(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				log.Printf("Creating redirection from 80/tcp to TLS webserver public listener failed: %v", srv.ListenAndServe())
+				log.Printf("Creating redirection from 80/tcp to TLS webserver public listener failed: %v", publicHTTPServ.ListenAndServe())
 			}()
 		}
 
 	} else {
 		go func() {
-			srv := &http.Server{
+			publicHTTPServ = &http.Server{
 				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -111,7 +142,9 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			errChan <- fmt.Errorf("webserver public listener failed: %v", srv.ListenAndServe())
+			if err := publicHTTPServ.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errChan <- fmt.Errorf("HTTP webserver public listener failed: %v", err)
+			}
 		}()
 	}
 
@@ -153,7 +186,7 @@ func Start(errChan chan<- error) error {
 
 		go func() {
 
-			srv := &http.Server{
+			tunnelTLSServ = &http.Server{
 				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -161,8 +194,10 @@ func Start(errChan chan<- error) error {
 				TLSConfig:    tlsConfig,
 				Handler:      setSecurityHeaders(tunnel),
 			}
+			if err := tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && err != http.ErrServerClosed {
+				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
+			}
 
-			errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", srv.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath))
 		}()
 
 		if config.Values.NumberProxies == 0 {
@@ -173,7 +208,7 @@ func Start(errChan chan<- error) error {
 					port = ""
 				}
 
-				srv := &http.Server{
+				tunnelHTTPServ = &http.Server{
 					Addr:         config.Values.Wireguard.ServerAddress.String() + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
@@ -181,12 +216,12 @@ func Start(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", srv.ListenAndServe())
+				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", tunnelHTTPServ.ListenAndServe())
 			}()
 		}
 	} else {
 		go func() {
-			srv := &http.Server{
+			tunnelHTTPServ = &http.Server{
 				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -194,7 +229,10 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			errChan <- fmt.Errorf("webserver tunnel listener failed: %v", srv.ListenAndServe())
+			if err := tunnelHTTPServ.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				errChan <- fmt.Errorf("webserver tunnel listener failed: %v", err)
+			}
+
 		}()
 	}
 

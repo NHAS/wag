@@ -98,10 +98,13 @@ func (g *start) Check() error {
 
 }
 
-func teardown() {
-	router.TearDown(false)
+func teardown(force bool) {
+	router.TearDown(force)
 	// Tear down Unix socket
 	server.TearDown()
+
+	ui.Teardown()
+	webserver.Teardown()
 
 }
 
@@ -125,7 +128,7 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 			if !wasDead {
 				log.Println("Tearing down node")
 
-				teardown()
+				teardown(false)
 
 				log.Println("Tear down complete")
 
@@ -216,7 +219,9 @@ func (g *start) Run() error {
 	log.Printf("%s starting, Ctrl + C to stop", wagType)
 
 	err = <-errorChan
-	teardown()
+
+	teardown(true)
+
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err
 	}

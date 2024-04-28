@@ -53,9 +53,6 @@ var (
 	clusterHealthListeners = map[string]func(string){}
 
 	EventsQueue = queue.NewQueue(40)
-
-	checkState chan bool
-	exit       chan bool
 )
 
 func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
@@ -179,10 +176,6 @@ func checkClusterHealth() {
 	for {
 
 		select {
-
-		case <-exit:
-			notifyClusterHealthListeners("dead")
-			return
 		case <-etcdServer.Server.LeaderChangedNotify():
 			notifyHealthy()
 

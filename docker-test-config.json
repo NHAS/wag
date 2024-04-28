@@ -51,10 +51,10 @@
     },
     "Clustering": {
         "ClusterState": "new",
+        "ETCDLogLevel": "error",
         "ListenAddresses": [
             "https://172.20.0.3:2380"
         ],
-        "ETCDLogLevel": "info",
         "TLSManagerListenURL": "https://container2:3434"
     },
     "DatabaseLocation": "devices.db",
