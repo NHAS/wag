@@ -1,8 +1,21 @@
 # Wag
 
-Wag adds 2fa and device enrolment to wireguard.    
+Wag adds MFA, route restriction and device enrolment to wireguard.    
 
-It allows you to restrict routes based on 2fa, while allowing other routes to remain public as long as a client has a valid public key.  
+Key Features:
+- Define routes which require MFA authorisation, or public always accessible routes
+- Easy API for registering new clients
+- High Availability
+- Multiple MFA options, including webauthn, oidc and more
+
+![image](https://github.com/NHAS/wag/assets/6820641/3a2b2dd9-15af-40c4-bb81-3e479d48425a)
+
+![image](https://github.com/NHAS/wag/assets/6820641/89976794-10af-493a-b8c4-3d02f50417ce)
+
+![image](https://github.com/NHAS/wag/assets/6820641/83cae3c0-bb19-4aa0-846f-c045387a0910)
+
+![image](https://github.com/NHAS/wag/assets/6820641/ff237473-d522-451e-8529-92bd111d4b96)
+
 
 # Sponsorship 
 
