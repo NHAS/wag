@@ -94,12 +94,12 @@ func (g *registration) Check() error {
 	switch g.action {
 	case "add":
 		if g.username == "" {
-			return errors.New("Username must be supplied")
+			return errors.New("username must be supplied")
 		}
 
 	case "del":
 		if g.token == "" && g.username == "" {
-			return errors.New("Token or username must be supplied")
+			return errors.New("token or username must be supplied")
 		}
 	case "list":
 	default:

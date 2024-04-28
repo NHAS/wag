@@ -54,24 +54,24 @@ func setupWireguard(devices []data.Device) error {
 
 		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to connect to netlink: err: %s", err)
 		}
 		defer conn.Close()
 
 		ip, network, err := net.ParseCIDR(config.Values.Wireguard.Address)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse wireguard address: err: %s", err)
 		}
 		network.IP = ip.To4()[:4] // Stop netlink freaking out at a ipv6 length ipv4 address
 
 		err = addWg(conn, config.Values.Wireguard.DevName, *network, config.Values.Wireguard.MTU)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create wireguard device: err: %s", err)
 		}
 
 		key, err := wgtypes.ParseKey(config.Values.Wireguard.PrivateKey)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse wireguard private key: err: %s", err)
 		}
 		c.PrivateKey = &key
 
@@ -108,12 +108,12 @@ func setupWireguard(devices []data.Device) error {
 	var err error
 	ctrl, err = wgctrl.New()
 	if err != nil {
-		return fmt.Errorf("cannot start wireguard control %v", err)
+		return fmt.Errorf("cannot start wireguard control: err: %s", err)
 	}
 
 	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
-		return fmt.Errorf("cannot configure wireguard device %v", err)
+		return fmt.Errorf("cannot configure wireguard device: err: %s", err)
 
 	}
 

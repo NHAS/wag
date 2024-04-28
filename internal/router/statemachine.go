@@ -209,6 +209,7 @@ func clusterState(errorsChan chan<- error) func(string) {
 				hasDied = true
 				log.Println("Cluster has entered dead state, tearing down: ", hasDied)
 				TearDown(false)
+				log.Println("cluster finished tearing down")
 			}
 		case "healthy":
 			if hasDied {
