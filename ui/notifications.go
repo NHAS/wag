@@ -188,7 +188,7 @@ func monitorNumberOfClusterMembers(notifications chan<- Notification) {
 				ID:      "monitor_node_number",
 				Heading: "Unsafe Cluster Size!",
 				Message: []string{"A wag cluster of two nodes doubles the risk of cluster failure.",
-					"If either node failes the whole cluster will become unrecoverable.",
+					"If either node fails the whole cluster will become unrecoverable.",
 					"It is recommended to add another node."},
 				Url:        "/cluster/members",
 				Time:       time.Now(),
