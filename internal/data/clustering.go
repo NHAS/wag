@@ -13,6 +13,7 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"go.etcd.io/etcd/client/pkg/v3/types"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
@@ -192,6 +193,12 @@ func RemoveMember(idHex string) error {
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
+	}
+
+	// Clear any node metadata
+	_, err = etcd.Delete(context.Background(), path.Join(NodeEvents, idHex), clientv3.WithPrefix())
+	if err != nil {
+		return err
 	}
 
 	_, err = etcd.MemberRemove(context.Background(), id)

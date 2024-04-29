@@ -10,6 +10,13 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
+type MembershipDTO struct {
+	*membership.Member
+	IsDrained bool
+
+	Status string
+}
+
 func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.NotFound(w, r)
@@ -24,10 +31,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 
 	d := struct {
 		Page
-		Members []struct {
-			*membership.Member
-			IsDrained bool
-		}
+		Members     []MembershipDTO
 		Leader      types.ID
 		CurrentNode string
 	}{
@@ -54,12 +58,17 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		d.Members = append(d.Members, struct {
-			*membership.Member
-			IsDrained bool
-		}{
+		status := "healthy" // full liveness
+		if drained {
+			status = "drained"
+		} else if members[i].Name == "" {
+			status = "connecting..."
+		}
+
+		d.Members = append(d.Members, MembershipDTO{
 			Member:    members[i],
 			IsDrained: drained,
+			Status:    status,
 		})
 
 	}

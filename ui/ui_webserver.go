@@ -77,6 +77,7 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 		"notifications": func() []Notification {
 			return getNotifications()
 		},
+		"mod": func(i, j int) bool { return i%j == 0 },
 	}
 
 	if !config.Values.ManagementUI.Debug {
@@ -329,6 +330,7 @@ func StartWebServer(errs chan<- error) error {
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", notificationsWS(notifications))
 		data.RegisterEventListener(data.NodeErrors, true, receiveErrorNotifications(notifications))
+		go monitorNumberOfClusterMembers(notifications)
 
 		should, err := data.ShouldCheckUpdates()
 		if err == nil && should {

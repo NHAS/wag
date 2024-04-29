@@ -35,6 +35,8 @@ class AddNode extends HTMLElement {
             this.newNodeName.value = ""
             this.nodeURL.value = ""
             this.managerURL.value = ""
+
+            window.location.reload()
         });
 
 
@@ -128,14 +130,19 @@ class NodeControls extends HTMLElement {
     connectedCallback() {
         this.promteBtn = this.querySelector("#promote")
         this.drainBtn = this.querySelector("#drain")
-        this.removeBtn = this.querySelector("#remove")
+        this.removeBtn = this.parentNode.querySelector("#remove")
 
         this.csrfToken = document.querySelector("#csrf_token").value
         this.ourNode = this.getAttribute("node")
 
-        this.promteBtn.addEventListener("click", () => this.nodeAction("promote"))
+        if (this.promteBtn) {
+            this.promteBtn.addEventListener("click", () => this.nodeAction("promote"))
+        }
+
+        if (this.removeBtn) {
+            this.removeBtn.addEventListener("click", () => this.nodeAction("remove"))
+        }
         this.drainBtn.addEventListener("click", (e) => this.nodeAction(e.target.getAttribute("action")))
-        this.removeBtn.addEventListener("click", () => this.nodeAction("remove"))
     }
 
 

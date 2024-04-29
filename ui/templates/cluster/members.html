@@ -10,53 +10,92 @@
         </a>
     </div>
 </div>
+<div class="row">
 
-{{range .Members}}
-<div class="row mb-3">
-    <div class="col">
-        <div class="card shadow mb-2">
-            <div class="card-header py-3 d-flex justify-content-between">
+    {{range $index, $val := .Members}}
+    <div class="col fit-content">
+        <div class='card border-left-{{if (eq .Status "healthy")}}success{{else}}warning{{end}} shadow mb-2'>
+            <div class="card-body">
 
-                <div class="row align-items-center">
-                    <div class="col">
-                        <h2 class="text-gray-900">{{.Name}}</h2>
-                    </div>
-                    <div class="col">
-                        {{.ID}}{{if eq .ID.String $.ServerID}}{{end}}
-                    </div>
-                    <div class="col">
-                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else if
-                        .IsDrained}}Drained{{else}}Member{{end}}
-                    </div>
+                <div class="card-title ">
 
-                </div>
-                <div>
-                    <node-control node="{{.ID.String}}" class="row">
-                        <div class="col d-flex justify-content-center">
-                            <a class="btn {{if .IsLearner}}btn-success{{else}}btn-secondary disabled{{end}}" href="#"
-                                id="promote">
-                                Promote
-                            </a>
+                    <div class="row">
+                        <div class="col-10">
+                            <h5 class="font-weight-bold text-truncate">{{if
+                                .Name}}{{.Name}}{{else}}Connecting...{{end}}{{if
+                                eq .ID.String
+                                $.ServerID}} (current node){{end}}</h5>
                         </div>
-                        <div class="col d-flex justify-content-center">
-                            <a class="btn btn-{{if .IsDrained}}success{{else}}warning{{end}}" href="#" id="drain"
+                        <div class="col text-right font-weight-bold ">{{if ne .ID.String $.ServerID}}<i
+                                class="icon-trash" role=button id="remove" node=""></i>{{end}}</div>
+                    </div>
+                </div>
+
+                <div class="row mb-1">
+                    <div class="col-4">
+                        ID:
+                    </div>
+                    <div class="col text-left">
+                        {{.ID}}
+                    </div>
+                </div>
+                <div class="row mb-1">
+                    <div class="col-4">
+                        Role:
+                    </div>
+                    <div class="col">
+                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else}}Member{{end}}
+                    </div>
+                </div>
+                <div class="row mb-1">
+                    <div class="col-4">
+                        Status:
+                    </div>
+                    <div class="col">
+                        {{.Status}}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-4">
+                        Address{{if gt (len .PeerURLs) 1}}es{{end}}:
+                    </div>
+                    <div class="col">
+                        <p class="text-truncate">{{range .PeerURLs}}{{.}}{{end}}</p>
+                    </div>
+                </div>
+
+                <node-control node="{{.ID.String}}" class="row mt-2">
+                    <div class="col">
+                        <div row="row">
+                            {{if .IsLearner}}
+                            <a class="btn btn-info" href="#" id="promote">
+                                <i class="icon-arrow-up"></i> Promote
+                            </a>
+                            {{end}}
+
+
+                            <a class="btn btn-{{if .IsDrained}}warning{{else}}info{{end}}" href="#" id="drain"
                                 action="{{if .IsDrained}}restore{{else}}drain{{end}}">
-                                {{if .IsDrained}}Restore{{else}}Drain{{end}}
+                                {{if .IsDrained}}<i class="icon-play3"></i> Restore{{else}}<i class="icon-pause2"></i>
+                                Drain{{end}}
                             </a>
-                        </div>
 
-                        <div class="col d-flex justify-content-center">
-                            <a class="btn btn-danger" href="#" id="remove">
-                                Remove
-                            </a>
+
+
                         </div>
-                    </node-control>
-                </div>
+                    </div>
+                </node-control>
+
             </div>
         </div>
     </div>
+
+    {{if and (mod $index 3) (ne $index 0) }}
+    <div class="w-100"></div>
+    {{end}}
+
+    {{end}}
 </div>
-{{end}}
 
 <!-- Cluster add modal-->
 <div class="modal fade" id="clusterAddModal" tabindex="-1" role="dialog" aria-labelledby="clusterAddModalLabel"

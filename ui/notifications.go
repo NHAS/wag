@@ -34,6 +34,11 @@ func notificationsWS(notifications <-chan Notification) func(w http.ResponseWrit
 		for notification := range notifications {
 
 			notificationsMapLck.Lock()
+			// If we've already sent a notifcation about it, dont send another
+			if _, ok := notificationsMap[notification.ID]; ok {
+				notificationsMapLck.Unlock()
+				continue
+			}
 			notificationsMap[notification.ID] = notification
 			notificationsMapLck.Unlock()
 
@@ -173,5 +178,25 @@ func receiveErrorNotifications(notifications chan<- Notification) func(key strin
 			notificationsMapLck.Unlock()
 		}
 		return nil
+	}
+}
+
+func monitorNumberOfClusterMembers(notifications chan<- Notification) {
+	for {
+		if len(data.GetMembers()) == 2 {
+			notifications <- Notification{
+				ID:      "monitor_node_number",
+				Heading: "Unsafe Cluster Size!",
+				Message: []string{"A wag cluster of two nodes doubles the risk of cluster failure.",
+					"If either node failes the whole cluster will become unrecoverable.",
+					"It is recommended to add another node."},
+				Url:        "/cluster/members",
+				Time:       time.Now(),
+				OpenNewTab: false,
+				Color:      "#db0b3c",
+			}
+
+		}
+		time.Sleep(30 * time.Second)
 	}
 }

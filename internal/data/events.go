@@ -230,14 +230,14 @@ func RaiseError(idHex string, raisedError error, value []byte) (err error) {
 	}
 
 	eventErrorBytes, _ := json.Marshal(ee)
-	_, err = etcd.Put(context.Background(), path.Join(NodeEvents, "errors", ee.ErrorID), string(eventErrorBytes))
+	_, err = etcd.Put(context.Background(), path.Join(NodeErrors, ee.ErrorID), string(eventErrorBytes))
 
 	return err
 
 }
 
 func GetAllErrors() (ret []EventError, err error) {
-	response, err := etcd.Get(context.Background(), path.Join(NodeEvents, "errors"), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), path.Join(NodeErrors), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -256,6 +256,6 @@ func GetAllErrors() (ret []EventError, err error) {
 }
 
 func ResolveError(errorId string) error {
-	_, err := etcd.Delete(context.Background(), path.Join(NodeEvents, "errors", errorId))
+	_, err := etcd.Delete(context.Background(), path.Join(NodeErrors, errorId))
 	return err
 }
