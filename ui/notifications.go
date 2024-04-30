@@ -112,7 +112,28 @@ var (
 func getNotifications() []Notification {
 
 	notificationsMapLck.RLock()
+
+	// Make sure we have any historic errors on display as a notification
+	errs, err := data.GetAllErrors()
+	if err == nil {
+		for _, e := range errs {
+			if _, ok := notificationsMap[e.ErrorID]; !ok {
+				notificationsMap[e.ErrorID] = Notification{
+					ID:         e.ErrorID,
+					Heading:    "Node Error",
+					Message:    []string{"Node " + e.NodeID, e.Error},
+					Url:        "/cluster/events/",
+					Time:       e.Time,
+					OpenNewTab: false,
+					Color:      "#db0b3c",
+				}
+
+			}
+		}
+	}
+
 	notfs := maps.Values(notificationsMap)
+
 	notificationsMapLck.RUnlock()
 
 	sort.Slice(notfs, func(i, j int) bool {
@@ -165,7 +186,7 @@ func receiveErrorNotifications(notifications chan<- Notification) func(key strin
 				Heading:    "Node Error",
 				Message:    []string{"Node " + current.NodeID, current.Error},
 				Url:        "/cluster/events/",
-				Time:       time.Now(),
+				Time:       current.Time,
 				OpenNewTab: false,
 				Color:      "#db0b3c",
 			}

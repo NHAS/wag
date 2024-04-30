@@ -214,6 +214,7 @@ type EventError struct {
 	ErrorID         string
 	FailedEventData []byte
 	Error           string
+	Time            time.Time
 }
 
 func RaiseError(idHex string, raisedError error, value []byte) (err error) {
@@ -222,6 +223,7 @@ func RaiseError(idHex string, raisedError error, value []byte) (err error) {
 		NodeID:          idHex,
 		FailedEventData: value,
 		Error:           raisedError.Error(),
+		Time:            time.Now(),
 	}
 
 	ee.ErrorID, err = generateRandomBytes(16)
