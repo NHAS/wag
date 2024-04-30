@@ -276,21 +276,25 @@ func StartWebServer(errs chan<- error) error {
 		allRoutes.Handle("/fonts/", static)
 		allRoutes.Handle("/vendor/", static)
 
-		allRoutes.Handle("/", sessionManager.AuthorisationChecks(protectedRoutes, "/login", func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
-
-			key, _ := sessionManager.GetSessionFromRequest(r)
-
-			d, err := data.GetAdminUser(dAdmin.Username)
-			if err != nil {
-				sessionManager.DeleteSession(w, r)
+		allRoutes.Handle("/", sessionManager.AuthorisationChecks(protectedRoutes,
+			func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-				return false
-			}
+			},
+			func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
 
-			sessionManager.UpdateSession(key, d)
+				key, _ := sessionManager.GetSessionFromRequest(r)
 
-			return true
-		}))
+				d, err := data.GetAdminUser(dAdmin.Username)
+				if err != nil {
+					sessionManager.DeleteSession(w, r)
+					http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+					return false
+				}
+
+				sessionManager.UpdateSession(key, d)
+
+				return true
+			}))
 
 		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
 
