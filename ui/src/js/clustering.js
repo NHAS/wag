@@ -131,6 +131,8 @@ class NodeControls extends HTMLElement {
         this.promteBtn = this.querySelector("#promote")
         this.drainBtn = this.querySelector("#drain")
         this.removeBtn = this.parentNode.querySelector("#remove")
+        this.stepDownBtn = this.querySelector("#stepdown")
+
 
         this.csrfToken = document.querySelector("#csrf_token").value
         this.ourNode = this.getAttribute("node")
@@ -142,6 +144,11 @@ class NodeControls extends HTMLElement {
         if (this.removeBtn) {
             this.removeBtn.addEventListener("click", () => this.nodeAction("remove"))
         }
+
+        if (this.stepDownBtn) {
+            this.stepDownBtn.addEventListener("click", () => this.nodeAction("stepdown"))
+        }
+
         this.drainBtn.addEventListener("click", (e) => this.nodeAction(e.target.getAttribute("action")))
     }
 

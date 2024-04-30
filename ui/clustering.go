@@ -61,7 +61,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		status := "healthy" // full liveness
 		if drained {
 			status = "drained"
-		} else if members[i].IsStarted() {
+		} else if !members[i].IsStarted() {
 			status = "connecting..."
 		} else if members[i].IsLearner {
 			status = "learner"
@@ -149,7 +149,14 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
+	case "stepdown":
+		log.Println("node instructed to step down from leadership")
+		err = data.StepDown()
+		if err != nil {
+			log.Println("failed to step down from leadership makenode: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	case "remove":
 
 		log.Println("attempting to remove node ", ncR.Node)

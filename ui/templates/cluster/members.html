@@ -67,21 +67,24 @@
                 <node-control node="{{.ID.String}}" class="row mt-2">
                     <div class="col">
                         <div row="row">
+
                             {{if .IsLearner}}
                             <a class="btn btn-info" href="#" id="promote">
                                 <i class="icon-arrow-up"></i> Promote
                             </a>
                             {{end}}
 
+                            {{if eq .ID $.Leader}}
+                            <a class="btn btn-info" href="#" id="stepdown">
+                                <i class="icon-arrow-down"></i> Step Down
+                            </a>
+                            {{end}}
 
                             <a class="btn btn-{{if .IsDrained}}warning{{else}}info{{end}}" href="#" id="drain"
                                 action="{{if .IsDrained}}restore{{else}}drain{{end}}">
                                 {{if .IsDrained}}<i class="icon-play3"></i> Restore{{else}}<i class="icon-pause2"></i>
                                 Drain{{end}}
                             </a>
-
-
-
                         </div>
                     </div>
                 </node-control>

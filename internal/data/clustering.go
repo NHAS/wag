@@ -52,6 +52,11 @@ func IsLeader() bool {
 	return etcdServer.Server.Leader() == etcdServer.Server.ID()
 }
 
+// Called on a leader node, to transfer ownership to another node (demoted)
+func StepDown() error {
+	return etcdServer.Server.TransferLeadership()
+}
+
 func GetMembers() []*membership.Member {
 	return etcdServer.Server.Cluster().Members()
 }
