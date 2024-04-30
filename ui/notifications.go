@@ -196,6 +196,10 @@ func monitorNumberOfClusterMembers(notifications chan<- Notification) {
 				Color:      "#db0b3c",
 			}
 
+		} else {
+			notificationsMapLck.Lock()
+			delete(notificationsMap, "monitor_node_number")
+			notificationsMapLck.Unlock()
 		}
 		time.Sleep(30 * time.Second)
 	}
