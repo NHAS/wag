@@ -130,7 +130,7 @@ class NodeControls extends HTMLElement {
     connectedCallback() {
         this.promteBtn = this.querySelector("#promote")
         this.drainBtn = this.querySelector("#drain")
-        this.removeBtn = this.parentNode.querySelector("#remove")
+        this.removeBtn = this.parentNode.querySelector("#removeNode")
         this.stepDownBtn = this.querySelector("#stepdown")
 
 
@@ -142,7 +142,13 @@ class NodeControls extends HTMLElement {
         }
 
         if (this.removeBtn) {
-            this.removeBtn.addEventListener("click", () => this.nodeAction("remove"))
+            this.removeBtn.addEventListener("click", () => {
+                // #remove is provided by the deletion confirmation modal
+                document.querySelector("#remove").addEventListener("click", (e) => {
+                    this.nodeAction("remove")
+                })
+            })
+
         }
 
         if (this.stepDownBtn) {

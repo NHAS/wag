@@ -27,7 +27,8 @@
                                 $.ServerID}} (current node){{end}}</h5>
                         </div>
                         <div class="col text-right font-weight-bold ">{{if ne .ID.String $.ServerID}}<i
-                                class="icon-trash" role=button id="remove" node=""></i>{{end}}</div>
+                                class="icon-trash" id="removeNode" role=button data-toggle='modal'
+                                data-target='#deleteModal' node="{{.ID}}"></i>{{end}}</div>
                     </div>
                 </div>
 
