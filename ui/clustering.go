@@ -61,8 +61,10 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		status := "healthy" // full liveness
 		if drained {
 			status = "drained"
-		} else if members[i].Name == "" {
+		} else if members[i].IsStarted() {
 			status = "connecting..."
+		} else if members[i].IsLearner {
+			status = "learner"
 		}
 
 		d.Members = append(d.Members, MembershipDTO{
