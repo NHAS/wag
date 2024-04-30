@@ -3,68 +3,61 @@
 <link href="/vendor/bootstrap-table/css/bootstrap-table.min.css" rel="stylesheet">
 
 <div class="row">
-    <div class="col-sm">
+    <div class="col{{if .Errors}}-8{{end}}">
         <div class="card shadow mb-4">
-            <div class="card-header py-3">
+            <div class="card-header">
                 <h1 class="m-0 text-gray-900">Events</h1>
-                <div class="d-sm-flex justify-content-between">
-                    <p>
-                        Cluster events, records the last 40 cluster events
-                    </p>
-                </div>
+                <p class="mt-2">Cluster events, records the last 40 cluster events</p>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table">
-                        <tbody>
-                            {{range $line := .EventLog}}
-                            <tr>
-                                <td>{{$line}}</td>
-                            </tr>
-                            {{else}}
-                            <tr>
-                                <td>No Recent Events</td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </div>
+                <code>
+                    {{range $line := .EventLog}}
+                        {{$line}}<br>
+                    {{else}}
+                        No Recent Events
+                    {{end}}
+                </code>
             </div>
         </div>
     </div>
+
+
+    {{if .Errors}}
     <div class="col-sm">
-
-
+        {{range .Errors}}
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h1 class="m-0 text-gray-900">Errors</h1>
-                <div class="d-sm-flex justify-content-between">
-                    <p>
-                        Errors reported by cluster members.
-                    </p>
-                </div>
+                <h5 class="m-0 text-gray-900">{{.NodeID}}</h5>
+                <p>{{if .Time}}{{.Time.Format "02 Jan 06 15:04 MST"}}{{end}}</p>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table">
-                        <tbody>
-                            {{range $line := .Errors}}
-                            <tr>
-                                <td>{{.NodeID}} {{.FailedEventData}} {{.Error}}</td>
-                                <td> <button class="acknowledge btn btn-danger"
-                                        errorid="{{.ErrorID}}">Acknowledge</button> </td>
-                            </tr>
-                            {{else}}
-                            <tr>
-                                <td>No Errors</td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
+                <div class="row">
+                    <div class="col-3">
+                        Error:
+                    </div>
+                    <div class="col">
+                        <code>{{.Error}}</code>
+                    </div>
                 </div>
+                <div class="row">
+                    <div class="col-3">
+                        Event Data:
+                    </div>
+                    <div class="col">
+                        <code>{{.FailedEventData}}</code>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-sm">
+                        <button class="acknowledge btn btn-danger" errorid="{{.ErrorID}}">Acknowledge</button>
+                    </div>
+                </div>
+
             </div>
         </div>
+        {{end}}
     </div>
+    {{end}}
 </div>
 
 

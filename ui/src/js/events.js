@@ -33,7 +33,7 @@ acknowledgementButtons.forEach(el => el.addEventListener('click', event => {
 
 
         response.text().then(txt => {
-            event.target.parentNode.parentNode.remove()
+            window.location.reload()
 
             Toastify({
                 text: txt,
