@@ -334,7 +334,7 @@ func StartWebServer(errs chan<- error) error {
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", notificationsWS(notifications))
 		data.RegisterEventListener(data.NodeErrors, true, receiveErrorNotifications(notifications))
-		go monitorNumberOfClusterMembers(notifications)
+		go monitorClusterMembers(notifications)
 
 		should, err := data.ShouldCheckUpdates()
 		if err == nil && should {

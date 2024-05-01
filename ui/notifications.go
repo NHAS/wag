@@ -202,9 +202,10 @@ func receiveErrorNotifications(notifications chan<- Notification) func(key strin
 	}
 }
 
-func monitorNumberOfClusterMembers(notifications chan<- Notification) {
+func monitorClusterMembers(notifications chan<- Notification) {
 	for {
-		if len(data.GetMembers()) == 2 {
+		currentMembers := data.GetMembers()
+		if len(currentMembers) == 2 {
 			notifications <- Notification{
 				ID:      "monitor_node_number",
 				Heading: "Unsafe Cluster Size!",
@@ -222,6 +223,51 @@ func monitorNumberOfClusterMembers(notifications chan<- Notification) {
 			delete(notificationsMap, "monitor_node_number")
 			notificationsMapLck.Unlock()
 		}
-		time.Sleep(30 * time.Second)
+
+		for i := range currentMembers {
+
+			lastPing, err := data.GetLastPing(currentMembers[i].ID.String())
+			if err != nil {
+				continue
+			}
+
+			if lastPing.Before(time.Now().Add(-14 * time.Second)) {
+
+				notificationsMapLck.Lock()
+				delete(notificationsMap, "node_degrading_"+currentMembers[i].ID.String())
+				notificationsMapLck.Unlock()
+
+				notifications <- Notification{
+					ID:         "node_dead_" + currentMembers[i].ID.String(),
+					Heading:    "Node " + currentMembers[i].ID.String() + " dead",
+					Message:    []string{currentMembers[i].ID.String() + " has not sent ping in 15 seconds and is assumed dead"},
+					Url:        "/cluster/members",
+					Time:       time.Now(),
+					OpenNewTab: false,
+					Color:      "#db0b3c",
+				}
+
+			} else if lastPing.Before(time.Now().Add(-6 * time.Second)) {
+				notifications <- Notification{
+					ID:         "node_degrading_" + currentMembers[i].ID.String(),
+					Heading:    "Node " + currentMembers[i].ID.String() + " degraded",
+					Message:    []string{currentMembers[i].ID.String() + " has exceeded expected liveness ping (5 seconds)"},
+					Url:        "/cluster/members",
+					Time:       time.Now(),
+					OpenNewTab: false,
+					Color:      "#ff5f15",
+				}
+
+			} else {
+				// Node is alive
+				notificationsMapLck.Lock()
+				delete(notificationsMap, "node_degrading_"+currentMembers[i].ID.String())
+				delete(notificationsMap, "node_dead_"+currentMembers[i].ID.String())
+				notificationsMapLck.Unlock()
+			}
+
+		}
+
+		time.Sleep(15 * time.Second)
 	}
 }
