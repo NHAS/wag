@@ -14,7 +14,8 @@
 
     {{range $index, $val := .Members}}
     <div class="col fit-content">
-        <div class='card border-left-{{if (eq .Status "healthy")}}success{{else}}warning{{end}} shadow mb-2'>
+        <div
+            class='card border-left-{{if (eq .Status "healthy")}}success{{else if (eq .Status "dead")}}danger{{else}}warning{{end}} shadow mb-2'>
             <div class="card-body">
 
                 <div class="card-title ">
@@ -54,6 +55,14 @@
                     </div>
                     <div class="col">
                         {{.Status}}
+                    </div>
+                </div>
+                <div class="row mb-1">
+                    <div class="col-4">
+                        Last Ping:
+                    </div>
+                    <div class="col">
+                        {{if .Ping}}{{.Ping}}{{else}}N/A{{end}}
                     </div>
                 </div>
                 <div class="row mt-2">

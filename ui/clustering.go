@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/NHAS/wag/internal/data"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -14,6 +15,7 @@ type MembershipDTO struct {
 	*membership.Member
 	IsDrained bool
 
+	Ping   string
 	Status string
 }
 
@@ -62,15 +64,36 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		if drained {
 			status = "drained"
 		} else if !members[i].IsStarted() {
-			status = "connecting..."
+			status = "wait for first connection..."
 		} else if members[i].IsLearner {
 			status = "learner"
+		}
+
+		ping := ""
+		if status != "learner" {
+			lastPing, err := data.GetLastPing(members[i].ID.String())
+			if err != nil {
+				log.Println("unable to fetch last ping: ", err)
+				status = "no last ping"
+			} else {
+
+				if lastPing.Before(time.Now().Add(-6 * time.Second)) {
+					status += "(lagging ping)"
+				}
+
+				if lastPing.Before(time.Now().Add(-14 * time.Second)) {
+					status = "dead"
+				}
+
+				ping = lastPing.Format(time.RFC822)
+			}
 		}
 
 		d.Members = append(d.Members, MembershipDTO{
 			Member:    members[i],
 			IsDrained: drained,
 			Status:    status,
+			Ping:      ping,
 		})
 
 	}

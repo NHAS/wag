@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/internal/config"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -58,7 +59,39 @@ func StepDown() error {
 }
 
 func GetMembers() []*membership.Member {
+
 	return etcdServer.Server.Cluster().Members()
+}
+
+func GetLastPing(idHex string) (time.Time, error) {
+	id, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if etcdServer.Server.Cluster().Member(types.ID(id)) == nil {
+		return time.Time{}, errors.New("id is not part of cluster")
+	}
+
+	lastPing, err := etcd.Get(context.Background(), path.Join(NodeEvents, idHex, "ping"))
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if lastPing.Count == 0 {
+		return time.Time{}, errors.New("node missing")
+	}
+
+	if len(lastPing.Kvs) != 1 {
+		return time.Time{}, errors.New("multiple keys match ping")
+	}
+
+	t, err := time.Parse(time.RFC1123Z, string(lastPing.Kvs[0].Value))
+	if err != nil {
+		return t, err
+	}
+
+	return t, nil
 }
 
 func SetDrained(idHex string, on bool) error {

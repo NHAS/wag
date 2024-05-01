@@ -53,6 +53,7 @@ var (
 	clusterHealthListeners = map[string]func(string){}
 
 	EventsQueue = queue.NewQueue(40)
+	exit        = make(chan bool)
 )
 
 func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
@@ -173,29 +174,45 @@ func notifyClusterHealthListeners(event string) {
 
 func checkClusterHealth() {
 
-	for {
+	leaderMonitor := time.NewTicker(1 * time.Second)
+	go func() {
+		for range leaderMonitor.C {
+			if etcdServer.Server.Leader() == 0 {
 
-		select {
-		case <-etcdServer.Server.LeaderChangedNotify():
-			notifyHealthy()
+				notifyClusterHealthListeners("electing")
+				time.Sleep(etcdServer.Server.Cfg.ElectionTimeout() * 2)
 
-		case <-time.After(1 * time.Second):
-			testState()
-
+				if etcdServer.Server.Leader() == 0 {
+					notifyClusterHealthListeners("dead")
+				}
+			}
 		}
+	}()
 
-	}
+	clusterMonitor := time.NewTicker(5 * time.Second)
+	go func() {
+		for range clusterMonitor.C {
+			testCluster()
+		}
+	}()
+
+	<-exit
+
+	log.Println("etcd server was instructed to terminate")
+	leaderMonitor.Stop()
+	clusterMonitor.Stop()
+
 }
 
-func testState() {
-	if etcdServer.Server.Leader() == 0 {
-		notifyClusterHealthListeners("electing")
-		<-time.After(etcdServer.Server.Cfg.ElectionTimeout() * 2)
-		if etcdServer.Server.Leader() == 0 {
-			notifyClusterHealthListeners("dead")
-			return
-		}
-		// Intentional drop through
+func testCluster() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+
+	_, err := etcd.Put(ctx, path.Join(NodeEvents, GetServerID(), "ping"), time.Now().Format(time.RFC1123Z))
+	cancel()
+	if err != nil {
+		log.Println("unable to write liveness value")
+		notifyClusterHealthListeners("dead")
+		return
 	}
 
 	notifyHealthy()

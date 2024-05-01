@@ -403,7 +403,7 @@ func Teardown() {
 	}
 
 	if config.Values.ManagementUI.Enabled {
-		log.Println("Stopped MFA portal")
+		log.Println("Stopped Management UI")
 	}
 
 }

@@ -462,6 +462,7 @@ func migrateFromSql(database *sql.DB) error {
 }
 
 func TearDown() {
+	close(exit)
 	if etcdServer != nil {
 
 		etcd.Close()
