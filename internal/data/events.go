@@ -192,7 +192,10 @@ func checkClusterHealth() {
 	clusterMonitor := time.NewTicker(5 * time.Second)
 	go func() {
 		for range clusterMonitor.C {
-			testCluster()
+			// If we're a learner we cant write to the cluster, so just wait until we're promoted
+			if !etcdServer.Server.IsLearner() {
+				testCluster()
+			}
 		}
 	}()
 
