@@ -1,4 +1,4 @@
-FROM golang:1.21 AS builder
+FROM golang:latest AS builder
 
 RUN apt update && \
     apt install -y make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
