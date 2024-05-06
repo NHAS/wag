@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/data/validators"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -242,7 +243,7 @@ func load(path string) (c Config, err error) {
 		*c.NAT = true
 	}
 
-	err = validExternalAddresses(c.ExternalAddress)
+	err = validators.ValidExternalAddresses(c.ExternalAddress)
 	if err != nil {
 		return c, err
 	}
@@ -363,26 +364,6 @@ func validateDns(input []string) (newDnsEntries []string, err error) {
 	}
 
 	return
-}
-
-func validExternalAddresses(ExternalAddress string) error {
-	if len(ExternalAddress) == 0 {
-		return errors.New("invalid ExternalAddress is empty")
-	}
-
-	if net.ParseIP(ExternalAddress) == nil {
-
-		addresses, err := net.LookupIP(ExternalAddress)
-		if err != nil {
-			return errors.New("invalid ExternalAddress: " + ExternalAddress + " unable to lookup as domain")
-		}
-
-		if len(addresses) == 0 {
-			return errors.New("invalid ExternalAddress: " + ExternalAddress + " not IPv4 or IPv6 external addresses found")
-		}
-	}
-
-	return nil
 }
 
 func Load(path string) error {

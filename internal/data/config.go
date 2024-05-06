@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/NHAS/wag/internal/data/validators"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -285,6 +286,11 @@ func GetHelpMail() string {
 }
 
 func SetExternalAddress(externalAddress string) error {
+
+	if err := validators.ValidExternalAddresses(externalAddress); err != nil {
+		return err
+	}
+
 	data, _ := json.Marshal(externalAddress)
 	_, err := etcd.Put(context.Background(), externalAddressKey, string(data))
 	return err

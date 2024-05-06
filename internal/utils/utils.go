@@ -15,6 +15,7 @@ func GetIP(addr string) string {
 			return addr[:i]
 		}
 	}
+
 	return addr
 }
 

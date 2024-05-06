@@ -511,7 +511,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	acl := data.GetEffectiveAcl(username)
 
-	wgPublicKey, _, err := router.ServerDetails()
+	wgPublicKey, wgPort, err := router.ServerDetails()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access wireguard device: ", err)
 		http.Error(w, "Server Error", 500)
@@ -558,12 +558,20 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		ClientPresharedKey: presharedKey,
 	}
 
-	wireguardInterface.ServerAddress, err = data.GetExternalAddress()
+	externalAddress, err := data.GetExternalAddress()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable to get server external address from datastore: ", err)
 		http.Error(w, "Server Error", 500)
 		return
 	}
+
+	// If the external address defined in the config has a port, use that, otherwise defaultly add the same port as the wireguard device
+	_, _, err = net.SplitHostPort(externalAddress)
+	if err != nil {
+		externalAddress = fmt.Sprintf("%s:%d", externalAddress, wgPort)
+	}
+
+	wireguardInterface.ServerAddress = externalAddress
 
 	if r.URL.Query().Get("type") == "mobile" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
