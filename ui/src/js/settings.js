@@ -66,6 +66,7 @@ $(function () {
                 "ClientSecret": $('#oidcClientSecret').val(),
                 "ClientID": $('#oidcClientID').val(),
                 "GroupsClaimName": $('#oidcGroupsClaimName').val(),
+                "DeviceUsernameClaim": $("#oidcDeviceUsernameClaim").val(),
             },
             "PamDetails": {
                 "ServiceName": $('#pamServiceName').val(),

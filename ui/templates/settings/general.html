@@ -146,7 +146,13 @@
                     <div class="form-group mb-3">
                         <label for="oidcGroupsClaimName">OIDC Groups Claim Name</label>
                         <input type="text" class="form-control" id="oidcGroupsClaimName" name="oidcGroupsClaimName"
-                            value="{{.Settings.OidcDetails.GroupsClaimName}}">
+                            value="{{.Settings.OidcDetails.GroupsClaimName}}" placeholder="(optional)">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="oidcDeviceUsernameClaim">OIDC Device Username Claim</label>
+                        <input type="text" class="form-control" id="oidcDeviceUsernameClaim"
+                            name="oidcDeviceUsernameClaim" value="{{.Settings.OidcDetails.DeviceUsernameClaim}}"
+                            placeholder="(optional)">
                     </div>
 
                     <!-- PAM Settings -->

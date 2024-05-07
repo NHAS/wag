@@ -13,10 +13,11 @@ import (
 )
 
 type OIDC struct {
-	IssuerURL       string
-	ClientSecret    string
-	ClientID        string
-	GroupsClaimName string
+	IssuerURL           string
+	ClientSecret        string
+	ClientID            string
+	GroupsClaimName     string
+	DeviceUsernameClaim string
 }
 
 type PAM struct {

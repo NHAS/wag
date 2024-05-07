@@ -24,8 +24,7 @@ import (
 )
 
 type issuer struct {
-	Username string
-	Issuer   string
+	Issuer string
 }
 
 type Oidc struct {
@@ -121,14 +120,9 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "registering with oidc")
 
-	// The MFA value column is set to unique (which is important for the totp and webauthn methods), so for this we need to be a bit hacky and make sure that we add the username which is also unique
-
-	issuer := issuer{
-		Username: user.Username,
-		Issuer:   o.provider.Issuer(),
-	}
-
-	value, _ := json.Marshal(issuer)
+	value, _ := json.Marshal(issuer{
+		Issuer: o.provider.Issuer(),
+	})
 
 	err = data.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
@@ -168,6 +162,21 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		deviceUsername := info.GetPreferredUsername()
+
+		if len(o.details.DeviceUsernameClaim) != 0 {
+
+			deviceUsernameClaim, ok := tokens.IDTokenClaims.GetClaim(o.details.DeviceUsernameClaim).(string)
+			if !ok {
+				log.Println("Error, Device Username Claim set but idP has not set attribute in users token")
+				http.Error(w, "Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			deviceUsername = deviceUsernameClaim
+
+		}
+
 		// Rather ugly way of converting []interface{} into []string{}
 		groups := []string{}
 		for i := range groupsIntf {
@@ -193,7 +202,8 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				return errors.New("stored issuer " + issuerDetails.Issuer + " did not equal actual issuer: " + rp.Issuer())
 			}
 
-			if info.GetPreferredUsername() != username {
+			if deviceUsername != username {
+				log.Printf("Error logging in user, idP supplied device username (%s) does not equal expected username (%s)", deviceUsername, username)
 				return errors.New("user is not associated with device")
 			}
 

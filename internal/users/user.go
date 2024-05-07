@@ -3,7 +3,6 @@ package users
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/NHAS/wag/internal/data"
@@ -120,8 +119,6 @@ func (u *user) Authenticate(device, mfaType string, authenticator types.Authenti
 	if err != nil {
 		return errors.New("could not get lockout value")
 	}
-
-	log.Println("mfa: ", mfa, "type:", userMfaType, "attempts: ", attempts, "locked: ", locked, "lockout: ", lockout)
 
 	if attempts >= lockout {
 		return errors.New("device is locked")
