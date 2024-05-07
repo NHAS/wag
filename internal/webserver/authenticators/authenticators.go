@@ -1,6 +1,7 @@
 package authenticators
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -53,19 +54,29 @@ func EnableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitaliseMethods(method ...types.MFA) error {
+func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
 	lck.Lock()
 	defer lck.Unlock()
+
+	out := []types.MFA{}
+
+	var errRet error
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
 			err := a.Init()
 			if err != nil {
-				return err
+				if errRet == nil {
+					errRet = fmt.Errorf("%s failed to init: %s", m, err)
+					continue
+				}
+
+				errRet = fmt.Errorf("%s failed to init: %s\n%s", m, err, errRet.Error())
 			}
+			out = append(out, m)
 		}
 	}
 
-	return nil
+	return out, errRet
 }
 
 func NumberOfMethods() int {

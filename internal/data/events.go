@@ -113,7 +113,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 				go func(key []byte) {
 					if err := f(string(key), currentValue, previousValue, state); err != nil {
 						log.Println("applying event failed: ", state, currentValue, "err:", err)
-						err = RaiseError(GetServerID(), err, value)
+						err = RaiseError(err, value)
 						if err != nil {
 							log.Println("failed to raise error with cluster: ", err)
 							return
@@ -237,10 +237,10 @@ type EventError struct {
 	Time            time.Time
 }
 
-func RaiseError(idHex string, raisedError error, value []byte) (err error) {
+func RaiseError(raisedError error, value []byte) (err error) {
 
 	ee := EventError{
-		NodeID:          idHex,
+		NodeID:          GetServerID(),
 		FailedEventData: string(value),
 		Error:           raisedError.Error(),
 		Time:            time.Now(),

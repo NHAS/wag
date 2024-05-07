@@ -46,7 +46,9 @@ func oidcChanges(key string, current data.OIDC, previous data.OIDC, et data.Even
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			return authenticators.ReinitaliseMethods(types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(types.Oidc)
+
+			return err
 		}
 	}
 
@@ -65,7 +67,9 @@ func domainChanged(key string, current string, _ string, et data.EventType) erro
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			return authenticators.ReinitaliseMethods(types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(types.Oidc)
+
+			return err
 		}
 	}
 
@@ -73,26 +77,26 @@ func domainChanged(key string, current string, _ string, et data.EventType) erro
 }
 
 // MethodsEnabledKey    = "wag-config-authentication-methods"
-func enabledMethodsChanged(key string, current []string, previous []string, et data.EventType) error {
+func enabledMethodsChanged(key string, current []string, previous []string, et data.EventType) (err error) {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
 	case data.CREATED:
-		if err := authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...); err != nil {
-			return err
-		}
-		authenticators.EnableMethods(authenticators.StringsToMFA(current)...)
+		var initdMethods []types.MFA
+
+		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
+		authenticators.EnableMethods(initdMethods...)
 
 	case data.MODIFIED:
-		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
+		var initdMethods []types.MFA
 
-		if err := authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...); err != nil {
-			return err
-		}
-		authenticators.EnableMethods(authenticators.StringsToMFA(current)...)
+		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
+		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
+
+		authenticators.EnableMethods(initdMethods...)
 	}
 
-	return nil
+	return err
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
@@ -101,7 +105,8 @@ func issuerKeyChanged(key string, current string, previous string, et data.Event
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
 	case data.CREATED, data.MODIFIED:
-		return authenticators.ReinitaliseMethods(types.Totp, types.Webauthn)
+		_, err := authenticators.ReinitaliseMethods(types.Totp, types.Webauthn)
+		return err
 	}
 
 	return nil
