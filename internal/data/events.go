@@ -110,7 +110,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					}
 				}
 
-				go func(key []byte) {
+				go func(key, previous []byte) {
 					if err := f(string(key), currentValue, previousValue, state); err != nil {
 						log.Println("applying event failed: ", state, currentValue, "err:", err)
 						err = RaiseError(err, value)
@@ -120,8 +120,17 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 						}
 						return
 					}
-					EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s", key, state, string(value))))
-				}(event.Kv.Key)
+
+					switch state {
+					case DELETED, CREATED:
+						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]", key, state)))
+
+					case MODIFIED:
+						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s -> %s", key, state, string(previous), string(value))))
+
+					}
+
+				}(event.Kv.Key, event.PrevKv.Value)
 
 			}
 		}
