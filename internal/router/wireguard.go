@@ -47,6 +47,8 @@ func (msg *IfAddrmsg) Serialize() []byte {
 }
 
 func setupWireguard(devices []data.Device) error {
+	lock.Lock()
+	defer lock.Unlock()
 
 	var c wgtypes.Config
 
@@ -102,6 +104,16 @@ func setupWireguard(devices []data.Device) error {
 			d := time.Duration(config.Values.Wireguard.ServerPersistentKeepAlive) * time.Second
 			pc.PersistentKeepaliveInterval = &d
 		}
+
+		addressesMap, ok := usersToAddresses[device.Username]
+		if !ok {
+			addressesMap = make(map[string]string)
+		}
+
+		addressesMap[device.Address] = pk.String()
+		usersToAddresses[device.Username] = addressesMap
+		addressesToUsers[device.Address] = device.Username
+
 		c.Peers = append(c.Peers, pc)
 	}
 

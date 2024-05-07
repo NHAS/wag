@@ -22,7 +22,6 @@ func (u *user) ResetDeviceAuthAttempts(address string) error {
 
 func (u *user) ResetMfa() error {
 
-	// the MFA column is marked as "unique" so just set it as the username as that is also unique
 	err := data.SetUserMfa(u.Username, u.Username, string(types.Unset))
 	if err != nil {
 		return err

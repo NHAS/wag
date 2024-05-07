@@ -6,6 +6,7 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -136,7 +137,7 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 		}
 	case data.MODIFIED:
 
-		if current.Locked != previous.Locked {
+		if current.Locked != previous.Locked || current.Locked {
 
 			lock := uint32(1)
 			if !current.Locked {
@@ -150,7 +151,8 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 			}
 		}
 
-		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType {
+		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType ||
+			!current.Enforcing || types.MFA(current.MfaType) == types.Unset {
 			err := DeauthenticateAllDevices(current.Username)
 			if err != nil {
 				log.Printf("cannot deauthenticate user %s: %s", current.Username, err)

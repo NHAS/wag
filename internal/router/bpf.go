@@ -163,6 +163,7 @@ func setupXDP(users []data.UserModel, knownDevices []data.Device) error {
 	}
 
 	for _, device := range knownDevices {
+
 		err := xdpAddDevice(device.Username, device.Address)
 		if err != nil {
 			return errors.New("xdp setup add device to user: " + err.Error())
