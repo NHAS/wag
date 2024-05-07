@@ -52,6 +52,11 @@ func (o *Oidc) Init() error {
 		return errors.New("failed to get random key: " + err.Error())
 	}
 
+	o.details, err = data.GetOidc()
+	if err != nil {
+		return err
+	}
+
 	cookieHandler := httphelper.NewCookieHandler(key, key, httphelper.WithUnsecure())
 
 	options := []rp.Option{
@@ -71,12 +76,6 @@ func (o *Oidc) Init() error {
 
 	u.Path = path.Join(u.Path, "/authorise/oidc/")
 	log.Println("OIDC callback: ", u.String())
-
-	o.details, err = data.GetOidc()
-	if err != nil {
-		return err
-	}
-
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
 	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)

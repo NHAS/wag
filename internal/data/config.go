@@ -100,12 +100,16 @@ func SetPAM(details PAM) error {
 
 func GetPAM() (details PAM, err error) {
 
-	v, err := getString(PamDetailsKey)
+	response, err := etcd.Get(context.Background(), OidcDetailsKey)
 	if err != nil {
-		return PAM{}, nil
+		return PAM{}, err
 	}
 
-	err = json.Unmarshal([]byte(v), &details)
+	if len(response.Kvs) == 0 {
+		return PAM{}, errors.New("no PAM settings found")
+	}
+
+	err = json.Unmarshal(response.Kvs[0].Value, &details)
 	return
 }
 
@@ -121,12 +125,16 @@ func SetOidc(details OIDC) error {
 
 func GetOidc() (details OIDC, err error) {
 
-	v, err := getString(OidcDetailsKey)
+	response, err := etcd.Get(context.Background(), OidcDetailsKey)
 	if err != nil {
-		return OIDC{}, nil
+		return OIDC{}, err
 	}
 
-	err = json.Unmarshal([]byte(v), &details)
+	if len(response.Kvs) == 0 {
+		return OIDC{}, errors.New("no oidc settings found")
+	}
+
+	err = json.Unmarshal(response.Kvs[0].Value, &details)
 	return
 }
 
