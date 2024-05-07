@@ -232,7 +232,7 @@ func notifyHealthy() {
 type EventError struct {
 	NodeID          string
 	ErrorID         string
-	FailedEventData []byte
+	FailedEventData string
 	Error           string
 	Time            time.Time
 }
@@ -241,7 +241,7 @@ func RaiseError(idHex string, raisedError error, value []byte) (err error) {
 
 	ee := EventError{
 		NodeID:          idHex,
-		FailedEventData: value,
+		FailedEventData: string(value),
 		Error:           raisedError.Error(),
 		Time:            time.Now(),
 	}
