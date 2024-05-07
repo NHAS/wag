@@ -673,7 +673,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 
 	err = user.Deauthenticate(clientTunnelIp.String())
 	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not deauthenticate:", err)
+		log.Println(user.Username, clientTunnelIp, "could not deauthenticate:", err)
 		http.Error(w, "Server Error", 500)
 		return
 	}

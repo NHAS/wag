@@ -128,10 +128,7 @@ func DeauthenticateDevice(address string) error {
 		return errors.New("device was not found")
 	}
 
-	var realDeviceAddr string
-	json.Unmarshal(realKey.Kvs[0].Value, &realDeviceAddr)
-
-	return doSafeUpdate(context.Background(), realDeviceAddr, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
