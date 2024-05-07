@@ -72,12 +72,12 @@ func (o *Oidc) Init() error {
 	u.Path = path.Join(u.Path, "/authorise/oidc/")
 	log.Println("OIDC callback: ", u.String())
 
-	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
-
 	o.details, err = data.GetOidc()
 	if err != nil {
 		return err
 	}
+
+	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
 	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
 	if err != nil {
