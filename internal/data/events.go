@@ -36,14 +36,15 @@ const (
 )
 
 const (
-	DevicesPrefix        = "devices-"
-	UsersPrefix          = "users-"
-	AclsPrefix           = "wag-acls-"
-	GroupsPrefix         = "wag-groups-"
-	ConfigPrefix         = "wag-config-"
-	AuthenticationPrefix = "wag-config-authentication-"
-	NodeEvents           = "wag/node/"
-	NodeErrors           = "wag/node/errors"
+	DevicesPrefix         = "devices-"
+	UsersPrefix           = "users-"
+	GroupMembershipPrefix = MembershipKey + "-"
+	AclsPrefix            = "wag-acls-"
+	GroupsPrefix          = "wag-groups-"
+	ConfigPrefix          = "wag-config-"
+	AuthenticationPrefix  = "wag-config-authentication-"
+	NodeEvents            = "wag/node/"
+	NodeErrors            = "wag/node/errors"
 )
 
 var (

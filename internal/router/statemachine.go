@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
@@ -13,6 +14,12 @@ import (
 func handleEvents(erroChan chan<- error) {
 
 	_, err := data.RegisterEventListener(data.DevicesPrefix, true, deviceChanges)
+	if err != nil {
+		erroChan <- err
+		return
+	}
+
+	_, err = data.RegisterEventListener(data.GroupMembershipPrefix, true, membershipChanges)
 	if err != nil {
 		erroChan <- err
 		return
@@ -44,7 +51,7 @@ func handleEvents(erroChan chan<- error) {
 
 }
 
-func inactivityTimeoutChanges(key string, current int, previous int, et data.EventType) error {
+func inactivityTimeoutChanges(key string, current, previous int, et data.EventType) error {
 
 	switch et {
 	case data.MODIFIED, data.CREATED:
@@ -57,7 +64,7 @@ func inactivityTimeoutChanges(key string, current int, previous int, et data.Eve
 	return nil
 }
 
-func deviceChanges(key string, current data.Device, previous data.Device, et data.EventType) error {
+func deviceChanges(key string, current, previous data.Device, et data.EventType) error {
 
 	switch et {
 	case data.DELETED:
@@ -120,7 +127,22 @@ func deviceChanges(key string, current data.Device, previous data.Device, et dat
 	return nil
 }
 
-func userChanges(key string, current data.UserModel, previous data.UserModel, et data.EventType) error {
+func membershipChanges(key string, current, previous []string, et data.EventType) error {
+	username := strings.TrimPrefix(key, data.GroupMembershipPrefix)
+
+	switch et {
+	case data.CREATED, data.MODIFIED:
+		err := RefreshUserAcls(username)
+		if err != nil {
+			log.Printf("failed to refresh acls for user %s: %s", username, err)
+			return fmt.Errorf("could not refresh acls: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func userChanges(key string, current, previous data.UserModel, et data.EventType) error {
 	switch et {
 	case data.CREATED:
 		acls := data.GetEffectiveAcl(current.Username)
@@ -165,7 +187,7 @@ func userChanges(key string, current data.UserModel, previous data.UserModel, et
 	return nil
 }
 
-func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventType) error {
+func aclsChanges(key string, current, previous acls.Acl, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 		err := RefreshConfiguration()
@@ -178,7 +200,7 @@ func aclsChanges(key string, current acls.Acl, previous acls.Acl, et data.EventT
 	return nil
 }
 
-func groupChanges(key string, current []string, previous []string, et data.EventType) error {
+func groupChanges(key string, current, previous []string, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 
