@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 )
 
@@ -130,4 +131,44 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(result)
 
+}
+
+func aclsTest(w http.ResponseWriter, r *http.Request) {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	var username string
+	switch r.Method {
+	case http.MethodPost:
+		username = r.PostFormValue("username")
+	case http.MethodGet:
+		username = ""
+	default:
+		http.NotFound(w, r)
+		return
+	}
+
+	acl := data.GetEffectiveAcl(username)
+	b, _ := json.MarshalIndent(acl, "", "    ")
+
+	d := struct {
+		Page
+		AclString string
+	}{
+		Page: Page{
+
+			Description:  "ACL Checker",
+			Title:        "ACLs",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
+		},
+		AclString: string(b),
+	}
+
+	renderDefaults(w, r, d, "diagnostics/acl_tester.html")
 }

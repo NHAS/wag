@@ -1,0 +1,25 @@
+{{define "Content"}}
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h1 class="m-0 text-gray-900">User ACL</h6>
+            <p>
+                Here you can test the wag acl composition engine, submit a username and see what real acls are applied
+                to that user.
+            </p>
+    </div>
+    <div class="card-body">
+        <form action="/diag/acls" method="POST">
+            {{ csrfToken }}
+            <div class="form-row">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="username" id="username" placeholder="username">
+                </div>
+                <button type="submit" class="btn btn-primary">Check</button>
+        </form>
+        <pre>{{.AclString}}</pre>
+    </div>
+</div>
+
+
+{{end}}

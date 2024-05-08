@@ -310,6 +310,8 @@ func StartWebServer(errs chan<- error) error {
 
 		protectedRoutes.HandleFunc("/diag/firewall", firewallDiagnositicsUI)
 
+		protectedRoutes.HandleFunc("/diag/acls", aclsTest)
+
 		protectedRoutes.HandleFunc("/management/users/", usersUI)
 		protectedRoutes.HandleFunc("/management/users/data", contentType(manageUsers, JSON))
 
