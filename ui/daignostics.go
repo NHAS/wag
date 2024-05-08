@@ -2,8 +2,12 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
@@ -176,4 +180,99 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderDefaults(w, r, d, "diagnostics/acl_tester.html")
+}
+
+func routeTest(w http.ResponseWriter, r *http.Request) {
+	_, u := sessionManager.GetSessionFromRequest(r)
+	if u == nil {
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
+	}
+
+	var inputErrors []error
+	address := r.FormValue("address")
+	if net.IP(address) == nil {
+		inputErrors = append(inputErrors, fmt.Errorf("%s not an ip address"))
+	}
+
+	target := r.FormValue("target")
+	targetIP := net.IP(target)
+	if targetIP == nil {
+		addresses, err := net.LookupIP(target)
+		if err != nil {
+			inputErrors = append(inputErrors, fmt.Errorf("could not lookup %s, err: %s", target, err))
+		} else {
+			if len(addresses) == 0 {
+				inputErrors = append(inputErrors, fmt.Errorf("no addresses for %s", target))
+			} else {
+				targetIP = addresses[0]
+			}
+		}
+	}
+
+	proto := r.FormValue("protocol")
+	port, err := strconv.Atoi(r.FormValue("port"))
+	if err != nil {
+		inputErrors = append(inputErrors, fmt.Errorf("could not parse port: %s", err))
+	}
+
+	var decision string
+	if len(inputErrors) == 0 {
+		checkerDecision, err := router.CheckRoute(address, targetIP, proto, port)
+		if err != nil {
+			decision = err.Error()
+		} else {
+
+			isAuthed := " (unauthorised)"
+			if router.IsAuthed(address) {
+				isAuthed = " (authorised)"
+			}
+
+			displayProto := fmt.Sprintf("%d:%s", port, proto)
+			if proto == "icmp" {
+				displayProto = proto
+			}
+			decision = fmt.Sprintf("%s -%s-> %s, decided: %s %s", address, displayProto, target, checkerDecision, isAuthed)
+		}
+
+	} else {
+		decision = errors.Join(inputErrors...).Error()
+	}
+
+	d := struct {
+		Page
+		Address   string
+		Port      int
+		Decision  string
+		Protocols []struct {
+			Val      string
+			Name     string
+			Selected bool
+		}
+	}{
+		Page: Page{
+
+			Description:  "ACL Checker",
+			Title:        "ACLs",
+			User:         u.Username,
+			WagVersion:   WagVersion,
+			ServerID:     serverID,
+			ClusterState: clusterState,
+		},
+		Decision: decision,
+		Address:  address,
+		Port:     port,
+	}
+
+	d.Protocols = []struct {
+		Val      string
+		Name     string
+		Selected bool
+	}{
+		{Val: "tcp", Name: "TCP", Selected: proto == "tcp"},
+		{Val: "udp", Name: "UDP", Selected: proto == "udp"},
+		{Val: "icmp", Name: "ICMP", Selected: proto == "icmp"},
+	}
+
+	renderDefaults(w, r, d, "diagnostics/route_checker.html")
 }
