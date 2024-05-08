@@ -9,15 +9,24 @@
             </p>
     </div>
     <div class="card-body">
-        <form action="/diag/acls" method="POST">
-            {{ csrfToken }}
-            <div class="form-row">
-                <div class="form-group">
-                    <input type="text" class="form-control" name="username" id="username" placeholder="username">
-                </div>
-                <button type="submit" class="btn btn-primary">Check</button>
-        </form>
-        <pre>{{.AclString}}</pre>
+        <div class="row">
+            <div class="col">
+                <form class="form-inline" action="/diag/acls" method="POST">
+                    {{ csrfToken }}
+                    <div class="form-group mx-sm-3 mb-2">
+                        <label for="username" class="sr-only">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{.Username}}"
+                            placeholder="Username">
+                    </div>
+                    <button type="submit" class="btn btn-primary mb-2">Check</button>
+                </form>
+            </div>
+        </div>
+        <div class="row mt-4 ml-2">
+            <div class="col">
+                <pre>{{.AclString}}</pre>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -151,12 +151,16 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl := data.GetEffectiveAcl(username)
-	b, _ := json.MarshalIndent(acl, "", "    ")
+	acl := ""
+	if username != "" {
+		b, _ := json.MarshalIndent(data.GetEffectiveAcl(username), "", "    ")
+		acl = string(b)
+	}
 
 	d := struct {
 		Page
 		AclString string
+		Username  string
 	}{
 		Page: Page{
 
@@ -167,7 +171,8 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 			ServerID:     serverID,
 			ClusterState: clusterState,
 		},
-		AclString: string(b),
+		AclString: acl,
+		Username:  username,
 	}
 
 	renderDefaults(w, r, d, "diagnostics/acl_tester.html")
