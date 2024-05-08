@@ -248,7 +248,7 @@ func loadInitialSettings() error {
 		}
 
 		reverseMappingJson, _ := json.Marshal(rGroupLookup)
-		_, err = etcd.Put(context.Background(), "wag-membership", string(reverseMappingJson))
+		_, err = etcd.Put(context.Background(), MembershipKey, string(reverseMappingJson))
 		if err != nil {
 			return err
 		}

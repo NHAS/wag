@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
@@ -81,9 +82,10 @@ func GetEffectiveAcl(username string) acls.Acl {
 	resultingACLs.Allow = []string{config.Values.Wireguard.ServerAddress.String() + "/32"}
 
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet("wag-membership"), clientv3.OpGet(dnsKey))
+	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet(MembershipKey), clientv3.OpGet(dnsKey))
 	resp, err := txn.Commit()
 	if err != nil {
+		log.Println("failed to get policy data for user", username, "err:", err)
 		return acls.Acl{}
 	}
 
@@ -95,6 +97,9 @@ func GetEffectiveAcl(username string) acls.Acl {
 		if err == nil {
 			resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
 			resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
+		} else {
+			RaiseError(err, []byte("failed to unmarshal default acls policy"))
+			log.Println("failed to unmarshal default acls policy: ", err)
 		}
 	}
 
@@ -106,6 +111,8 @@ func GetEffectiveAcl(username string) acls.Acl {
 		if err == nil {
 			resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
 			resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
+		} else {
+			log.Println("failed to unmarshal user specific acls: ", err)
 		}
 	}
 
@@ -115,6 +122,8 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 		err = json.Unmarshal(resp.Responses[2].GetResponseRange().Kvs[0].Value, &rGroupLookup)
 		if err == nil {
+			log.Println("DEBUG got reverse groups map", rGroupLookup)
+			log.Println("DEBUG got groups map for user", username, rGroupLookup[username])
 
 			txn := etcd.Txn(context.Background())
 
@@ -126,6 +135,8 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 			resp, err := txn.Then(ops...).Commit()
 			if err != nil {
+				log.Println("failed to get acls for groups: ", err)
+				RaiseError(err, []byte("failed to determine acls from groups"))
 				return acls.Acl{}
 			}
 
@@ -137,8 +148,11 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 					err := json.Unmarshal(r.Kvs[0].Value, &acl)
 					if err != nil {
+						log.Println("failed to unmarshal acl from response: ", err, string(r.Kvs[0].Value))
 						continue
 					}
+
+					log.Println("DEBUG user", username, " acls construction, adding: ", acl)
 
 					resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
 					resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
@@ -158,6 +172,8 @@ func GetEffectiveAcl(username string) acls.Acl {
 			for _, server := range dns {
 				resultingACLs.Allow = append(resultingACLs.Allow, fmt.Sprintf("%s 53/any", server))
 			}
+		} else {
+			log.Println("failed to unmarshal dns setting: ", err)
 		}
 	}
 

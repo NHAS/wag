@@ -371,3 +371,35 @@ func TestParseRules(t *testing.T) {
 	}
 
 }
+
+func TestParseRulesDuplicates(t *testing.T) {
+	/*
+	   "*": {
+	       "Allow": [
+	           "7.7.7.7",
+	           "google.com"
+	       ]
+	   },
+	   "tester": {
+	       "Mfa": [
+	           "192.168.3.0/24",
+	           "192.168.5.0/24"
+	       ],
+	       "Allow": [
+	           "4.3.3.3/32"
+	       ]
+	   },
+	*/
+
+	mfaRules := []string{"192.168.33.1/32", "192.168.33.1/32"}
+
+	result, err := ParseRules(mfaRules, []string{}, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result) < 1 {
+		t.Fatal("resulting number of rules was wrong")
+	}
+
+}

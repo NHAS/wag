@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/pkg/queue"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -110,7 +111,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					}
 				}
 
-				go func(key, previous []byte) {
+				go func(key []byte, prevKv *mvccpb.KeyValue) {
 					if err := f(string(key), currentValue, previousValue, state); err != nil {
 						log.Println("applying event failed: ", state, currentValue, "err:", err)
 						err = RaiseError(err, value)
@@ -126,11 +127,17 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]", key, state)))
 
 					case MODIFIED:
-						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s -> %s", key, state, string(previous), string(value))))
+
+						previous := "nil"
+						if prevKv != nil {
+							previous = string(prevKv.Value)
+						}
+
+						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s -> %s", key, state, previous, string(value))))
 
 					}
 
-				}(event.Kv.Key, event.PrevKv.Value)
+				}(event.Kv.Key, event.PrevKv)
 
 			}
 		}

@@ -51,6 +51,8 @@ const (
 
 	externalAddressKey = "wag-config-network-external-address"
 	dnsKey             = "wag-config-network-dns"
+
+	MembershipKey = "wag-membership"
 )
 
 func getString(key string) (ret string, err error) {

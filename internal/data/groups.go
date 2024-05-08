@@ -37,7 +37,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
+	err = doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("bad number of membership keys")
@@ -112,7 +112,7 @@ func RemoveGroup(groupName string) error {
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
+	err = doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("bad number of membership keys")
@@ -138,7 +138,7 @@ func RemoveGroup(groupName string) error {
 
 func GetUserGroupMembership(username string) ([]string, error) {
 
-	response, err := etcd.Get(context.Background(), "wag-membership")
+	response, err := etcd.Get(context.Background(), MembershipKey)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func GetUserGroupMembership(username string) ([]string, error) {
 
 func SetUserGroupMembership(username string, newGroups []string) error {
 
-	err := doSafeUpdate(context.Background(), "wag-membership", func(gr *clientv3.GetResponse) (value string, err error) {
+	err := doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("bad number of membership keys")
