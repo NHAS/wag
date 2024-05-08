@@ -46,7 +46,7 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -87,7 +87,7 @@ func GetDevice(username, id string) (device Device, err error) {
 
 // Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -128,7 +128,7 @@ func DeauthenticateDevice(address string) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -148,7 +148,7 @@ func DeauthenticateDevice(address string) error {
 }
 
 func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -315,7 +315,7 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 		return err
 	}
 
-	err = doSafeUpdate(context.Background(), deviceKey(username, address), func(gr *clientv3.GetResponse) (string, error) {
+	err = doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}

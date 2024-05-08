@@ -228,30 +228,12 @@ func loadInitialSettings() error {
 	if len(response.Kvs) == 0 {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
-		// User to groups
-		rGroupLookup := map[string]map[string]bool{}
-
 		for groupName, members := range config.Values.Acls.Groups {
-			groupJson, _ := json.Marshal(members)
-			_, err = etcd.Put(context.Background(), "wag-groups-"+groupName, string(groupJson))
-			if err != nil {
+			if err := SetGroup(groupName, members, true); err != nil {
 				return err
 			}
-
-			for _, user := range members {
-				if rGroupLookup[user] == nil {
-					rGroupLookup[user] = make(map[string]bool)
-				}
-
-				rGroupLookup[user][groupName] = true
-			}
 		}
 
-		reverseMappingJson, _ := json.Marshal(rGroupLookup)
-		_, err = etcd.Put(context.Background(), MembershipKey, string(reverseMappingJson))
-		if err != nil {
-			return err
-		}
 	}
 
 	configData, _ := json.Marshal(config.Values)
@@ -473,7 +455,7 @@ func TearDown() {
 	}
 }
 
-func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
+func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
 	opts := []clientv3.OpOption{}
 
@@ -484,6 +466,33 @@ func doSafeUpdate(ctx context.Context, key string, mutateFunc func(*clientv3.Get
 	origState, err := etcd.Get(ctx, key, opts...)
 	if err != nil {
 		return err
+	}
+
+	if create && origState.Count == 0 {
+
+		newValue, err := mutateFunc(origState)
+		if err != nil {
+			return err
+		}
+
+		txnResp, err := etcd.KV.Txn(ctx).If(
+			clientv3util.KeyMissing(key),
+		).Then(
+			clientv3.OpPut(key, newValue),
+		).Else(
+			clientv3.OpGet(key),
+		).Commit()
+
+		if err != nil {
+			return err
+		}
+
+		if txnResp.Succeeded {
+			return nil
+		}
+		// If the key was created while we were trying to create it, do the normal update proceedure
+
+		origState = (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
 	}
 
 	for {

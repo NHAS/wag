@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"slices"
 
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"golang.org/x/exp/maps"
 )
 
 func SetGroup(group string, members []string, overwrite bool) error {
@@ -29,42 +30,91 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		return err
 	}
 
-	var oldMembers []string
+	var existingMembers []string
 	if putResp.PrevKv != nil {
-		err = json.Unmarshal(putResp.PrevKv.Value, &oldMembers)
+		err = json.Unmarshal(putResp.PrevKv.Value, &existingMembers)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
+	currentMembers := map[string]bool{}
+	for _, member := range members {
+		currentMembers[member] = true
+	}
 
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("bad number of membership keys")
+	removedMembers := []string{}
+	previousMembers := map[string]bool{}
+	for _, member := range existingMembers {
+		if !currentMembers[member] {
+			removedMembers = append(removedMembers, member)
+		}
+		previousMembers[member] = true
+	}
+
+	addedMembers := []string{}
+	for _, member := range members {
+		if previousMembers[member] {
+			continue
 		}
 
-		var rGroupLookup map[string]map[string]bool
-		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
-		if err != nil {
-			return "", err
-		}
+		addedMembers = append(addedMembers, member)
+	}
 
-		for _, member := range oldMembers {
-			delete(rGroupLookup[member], group)
-		}
+	for _, member := range addedMembers {
+		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, true, func(gr *clientv3.GetResponse) (value string, err error) {
 
-		for _, member := range members {
-			if rGroupLookup[member] == nil {
-				rGroupLookup[member] = make(map[string]bool)
+			var memberCurrentGroups []string
+
+			if len(gr.Kvs) > 1 {
+				return "", fmt.Errorf("bad number of membership keys: %d", len(gr.Kvs))
 			}
 
-			rGroupLookup[member][group] = true
+			if len(gr.Kvs) == 1 {
+				err = json.Unmarshal(gr.Kvs[0].Value, &memberCurrentGroups)
+				if err != nil {
+					return "", err
+				}
+			}
+
+			if slices.Index(memberCurrentGroups, group) == -1 {
+				memberCurrentGroups = append(memberCurrentGroups, group)
+			}
+
+			reverseMappingJson, _ := json.Marshal(memberCurrentGroups)
+
+			return string(reverseMappingJson), nil
+		})
+		if err != nil {
+			log.Println("failed to add member ", member, "to group: ", err)
 		}
+	}
 
-		reverseMappingJson, _ := json.Marshal(rGroupLookup)
+	for _, member := range removedMembers {
+		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
-		return string(reverseMappingJson), nil
-	})
+			if len(gr.Kvs) != 1 {
+				return "", fmt.Errorf("removing user bad number of member keys: %d", len(gr.Kvs))
+			}
+
+			var memberCurrentGroups []string
+			err = json.Unmarshal(gr.Kvs[0].Value, &memberCurrentGroups)
+			if err != nil {
+				return "", err
+			}
+
+			memberCurrentGroups = slices.DeleteFunc(memberCurrentGroups, func(s string) bool {
+				return s == group
+			})
+
+			reverseMappingJson, _ := json.Marshal(memberCurrentGroups)
+
+			return string(reverseMappingJson), nil
+		})
+		if err != nil {
+			log.Println("failed to remove member ", member, "from group: ", err)
+		}
+	}
 
 	return err
 }
@@ -112,75 +162,62 @@ func RemoveGroup(groupName string) error {
 		}
 	}
 
-	err = doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
+	for _, member := range oldMembers {
+		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("bad number of membership keys")
-		}
+			if len(gr.Kvs) != 1 {
+				return "", errors.New("bad number of membership keys")
+			}
 
-		var rGroupLookup map[string]map[string]bool
-		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
-		if err != nil {
-			return "", err
-		}
+			var memberCurrentGroups []string
+			err = json.Unmarshal(gr.Kvs[0].Value, &memberCurrentGroups)
+			if err != nil {
+				return "", err
+			}
 
-		for _, member := range oldMembers {
-			delete(rGroupLookup[member], groupName)
-		}
+			memberCurrentGroups = slices.DeleteFunc(memberCurrentGroups, func(s string) bool {
+				return s == groupName
+			})
 
-		reverseMappingJson, _ := json.Marshal(rGroupLookup)
+			reverseMappingJson, _ := json.Marshal(memberCurrentGroups)
 
-		return string(reverseMappingJson), nil
-	})
+			return string(reverseMappingJson), nil
+		})
+	}
 
 	return err
 }
 
 func GetUserGroupMembership(username string) ([]string, error) {
 
-	response, err := etcd.Get(context.Background(), MembershipKey)
+	response, err := etcd.Get(context.Background(), MembershipKey+"-"+username)
 	if err != nil {
 		return nil, err
 	}
 
-	var rGroupLookup map[string]map[string]bool
-
-	err = json.Unmarshal(response.Kvs[0].Value, &rGroupLookup)
-	if err != nil {
-		return nil, err
-	}
-
-	if rGroupLookup[username] == nil {
+	if len(response.Kvs) == 0 {
 		return []string{}, nil
 	}
 
-	return maps.Keys(rGroupLookup[username]), nil
+	var groupMembership []string
+
+	err = json.Unmarshal(response.Kvs[0].Value, &groupMembership)
+	if err != nil {
+		return nil, err
+	}
+
+	return groupMembership, nil
 }
 
 func SetUserGroupMembership(username string, newGroups []string) error {
 
-	err := doSafeUpdate(context.Background(), MembershipKey, func(gr *clientv3.GetResponse) (value string, err error) {
-
+	err := doSafeUpdate(context.Background(), MembershipKey+"-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("bad number of membership keys")
 		}
 
-		var rGroupLookup map[string]map[string]bool
-		err = json.Unmarshal(gr.Kvs[0].Value, &rGroupLookup)
-		if err != nil {
-			return "", err
-		}
-
-		groups := map[string]bool{}
-		for _, group := range newGroups {
-			groups[group] = true
-		}
-
-		rGroupLookup[username] = groups
-
-		reverseMappingJson, _ := json.Marshal(rGroupLookup)
-
-		return string(reverseMappingJson), nil
+		userGroups, _ := json.Marshal(newGroups)
+		return string(userGroups), nil
 	})
 
 	return err
