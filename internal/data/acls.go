@@ -82,7 +82,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 	resultingACLs.Allow = []string{config.Values.Wireguard.ServerAddress.String() + "/32"}
 
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet(MembershipKey), clientv3.OpGet(dnsKey))
+	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet(MembershipKey+"-"+username), clientv3.OpGet(dnsKey))
 	resp, err := txn.Commit()
 	if err != nil {
 		log.Println("failed to get policy data for user", username, "err:", err)
@@ -118,15 +118,15 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 	// Membership map for finding all the other policies
 	if resp.Responses[2].GetResponseRange().GetCount() != 0 {
-		var rGroupLookup map[string]map[string]bool
+		var userGroups []string
 
-		err = json.Unmarshal(resp.Responses[2].GetResponseRange().Kvs[0].Value, &rGroupLookup)
+		err = json.Unmarshal(resp.Responses[2].GetResponseRange().Kvs[0].Value, &userGroups)
 		if err == nil {
 			txn := etcd.Txn(context.Background())
 
 			//If the user belongs to a series of groups, grab those, and add their rules
 			var ops []clientv3.Op
-			for group := range rGroupLookup[username] {
+			for _, group := range userGroups {
 				ops = append(ops, clientv3.OpGet("wag-acls-"+group))
 			}
 
