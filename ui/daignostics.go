@@ -182,7 +182,7 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 	renderDefaults(w, r, d, "diagnostics/acl_tester.html")
 }
 
-func routeTest(w http.ResponseWriter, r *http.Request) {
+func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
