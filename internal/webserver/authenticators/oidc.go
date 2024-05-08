@@ -220,15 +220,16 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			w.WriteHeader(http.StatusUnauthorized)
 
-			err = resources.Render("oidc_error.html", w, &resources.Msg{
+			// Preserve original error
+			err2 := resources.Render("oidc_error.html", w, &resources.Msg{
 				HelpMail:   data.GetHelpMail(),
 				NumMethods: NumberOfMethods(),
 				Message:    msg,
 				URL:        rp.GetEndSessionEndpoint(),
 			})
 
-			if err != nil {
-				log.Println(user.Username, clientTunnelIp, "error rendering oidc_error.html: ", err)
+			if err2 != nil {
+				log.Println(user.Username, clientTunnelIp, "error rendering oidc_error.html: ", err2)
 			}
 
 			return

@@ -122,9 +122,6 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 		err = json.Unmarshal(resp.Responses[2].GetResponseRange().Kvs[0].Value, &rGroupLookup)
 		if err == nil {
-			log.Println("DEBUG got reverse groups map", rGroupLookup)
-			log.Println("DEBUG got groups map for user", username, rGroupLookup[username])
-
 			txn := etcd.Txn(context.Background())
 
 			//If the user belongs to a series of groups, grab those, and add their rules
@@ -152,13 +149,13 @@ func GetEffectiveAcl(username string) acls.Acl {
 						continue
 					}
 
-					log.Println("DEBUG user", username, " acls construction, adding: ", acl)
-
 					resultingACLs.Allow = append(resultingACLs.Allow, acl.Allow...)
 					resultingACLs.Mfa = append(resultingACLs.Mfa, acl.Mfa...)
 				}
 			}
 
+		} else {
+			log.Println("failed to decode reverse group mapping: ", err)
 		}
 	}
 
