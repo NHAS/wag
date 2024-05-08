@@ -191,12 +191,12 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 
 	var inputErrors []error
 	address := r.FormValue("address")
-	if net.IP(address) == nil {
-		inputErrors = append(inputErrors, fmt.Errorf("%s not an ip address"))
+	if net.ParseIP(address) == nil {
+		inputErrors = append(inputErrors, fmt.Errorf("device (%s) not an ip address", address))
 	}
 
 	target := r.FormValue("target")
-	targetIP := net.IP(target)
+	targetIP := net.ParseIP(target)
 	if targetIP == nil {
 		addresses, err := net.LookupIP(target)
 		if err != nil {
@@ -211,9 +211,13 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proto := r.FormValue("protocol")
-	port, err := strconv.Atoi(r.FormValue("port"))
-	if err != nil {
-		inputErrors = append(inputErrors, fmt.Errorf("could not parse port: %s", err))
+	port := 0
+	if r.FormValue("port") != "" {
+		var err error
+		port, err = strconv.Atoi(r.FormValue("port"))
+		if err != nil {
+			inputErrors = append(inputErrors, fmt.Errorf("could not parse port: %s", err))
+		}
 	}
 
 	var decision string
@@ -223,12 +227,12 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 			decision = err.Error()
 		} else {
 
-			isAuthed := " (unauthorised)"
+			isAuthed := "(unauthorised)"
 			if router.IsAuthed(address) {
-				isAuthed = " (authorised)"
+				isAuthed = "(authorised)"
 			}
 
-			displayProto := fmt.Sprintf("%d:%s", port, proto)
+			displayProto := fmt.Sprintf("%d/%s", port, proto)
 			if proto == "icmp" {
 				displayProto = proto
 			}
@@ -242,6 +246,7 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	d := struct {
 		Page
 		Address   string
+		Target    string
 		Port      int
 		Decision  string
 		Protocols []struct {
@@ -262,6 +267,7 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 		Decision: decision,
 		Address:  address,
 		Port:     port,
+		Target:   target,
 	}
 
 	d.Protocols = []struct {

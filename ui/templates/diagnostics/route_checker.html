@@ -11,7 +11,7 @@
     <div class="card-body">
         <div class="row">
             <div class="col">
-                <form class="form-inline" action="/diag/route_test" method="POST">
+                <form class="form" action="/diag/check" method="POST">
                     {{ csrfToken }}
 
                     <div class="form-row">
@@ -27,12 +27,12 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group col-md-2">
+                        <div class="form-group col-md">
                             <label for="port">Port</label>
-                            <input type="number" class="form-control" id="port" name="port" placeholder="80"
-                                value="{{.Port}}">
+                            <input type="number" class="form-control" id="port" name="port" value="{{.Port}}">
                         </div>
-                        <div class="form-group col-md-2">
+                        <div class="form-group col-md">
+                            <label for="protocol">Protocol</label>
                             <select class="custom-select" name="protocol">
                                 {{range .Protocols}}
                                 <option {{if .Selected}}selected{{end}} value="{{.Val}}">{{.Name}}</option>
