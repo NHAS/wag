@@ -1,27 +1,30 @@
+# syntax=docker/dockerfile:1
+
+# hadolint ignore=DL3007
 FROM golang:latest AS builder
 
-RUN apt update && \
-    apt install -y make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev
-
-
-RUN ln -s /usr/include/$(uname -m)-linux-gnu/asm /usr/include/asm 
-
+# hadolint ignore=DL3008
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev && \
+    ln -s "/usr/include/$(uname -m)-linux-gnu/asm" /usr/include/asm
 
 WORKDIR /app
 COPY . .
 RUN make release
 
+# hadolint ignore=DL3007
 FROM redhat/ubi9-minimal:latest
 
-
-RUN microdnf update -y && \ 
-    microdnf install -y iptables nc pam
+# hadolint ignore=DL3041
+RUN microdnf update -y && \
+    microdnf install -y iptables nc pam && \
+    microdnf clean all
 
 WORKDIR /app/wag
 
 COPY --from=builder /app/wag /usr/bin/wag
-COPY docker_entrypoint.sh /
-RUN chmod +x /docker_entrypoint.sh /usr/bin/wag
+COPY --chmod=0777 docker_entrypoint.sh /
 
 VOLUME /data
 VOLUME /cfg
