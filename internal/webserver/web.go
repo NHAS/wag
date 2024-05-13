@@ -330,7 +330,7 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 		err = resources.Render("register_mfa.html", w, &menu)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Server error", http.StatusInternalServerError)
 		}
 
 		return
@@ -435,7 +435,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		err := data.SetUserGroupMembership(username, groups)
 		if err != nil {
 			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -452,14 +452,14 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		publickey, err = wgtypes.ParseKey(pubkeyParam)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to unmarshal wireguard public key:", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		privatekey, err = wgtypes.GeneratePrivateKey()
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to generate wireguard keys:", err)
-			http.Error(w, "Server error", 500)
+			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
 		publickey = privatekey.PublicKey()
@@ -470,18 +470,20 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		user, err = users.CreateUser(username)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable create new user: "+err.Error())
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
 
-	var address string
+	var (
+		address string
+	)
 	if overwrites != "" {
 
 		err = user.SetDevicePublicKey(publickey.String(), overwrites)
 		if err != nil {
 			log.Println(username, remoteAddr, "could update '", overwrites, "': ", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -489,16 +491,18 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 
-		device, err := user.AddDevice(publickey)
+		var device data.Device
+		device, err = user.AddDevice(publickey)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to add device: ", err)
 
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 		address = device.Address
 
 		defer func() {
+
 			if err != nil {
 				log.Println(username, remoteAddr, "removing device (due to registration failure)")
 				err := user.DeleteDevice(device.Address)
@@ -514,7 +518,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	wgPublicKey, wgPort, err := router.ServerDetails()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access wireguard device: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -527,14 +531,14 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	presharedKey, err := user.GetDevicePresharedKey(address)
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access device preshared key: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	dnsWithOutSubnet, err := data.GetDNS()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable get dns: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -545,7 +549,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	routes, err := routetypes.AclsToRoutes(append(acl.Allow, acl.Mfa...))
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access parse acls to produce routes: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -561,7 +565,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	externalAddress, err := data.GetExternalAddress()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable to get server external address from datastore: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -583,21 +587,21 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		image, err := qr.Encode(config.String(), qr.M, qr.Auto)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to generate qr code:", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		image, err = barcode.Scale(image, 400, 400)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to output barcode bytes:", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -605,7 +609,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		err = png.Encode(&buff, image)
 		if err != nil {
 			log.Println(user.Username, remoteAddr, "encoding mfa secret as png failed:", err)
-			http.Error(w, "Unknown error", 500)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
 			return
 		}
 
@@ -617,7 +621,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		err = resources.Render("qrcode_registration.html", w, &qr)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -631,7 +635,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
-			http.Error(w, "Server Error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -640,7 +644,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	err = data.FinaliseRegistration(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "expiring registration token failed:", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -674,7 +678,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	err = user.Deauthenticate(clientTunnelIp.String())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "could not deauthenticate:", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -697,14 +701,14 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	routes, err := router.GetRoutes(user.Username)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Getting routes from xdp failed: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -724,7 +728,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
@@ -764,7 +768,7 @@ func publicKey(w http.ResponseWriter, r *http.Request) {
 	wgPublicKey, _, err := router.ServerDetails()
 	if err != nil {
 		log.Println("unable access wireguard device: ", err)
-		http.Error(w, "Server Error", 500)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 

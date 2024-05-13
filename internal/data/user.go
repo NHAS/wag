@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
@@ -323,6 +324,8 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 	newUser := UserModel{
 		Username: username,
+		Mfa:      string(types.Unset),
+		MfaType:  string(types.Unset),
 	}
 	b, _ := json.Marshal(&newUser)
 

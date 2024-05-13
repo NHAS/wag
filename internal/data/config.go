@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/data/validators"
+	"github.com/go-playground/validator/v10"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -342,21 +343,34 @@ type AllSettings struct {
 }
 
 type LoginSettings struct {
-	SessionInactivityTimeoutMinutes int
-	MaxSessionLifetimeMinutes       int
-	Lockout                         int
+	SessionInactivityTimeoutMinutes int `validate:"required,number"`
+	MaxSessionLifetimeMinutes       int `validate:"required,number"`
+	Lockout                         int `validate:"required,number"`
 
-	DefaultMFAMethod  string
-	EnabledMFAMethods []string
+	DefaultMFAMethod  string   `validate:"required"`
+	EnabledMFAMethods []string `validate:"required,lt=10,dive,required"`
 
-	Domain string
-	Issuer string
+	Domain string `validate:"required"`
+	Issuer string `validate:"required"`
 
 	OidcDetails OIDC
 	PamDetails  PAM
 }
 
-func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op) {
+func (lg *LoginSettings) Validate() error {
+	lg.Domain = strings.TrimSpace(lg.Domain)
+	lg.Issuer = strings.TrimSpace(lg.Issuer)
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	return validate.Struct(lg)
+}
+
+func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op, err error) {
+
+	if err := lg.Validate(); err != nil {
+		return nil, err
+	}
 
 	b, _ := json.Marshal(lg.SessionInactivityTimeoutMinutes)
 	ret = append(ret, clientv3.OpPut(InactivityTimeoutKey, string(b)))
@@ -389,15 +403,33 @@ func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op) {
 }
 
 type GeneralSettings struct {
-	HelpMail        string
-	ExternalAddress string
-	DNS             []string
+	HelpMail        string   `validate:"required,email"`
+	ExternalAddress string   `validate:"required,hostname|hostname_port|ip"`
+	DNS             []string `validate:"omitempty,dive,ip"`
 
-	WireguardConfigFilename string
+	WireguardConfigFilename string `validate:"required"`
 	CheckUpdates            bool
 }
 
-func (gs *GeneralSettings) ToWriteOps() (ret []clientv3.Op) {
+func (gs *GeneralSettings) Validate() error {
+
+	gs.HelpMail = strings.TrimSpace(gs.HelpMail)
+	gs.ExternalAddress = strings.TrimSpace(gs.ExternalAddress)
+	gs.WireguardConfigFilename = strings.TrimSpace(gs.WireguardConfigFilename)
+	for i := range gs.DNS {
+		gs.DNS[i] = strings.TrimSpace(gs.DNS[i])
+	}
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	return validate.Struct(gs)
+}
+
+func (gs *GeneralSettings) ToWriteOps() (ret []clientv3.Op, err error) {
+
+	if err := gs.Validate(); err != nil {
+		return nil, err
+	}
 
 	b, _ := json.Marshal(gs.HelpMail)
 	ret = append(ret, clientv3.OpPut(helpMailKey, string(b)))
@@ -541,14 +573,24 @@ func GetAllSettings() (s AllSettings, err error) {
 }
 
 func SetLoginSettings(loginSettings LoginSettings) error {
+
+	writeOps, err := loginSettings.ToWriteOps()
+	if err != nil {
+		return err
+	}
+
 	txn := etcd.Txn(context.Background())
-	_, err := txn.Then(loginSettings.ToWriteOps()...).Commit()
+	_, err = txn.Then(writeOps...).Commit()
 	return err
 }
 
 func SetGeneralSettings(generalSettings GeneralSettings) error {
 	txn := etcd.Txn(context.Background())
-	_, err := txn.Then(generalSettings.ToWriteOps()...).Commit()
+	writeOPs, err := generalSettings.ToWriteOps()
+	if err != nil {
+		return err
+	}
+	_, err = txn.Then(writeOPs...).Commit()
 	return err
 }
 

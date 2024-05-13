@@ -124,6 +124,9 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		b.Username = strings.TrimSpace(b.Username)
+		b.Overwrites = strings.TrimSpace(b.Overwrites)
+
 		uses, err := strconv.Atoi(b.Uses)
 		if err != nil {
 			log.Println("client sent invalid number for token number of usees")
