@@ -170,6 +170,7 @@ $(function () {
   $save.on("click", function () {
     let data = {
       "effects": $('#effects').val(),
+      "deny_routes": $('#deny_routes').val().split("\n").filter(element => element),
       "mfa_routes": $('#mfa_routes').val().split("\n").filter(element => element),
       "public_routes": $('#public_routes').val().split("\n").filter(element => element),
     }
