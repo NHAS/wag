@@ -491,6 +491,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 
+		// Make sure not to accidentally shadow the global err here as we're using a defer to monitor failures to delete the device
 		var device data.Device
 		device, err = user.AddDevice(publickey)
 		if err != nil {
