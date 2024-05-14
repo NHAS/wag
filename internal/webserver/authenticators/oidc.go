@@ -178,7 +178,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Rather ugly way of converting []interface{} into []string{}
-		groups := []string{}
+		var groups []string
 		for i := range groupsIntf {
 			conv, ok := groupsIntf[i].(string)
 			if !ok {
@@ -245,10 +245,10 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), o.provider)(w, r)
 }
 
-func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, _, _ string) {
 	rp.AuthURLHandler(o.state, o.provider)(w, r)
 }
 
-func (o *Oidc) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (o *Oidc) RegistrationUI(w http.ResponseWriter, r *http.Request, _, _ string) {
 	o.RegistrationAPI(w, r)
 }

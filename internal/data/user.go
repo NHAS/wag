@@ -24,7 +24,7 @@ func (um *UserModel) GetID() [20]byte {
 	return sha1.Sum([]byte(um.Username))
 }
 
-// Make sure that the attempts is always incremented first to stop race condition attacks
+// IncrementAuthenticationAttempt Make sure that the attempts is always incremented first to stop race condition attacks
 func IncrementAuthenticationAttempt(username, device string) error {
 	return doSafeUpdate(context.Background(), deviceKey(username, device), false, func(gr *clientv3.GetResponse) (value string, err error) {
 
