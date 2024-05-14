@@ -521,7 +521,7 @@ static __always_inline int conntrack(struct ip *ip_info)
 
     // If the traffic comes from a peer that we are not associated with, i.e traffic is coming to a node who has not talked to this peer before
     // kill it
-    if(*current_node_id != current_device->associatedNode) {
+    if() {
        return 0;
     }
 
@@ -599,7 +599,9 @@ static __always_inline int conntrack(struct ip *ip_info)
                 // If device does not belong to a locked account, the device itself isnt locked and if it isnt timed out
                 return (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
                         // If either max session lifetime is disabled, or it is before the max lifetime of the session
-                        (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry));
+                        (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry) &&
+                        // If the device is associated with this node
+                        *current_node_id == current_device->associatedNode ;
             }
         }
     }

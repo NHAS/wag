@@ -956,7 +956,6 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 
 	for _, user := range devices {
 		acl := data.GetEffectiveAcl(user.Username)
-		log.Println(user, acl.Allow)
 		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
 		if err != nil {
 			t.Fatal(err)
