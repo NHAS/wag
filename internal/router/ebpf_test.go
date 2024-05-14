@@ -63,7 +63,7 @@ func TestBlankPacket(t *testing.T) {
 func TestAddNewDevices(t *testing.T) {
 
 	var ipBytes []byte
-	var deviceBytes = make([]byte, 40)
+	var deviceBytes = make([]byte, 48)
 
 	found := map[string]bool{}
 
