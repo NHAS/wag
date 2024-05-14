@@ -266,7 +266,7 @@ func xdpRemoveDevice(address string) error {
 	return finalError
 }
 
-func xdpAddDevice(username, address string) error {
+func xdpAddDevice(username, address string, associatedNode uint64) error {
 
 	ip := net.ParseIP(address)
 	if ip == nil {
@@ -284,6 +284,7 @@ func xdpAddDevice(username, address string) error {
 	deviceStruct.lastPacketTime = 0
 	deviceStruct.sessionExpiry = 0
 	deviceStruct.user_id = sha1.Sum([]byte(username))
+	deviceStruct.associatedNode = associatedNode
 
 	if err := xdpUserExists(deviceStruct.user_id); err != nil {
 		return err

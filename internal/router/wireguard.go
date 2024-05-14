@@ -275,7 +275,7 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 		},
 	}
 
-	err = xdpAddDevice(username, addresss)
+	err = xdpAddDevice(username, addresss, 0)
 	if err != nil {
 
 		return err

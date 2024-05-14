@@ -1158,7 +1158,7 @@ func addDevices() error {
 			return err
 		}
 
-		err = xdpAddDevice(device.Username, device.Address)
+		err = xdpAddDevice(device.Username, device.Address, uint64(data.GetServerID()))
 		if err != nil {
 			return err
 		}
