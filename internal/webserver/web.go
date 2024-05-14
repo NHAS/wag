@@ -384,7 +384,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 func reachability(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain")
 
-	isDrained, err := data.IsDrained(data.GetServerID())
+	isDrained, err := data.IsDrained(data.GetServerID().String())
 	if err != nil {
 		http.Error(w, "Failed to fetch state", http.StatusInternalServerError)
 		return

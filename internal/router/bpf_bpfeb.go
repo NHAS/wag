@@ -63,6 +63,7 @@ type bpfMapSpecs struct {
 	AccountLocked            *ebpf.MapSpec `ebpf:"account_locked"`
 	Devices                  *ebpf.MapSpec `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.MapSpec `ebpf:"inactivity_timeout_minutes"`
+	NodeId                   *ebpf.MapSpec `ebpf:"node_Id"`
 	PoliciesTable            *ebpf.MapSpec `ebpf:"policies_table"`
 }
 
@@ -88,6 +89,7 @@ type bpfMaps struct {
 	AccountLocked            *ebpf.Map `ebpf:"account_locked"`
 	Devices                  *ebpf.Map `ebpf:"devices"`
 	InactivityTimeoutMinutes *ebpf.Map `ebpf:"inactivity_timeout_minutes"`
+	NodeId                   *ebpf.Map `ebpf:"node_Id"`
 	PoliciesTable            *ebpf.Map `ebpf:"policies_table"`
 }
 
@@ -96,6 +98,7 @@ func (m *bpfMaps) Close() error {
 		m.AccountLocked,
 		m.Devices,
 		m.InactivityTimeoutMinutes,
+		m.NodeId,
 		m.PoliciesTable,
 	)
 }

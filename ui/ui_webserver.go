@@ -226,7 +226,7 @@ func StartWebServer(errs chan<- error) error {
 	if data.HasLeader() {
 		clusterState = "healthy"
 	}
-	serverID = data.GetServerID()
+	serverID = data.GetServerID().String()
 
 	_, err = data.RegisterClusterHealthListener(watchClusterHealth)
 	if err != nil {
@@ -237,9 +237,6 @@ func StartWebServer(errs chan<- error) error {
 
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
-		// Causes servers to use Go's default ciphersuite preferences,
-		// which are tuned to avoid attacks. Does nothing on clients.
-		PreferServerCipherSuites: true,
 		// Only use curves which have assembly implementations
 		CurvePreferences: []tls.CurveID{
 			tls.CurveP256,

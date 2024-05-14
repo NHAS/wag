@@ -53,17 +53,6 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 	handleEvents(errorChan)
 
 	go func() {
-		startup := true
-		cache := map[string]string{}
-		d, err := data.GetAllDevices()
-		if err != nil {
-			errorChan <- err
-			return
-		}
-
-		for _, device := range d {
-			cache[device.Address] = device.Endpoint.String()
-		}
 
 		for {
 
@@ -77,6 +66,11 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 					return
 				}
 
+				devices, err := data.GetAllDevicesAsMap()
+				if err != nil {
+					errorChan <- fmt.Errorf("endpoint watcher: failed to retrieve devices from etcd: %s", err)
+					return
+				}
 				for _, p := range dev.Peers {
 
 					if len(p.AllowedIPs) != 1 {
@@ -84,37 +78,34 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 						continue
 					}
 
-					ip := p.AllowedIPs[0].IP.String()
+					device, ok := devices[p.AllowedIPs[0].IP.String()]
+					if !ok {
+						log.Println("found unknown device,", p.AllowedIPs[0].IP.String())
+						continue
+					}
 
-					if cache[ip] != p.Endpoint.String() {
-						cache[ip] = p.Endpoint.String()
+					if device.Endpoint.String() != p.Endpoint.String() || device.AssociatedNode != data.GetServerID() {
 
-						d, err := data.GetDeviceByAddress(ip)
+						if device.Endpoint.String() != p.Endpoint.String() {
+							log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
+						} else {
+							log.Printf("%s:%s roamed associated node %s -> %s", device.Address, device.Username, device.AssociatedNode, data.GetServerID())
+						}
+
+						// TODO this will be updated to be a challenge in the future instead of immediately deauthing
+						err := data.DeauthenticateDevice(device.Address)
 						if err != nil {
-							log.Println("unable to get previous device endpoint for", ip, "err:", err)
-							if err := Deauthenticate(ip); err != nil {
-								log.Println(ip, "unable to remove forwards for device:", err)
-							}
-							continue
+							log.Printf("failed to signal cluster of device (%s:%s) deauth: %s", device.Address, device.Username, err)
 						}
 
-						err = data.UpdateDeviceEndpoint(p.AllowedIPs[0].IP.String(), p.Endpoint)
+						err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
 						if err != nil {
-							log.Println(ip, "unable to update device endpoint: ", err)
+							log.Printf("unable to update device (%s:%s) endpoint: %s", device.Address, device.Username, err)
 						}
 
-						//Dont try and remove rules, if we've just started
-						if !startup {
-							log.Println(ip, "endpoint changed", d.Endpoint.String(), "->", p.Endpoint.String())
-							if err := Deauthenticate(ip); err != nil {
-								log.Println(ip, "unable to remove forwards for device: ", err)
-							}
-						}
 					}
 
 				}
-
-				startup = false
 			}
 
 		}

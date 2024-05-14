@@ -227,7 +227,7 @@ func checkClusterHealth() {
 func testCluster() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 
-	_, err := etcd.Put(ctx, path.Join(NodeEvents, GetServerID(), "ping"), time.Now().Format(time.RFC1123Z))
+	_, err := etcd.Put(ctx, path.Join(NodeEvents, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
 	if err != nil {
 		log.Println("unable to write liveness value")
@@ -257,7 +257,7 @@ type EventError struct {
 func RaiseError(raisedError error, value []byte) (err error) {
 
 	ee := EventError{
-		NodeID:          GetServerID(),
+		NodeID:          GetServerID().String(),
 		FailedEventData: string(value),
 		Error:           raisedError.Error(),
 		Time:            time.Now(),

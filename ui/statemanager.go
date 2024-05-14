@@ -9,5 +9,5 @@ var (
 
 func watchClusterHealth(state string) {
 	clusterState = state
-	serverID = data.GetServerID()
+	serverID = data.GetServerID().String()
 }

@@ -33,8 +33,8 @@ type NodeControlRequest struct {
 	Action string
 }
 
-func GetServerID() string {
-	return etcdServer.Server.ID().String()
+func GetServerID() types.ID {
+	return etcdServer.Server.ID()
 }
 
 func GetLeader() types.ID {

@@ -48,7 +48,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		},
 
 		Leader:      data.GetLeader(),
-		CurrentNode: data.GetServerID(),
+		CurrentNode: data.GetServerID().String(),
 	}
 
 	members := data.GetMembers()
@@ -184,7 +184,7 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 
 		log.Println("attempting to remove node ", ncR.Node)
 
-		if data.GetServerID() == ncR.Node {
+		if data.GetServerID().String() == ncR.Node {
 			log.Println("user tried to remove current operating node from cluster")
 			http.Error(w, "cannot remove current node", http.StatusBadRequest)
 			return

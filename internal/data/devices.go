@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	"net"
 	"time"
 
@@ -24,7 +25,7 @@ type Device struct {
 	Active       bool
 	Authorised   time.Time
 
-	AssociatedNode string
+	AssociatedNode types.ID
 }
 
 func (d Device) String() string {
@@ -37,7 +38,10 @@ func (d Device) String() string {
 	return fmt.Sprintf("device[%s:%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Active, d.Attempts, authorised)
 }
 
-func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
+// UpdateDeviceConnectionDetails updates the endpoint we are receiving packets from and the associated cluster node
+// I.e if data is coming in to node 3, all other nodes know that the session is only valid while connecting to node 3
+// this stops a race condition where an attacker uses a wireguard profile, but gets load balanced to another node member
+func UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
 
 	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
 	if err != nil {
@@ -186,6 +190,27 @@ func GetAllDevices() (devices []Device, err error) {
 		}
 
 		devices = append(devices, device)
+	}
+
+	return devices, nil
+}
+
+func GetAllDevicesAsMap() (devices map[string]Device, err error) {
+
+	devices = make(map[string]Device)
+	response, err := etcd.Get(context.Background(), "devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, res := range response.Kvs {
+		var device Device
+		err := json.Unmarshal(res.Value, &device)
+		if err != nil {
+			return nil, err
+		}
+
+		devices[device.Address] = device
 	}
 
 	return devices, nil

@@ -99,8 +99,9 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
-		if (current.Attempts != previous.Attempts && current.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
+		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Endpoint.String() != previous.Endpoint.String() || // If the client ip has changed
+			current.AssociatedNode != previous.AssociatedNode || // If the node the client was sending to is now different
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(current.Address)
 			if err != nil {
@@ -110,9 +111,10 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 
 		}
 
-		if current.Authorised != previous.Authorised {
-			if !current.Authorised.IsZero() && current.Attempts <= lockout {
-				err := SetAuthorized(current.Address, current.Username)
+		// If the authorisation state has changed and is not disabled
+		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() {
+			if current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
+				err := SetAuthorized(current.Address, current.Username, uint64(current.AssociatedNode))
 				if err != nil {
 					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 				}

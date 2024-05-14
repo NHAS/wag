@@ -212,7 +212,7 @@ func TestRoutePriority(t *testing.T) {
 
 func TestBasicAuthorise(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestRoutePreference(t *testing.T) {
 
 func TestSlidingWindow(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -529,7 +529,7 @@ func TestSlidingWindow(t *testing.T) {
 
 func TestCompositeRules(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +632,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
 	}
 
-	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -688,7 +688,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 
 func TestMaxSessionLifetime(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -753,7 +753,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

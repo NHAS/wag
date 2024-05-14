@@ -102,6 +102,11 @@ func loadXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
+	err = xdpObjects.NodeId.Put(uint32(0), uint64(data.GetServerID()))
+	if err != nil {
+		return fmt.Errorf("could not set node id: %s", err)
+	}
+
 	sessionInactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
 	if err != nil {
 		return err
@@ -594,7 +599,7 @@ func RefreshUserAcls(username string) error {
 }
 
 // SetAuthroized correctly sets the timestamps for a device with internal IP address as internalAddress
-func SetAuthorized(internalAddress, username string) error {
+func SetAuthorized(internalAddress, username string, node uint64) error {
 
 	if net.ParseIP(internalAddress).To4() == nil {
 		return errors.New("internalAddress could not be parsed as an IPv4 address")
@@ -605,6 +610,7 @@ func SetAuthorized(internalAddress, username string) error {
 
 	var deviceStruct fwentry
 	deviceStruct.lastPacketTime = GetTimeStamp()
+	deviceStruct.associatedNode = node
 
 	maxSession, err := data.GetSessionLifetimeMinutes()
 	if err != nil {
