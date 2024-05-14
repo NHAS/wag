@@ -59,10 +59,10 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := []TokensData{}
+		var tokens []TokensData
 
 		for _, reg := range registrations {
-			data = append(data, TokensData{
+			tokens = append(tokens, TokensData{
 				Username:   reg.Username,
 				Token:      reg.Token,
 				Groups:     reg.Groups,
@@ -71,7 +71,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		b, err := json.Marshal(data)
+		b, err := json.Marshal(tokens)
 		if err != nil {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
@@ -106,6 +106,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 
 	case "POST":
 
@@ -152,6 +153,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 
 	default:
 		http.NotFound(w, r)

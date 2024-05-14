@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -70,7 +71,7 @@ func root(args []string) error {
 			}
 
 			if err := cmd.Check(); err != nil {
-				if err != flag.ErrHelp {
+				if errors.Is(err, flag.ErrHelp) {
 					fmt.Println("Error: ", err.Error())
 					cmd.PrintUsage()
 				}

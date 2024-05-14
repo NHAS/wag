@@ -152,10 +152,10 @@ func startUpdateChecker(notifications chan<- Notification) {
 				log.Println("unable to fetch updates: ", err)
 				return
 			}
-			defer resp.Body.Close()
 
 			var gr githubResponse
 			err = json.NewDecoder(resp.Body).Decode(&gr)
+			resp.Body.Close()
 			if err != nil {
 				log.Println("unable to parse update json: ", err)
 				return

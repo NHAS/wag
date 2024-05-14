@@ -147,18 +147,6 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 	return key, nil
 }
 
-func DeregisterEventListener(key string) {
-	lck.Lock()
-	defer lck.Unlock()
-
-	if cancel, ok := contextMaps[key]; ok {
-		if cancel != nil {
-			cancel()
-		}
-		delete(contextMaps, key)
-	}
-}
-
 func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
@@ -171,13 +159,6 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthListeners[key] = f
 
 	return key, nil
-}
-
-func DeregisterClusterHealthListener(key string) {
-	clusterHealthLck.Lock()
-	defer clusterHealthLck.Unlock()
-
-	delete(clusterHealthListeners, key)
 }
 
 func notifyClusterHealthListeners(event string) {

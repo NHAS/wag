@@ -105,7 +105,6 @@ func teardown(force bool) {
 
 	ui.Teardown()
 	webserver.Teardown()
-
 }
 
 func clusterState(noIptables bool, errorChan chan<- error) func(string) {

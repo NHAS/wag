@@ -453,7 +453,7 @@ func TearDown() {
 
 func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
-	opts := []clientv3.OpOption{}
+	var opts []clientv3.OpOption
 
 	if mutateFunc == nil {
 		return errors.New("no mutate function set in safe update")

@@ -35,9 +35,9 @@ func (wa *Webauthn) Init() error {
 	}
 
 	wa.webauthnExecutor, err = webauthn.New(&webauthn.Config{
-		RPDisplayName: d.DisplayName, // Display Name for your site
-		RPID:          d.ID,          // Generally the domain name for your site
-		RPOrigin:      d.Origin,      // The origin URL for WebAuthn requests
+		RPDisplayName: d.DisplayName,      // Display Name for your site
+		RPID:          d.ID,               // Generally the domain name for your site
+		RPOrigins:     []string{d.Origin}, // The origin URL for WebAuthn requests
 	})
 	if err != nil {
 		return err
@@ -288,7 +288,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 
 	if err := resources.Render("prompt_mfa_webauthn.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),
@@ -298,7 +298,7 @@ func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, r *http.Request, username
 	}
 }
 
-func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 
 	if err := resources.Render("register_mfa_webauthn.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),
@@ -392,7 +392,7 @@ func randomUint64() uint64 {
 // WebAuthnID returns the user's ID
 func (u WebauthnUser) WebAuthnID() []byte {
 	buf := make([]byte, binary.MaxVarintLen64)
-	binary.PutUvarint(buf, uint64(u.id))
+	binary.PutUvarint(buf, u.id)
 	return buf
 }
 
@@ -418,7 +418,7 @@ func (u *WebauthnUser) AddCredential(cred webauthn.Credential) {
 
 }
 
-// WebAuthnCredentials returns credentials owned by the user
+// WebAuthnCredential returns credential owned by the user
 func (u WebauthnUser) WebAuthnCredential(ID []byte) (out *webauthn.Credential) {
 
 	return u.credentials[string(ID)]
@@ -437,7 +437,7 @@ func (u WebauthnUser) WebAuthnCredentials() (out []*webauthn.Credential) {
 // with all the user's credentials
 func (u WebauthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
 
-	credentialExcludeList := []protocol.CredentialDescriptor{}
+	var credentialExcludeList []protocol.CredentialDescriptor
 	for _, cred := range u.credentials {
 		descriptor := protocol.CredentialDescriptor{
 			Type:         protocol.PublicKeyCredentialType,

@@ -58,7 +58,7 @@ func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
 	lck.Lock()
 	defer lck.Unlock()
 
-	out := []types.MFA{}
+	var out []types.MFA
 
 	var errRet error
 	for _, m := range method {
@@ -95,7 +95,7 @@ func GetAllEnabledMethods() (r []Authenticator) {
 	lck.RLock()
 	defer lck.RUnlock()
 
-	order := []string{}
+	var order []string
 	for k := range allMfa {
 		order = append(order, string(k))
 	}
@@ -115,7 +115,7 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	lck.RLock()
 	defer lck.RUnlock()
 
-	order := []string{}
+	var order []string
 	for k := range allMfa {
 		order = append(order, string(k))
 	}
@@ -175,22 +175,22 @@ type Authenticator interface {
 
 	Type() string
 
-	// Name that is displayed in the MFA selection table
+	//FriendlyName is the name that is displayed in the MFA selection table
 	FriendlyName() string
 
-	// Redirection path that deauthenticates selected mfa method (mostly just "/" unless its externally connected to something)
+	//LogoutPath returns the redirection path that deauthenticates selected mfa method (mostly just "/" unless it's externally connected to something)
 	LogoutPath() string
 
-	// Automatically added under /register_mfa/<mfa_method_name>
+	//RegistrationAPI automatically added under /register_mfa/<mfa_method_name>
 	RegistrationAPI(w http.ResponseWriter, r *http.Request)
 
-	// Automatically added under /authorise/<mfa_method_name>
+	//AuthorisationAPI automatically added under /authorise/<mfa_method_name>
 	AuthorisationAPI(w http.ResponseWriter, r *http.Request)
 
-	// Executed in /authorise/ path to display UI when user browses to that path
+	//MFAPromptUI is executed in /authorise/ path to display UI when user browses to that path
 	MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string)
 
-	// Executed in /register_mfa/ path to show the UI for registration
+	//RegistrationUI is executed in /register_mfa/ path to show the UI for registration
 	RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string)
 }
 

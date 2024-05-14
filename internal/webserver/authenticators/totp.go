@@ -135,7 +135,9 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
-		user.EnforceMFA()
+		if err := user.EnforceMFA(); err != nil {
+			log.Println(user.Username, clientTunnelIp, "enforce mfa failed:", err)
+		}
 
 	default:
 		http.NotFound(w, r)
@@ -216,7 +218,7 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authe
 	}
 }
 
-func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Totp) MFAPromptUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 
 	if err := resources.Render("prompt_mfa_totp.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),
@@ -226,7 +228,7 @@ func (t *Totp) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip 
 	}
 }
 
-func (t *Totp) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Totp) RegistrationUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 
 	if err := resources.Render("register_mfa_totp.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),

@@ -277,7 +277,6 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 
 	err = xdpAddDevice(username, addresss, 0)
 	if err != nil {
-
 		return err
 	}
 
@@ -296,21 +295,6 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 	addressesToUsers[addresss] = username
 
 	return nil
-}
-
-func GetPeerRealIp(address string) (string, error) {
-	dev, err := ctrl.Device(config.Values.Wireguard.DevName)
-	if err != nil {
-		return "", err
-	}
-
-	for _, peer := range dev.Peers {
-		if len(peer.AllowedIPs) == 1 && peer.AllowedIPs[0].IP.String() == address {
-			return peer.Endpoint.String(), nil
-		}
-	}
-
-	return "", errors.New("not found")
 }
 
 func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {

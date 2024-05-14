@@ -147,7 +147,7 @@ func StartControlSocket() error {
 			Handler: controlMux,
 		}
 
-		srv.Serve(l)
+		log.Println("failed to serve control socket: ", srv.Serve(l))
 	}()
 	return nil
 }

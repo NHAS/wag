@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"html"
 	"html/template"
@@ -84,7 +85,7 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 		parsed, err = template.New(name).Funcs(funcsMap).ParseFS(templatesContent, content...)
 	} else {
 
-		realFiles := []string{}
+		var realFiles []string
 		for _, c := range content {
 			realFiles = append(realFiles, filepath.Join("ui/", c))
 		}
@@ -366,7 +367,7 @@ func StartWebServer(errs chan<- error) error {
 					Handler:      setSecurityHeaders(allRoutes),
 				}
 
-				if err := HTTPSServer.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath); err != nil && err != http.ErrServerClosed {
+				if err := HTTPSServer.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errs <- fmt.Errorf("TLS management listener failed: %v", err)
 				}
 
@@ -380,7 +381,7 @@ func StartWebServer(errs chan<- error) error {
 					IdleTimeout:  120 * time.Second,
 					Handler:      setSecurityHeaders(allRoutes),
 				}
-				if err := HTTPServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				if err := HTTPServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errs <- fmt.Errorf("webserver management listener failed: %v", HTTPServer.ListenAndServe())
 				}
 

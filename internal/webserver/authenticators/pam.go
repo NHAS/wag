@@ -77,7 +77,9 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
-		user.EnforceMFA()
+		if err := user.EnforceMFA(); err != nil {
+			log.Println(user.Username, clientTunnelIp, "failed to enforce mfa: ", err)
+		}
 
 	default:
 		http.NotFound(w, r)
@@ -182,7 +184,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 	}
 }
 
-func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Pam) MFAPromptUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 	if err := resources.Render("prompt_mfa_pam.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),
@@ -191,7 +193,7 @@ func (t *Pam) MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip s
 	}
 }
 
-func (t *Pam) RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string) {
+func (t *Pam) RegistrationUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
 	if err := resources.Render("register_mfa_pam.html", w, &resources.Msg{
 		HelpMail:   data.GetHelpMail(),
 		NumMethods: NumberOfMethods(),

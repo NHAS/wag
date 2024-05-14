@@ -105,7 +105,7 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := []WgDevicesData{}
+	var wireguardPeers []WgDevicesData
 
 	for _, peer := range peers {
 		ip := "-"
@@ -113,7 +113,7 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 			ip = peer.AllowedIPs[0].String()
 		}
 
-		data = append(data, WgDevicesData{
+		wireguardPeers = append(wireguardPeers, WgDevicesData{
 
 			ReceiveBytes:  peer.ReceiveBytes,
 			TransmitBytes: peer.TransmitBytes,
@@ -125,7 +125,7 @@ func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	result, err := json.Marshal(data)
+	result, err := json.Marshal(wireguardPeers)
 	if err != nil {
 		log.Println("unable to marshal peers data: ", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)

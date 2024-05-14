@@ -28,7 +28,6 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
 
 const (
-	ebpfFS         = "/sys/fs/bpf"
 	CLOCK_BOOTTIME = uint32(7)
 )
 
@@ -423,7 +422,7 @@ func clearPolicyMap(toClear *ebpf.Map) error {
 		}
 
 		err = toClear.Delete(lastKey)
-		if err != nil && err != ebpf.ErrKeyNotExist {
+		if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 			return err
 		}
 

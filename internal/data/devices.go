@@ -321,7 +321,7 @@ func DeleteDevices(username string) error {
 		return err
 	}
 
-	ops := []clientv3.Op{}
+	var ops []clientv3.Op
 	for _, reference := range deleted.PrevKvs {
 
 		var d Device
@@ -339,7 +339,7 @@ func DeleteDevices(username string) error {
 
 func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 
-	beforeUpadte, err := GetDeviceByAddress(address)
+	beforeUpdate, err := GetDeviceByAddress(address)
 	if err != nil {
 		return err
 	}
@@ -366,7 +366,7 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 		return err
 	}
 
-	_, err = etcd.Delete(context.Background(), "devicesref-"+beforeUpadte.Publickey)
+	_, err = etcd.Delete(context.Background(), "devicesref-"+beforeUpdate.Publickey)
 
 	return err
 }

@@ -33,7 +33,7 @@ func registerListeners() error {
 }
 
 // OidcDetailsKey = "wag-config-authentication-oidc"
-func oidcChanges(key string, current data.OIDC, previous data.OIDC, et data.EventType) error {
+func oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Oidc)
@@ -56,7 +56,7 @@ func oidcChanges(key string, current data.OIDC, previous data.OIDC, et data.Even
 }
 
 // DomainKey            = "wag-config-authentication-domain"
-func domainChanged(key string, current string, _ string, et data.EventType) error {
+func domainChanged(_ string, _ string, _ string, et data.EventType) error {
 	switch et {
 	case data.MODIFIED:
 
@@ -77,7 +77,7 @@ func domainChanged(key string, current string, _ string, et data.EventType) erro
 }
 
 // MethodsEnabledKey    = "wag-config-authentication-methods"
-func enabledMethodsChanged(key string, current []string, previous []string, et data.EventType) (err error) {
+func enabledMethodsChanged(_ string, current, previous []string, et data.EventType) (err error) {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
@@ -100,7 +100,7 @@ func enabledMethodsChanged(key string, current []string, previous []string, et d
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
-func issuerKeyChanged(key string, current string, previous string, et data.EventType) error {
+func issuerKeyChanged(_ string, _, _ string, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)

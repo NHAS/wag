@@ -49,11 +49,7 @@ func IsLearner() bool {
 	return etcdServer.Server.IsLearner()
 }
 
-func IsLeader() bool {
-	return etcdServer.Server.Leader() == etcdServer.Server.ID()
-}
-
-// Called on a leader node, to transfer ownership to another node (demoted)
+// StepDown when called on a leader node, to transfer ownership to another node (demoted)
 func StepDown() error {
 	return etcdServer.Server.TransferLeadership()
 }
