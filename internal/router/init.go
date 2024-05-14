@@ -54,6 +54,7 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 
 	go func() {
 
+		ourPeerAddresses := make(map[string]string)
 		for {
 
 			select {
@@ -84,20 +85,22 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 						continue
 					}
 
-					if device.Endpoint.String() != p.Endpoint.String() || device.AssociatedNode != data.GetServerID() {
+					if _, ok := ourPeerAddresses[device.Address]; !ok {
+						ourPeerAddresses[device.Address] = p.Endpoint.String()
+					}
 
-						if device.Endpoint.String() != p.Endpoint.String() {
-							log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
-						} else {
-							log.Printf("%s:%s roamed associated node %s -> %s", device.Address, device.Username, device.AssociatedNode, data.GetServerID())
-						}
+					if ourPeerAddresses[device.Address] != p.Endpoint.String() {
 
-						// TODO this will be updated to be a challenge in the future instead of immediately deauthing
-						err := data.DeauthenticateDevice(device.Address)
+						ourPeerAddresses[device.Address] = p.Endpoint.String()
+
+						log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
+
+						err = data.DeauthenticateDevice(device.Address)
 						if err != nil {
-							log.Printf("failed to signal cluster of device (%s:%s) deauth: %s", device.Address, device.Username, err)
+							log.Printf("failed to deauth device (%s:%s) endpoint: %s", device.Address, device.Username, err)
 						}
 
+						// This will set the association to this node automatically
 						err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
 						if err != nil {
 							log.Printf("unable to update device (%s:%s) endpoint: %s", device.Address, device.Username, err)
