@@ -23,6 +23,8 @@ type Device struct {
 	Attempts     int
 	Active       bool
 	Authorised   time.Time
+
+	AssociatedNode string
 }
 
 func (d Device) String() string {
@@ -32,7 +34,7 @@ func (d Device) String() string {
 		authorised = d.Authorised.Format(time.DateTime)
 	}
 
-	return fmt.Sprintf("device[%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.Active, d.Attempts, authorised)
+	return fmt.Sprintf("device[%s:%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Active, d.Attempts, authorised)
 }
 
 func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
@@ -58,6 +60,7 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		}
 
 		device.Endpoint = endpoint
+		device.AssociatedNode = GetServerID()
 
 		b, _ := json.Marshal(device)
 
@@ -108,6 +111,7 @@ func AuthoriseDevice(username, address string) error {
 			return "", errors.New("account is locked")
 		}
 
+		device.AssociatedNode = GetServerID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
 

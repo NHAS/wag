@@ -24,10 +24,6 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
-// TODO Most of the methods in this package need to change to prevent race conditions from breaking the cluster
-// The way we're going to do this is each get method will return the etcd key revision. If a user tries to make a change using an older revision then that will be an error
-// Or a prompt on the admin ui
-
 var (
 	etcd                   *clientv3.Client
 	etcdServer             *embed.Etcd
