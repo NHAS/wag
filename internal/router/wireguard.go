@@ -96,8 +96,11 @@ func setupWireguard(devices []data.Device) error {
 			PublicKey:         pk,
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        []net.IPNet{*network},
-			Endpoint:          device.Endpoint,
 			PresharedKey:      psk,
+		}
+
+		if device.AssociatedNode == data.GetServerID() {
+			pc.Endpoint = device.Endpoint
 		}
 
 		if config.Values.Wireguard.ServerPersistentKeepAlive > 0 {
@@ -232,6 +235,30 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 	addresses := usersToAddresses[device.Username]
 	addresses[device.Address] = newPublicKey.String()
 	usersToAddresses[device.Username] = addresses
+
+	return nil
+}
+
+func setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) error {
+
+	id, err := wgtypes.ParseKey(device.Publickey)
+	if err != nil {
+		return err
+	}
+
+	var c wgtypes.Config
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			UpdateOnly: true,
+			PublicKey:  id,
+			Endpoint:   endpoint,
+		},
+	}
+
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

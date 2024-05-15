@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,10 @@ import (
 var (
 	lock   sync.RWMutex
 	cancel = make(chan bool)
+)
+
+var (
+	EmptyEndpoint = &net.UDPAddr{}
 )
 
 func Setup(errorChan chan<- error, iptables bool) (err error) {
@@ -53,7 +58,6 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 	handleEvents(errorChan)
 
 	go func() {
-
 		ourPeerAddresses := make(map[string]string)
 		for {
 
@@ -85,22 +89,28 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 						continue
 					}
 
-					if _, ok := ourPeerAddresses[device.Address]; !ok {
+					// If the peer endpoint has become empty (due to peer roaming) or if we dont have a record of it, set the map
+					if _, ok := ourPeerAddresses[device.Address]; !ok || EmptyEndpoint.String() == p.Endpoint.String() {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 					}
 
-					if ourPeerAddresses[device.Address] != p.Endpoint.String() {
-
+					// If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
+					if ourPeerAddresses[device.Address] != p.Endpoint.String() && ourPeerAddresses[device.Address] != EmptyEndpoint.String() {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 
-						log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
+						// If we register an endpoint change on our real world device, and the Endpoint is not the same as what the cluster knows
+						// i.e the peer has either roamed and its egress has changed, or it's an attacker using a stolen wireguard profile
+						// Deauthenticate it
+						if device.Endpoint.String() != p.Endpoint.String() {
+							log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
 
-						err = data.DeauthenticateDevice(device.Address)
-						if err != nil {
-							log.Printf("failed to deauth device (%s:%s) endpoint: %s", device.Address, device.Username, err)
+							err = data.DeauthenticateDevice(device.Address)
+							if err != nil {
+								log.Printf("failed to deauth device (%s:%s) endpoint: %s", device.Address, device.Username, err)
+							}
 						}
 
-						// This will set the association to this node automatically
+						// Otherwise, just update the node association
 						err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
 						if err != nil {
 							log.Printf("unable to update device (%s:%s) endpoint: %s", device.Address, device.Username, err)

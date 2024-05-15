@@ -627,18 +627,19 @@ func SetAuthorized(internalAddress, username string, node uint64) error {
 	return xdpObjects.Devices.Update(net.ParseIP(internalAddress).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }
 
-func UpdateNodeAssociation(deviceAddress string, node uint64) error {
+func UpdateNodeAssociation(device data.Device) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	ip := net.ParseIP(deviceAddress)
-	if ip == nil {
-		return errors.New("Unable to get IP address from: " + deviceAddress)
+	// If the peer roams away from us, unset the endpoint in wireguard to make sure the peer watcher will absolutely register a change if they roam back
+	if device.AssociatedNode != data.GetServerID() {
+		err := setPeerEndpoint(device, &net.UDPAddr{})
+		if err != nil {
+			return err
+		}
 	}
 
-	if ip.To4() == nil {
-		return errors.New("IP address was not ipv4")
-	}
+	ip := net.ParseIP(device.Address)
 
 	deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
 	if err != nil {
@@ -651,7 +652,7 @@ func UpdateNodeAssociation(deviceAddress string, node uint64) error {
 		return err
 	}
 
-	deviceStruct.associatedNode = node
+	deviceStruct.associatedNode = uint64(device.AssociatedNode)
 
 	return xdpObjects.Devices.Update(ip.To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }

@@ -101,7 +101,6 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 
 		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Endpoint.String() != previous.Endpoint.String() || // If the client ip has changed
-			current.AssociatedNode != previous.AssociatedNode || // If the node the client was sending to is now different
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(current.Address)
 			if err != nil {
@@ -112,10 +111,11 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 		}
 
 		if current.AssociatedNode != previous.AssociatedNode {
-			err := UpdateNodeAssociation(current.Address, uint64(current.AssociatedNode))
+			err := UpdateNodeAssociation(current)
 			if err != nil {
 				return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
 			}
+
 			log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
 		}
 
