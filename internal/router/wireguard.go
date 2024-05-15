@@ -96,8 +96,11 @@ func setupWireguard(devices []data.Device) error {
 			PublicKey:         pk,
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        []net.IPNet{*network},
-			Endpoint:          device.Endpoint,
 			PresharedKey:      psk,
+		}
+
+		if device.AssociatedNode == data.GetServerID() {
+			pc.Endpoint = device.Endpoint
 		}
 
 		if config.Values.Wireguard.ServerPersistentKeepAlive > 0 {
@@ -236,6 +239,30 @@ func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
 	return nil
 }
 
+func setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) error {
+
+	id, err := wgtypes.ParseKey(device.Publickey)
+	if err != nil {
+		return err
+	}
+
+	var c wgtypes.Config
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			UpdateOnly: true,
+			PublicKey:  id,
+			Endpoint:   endpoint,
+		},
+	}
+
+	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ListPeers() ([]wgtypes.Peer, error) {
 
 	lock.Lock()
@@ -250,7 +277,7 @@ func ListPeers() ([]wgtypes.Peer, error) {
 }
 
 // AddPeer adds the device to wireguard
-func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err error) {
+func AddPeer(public wgtypes.Key, username, addresss, presharedKey string, node uint64) (err error) {
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -275,9 +302,8 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 		},
 	}
 
-	err = xdpAddDevice(username, addresss)
+	err = xdpAddDevice(username, addresss, node)
 	if err != nil {
-
 		return err
 	}
 
@@ -296,21 +322,6 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 	addressesToUsers[addresss] = username
 
 	return nil
-}
-
-func GetPeerRealIp(address string) (string, error) {
-	dev, err := ctrl.Device(config.Values.Wireguard.DevName)
-	if err != nil {
-		return "", err
-	}
-
-	for _, peer := range dev.Peers {
-		if len(peer.AllowedIPs) == 1 && peer.AllowedIPs[0].IP.String() == address {
-			return peer.Endpoint.String(), nil
-		}
-	}
-
-	return "", errors.New("not found")
 }
 
 func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {

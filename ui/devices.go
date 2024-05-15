@@ -63,10 +63,10 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := []DevicesData{}
+		var deviceData []DevicesData
 
 		for _, dev := range allDevices {
-			data = append(data, DevicesData{
+			deviceData = append(deviceData, DevicesData{
 				Owner:        dev.Username,
 				Locked:       dev.Attempts >= lockout,
 				InternalIP:   dev.Address,
@@ -76,7 +76,7 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		b, err := json.Marshal(data)
+		b, err := json.Marshal(deviceData)
 		if err != nil {
 
 			log.Println("unable to marshal devices data: ", err)

@@ -14,34 +14,33 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 
 /*
 A massive oversimplifcation of what is in this file.
-
-               ┌───────────────────────────────┐             ┌───────────────────────────────────┐
-               │      Inactivity Timeout       │             │           Devices                 │
-               │                               │             │            map                    │
-               │       uint64 (minutes)        │             │     key: ipv4 (u32)               │
-               │                               │             │     val: sizeof(struct device)    │
-               └───────────────────────────────┘             │                 │                 │
-                                                             └─────────────────┼─────────────────┘
-                                                                               │
-                                                                 ┌─────────────▼──────────────┐
-                                                                 │     device   struct        │
-            ┌─────────────────────────────────────┐              │                            │
-            │                User                 │◄─────────────┼─ userid         char[20]   │
-            │                                     │              │  sessionExpiry  uint64     │
-            ├─────────────────────────────────────┤              │  lastPacketTime uint64     │
-            │           AccountLocked             │              │  deviceLock     uint32     │
-            │               uint32                │              └────────────────────────────┘
-            ├─────────────────────────────────────┤
-            │           Public Routes LPM         │
-            │              key uint32             │             ┌─────────────────────────────┐
-            │         value policies[128]─────────┼───────┐     │        policy struct        │
-            │                                     │       │     │     policy_type uint16      │
-            ├─────────────────────────────────────┤       ├────►│     lower_port  uint16      │
-            │           MFA Routes LPM            │       │     │     upper_port  uint16      │
-            │              key uint32             │       │     │     proto       uint16      │
-            │         value policies[128] ────────┼───────┘     │                             │
-            │                                     │             └─────────────────────────────┘
-            └─────────────────────────────────────┘
+                                                                 ┌──────────────────────────────┐
+                                                                 │        Devices               │
+                                                                 │         map                  │
+                                                                 │  key: ipv4 (u32)             │
+                                                                 │  val: sizeof(struct device)  │
+                                                                 │              │               │
+   ┌────────────────────────────────────────────┐                └──────────────┼───────────────┘
+   │                   Policies                 │                               │
+   │                                            │                 ┌─────────────▼──────────────┐
+   │                     map                    │                 │     device   struct        │
+   │                                            │                 │                            │
+   │  key: userid char[20] ◄────────────────────┼─────────────────┼─ userid         char[20]   │
+   │  val: Max Polices * sizeof(struct device)  │                 │  sessionExpiry  uint64     │
+   │                      │                     │                 │  lastPacketTime uint64     │
+   └──────────────────────┼─────────────────────┘                 │  associatedNode uint64     │
+                          │                                       │                            │
+                          │                                       └────────────────────────────┘
+                    Max Policies
+                          │
+           ┌──────────────▼──────────────┐
+           │        policy struct        │     ┌────────────────────┐  ┌─────────────────────────┐
+           │     policy_type uint16      │     │ Inactivity Timeout │  │     Associated Node     │
+           │     lower_port  uint16      │     │                    │  │                         │
+           │     upper_port  uint16      │     │       Array        │  │          Array          │
+           │     proto       uint16      │     │                    │  │                         │
+           │                             │     │  uint64 (minutes)  │  │  uint64 (etcd node id)  │
+           └─────────────────────────────┘     └────────────────────┘  └─────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   Packet Flow                                                           │
@@ -81,41 +80,60 @@ A massive oversimplifcation of what is in this file.
 │                              │                                                                          │
 │                              │                                                                          │
 │                  ┌───────────▼─────────────┐                                                            │
-│                  │        Lookup User      │                                                            │
+│                  │                         │                                                            │
 │                  │                         │                                                ┌────────┐  │
-│                  │    user = users(        │                 not_found(userid)              │        │  │
-│                  │      userid             │ ───────────────────────────────────────────────►  DROP  │  │
-│                  │    )                    │                                                │        │  │
-│                  │                         │                                                └────────┘  │
-│                  └───────────┬─────────────┘                                                            │
+│                  │    Check User Exists    │                 not_found(userid)              │        │  │
+│                  │                         │ ───────────────────────────────────────────────►  DROP  │  │
+│                  │                         │                                                │        │  │
+│                  └───────────┬─────────────┘                                                └────────┘  │
 │                              │                                                                          │
 │                              │                                                                          │
-│ device.LastPacketTime : u64  │                                                                          │
-│                dst_ip : u32  │                                                                          │
+│            node_id : uint64  │                                                                          │
+│                              │                                                                          │
+│                              ▼                                                                          │
+│                   ┌──────────────────────┐                                                              │
+│                   │                      │                                                              │
+│                   │        Check         │            device not associated with current    ┌────────┐  │
+│                   │                      │                            node                  │        │  │
+│                   │       Node ID        │   ───────────────────────────────────────────────►  DROP  │  │
+│                   │          =           │                                                  │        │  │
+│                   │  Peer Associated ID  │                                                  └────────┘  │
+│                   │                      │                                                              │
+│                   └──────────┬───────────┘                                                              │
 │                              │                                                                          │
 │                              │                                                                          │
 │                              │                                                                          │
-│                 ┌────────────▼────────────┐                                                 ┌────────┐  │
-│                 │         Routes          │         matches neither public or mfa routes    │        │  │
-│                 │          Check          │ ────────────────────────────────────────────────►  DROP  │  │
-│                 └────────────┬────────────┘                                                 │        │  │
-│                              │                                                              └────────┘  │
-│                              │                                                                          │
-│  policies struct policy[128] │                                                                          │
 │                              │                                                                          │
 │                              │                                                                          │
-│                     ┌────────┴─────────┐                                                                │
-│                     │                  │                                                    ┌────────┐  │
-│                     │  Check Policies  │              no_match(polices,port,proto)          │        │  │
-│                     │                  │     ───────────────────────────────────────────────►  DROP  │  │
-│                     └────────┬─────────┘                                                    │        │  │
-│                              │                                                              └────────┘  │
+│                              ▼                                                                          │
+│                   ┌──────────────────────┐                                                              │
+│                   │                      │                                                              │
+│                   │                      │                                                              │
+│                   │                      │                                                              │
+│                   │    Check Policies    │                                                              │
+│                   │                      │◄─────────────────────┐                                       │
+│                   │                      │                      │                                       │
+│                   │                      │                      │                                       │
+│                   └──────────┬──────┬────┘ Check all policies   │                                       │
+│                              │      │          128 MAX          │                                       │
+│                              │      │                           │                                       │
+│                              │      └───────────────────────────┘                                       │
 │                              │                                                                          │
-│                         ┌────▼────┐                                                                     │
-│                         │         │                                                                     │
-│                         │   PASS  │                                                                     │
-│                         │         │                                                                     │
-│                         └─────────┘                                                                     │
+│                              │                                                                          │
+│                              │                                                                          │
+│                              │     If user policies allow access to dst ip                              │
+│                              │                    and                                                   │
+│                              │       (either user is authorized                                         │
+│                              │                   or                                                     │
+│                              │        the route is public/always allowed)                               │
+│                              │                                                                          │
+│                              │                                                                          │
+│                         ┌────▼───┐                                                                      │
+│                         │        │                                                                      │
+│                         │  PASS  │                                                                      │
+│                         │        │                                                                      │
+│                         └────────┘                                                                      │
+│                                                                                                         │
 │                                                                                                         │
 └─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 */
@@ -273,6 +291,17 @@ struct icmphdr
     } un;
 };
 
+struct ip
+{
+    __u32 src_ip;
+    __u16 src_port;
+
+    __u32 dst_ip;
+    __u16 dst_port;
+
+    __u32 proto;
+};
+
 struct device
 {
     __u64 sessionExpiry;
@@ -284,18 +313,10 @@ struct device
 
     __u32 PAD;
 
+    __u64 associatedNode;
+
 } __attribute__((__packed__));
 
-struct ip
-{
-    __u32 src_ip;
-    __u16 src_port;
-
-    __u32 dst_ip;
-    __u16 dst_port;
-
-    __u32 proto;
-};
 
 struct bpf_map_def SEC("maps") devices = {
     .type = BPF_MAP_TYPE_HASH,
@@ -345,6 +366,15 @@ struct bpf_map_def SEC("maps") policies_table = {
 
 // A single variable in nano seconds
 struct bpf_map_def SEC("maps") inactivity_timeout_minutes = {
+    .type = BPF_MAP_TYPE_ARRAY,
+    .max_entries = 1,
+    .key_size = sizeof(__u32),
+    .value_size = sizeof(__u64),
+    .map_flags = 0,
+};
+
+// A single variable that contains the node ID
+struct bpf_map_def SEC("maps") node_Id = {
     .type = BPF_MAP_TYPE_ARRAY,
     .max_entries = 1,
     .key_size = sizeof(__u32),
@@ -479,8 +509,23 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 0;
     }
 
-    // // Our userland defined inactivity timeout
+
+    // General index used to get things out of the map arrays
     __u32 index = 0;
+
+    __u64 *current_node_id = bpf_map_lookup_elem(&node_Id, &index);
+    if (current_node_id == NULL)
+    {
+        return 0;
+    }
+
+    // If the traffic comes from a peer that we are not associated with, i.e traffic is coming to a node who has not talked to this peer before
+    // kill it
+    if(*current_node_id != current_device->associatedNode) {
+       return 0;
+    }
+
+
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
     if (inactivity_timeout == NULL)
     {

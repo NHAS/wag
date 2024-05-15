@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/NHAS/wag/internal/data/validators"
 	"github.com/go-playground/validator/v10"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -92,16 +91,6 @@ func getInt(key string) (ret int, err error) {
 	return ret, nil
 }
 
-func SetPAM(details PAM) error {
-	d, err := json.Marshal(details)
-	if err != nil {
-		return err
-	}
-
-	_, err = etcd.Put(context.Background(), PamDetailsKey, string(d))
-	return err
-}
-
 func GetPAM() (details PAM, err error) {
 
 	response, err := etcd.Get(context.Background(), OidcDetailsKey)
@@ -115,16 +104,6 @@ func GetPAM() (details PAM, err error) {
 
 	err = json.Unmarshal(response.Kvs[0].Value, &details)
 	return
-}
-
-func SetOidc(details OIDC) error {
-	d, err := json.Marshal(details)
-	if err != nil {
-		return err
-	}
-
-	_, err = etcd.Put(context.Background(), OidcDetailsKey, string(d))
-	return err
 }
 
 func GetOidc() (details OIDC, err error) {
@@ -173,13 +152,6 @@ func GetWebauthn() (wba Webauthn, err error) {
 	wba.ID = strings.Split(tunnelURL.Host, ":")[0]
 
 	return
-}
-
-func SetWireguardConfigName(wgConfig string) error {
-	data, _ := json.Marshal(wgConfig)
-
-	_, err := etcd.Put(context.Background(), defaultWGFileNameKey, string(data))
-	return err
 }
 
 func GetWireguardConfigName() string {
@@ -232,14 +204,6 @@ func GetAuthenicationMethods() (result []string, err error) {
 	return
 }
 
-func SetCheckUpdates(doChecks bool) error {
-
-	data, _ := json.Marshal(doChecks)
-
-	_, err := etcd.Put(context.Background(), checkUpdatesKey, string(data))
-	return err
-}
-
 func ShouldCheckUpdates() (bool, error) {
 
 	resp, err := etcd.Get(context.Background(), checkUpdatesKey)
@@ -259,12 +223,6 @@ func ShouldCheckUpdates() (bool, error) {
 	}
 
 	return ret, nil
-}
-
-func SetDomain(domain string) error {
-	data, _ := json.Marshal(domain)
-	_, err := etcd.Put(context.Background(), DomainKey, string(data))
-	return err
 }
 
 func GetDomain() (string, error) {
@@ -295,17 +253,6 @@ func GetHelpMail() string {
 	}
 
 	return mail
-}
-
-func SetExternalAddress(externalAddress string) error {
-
-	if err := validators.ValidExternalAddresses(externalAddress); err != nil {
-		return err
-	}
-
-	data, _ := json.Marshal(externalAddress)
-	_, err := etcd.Put(context.Background(), externalAddressKey, string(data))
-	return err
 }
 
 func GetExternalAddress() (string, error) {
@@ -623,16 +570,6 @@ func GetSessionInactivityTimeoutMinutes() (int, error) {
 	}
 
 	return inactivityTimeout, nil
-}
-
-func SetLockout(accountLockout int) error {
-	if accountLockout < 1 {
-		return errors.New("cannot set lockout to be below 1 as all accounts would be locked out")
-	}
-
-	data, _ := json.Marshal(accountLockout)
-	_, err := etcd.Put(context.Background(), LockoutKey, string(data))
-	return err
 }
 
 // Get account lockout threshold setting

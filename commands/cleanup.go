@@ -3,13 +3,12 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
-
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control/server"
+	"log"
+	"os"
 )
 
 type cleanup struct {
@@ -61,11 +60,12 @@ func (g *cleanup) Run() error {
 
 	if result != "0" && result != "3" {
 		log.Println("Cleaning up")
+
 		router.TearDown(true)
 		server.TearDown()
-		exec.Command("/usr/bin/wg-quick", "save", config.Values.Wireguard.DevName).Run()
+		data.TearDown()
 
-		return exec.Command("/usr/bin/wg-quick", "down", config.Values.Wireguard.DevName).Run()
+		return nil
 
 	}
 

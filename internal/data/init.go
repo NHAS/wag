@@ -24,10 +24,6 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
-// TODO Most of the methods in this package need to change to prevent race conditions from breaking the cluster
-// The way we're going to do this is each get method will return the etcd key revision. If a user tries to make a change using an older revision then that will be an error
-// Or a prompt on the admin ui
-
 var (
 	etcd                   *clientv3.Client
 	etcdServer             *embed.Etcd
@@ -194,6 +190,12 @@ func Load(path, joinToken string, testing bool) error {
 		if err != nil {
 			return err
 		}
+
+	}
+
+	if config.Values.Clustering.Witness {
+
+	} else {
 
 	}
 
@@ -457,7 +459,7 @@ func TearDown() {
 
 func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
-	opts := []clientv3.OpOption{}
+	var opts []clientv3.OpOption
 
 	if mutateFunc == nil {
 		return errors.New("no mutate function set in safe update")

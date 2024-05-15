@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	"net"
 	"time"
 
@@ -23,6 +24,8 @@ type Device struct {
 	Attempts     int
 	Active       bool
 	Authorised   time.Time
+
+	AssociatedNode types.ID
 }
 
 func (d Device) String() string {
@@ -32,10 +35,13 @@ func (d Device) String() string {
 		authorised = d.Authorised.Format(time.DateTime)
 	}
 
-	return fmt.Sprintf("device[%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.Active, d.Attempts, authorised)
+	return fmt.Sprintf("device[%s:%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Active, d.Attempts, authorised)
 }
 
-func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
+// UpdateDeviceConnectionDetails updates the endpoint we are receiving packets from and the associated cluster node
+// I.e if data is coming in to node 3, all other nodes know that the session is only valid while connecting to node 3
+// this stops a race condition where an attacker uses a wireguard profile, but gets load balanced to another node member
+func UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
 
 	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
 	if err != nil {
@@ -58,6 +64,7 @@ func UpdateDeviceEndpoint(address string, endpoint *net.UDPAddr) error {
 		}
 
 		device.Endpoint = endpoint
+		device.AssociatedNode = GetServerID()
 
 		b, _ := json.Marshal(device)
 
@@ -108,6 +115,7 @@ func AuthoriseDevice(username, address string) error {
 			return "", errors.New("account is locked")
 		}
 
+		device.AssociatedNode = GetServerID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
 
@@ -182,6 +190,27 @@ func GetAllDevices() (devices []Device, err error) {
 		}
 
 		devices = append(devices, device)
+	}
+
+	return devices, nil
+}
+
+func GetAllDevicesAsMap() (devices map[string]Device, err error) {
+
+	devices = make(map[string]Device)
+	response, err := etcd.Get(context.Background(), "devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, res := range response.Kvs {
+		var device Device
+		err := json.Unmarshal(res.Value, &device)
+		if err != nil {
+			return nil, err
+		}
+
+		devices[device.Address] = device
 	}
 
 	return devices, nil
@@ -292,7 +321,7 @@ func DeleteDevices(username string) error {
 		return err
 	}
 
-	ops := []clientv3.Op{}
+	var ops []clientv3.Op
 	for _, reference := range deleted.PrevKvs {
 
 		var d Device
@@ -310,7 +339,7 @@ func DeleteDevices(username string) error {
 
 func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 
-	beforeUpadte, err := GetDeviceByAddress(address)
+	beforeUpdate, err := GetDeviceByAddress(address)
 	if err != nil {
 		return err
 	}
@@ -337,7 +366,7 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 		return err
 	}
 
-	_, err = etcd.Delete(context.Background(), "devicesref-"+beforeUpadte.Publickey)
+	_, err = etcd.Delete(context.Background(), "devicesref-"+beforeUpdate.Publickey)
 
 	return err
 }

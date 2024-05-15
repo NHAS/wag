@@ -77,6 +77,7 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	case "PUT":
 		var group control.PolicyData
 		err := json.NewDecoder(r.Body).Decode(&group)
@@ -95,6 +96,7 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	case "POST":
 		var policy control.PolicyData
 		err := json.NewDecoder(r.Body).Decode(&policy)
@@ -113,6 +115,7 @@ func policies(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	default:
 		http.NotFound(w, r)
 		return

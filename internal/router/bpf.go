@@ -28,7 +28,6 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc $BPF_CLANG -cflags $BPF_CFLAGS bpf xdp.c -- -I headers
 
 const (
-	ebpfFS         = "/sys/fs/bpf"
 	CLOCK_BOOTTIME = uint32(7)
 )
 
@@ -102,6 +101,11 @@ func loadXDP() error {
 		return fmt.Errorf("loading objects: %s", err)
 	}
 
+	err = xdpObjects.NodeId.Put(uint32(0), uint64(data.GetServerID()))
+	if err != nil {
+		return fmt.Errorf("could not set node id: %s", err)
+	}
+
 	sessionInactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
 	if err != nil {
 		return err
@@ -164,7 +168,7 @@ func setupXDP(users []data.UserModel, knownDevices []data.Device) error {
 
 	for _, device := range knownDevices {
 
-		err := xdpAddDevice(device.Username, device.Address)
+		err := xdpAddDevice(device.Username, device.Address, uint64(device.AssociatedNode))
 		if err != nil {
 			return errors.New("xdp setup add device to user: " + err.Error())
 		}
@@ -261,7 +265,7 @@ func xdpRemoveDevice(address string) error {
 	return finalError
 }
 
-func xdpAddDevice(username, address string) error {
+func xdpAddDevice(username, address string, associatedNode uint64) error {
 
 	ip := net.ParseIP(address)
 	if ip == nil {
@@ -279,6 +283,7 @@ func xdpAddDevice(username, address string) error {
 	deviceStruct.lastPacketTime = 0
 	deviceStruct.sessionExpiry = 0
 	deviceStruct.user_id = sha1.Sum([]byte(username))
+	deviceStruct.associatedNode = associatedNode
 
 	if err := xdpUserExists(deviceStruct.user_id); err != nil {
 		return err
@@ -417,7 +422,7 @@ func clearPolicyMap(toClear *ebpf.Map) error {
 		}
 
 		err = toClear.Delete(lastKey)
-		if err != nil && err != ebpf.ErrKeyNotExist {
+		if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 			return err
 		}
 
@@ -594,7 +599,7 @@ func RefreshUserAcls(username string) error {
 }
 
 // SetAuthroized correctly sets the timestamps for a device with internal IP address as internalAddress
-func SetAuthorized(internalAddress, username string) error {
+func SetAuthorized(internalAddress, username string, node uint64) error {
 
 	if net.ParseIP(internalAddress).To4() == nil {
 		return errors.New("internalAddress could not be parsed as an IPv4 address")
@@ -605,6 +610,7 @@ func SetAuthorized(internalAddress, username string) error {
 
 	var deviceStruct fwentry
 	deviceStruct.lastPacketTime = GetTimeStamp()
+	deviceStruct.associatedNode = node
 
 	maxSession, err := data.GetSessionLifetimeMinutes()
 	if err != nil {
@@ -619,6 +625,36 @@ func SetAuthorized(internalAddress, username string) error {
 	deviceStruct.user_id = sha1.Sum([]byte(username))
 
 	return xdpObjects.Devices.Update(net.ParseIP(internalAddress).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
+}
+
+func UpdateNodeAssociation(device data.Device) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	// If the peer roams away from us, unset the endpoint in wireguard to make sure the peer watcher will absolutely register a change if they roam back
+	if device.AssociatedNode != data.GetServerID() {
+		err := setPeerEndpoint(device, nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	ip := net.ParseIP(device.Address)
+
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
+	if err != nil {
+		return err
+	}
+
+	var deviceStruct fwentry
+	err = deviceStruct.Unpack(deviceBytes)
+	if err != nil {
+		return err
+	}
+
+	deviceStruct.associatedNode = uint64(device.AssociatedNode)
+
+	return xdpObjects.Devices.Update(ip.To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {
@@ -681,6 +717,7 @@ type fwDevice struct {
 	Expiry              uint64
 	IP                  string
 	Authorized          bool
+	AssociatedNode      string
 }
 
 func GetRoutes(username string) ([]string, error) {
@@ -796,7 +833,13 @@ func GetRules() (map[string]FirewallRules, error) {
 		}
 
 		fwRule := result[res]
-		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String()), Expiry: deviceStruct.sessionExpiry, LastPacketTimestamp: deviceStruct.lastPacketTime})
+		fwRule.Devices = append(fwRule.Devices, fwDevice{
+			IP:                  net.IP(ipBytes).String(),
+			Authorized:          isAuthed(net.IP(ipBytes).String()),
+			Expiry:              deviceStruct.sessionExpiry,
+			LastPacketTimestamp: deviceStruct.lastPacketTime,
+			AssociatedNode:      fmt.Sprintf("%x (%d)", deviceStruct.associatedNode, deviceStruct.associatedNode),
+		})
 
 		if err := xdpObjects.AccountLocked.Lookup(deviceStruct.user_id, &fwRule.AccountLocked); err != nil {
 			log.Println("[ERROR] User ID was not properly in firewall map: ", hex.EncodeToString(deviceStruct.user_id[:]), " err: ", err)

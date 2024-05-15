@@ -54,7 +54,7 @@ func (c *CtrlClient) simplepost(path string, form url.Values) error {
 	return nil
 }
 
-// List devices, if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
+// ListDevice if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
 func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/list?username=" + url.QueryEscape(username))
@@ -282,12 +282,12 @@ func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 // Add wag rule
 func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 
-	data, err := json.Marshal(policies)
+	policiesData, err := json.Marshal(policies)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/policy/create", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/policy/create", "application/json", bytes.NewBuffer(policiesData))
 	if err != nil {
 		return err
 	}
@@ -307,12 +307,12 @@ func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 // Edit wag rule
 func (c *CtrlClient) EditPolicies(policy control.PolicyData) error {
 
-	data, err := json.Marshal(policy)
+	polciesData, err := json.Marshal(policy)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/policy/edit", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/policy/edit", "application/json", bytes.NewBuffer(polciesData))
 	if err != nil {
 		return err
 	}
@@ -331,12 +331,12 @@ func (c *CtrlClient) EditPolicies(policy control.PolicyData) error {
 
 func (c *CtrlClient) RemovePolicies(policyNames []string) error {
 
-	data, err := json.Marshal(policyNames)
+	policiesData, err := json.Marshal(policyNames)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/policies/delete", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/policies/delete", "application/json", bytes.NewBuffer(policiesData))
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
 // Add wag group/s
 func (c *CtrlClient) AddGroup(group control.GroupData) error {
 
-	data, err := json.Marshal(group)
+	groupData, err := json.Marshal(group)
 	if err != nil {
 		return err
 	}
@@ -381,7 +381,7 @@ func (c *CtrlClient) AddGroup(group control.GroupData) error {
 		return errors.New("group did not have the 'group:' prefix")
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/group/create", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/group/create", "application/json", bytes.NewBuffer(groupData))
 	if err != nil {
 		return err
 	}
@@ -401,7 +401,7 @@ func (c *CtrlClient) AddGroup(group control.GroupData) error {
 // Edit wag group members
 func (c *CtrlClient) EditGroup(group control.GroupData) error {
 
-	data, err := json.Marshal(group)
+	groupData, err := json.Marshal(group)
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func (c *CtrlClient) EditGroup(group control.GroupData) error {
 		return errors.New("group did not have the 'group:' prefix")
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/group/edit", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/group/edit", "application/json", bytes.NewBuffer(groupData))
 	if err != nil {
 		return err
 	}
@@ -429,12 +429,12 @@ func (c *CtrlClient) EditGroup(group control.GroupData) error {
 
 func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 
-	data, err := json.Marshal(groupNames)
+	groupData, err := json.Marshal(groupNames)
 	if err != nil {
 		return err
 	}
 
-	response, err := c.httpClient.Post("http://unix/config/group/delete", "application/json", bytes.NewBuffer(data))
+	response, err := c.httpClient.Post("http://unix/config/group/delete", "application/json", bytes.NewBuffer(groupData))
 	if err != nil {
 		return err
 	}

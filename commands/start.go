@@ -105,7 +105,6 @@ func teardown(force bool) {
 
 	ui.Teardown()
 	webserver.Teardown()
-
 }
 
 func clusterState(noIptables bool, errorChan chan<- error) func(string) {
@@ -126,11 +125,14 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 		switch stateText {
 		case "dead":
 			if !wasDead {
-				log.Println("Tearing down node")
 
-				teardown(false)
-
-				log.Println("Tear down complete")
+				if !config.Values.Clustering.Witness {
+					log.Println("Tearing down node")
+					teardown(false)
+					log.Println("Tear down complete")
+				} else {
+					log.Println("refusing to tear down witness node (nothing to tear down)")
+				}
 
 				// Only teardown if we were at one point alive
 				wasDead = true

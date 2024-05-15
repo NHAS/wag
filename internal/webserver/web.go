@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"image/png"
@@ -62,9 +63,6 @@ func Teardown() {
 func Start(errChan chan<- error) error {
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
-		// Causes servers to use Go's default ciphersuite preferences,
-		// which are tuned to avoid attacks. Does nothing on clients.
-		PreferServerCipherSuites: true,
 		// Only use curves which have assembly implementations
 		CurvePreferences: []tls.CurveID{
 			tls.CurveP256,
@@ -99,7 +97,7 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			if err := publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && err != http.ErrServerClosed {
+			if err := publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver public listener failed: %v", err)
 			}
 		}()
@@ -142,7 +140,7 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			if err := publicHTTPServ.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := publicHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("HTTP webserver public listener failed: %v", err)
 			}
 		}()
@@ -194,7 +192,7 @@ func Start(errChan chan<- error) error {
 				TLSConfig:    tlsConfig,
 				Handler:      setSecurityHeaders(tunnel),
 			}
-			if err := tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && err != http.ErrServerClosed {
+			if err := tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
 			}
 
@@ -229,14 +227,14 @@ func Start(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			if err := tunnelHTTPServ.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := tunnelHTTPServ.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("webserver tunnel listener failed: %v", err)
 			}
 
 		}()
 	}
 
-	//Group the print statement so that multithreading wont disorder them
+	//Group the print statement so that multithreading won't disorder them
 	log.Println("Started listening:\n",
 		"\t\t\tTunnel Listener: ", tunnelListenAddress, "\n",
 		"\t\t\tPublic Listener: ", config.Values.Webserver.Public.ListenAddress)
@@ -384,10 +382,10 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 	mfaMethod.MFAPromptUI(w, r, user.Username, clientTunnelIp.String())
 }
 
-func reachability(w http.ResponseWriter, r *http.Request) {
+func reachability(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "text/plain")
 
-	isDrained, err := data.IsDrained(data.GetServerID())
+	isDrained, err := data.IsDrained(data.GetServerID().String())
 	if err != nil {
 		http.Error(w, "Failed to fetch state", http.StatusInternalServerError)
 		return
@@ -581,8 +579,8 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("type") == "mobile" {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 
-		var config bytes.Buffer
-		err = resources.RenderWithFuncs("interface.tmpl", &config, &wireguardInterface, template.FuncMap{
+		var wireguardProfile bytes.Buffer
+		err = resources.RenderWithFuncs("interface.tmpl", &wireguardProfile, &wireguardInterface, template.FuncMap{
 			"StringsJoin": strings.Join,
 			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
 		})
@@ -592,7 +590,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		image, err := qr.Encode(config.String(), qr.M, qr.Auto)
+		image, err := qr.Encode(wireguardProfile.String(), qr.M, qr.Auto)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to generate qr code:", err)
 			http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -614,12 +612,12 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		qr := resources.QrCodeRegistrationDisplay{
+		qrCodeBytes := resources.QrCodeRegistrationDisplay{
 			ImageData: template.URL("data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes())),
 			Username:  username,
 		}
 
-		err = resources.Render("qrcode_registration.html", w, &qr)
+		err = resources.Render("qrcode_registration.html", w, &qrCodeBytes)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
 			http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -701,7 +699,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
+		log.Println("unknown", remoteAddress, "Could not find user: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -728,7 +726,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "Could not find user: ", err)
+		log.Println("unknown", remoteAddress, "Could not find user: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}

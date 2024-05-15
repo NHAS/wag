@@ -12,7 +12,7 @@ type security struct {
 func (sh *security) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
-	w.Header().Set("ContentTypeNosniff", "nosniff")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	if r.Method != "GET" {
 		u, err := url.Parse(r.Header.Get("Origin"))

@@ -61,7 +61,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		usersData := []UsersData{}
+		var usersData []UsersData
 
 		for _, u := range users {
 			devices, _ := ctrl.ListDevice(u.Username)
@@ -90,6 +90,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
+		return
 	case "PUT":
 		var action struct {
 			Action    string   `json:"action"`
@@ -133,6 +134,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 
 	case "DELETE":
 		var usernames []string
@@ -160,6 +162,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 
 	default:
 		http.NotFound(w, r)

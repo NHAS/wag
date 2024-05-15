@@ -10,7 +10,7 @@ import (
 type Key struct {
 
 	// first member must be a prefix u32 wide
-	// rest can are arbitrary
+	// rest can be arbitrary
 	Prefixlen uint32
 	IP        [4]byte
 }

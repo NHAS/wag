@@ -43,7 +43,7 @@ const (
 	GroupsPrefix          = "wag-groups-"
 	ConfigPrefix          = "wag-config-"
 	AuthenticationPrefix  = "wag-config-authentication-"
-	NodeEvents            = "wag/node/"
+	NodeInfo              = "wag/node/"
 	NodeErrors            = "wag/node/errors"
 )
 
@@ -147,18 +147,6 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 	return key, nil
 }
 
-func DeregisterEventListener(key string) {
-	lck.Lock()
-	defer lck.Unlock()
-
-	if cancel, ok := contextMaps[key]; ok {
-		if cancel != nil {
-			cancel()
-		}
-		delete(contextMaps, key)
-	}
-}
-
 func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
@@ -171,13 +159,6 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthListeners[key] = f
 
 	return key, nil
-}
-
-func DeregisterClusterHealthListener(key string) {
-	clusterHealthLck.Lock()
-	defer clusterHealthLck.Unlock()
-
-	delete(clusterHealthListeners, key)
 }
 
 func notifyClusterHealthListeners(event string) {
@@ -227,7 +208,7 @@ func checkClusterHealth() {
 func testCluster() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 
-	_, err := etcd.Put(ctx, path.Join(NodeEvents, GetServerID(), "ping"), time.Now().Format(time.RFC1123Z))
+	_, err := etcd.Put(ctx, path.Join(NodeInfo, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
 	if err != nil {
 		log.Println("unable to write liveness value")
@@ -257,7 +238,7 @@ type EventError struct {
 func RaiseError(raisedError error, value []byte) (err error) {
 
 	ee := EventError{
-		NodeID:          GetServerID(),
+		NodeID:          GetServerID().String(),
 		FailedEventData: string(value),
 		Error:           raisedError.Error(),
 		Time:            time.Now(),

@@ -390,7 +390,7 @@ func parseAddress(address string) ([]string, error) {
 				return nil, fmt.Errorf("no addresses for %s", address)
 			}
 
-			output := []string{}
+			var output []string
 			addedSomething := false
 			for _, addr := range addresses {
 				if addr.To4() != nil {

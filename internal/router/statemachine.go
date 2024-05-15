@@ -11,47 +11,47 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func handleEvents(erroChan chan<- error) {
+func handleEvents(errorChan chan<- error) {
 
 	_, err := data.RegisterEventListener(data.DevicesPrefix, true, deviceChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 	_, err = data.RegisterEventListener(data.GroupMembershipPrefix, true, membershipChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 	_, err = data.RegisterEventListener(data.UsersPrefix, true, userChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 	_, err = data.RegisterEventListener(data.AclsPrefix, true, aclsChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 	_, err = data.RegisterEventListener(data.GroupsPrefix, true, groupChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 	_, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, inactivityTimeoutChanges)
 	if err != nil {
-		erroChan <- err
+		errorChan <- err
 		return
 	}
 
 }
 
-func inactivityTimeoutChanges(key string, current, previous int, et data.EventType) error {
+func inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error {
 
 	switch et {
 	case data.MODIFIED, data.CREATED:
@@ -64,7 +64,7 @@ func inactivityTimeoutChanges(key string, current, previous int, et data.EventTy
 	return nil
 }
 
-func deviceChanges(key string, current, previous data.Device, et data.EventType) error {
+func deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
 
 	switch et {
 	case data.DELETED:
@@ -77,7 +77,7 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 	case data.CREATED:
 
 		key, _ := wgtypes.ParseKey(current.Publickey)
-		err := AddPeer(key, current.Username, current.Address, current.PresharedKey)
+		err := AddPeer(key, current.Username, current.Address, current.PresharedKey, uint64(current.AssociatedNode))
 		if err != nil {
 			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 		}
@@ -99,7 +99,7 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
-		if (current.Attempts != previous.Attempts && current.Attempts > lockout) || // If the number of authentication attempts on a device has exceeded the max
+		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Endpoint.String() != previous.Endpoint.String() || // If the client ip has changed
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 			err := Deauthenticate(current.Address)
@@ -110,9 +110,19 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 
 		}
 
-		if current.Authorised != previous.Authorised {
-			if !current.Authorised.IsZero() && current.Attempts <= lockout {
-				err := SetAuthorized(current.Address, current.Username)
+		if current.AssociatedNode != previous.AssociatedNode {
+			err := UpdateNodeAssociation(current)
+			if err != nil {
+				return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
+			}
+
+			log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
+		}
+
+		// If the authorisation state has changed and is not disabled
+		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() {
+			if current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
+				err := SetAuthorized(current.Address, current.Username, uint64(current.AssociatedNode))
 				if err != nil {
 					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 				}
@@ -127,7 +137,7 @@ func deviceChanges(key string, current, previous data.Device, et data.EventType)
 	return nil
 }
 
-func membershipChanges(key string, current, previous []string, et data.EventType) error {
+func membershipChanges(key string, _, _ []string, et data.EventType) error {
 	username := strings.TrimPrefix(key, data.GroupMembershipPrefix)
 
 	switch et {
@@ -142,11 +152,11 @@ func membershipChanges(key string, current, previous []string, et data.EventType
 	return nil
 }
 
-func userChanges(key string, current, previous data.UserModel, et data.EventType) error {
+func userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
 	switch et {
 	case data.CREATED:
-		acls := data.GetEffectiveAcl(current.Username)
-		err := AddUser(current.Username, acls)
+		newUserAcls := data.GetEffectiveAcl(current.Username)
+		err := AddUser(current.Username, newUserAcls)
 		if err != nil {
 			log.Printf("cannot create user %s: %s", current.Username, err)
 			return fmt.Errorf("cannot create user %s: %s", current.Username, err)
@@ -187,7 +197,8 @@ func userChanges(key string, current, previous data.UserModel, et data.EventType
 	return nil
 }
 
-func aclsChanges(key string, current, previous acls.Acl, et data.EventType) error {
+func aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error {
+	// TODO refresh the users that the acl applies to as a potential performance improvement
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 		err := RefreshConfiguration()
@@ -200,7 +211,7 @@ func aclsChanges(key string, current, previous acls.Acl, et data.EventType) erro
 	return nil
 }
 
-func groupChanges(key string, current, previous []string, et data.EventType) error {
+func groupChanges(_ string, current, _ []string, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 

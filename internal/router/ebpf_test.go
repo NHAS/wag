@@ -63,7 +63,7 @@ func TestBlankPacket(t *testing.T) {
 func TestAddNewDevices(t *testing.T) {
 
 	var ipBytes []byte
-	var deviceBytes = make([]byte, 40)
+	var deviceBytes = make([]byte, 48)
 
 	found := map[string]bool{}
 
@@ -212,7 +212,7 @@ func TestRoutePriority(t *testing.T) {
 
 func TestBasicAuthorise(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestRoutePreference(t *testing.T) {
 
 func TestSlidingWindow(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -529,7 +529,7 @@ func TestSlidingWindow(t *testing.T) {
 
 func TestCompositeRules(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +632,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
 	}
 
-	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -688,7 +688,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 
 func TestMaxSessionLifetime(t *testing.T) {
 
-	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err := SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -753,7 +753,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username)
+	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -956,7 +956,6 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 
 	for _, user := range devices {
 		acl := data.GetEffectiveAcl(user.Username)
-		log.Println(user, acl.Allow)
 		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -1159,7 +1158,7 @@ func addDevices() error {
 			return err
 		}
 
-		err = xdpAddDevice(device.Username, device.Address)
+		err = xdpAddDevice(device.Username, device.Address, uint64(data.GetServerID()))
 		if err != nil {
 			return err
 		}

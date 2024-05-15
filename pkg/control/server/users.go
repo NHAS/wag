@@ -43,13 +43,13 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := data.GetAllUsers()
+	currentUsers, err := data.GetAllUsers()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	b, err := json.Marshal(users)
+	b, err := json.Marshal(currentUsers)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -186,13 +186,13 @@ func listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := data.GetAllAdminUsers()
+	currentAdminUsers, err := data.GetAllAdminUsers()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	b, err := json.Marshal(users)
+	b, err := json.Marshal(currentAdminUsers)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -241,7 +241,11 @@ func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	username := r.FormValue("username")
 
-	data.SetAdminUserUnlock(username)
+	err = data.SetAdminUserUnlock(username)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	log.Println(username, "admin unlocked")
 

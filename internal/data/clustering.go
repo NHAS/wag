@@ -33,8 +33,8 @@ type NodeControlRequest struct {
 	Action string
 }
 
-func GetServerID() string {
-	return etcdServer.Server.ID().String()
+func GetServerID() types.ID {
+	return etcdServer.Server.ID()
 }
 
 func GetLeader() types.ID {
@@ -49,11 +49,7 @@ func IsLearner() bool {
 	return etcdServer.Server.IsLearner()
 }
 
-func IsLeader() bool {
-	return etcdServer.Server.Leader() == etcdServer.Server.ID()
-}
-
-// Called on a leader node, to transfer ownership to another node (demoted)
+// StepDown when called on a leader node, to transfer ownership to another node (demoted)
 func StepDown() error {
 	return etcdServer.Server.TransferLeadership()
 }
@@ -73,7 +69,7 @@ func GetLastPing(idHex string) (time.Time, error) {
 		return time.Time{}, errors.New("id is not part of cluster")
 	}
 
-	lastPing, err := etcd.Get(context.Background(), path.Join(NodeEvents, idHex, "ping"))
+	lastPing, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "ping"))
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -94,18 +90,52 @@ func GetLastPing(idHex string) (time.Time, error) {
 	return t, nil
 }
 
-func SetDrained(idHex string, on bool) error {
+func SetWitness(on bool) error {
+	if on {
+		_, err := etcd.Put(context.Background(), path.Join(NodeInfo, GetServerID().String(), "witness"), fmt.Sprintf("%t", on))
+		return err
+	}
+
+	_, err := etcd.Delete(context.Background(), path.Join(NodeInfo, GetServerID().String(), "witness"))
+	return err
+}
+
+func IsWitness(idHex string) (bool, error) {
 	_, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
+	}
+
+	isDrained, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "witness"))
+	if err != nil {
+		return false, err
+	}
+
+	return isDrained.Count != 0, nil
+}
+
+func SetDrained(idHex string, on bool) error {
+
+	isWitness, err := IsWitness(idHex)
+	if err != nil {
+		return err
+	}
+
+	if isWitness {
+		return errors.New("cannot set drained on witness node, this node is not serving clients")
+	}
+
+	_, err = strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return err
 	}
 
 	if on {
-		_, err = etcd.Put(context.Background(), path.Join(NodeEvents, idHex, "drain"), fmt.Sprintf("%t", on))
+		_, err = etcd.Put(context.Background(), path.Join(NodeInfo, idHex, "drain"), fmt.Sprintf("%t", on))
 		return err
 	}
 
-	_, err = etcd.Delete(context.Background(), path.Join(NodeEvents, idHex, "drain"))
+	_, err = etcd.Delete(context.Background(), path.Join(NodeInfo, idHex, "drain"))
 	return err
 }
 
@@ -115,7 +145,7 @@ func IsDrained(idHex string) (bool, error) {
 		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
 
-	isDrained, err := etcd.Get(context.Background(), path.Join(NodeEvents, idHex, "drain"))
+	isDrained, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "drain"))
 	if err != nil {
 		return false, err
 	}
@@ -234,7 +264,7 @@ func RemoveMember(idHex string) error {
 	}
 
 	// Clear any node metadata
-	_, err = etcd.Delete(context.Background(), path.Join(NodeEvents, idHex), clientv3.WithPrefix())
+	_, err = etcd.Delete(context.Background(), path.Join(NodeInfo, idHex), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}

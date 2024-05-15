@@ -76,6 +76,7 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	case "PUT":
 		var group control.GroupData
 		err := json.NewDecoder(r.Body).Decode(&group)
@@ -92,6 +93,7 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	case "POST":
 		var group control.GroupData
 		err := json.NewDecoder(r.Body).Decode(&group)
@@ -110,6 +112,7 @@ func groups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte("OK"))
+		return
 	default:
 		http.NotFound(w, r)
 		return
