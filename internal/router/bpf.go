@@ -716,6 +716,7 @@ type fwDevice struct {
 	Expiry              uint64
 	IP                  string
 	Authorized          bool
+	AssociatedNode      string
 }
 
 func GetRoutes(username string) ([]string, error) {
@@ -831,7 +832,13 @@ func GetRules() (map[string]FirewallRules, error) {
 		}
 
 		fwRule := result[res]
-		fwRule.Devices = append(fwRule.Devices, fwDevice{IP: net.IP(ipBytes).String(), Authorized: isAuthed(net.IP(ipBytes).String()), Expiry: deviceStruct.sessionExpiry, LastPacketTimestamp: deviceStruct.lastPacketTime})
+		fwRule.Devices = append(fwRule.Devices, fwDevice{
+			IP:                  net.IP(ipBytes).String(),
+			Authorized:          isAuthed(net.IP(ipBytes).String()),
+			Expiry:              deviceStruct.sessionExpiry,
+			LastPacketTimestamp: deviceStruct.lastPacketTime,
+			AssociatedNode:      fmt.Sprintf("%x (%d)", deviceStruct.associatedNode, deviceStruct.associatedNode),
+		})
 
 		if err := xdpObjects.AccountLocked.Lookup(deviceStruct.user_id, &fwRule.AccountLocked); err != nil {
 			log.Println("[ERROR] User ID was not properly in firewall map: ", hex.EncodeToString(deviceStruct.user_id[:]), " err: ", err)
