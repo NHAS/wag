@@ -14,6 +14,7 @@ import (
 type MembershipDTO struct {
 	*membership.Member
 	IsDrained bool
+	IsWitness bool
 
 	Ping   string
 	Status string
@@ -55,7 +56,14 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 	for i := range data.GetMembers() {
 		drained, err := data.IsDrained(members[i].ID.String())
 		if err != nil {
-			log.Println("unable to render clustering page: ", err)
+			log.Println("unable to get drained state: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		witness, err := data.IsWitness(members[i].ID.String())
+		if err != nil {
+			log.Println("unable to witness state: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -92,6 +100,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		d.Members = append(d.Members, MembershipDTO{
 			Member:    members[i],
 			IsDrained: drained,
+			IsWitness: witness,
 			Status:    status,
 			Ping:      ping,
 		})

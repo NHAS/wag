@@ -193,6 +193,12 @@ func Load(path, joinToken string, testing bool) error {
 
 	}
 
+	if config.Values.Clustering.Witness {
+
+	} else {
+
+	}
+
 	go checkClusterHealth()
 
 	return nil

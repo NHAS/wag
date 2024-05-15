@@ -43,7 +43,7 @@ const (
 	GroupsPrefix          = "wag-groups-"
 	ConfigPrefix          = "wag-config-"
 	AuthenticationPrefix  = "wag-config-authentication-"
-	NodeEvents            = "wag/node/"
+	NodeInfo              = "wag/node/"
 	NodeErrors            = "wag/node/errors"
 )
 
@@ -208,7 +208,7 @@ func checkClusterHealth() {
 func testCluster() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 
-	_, err := etcd.Put(ctx, path.Join(NodeEvents, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
+	_, err := etcd.Put(ctx, path.Join(NodeInfo, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
 	if err != nil {
 		log.Println("unable to write liveness value")

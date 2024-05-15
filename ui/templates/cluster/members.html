@@ -46,7 +46,7 @@
                         Role:
                     </div>
                     <div class="col">
-                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else}}Member{{end}}
+                        {{if eq .ID $.Leader}}Leader{{else if .IsLearner}}Learner{{else if .IsWitness}}Witness{{else}}Member{{end}}
                     </div>
                 </div>
                 <div class="row mb-1">
@@ -90,11 +90,13 @@
                             </a>
                             {{end}}
 
+                            {{if not .IsWitness}}
                             <a class="btn btn-{{if .IsDrained}}warning{{else}}info{{end}}" href="#" id="drain"
                                 action="{{if .IsDrained}}restore{{else}}drain{{end}}">
                                 {{if .IsDrained}}<i class="icon-play3"></i> Restore{{else}}<i class="icon-pause2"></i>
                                 Drain{{end}}
                             </a>
+                            {{end}}
                         </div>
                     </div>
                 </node-control>
