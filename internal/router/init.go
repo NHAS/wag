@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"strings"
 	"sync"
 	"time"
@@ -19,10 +18,6 @@ import (
 var (
 	lock   sync.RWMutex
 	cancel = make(chan bool)
-)
-
-var (
-	EmptyEndpoint = &net.UDPAddr{}
 )
 
 func Setup(errorChan chan<- error, iptables bool) (err error) {
@@ -90,12 +85,12 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 					}
 
 					// If the peer endpoint has become empty (due to peer roaming) or if we dont have a record of it, set the map
-					if _, ok := ourPeerAddresses[device.Address]; !ok || EmptyEndpoint.String() == p.Endpoint.String() {
+					if _, ok := ourPeerAddresses[device.Address]; !ok || p.Endpoint == nil {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 					}
 
 					// If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
-					if ourPeerAddresses[device.Address] != p.Endpoint.String() && ourPeerAddresses[device.Address] != EmptyEndpoint.String() {
+					if ourPeerAddresses[device.Address] != p.Endpoint.String() && ourPeerAddresses[device.Address] != "<nil>" {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 
 						// If we register an endpoint change on our real world device, and the Endpoint is not the same as what the cluster knows

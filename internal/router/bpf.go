@@ -633,7 +633,7 @@ func UpdateNodeAssociation(device data.Device) error {
 
 	// If the peer roams away from us, unset the endpoint in wireguard to make sure the peer watcher will absolutely register a change if they roam back
 	if device.AssociatedNode != data.GetServerID() {
-		err := setPeerEndpoint(device, &net.UDPAddr{})
+		err := setPeerEndpoint(device, nil)
 		if err != nil {
 			return err
 		}
