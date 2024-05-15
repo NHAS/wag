@@ -168,7 +168,7 @@ func setupXDP(users []data.UserModel, knownDevices []data.Device) error {
 
 	for _, device := range knownDevices {
 
-		err := xdpAddDevice(device.Username, device.Address, 0)
+		err := xdpAddDevice(device.Username, device.Address, uint64(device.AssociatedNode))
 		if err != nil {
 			return errors.New("xdp setup add device to user: " + err.Error())
 		}
@@ -625,6 +625,35 @@ func SetAuthorized(internalAddress, username string, node uint64) error {
 	deviceStruct.user_id = sha1.Sum([]byte(username))
 
 	return xdpObjects.Devices.Update(net.ParseIP(internalAddress).To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
+}
+
+func UpdateNodeAssociation(deviceAddress string, node uint64) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	ip := net.ParseIP(deviceAddress)
+	if ip == nil {
+		return errors.New("Unable to get IP address from: " + deviceAddress)
+	}
+
+	if ip.To4() == nil {
+		return errors.New("IP address was not ipv4")
+	}
+
+	deviceBytes, err := xdpObjects.Devices.LookupBytes(ip.To4())
+	if err != nil {
+		return err
+	}
+
+	var deviceStruct fwentry
+	err = deviceStruct.Unpack(deviceBytes)
+	if err != nil {
+		return err
+	}
+
+	deviceStruct.associatedNode = node
+
+	return xdpObjects.Devices.Update(ip.To4(), deviceStruct.Bytes(), ebpf.UpdateExist)
 }
 
 func Deauthenticate(address string) error {

@@ -250,7 +250,7 @@ func ListPeers() ([]wgtypes.Peer, error) {
 }
 
 // AddPeer adds the device to wireguard
-func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err error) {
+func AddPeer(public wgtypes.Key, username, addresss, presharedKey string, node uint64) (err error) {
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -275,7 +275,7 @@ func AddPeer(public wgtypes.Key, username, addresss, presharedKey string) (err e
 		},
 	}
 
-	err = xdpAddDevice(username, addresss, 0)
+	err = xdpAddDevice(username, addresss, node)
 	if err != nil {
 		return err
 	}

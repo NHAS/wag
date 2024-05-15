@@ -77,7 +77,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 	case data.CREATED:
 
 		key, _ := wgtypes.ParseKey(current.Publickey)
-		err := AddPeer(key, current.Username, current.Address, current.PresharedKey)
+		err := AddPeer(key, current.Username, current.Address, current.PresharedKey, uint64(current.AssociatedNode))
 		if err != nil {
 			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 		}
@@ -109,6 +109,14 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			}
 			log.Println("deauthed device: ", current.Address)
 
+		}
+
+		if current.AssociatedNode != previous.AssociatedNode {
+			err := UpdateNodeAssociation(current.Address, uint64(current.AssociatedNode))
+			if err != nil {
+				return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
+			}
+			log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
 		}
 
 		// If the authorisation state has changed and is not disabled
