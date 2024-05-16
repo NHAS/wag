@@ -74,8 +74,9 @@ func root(args []string) error {
 				if errors.Is(err, flag.ErrHelp) {
 					fmt.Println("Error: ", err.Error())
 					cmd.PrintUsage()
+					return nil
 				}
-				return nil
+				return err
 			}
 			return cmd.Run()
 		}

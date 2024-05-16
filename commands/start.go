@@ -166,6 +166,14 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 					}
 				}
 
+				if !data.IsLearner() {
+					err := data.SetWitness(config.Values.Clustering.Witness)
+					if err != nil {
+						errorChan <- fmt.Errorf("to write witness data when cluster is healthy: %v", err)
+						return
+					}
+				}
+
 				wasDead = false
 			}
 		}
