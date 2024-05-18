@@ -90,7 +90,7 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 					}
 
 					// If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
-					if ourPeerAddresses[device.Address] != p.Endpoint.String() && ourPeerAddresses[device.Address] != "<nil>" {
+					if ourPeerAddresses[device.Address] != p.Endpoint.String() && p.Endpoint != nil {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 
 						// If we register an endpoint change on our real world device, and the Endpoint is not the same as what the cluster knows
