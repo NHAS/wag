@@ -216,7 +216,7 @@ func loadInitialSettings() error {
 		}
 	}
 
-	response, err = etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix())
+	response, err = etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}

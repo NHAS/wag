@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.etcd.io/etcd/client/pkg/v3/types"
 	"net"
 	"time"
+
+	"go.etcd.io/etcd/client/pkg/v3/types"
 
 	"github.com/NHAS/wag/internal/config"
 	clientv3 "go.etcd.io/etcd/client/v3"

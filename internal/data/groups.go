@@ -14,7 +14,7 @@ import (
 )
 
 func SetGroup(group string, members []string, overwrite bool) error {
-	response, err := etcd.Get(context.Background(), "wag-groups-"+group)
+	response, err := etcd.Get(context.Background(), GroupsPrefix+group)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 
 	membersJson, _ := json.Marshal(members)
 
-	putResp, err := etcd.Put(context.Background(), "wag-groups-"+group, string(membersJson), clientv3.WithPrevKV())
+	putResp, err := etcd.Put(context.Background(), GroupsPrefix+group, string(membersJson), clientv3.WithPrevKV())
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 
 func GetGroups() (result []control.GroupData, err error) {
 
-	resp, err := etcd.Get(context.Background(), "wag-groups-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	resp, err := etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func GetGroups() (result []control.GroupData, err error) {
 		}
 
 		result = append(result, control.GroupData{
-			Group:   string(bytes.TrimPrefix(r.Key, []byte("wag-groups-"))),
+			Group:   string(bytes.TrimPrefix(r.Key, []byte(GroupsPrefix))),
 			Members: groupMembers,
 		})
 	}
@@ -149,7 +149,7 @@ func RemoveGroup(groupName string) error {
 		return fmt.Errorf("cannot delete default group")
 	}
 
-	delResp, err := etcd.Delete(context.Background(), "wag-groups-"+groupName, clientv3.WithPrevKV())
+	delResp, err := etcd.Delete(context.Background(), GroupsPrefix+groupName, clientv3.WithPrevKV())
 	if err != nil {
 		return err
 	}
