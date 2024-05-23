@@ -211,7 +211,7 @@ func GetUserGroupMembership(username string) ([]string, error) {
 
 func SetUserGroupMembership(username string, newGroups []string) error {
 
-	err := doSafeUpdate(context.Background(), MembershipKey+"-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	err := doSafeUpdate(context.Background(), MembershipKey+"-"+username, true, func(gr *clientv3.GetResponse) (value string, err error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("bad number of membership keys")
 		}
