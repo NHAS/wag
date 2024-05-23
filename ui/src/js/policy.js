@@ -42,6 +42,12 @@ window.operateEvents = {
     }
     $("#public_routes").val(public_routes_content)
 
+    let deny_routes_content = ""
+    if (row.deny_routes != null) {
+      deny_routes_content = row.deny_routes.join("\n")
+    }
+    $("#deny_routes").val(deny_routes_content)
+
 
     $("#action").val("edit")
 
@@ -87,6 +93,13 @@ $(function () {
       formatter: rulesFormatter
 
     }, {
+      field: 'deny_routes',
+      title: 'Deny Routes (Number)',
+      sortable: true,
+      align: 'center',
+      formatter: rulesFormatter
+
+    },{
       field: 'edit',
       title: 'Edit',
       align: 'center',
@@ -163,6 +176,8 @@ $(function () {
 
     $("#mfa_routes").val("")
     $("#public_routes").val("")
+    $("#deny_routes").val("")
+
 
     $("#ruleModal").modal("show")
   })
