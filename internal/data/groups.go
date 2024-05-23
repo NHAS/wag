@@ -91,7 +91,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 	}
 
 	for _, member := range removedMembers {
-		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, false, func(gr *clientv3.GetResponse) (value string, err error) {
+		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, true, func(gr *clientv3.GetResponse) (value string, err error) {
 
 			if len(gr.Kvs) != 1 {
 				return "", fmt.Errorf("removing user bad number of member keys: %d", len(gr.Kvs))
