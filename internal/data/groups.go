@@ -61,6 +61,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		addedMembers = append(addedMembers, member)
 	}
 
+	var errs []error
 	for _, member := range addedMembers {
 		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, true, func(gr *clientv3.GetResponse) (value string, err error) {
 
@@ -87,6 +88,7 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		})
 		if err != nil {
 			log.Println("failed to add member ", member, "to group: ", err)
+			errs = append(errs, err)
 		}
 	}
 
@@ -113,17 +115,22 @@ func SetGroup(group string, members []string, overwrite bool) error {
 		})
 		if err != nil {
 			log.Println("failed to remove member ", member, "from group: ", err)
+			errs = append(errs, err)
 		}
 	}
 
-	return err
+	if len(errs) != 0 {
+		return fmt.Errorf("updating group information failed: %s", errs)
+	}
+
+	return nil
 }
 
 func GetGroups() (result []control.GroupData, err error) {
 
 	resp, err := etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get group from etcd: %s", err)
 	}
 
 	for _, r := range resp.Kvs {
@@ -151,17 +158,18 @@ func RemoveGroup(groupName string) error {
 
 	delResp, err := etcd.Delete(context.Background(), GroupsPrefix+groupName, clientv3.WithPrevKV())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete group: %s", err)
 	}
 
 	var oldMembers []string
 	if len(delResp.PrevKvs) == 1 {
 		err = json.Unmarshal(delResp.PrevKvs[0].Value, &oldMembers)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to unmarshal old members: %s", err)
 		}
 	}
 
+	var errs []error
 	for _, member := range oldMembers {
 		err = doSafeUpdate(context.Background(), MembershipKey+"-"+member, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
@@ -172,7 +180,7 @@ func RemoveGroup(groupName string) error {
 			var memberCurrentGroups []string
 			err = json.Unmarshal(gr.Kvs[0].Value, &memberCurrentGroups)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to unmarshal current members: %s", err)
 			}
 
 			memberCurrentGroups = slices.DeleteFunc(memberCurrentGroups, func(s string) bool {
@@ -183,16 +191,23 @@ func RemoveGroup(groupName string) error {
 
 			return string(reverseMappingJson), nil
 		})
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
-	return err
+	if len(errs) != 0 {
+		return fmt.Errorf("changing membership information failed: %s", errs)
+	}
+
+	return nil
 }
 
 func GetUserGroupMembership(username string) ([]string, error) {
 
 	response, err := etcd.Get(context.Background(), MembershipKey+"-"+username)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get membership information: %s", err)
 	}
 
 	if len(response.Kvs) == 0 {
@@ -203,7 +218,7 @@ func GetUserGroupMembership(username string) ([]string, error) {
 
 	err = json.Unmarshal(response.Kvs[0].Value, &groupMembership)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal group membership: %s", err)
 	}
 
 	return groupMembership, nil
@@ -220,5 +235,5 @@ func SetUserGroupMembership(username string, newGroups []string) error {
 		return string(userGroups), nil
 	})
 
-	return err
+	return fmt.Errorf("failed to update group membership: %s", err)
 }
