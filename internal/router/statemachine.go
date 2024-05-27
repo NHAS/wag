@@ -102,11 +102,26 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Endpoint.String() != previous.Endpoint.String() || // If the client ip has changed
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
+
+			var reasons []string
+			if current.Attempts > lockout {
+				reasons = []string{fmt.Sprintf("exceeded lockout (%d)", current.Attempts)}
+			}
+
+			if current.Endpoint.String() != previous.Endpoint.String() {
+				reasons = append(reasons, "endpoint changed")
+			}
+
+			if current.Authorised.IsZero() {
+				reasons = append(reasons, "admin action")
+			}
+
 			err := Deauthenticate(current.Address)
 			if err != nil {
 				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
-			log.Println("deauthed device: ", current.Address)
+
+			log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
 
 		}
 
