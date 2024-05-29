@@ -9,10 +9,6 @@ import (
 )
 
 func policiesUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
 
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {

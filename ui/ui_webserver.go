@@ -19,6 +19,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control/wagctl"
+	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/NHAS/wag/pkg/queue"
 )
 
@@ -258,9 +259,9 @@ func StartWebServer(errs chan<- error) error {
 
 		static := http.FileServer(http.FS(staticContent))
 
-		protectedRoutes := http.NewServeMux()
-		allRoutes := http.NewServeMux()
-		allRoutes.HandleFunc("/login", doLogin)
+		protectedRoutes := httputils.NewMux()
+		allRoutes := httputils.NewMux()
+		allRoutes.GetOrPost("/login", doLogin)
 
 		if config.Values.ManagementUI.Debug {
 			static := http.FileServer(http.Dir("./ui/src/"))
@@ -294,44 +295,44 @@ func StartWebServer(errs chan<- error) error {
 				return true
 			}))
 
-		protectedRoutes.HandleFunc("/dashboard", populateDashboard)
+		protectedRoutes.Get("/dashboard", populateDashboard)
 
-		protectedRoutes.HandleFunc("/cluster/members/", clusterMembersUI)
-		protectedRoutes.HandleFunc("/cluster/members/new", contentType(newNode, JSON))
-		protectedRoutes.HandleFunc("/cluster/members/control", contentType(nodeControl, JSON))
+		protectedRoutes.Get("/cluster/members/", clusterMembersUI)
+		protectedRoutes.PostJSON("/cluster/members/new", newNode)
+		protectedRoutes.PostJSON("/cluster/members/control", nodeControl)
 
-		protectedRoutes.HandleFunc("/cluster/events/", clusterEventsUI)
-		protectedRoutes.HandleFunc("/cluster/events/acknowledge", clusterEventsAcknowledge)
+		protectedRoutes.Get("/cluster/events/", clusterEventsUI)
+		protectedRoutes.Post("/cluster/events/acknowledge", clusterEventsAcknowledge)
 
-		protectedRoutes.HandleFunc("/diag/wg", wgDiagnositicsUI)
-		protectedRoutes.HandleFunc("/diag/wg/data", wgDiagnositicsData)
+		protectedRoutes.Get("/diag/wg", wgDiagnositicsUI)
+		protectedRoutes.Get("/diag/wg/data", wgDiagnositicsData)
 
-		protectedRoutes.HandleFunc("/diag/firewall", firewallDiagnositicsUI)
+		protectedRoutes.Get("/diag/firewall", firewallDiagnositicsUI)
 
-		protectedRoutes.HandleFunc("/diag/check", firewallCheckTest)
+		protectedRoutes.GetOrPost("/diag/check", firewallCheckTest)
 
-		protectedRoutes.HandleFunc("/diag/acls", aclsTest)
+		protectedRoutes.GetOrPost("/diag/acls", aclsTest)
 
-		protectedRoutes.HandleFunc("/management/users/", usersUI)
-		protectedRoutes.HandleFunc("/management/users/data", contentType(manageUsers, JSON))
+		protectedRoutes.Get("/management/users/", usersUI)
+		protectedRoutes.AllowedMethods("/management/users/data", httputils.JSON, manageUsers, http.MethodDelete, http.MethodPut, http.MethodGet)
 
-		protectedRoutes.HandleFunc("/management/devices/", devicesMgmtUI)
-		protectedRoutes.HandleFunc("/management/devices/data", contentType(devicesMgmt, JSON))
+		protectedRoutes.Get("/management/devices/", devicesMgmtUI)
+		protectedRoutes.AllowedMethods("/management/devices/data", httputils.JSON, devicesMgmt, http.MethodDelete, http.MethodPut, http.MethodGet)
 
-		protectedRoutes.HandleFunc("/management/registration_tokens/", registrationUI)
-		protectedRoutes.HandleFunc("/management/registration_tokens/data", contentType(registrationTokens, JSON))
+		protectedRoutes.Get("/management/registration_tokens/", registrationUI)
+		protectedRoutes.AllowedMethods("/management/registration_tokens/data", httputils.JSON, registrationTokens, http.MethodDelete, http.MethodGet, http.MethodPost)
 
-		protectedRoutes.HandleFunc("/policy/rules/", policiesUI)
-		protectedRoutes.HandleFunc("/policy/rules/data", contentType(policies, JSON))
+		protectedRoutes.Get("/policy/rules/", policiesUI)
+		protectedRoutes.AllowedMethods("/policy/rules/data", httputils.JSON, policies, http.MethodDelete, http.MethodGet, http.MethodPost, http.MethodPut)
 
-		protectedRoutes.HandleFunc("/policy/groups/", groupsUI)
-		protectedRoutes.HandleFunc("/policy/groups/data", contentType(groups, JSON))
+		protectedRoutes.Get("/policy/groups/", groupsUI)
+		protectedRoutes.AllowedMethods("/policy/groups/data", httputils.JSON, groups, http.MethodDelete, http.MethodGet, http.MethodPost, http.MethodPut)
 
-		protectedRoutes.HandleFunc("/settings/general", generalSettingsUI)
-		protectedRoutes.HandleFunc("/settings/general/data", contentType(generalSettings, JSON))
+		protectedRoutes.Get("/settings/general", generalSettingsUI)
+		protectedRoutes.PostJSON("/settings/general/data", generalSettings)
 
-		protectedRoutes.HandleFunc("/settings/management_users", adminUsersUI)
-		protectedRoutes.HandleFunc("/settings/management_users/data", adminUsersData)
+		protectedRoutes.Get("/settings/management_users", adminUsersUI)
+		protectedRoutes.Get("/settings/management_users/data", adminUsersData)
 
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", notificationsWS(notifications))
@@ -343,7 +344,7 @@ func StartWebServer(errs chan<- error) error {
 			startUpdateChecker(notifications)
 		}
 
-		protectedRoutes.HandleFunc("/change_password", changePassword)
+		protectedRoutes.GetOrPost("/change_password", changePassword)
 
 		protectedRoutes.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 			sessionManager.DeleteSession(w, r)

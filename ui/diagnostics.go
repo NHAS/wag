@@ -14,11 +14,6 @@ import (
 )
 
 func firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -67,11 +62,6 @@ func firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func wgDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -92,11 +82,6 @@ func wgDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	peers, err := router.ListPeers()
 	if err != nil {
 		log.Println("unable to list wg peers: ", err)

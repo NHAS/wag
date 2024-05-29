@@ -10,11 +10,6 @@ import (
 )
 
 func adminUsersUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -43,11 +38,6 @@ func adminUsersUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func adminUsersData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	adminUsers, err := ctrl.ListAdminUsers("")
 	if err != nil {
 		log.Println("failed to get list of admin users: ", err)
@@ -67,11 +57,6 @@ func adminUsersData(w http.ResponseWriter, r *http.Request) {
 }
 
 func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -117,11 +102,6 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func generalSettings(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)

@@ -25,6 +25,7 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/internal/webserver/authenticators"
 	"github.com/NHAS/wag/internal/webserver/resources"
+	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
 
@@ -79,10 +80,10 @@ func Start(errChan chan<- error) error {
 		},
 	}
 
-	public := http.NewServeMux()
-	public.HandleFunc("/static/", embeddedStatic)
-	public.HandleFunc("/register_device", registerDevice)
-	public.HandleFunc("/reachability", reachability)
+	public := httputils.NewMux()
+	public.Get("/static/", embeddedStatic)
+	public.Get("/register_device", registerDevice)
+	public.Get("/reachability", reachability)
 
 	if config.Values.Webserver.Public.SupportsTLS() {
 
@@ -146,19 +147,19 @@ func Start(errChan chan<- error) error {
 		}()
 	}
 
-	tunnel := http.NewServeMux()
+	tunnel := httputils.NewMux()
 
-	tunnel.HandleFunc("/status/", status)
-	tunnel.HandleFunc("/routes/", routes)
+	tunnel.Get("/status/", status)
+	tunnel.Get("/routes/", routes)
 
-	tunnel.HandleFunc("/logout/", logout)
+	tunnel.Get("/logout/", logout)
 
 	if config.Values.MFATemplatesDirectory != "" {
 		fs := http.FileServer(http.Dir(path.Join(config.Values.MFATemplatesDirectory, "static")))
 		tunnel.Handle("/custom/", http.StripPrefix("/custom/", fs))
 	}
 
-	tunnel.HandleFunc("/static/", embeddedStatic)
+	tunnel.Get("/static/", embeddedStatic)
 
 	// Do inital state setup for our authentication methods
 	err := authenticators.AddMFARoutes(tunnel)
@@ -172,12 +173,12 @@ func Start(errChan chan<- error) error {
 		return err
 	}
 
-	tunnel.HandleFunc("/authorise/", authorise)
-	tunnel.HandleFunc("/register_mfa/", registerMFA)
+	tunnel.GetOrPost("/authorise/", authorise)
+	tunnel.GetOrPost("/register_mfa/", registerMFA)
 
-	tunnel.HandleFunc("/public_key/", publicKey)
+	tunnel.Get("/public_key/", publicKey)
 
-	tunnel.HandleFunc("/", index)
+	tunnel.GetOrPost("/", index)
 
 	tunnelListenAddress := config.Values.Wireguard.ServerAddress.String() + ":" + config.Values.Webserver.Tunnel.Port
 	if config.Values.Webserver.Tunnel.SupportsTLS() {
@@ -242,12 +243,6 @@ func Start(errChan chan<- error) error {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	// we have to take errant POST's from endpoints when they 302
-	if r.Method != "GET" && r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
@@ -273,11 +268,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerMFA(w http.ResponseWriter, r *http.Request) {
-	// Have to take the errant posts we get from being redirected back here
-	if r.Method != "GET" && r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
@@ -345,11 +335,6 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 }
 
 func authorise(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" && r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if router.IsAuthed(clientTunnelIp.String()) {
@@ -403,11 +388,6 @@ func reachability(w http.ResponseWriter, _ *http.Request) {
 }
 
 func registerDevice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	remoteAddr := utils.GetIPFromRequest(r)
 
 	key, err := url.PathUnescape(r.URL.Query().Get("key"))
@@ -655,11 +635,6 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if !router.IsAuthed(clientTunnelIp.String()) {
@@ -691,11 +666,6 @@ func logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func routes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
@@ -718,11 +688,6 @@ func routes(w http.ResponseWriter, r *http.Request) {
 }
 
 func status(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
@@ -756,11 +721,6 @@ func status(w http.ResponseWriter, r *http.Request) {
 }
 
 func publicKey(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	w.Header().Set("Content-Disposition", "attachment; filename=pubkey")
 	w.Header().Set("Content-Type", "text/plain")
 

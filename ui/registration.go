@@ -9,11 +9,6 @@ import (
 )
 
 func registrationUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)

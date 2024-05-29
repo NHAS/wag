@@ -36,17 +36,3 @@ func setSecurityHeaders(f http.Handler) http.Handler {
 		next: f,
 	}
 }
-
-const JSON = "application/json"
-
-func contentType(handle http.HandlerFunc, contentType string) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("content-type") != contentType {
-			http.Error(w, "Bad Request", 400)
-			return
-		}
-
-		handle(w, r)
-	}
-}

@@ -21,11 +21,6 @@ type MembershipDTO struct {
 }
 
 func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -119,11 +114,6 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func newNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	var newNodeReq data.NewNodeRequest
 	err := json.NewDecoder(r.Body).Decode(&newNodeReq)
 	if err != nil {
@@ -150,11 +140,6 @@ func newNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func nodeControl(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	var ncR data.NodeControlRequest
 	err := json.NewDecoder(r.Body).Decode(&ncR)
 	if err != nil {
@@ -216,11 +201,6 @@ func nodeControl(w http.ResponseWriter, r *http.Request) {
 }
 
 func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -267,10 +247,6 @@ func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func clusterEventsAcknowledge(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
 
 	var acknowledgeError struct {
 		ErrorID string

@@ -9,6 +9,7 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/webserver/authenticators/types"
+	"github.com/NHAS/wag/pkg/httputils"
 )
 
 var (
@@ -128,7 +129,7 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	return
 }
 
-func AddMFARoutes(mux *http.ServeMux) error {
+func AddMFARoutes(mux *httputils.HTTPUtilMux) error {
 	lck.Lock()
 	defer lck.Unlock()
 
