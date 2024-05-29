@@ -54,7 +54,7 @@ func registrationTokens(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var tokens []TokensData
+		tokens := []TokensData{}
 
 		for _, reg := range registrations {
 			tokens = append(tokens, TokensData{

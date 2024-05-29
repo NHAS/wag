@@ -68,7 +68,7 @@ func getUserGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := users.GetUser(username)
+	user, err := data.GetUserGroupMembership(username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

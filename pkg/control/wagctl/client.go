@@ -216,7 +216,7 @@ func (c *CtrlClient) ListAllGroups() (groups []control.GroupData, err error) {
 
 func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error) {
 
-	response, err := c.httpClient.Get("http://unix/user/groups?username=" + url.QueryEscape(username))
+	response, err := c.httpClient.Get("http://unix/users/groups?username=" + url.QueryEscape(username))
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (c *CtrlClient) ResetUserMFA(username string) error {
 
 func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 
-	response, err := c.httpClient.Get("http://unix/user/acls?username=" + url.QueryEscape(username))
+	response, err := c.httpClient.Get("http://unix/users/acls?username=" + url.QueryEscape(username))
 	if err != nil {
 		return acls.Acl{}, err
 	}
@@ -549,7 +549,7 @@ func (c *CtrlClient) GetAllSettings() (allSettings data.AllSettings, err error) 
 
 func (c *CtrlClient) GetLockout() (lockout int, err error) {
 
-	response, err := c.httpClient.Get("http://unix/config/settings")
+	response, err := c.httpClient.Get("http://unix/config/settings/lockout")
 	if err != nil {
 		return 0, err
 	}

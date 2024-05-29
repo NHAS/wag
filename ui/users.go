@@ -54,8 +54,7 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var usersData []UsersData
-
+		usersData := []UsersData{}
 		for _, u := range users {
 			devices, err := ctrl.ListDevice(u.Username)
 			if err != nil {

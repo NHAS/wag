@@ -128,28 +128,20 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var username string
-	switch r.Method {
-	case http.MethodPost:
+	var (
+		username string
+		acl      string
+	)
+	if r.Method == http.MethodPost {
+
 		username = r.PostFormValue("username")
-	case http.MethodGet:
-		username = ""
-	default:
-		http.NotFound(w, r)
-		return
-	}
-
-	acls, err := ctrl.GetUsersAcls(username)
-	if err != nil {
-		log.Println("unable to get users acls: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	acl := ""
-	if username != "" {
-		b, _ := json.MarshalIndent(acls, "", "    ")
-		acl = string(b)
+		acls, err := ctrl.GetUsersAcls(username)
+		if err == nil {
+			b, _ := json.MarshalIndent(acls, "", "    ")
+			acl = string(b)
+		} else {
+			acl = err.Error()
+		}
 	}
 
 	d := struct {

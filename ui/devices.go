@@ -4,15 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"github.com/NHAS/wag/internal/data"
 )
 
 func devicesMgmtUI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
 
 	_, u := sessionManager.GetSessionFromRequest(r)
 	if u == nil {
@@ -54,7 +48,7 @@ func devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		lockout, err := data.GetLockout()
+		lockout, err := ctrl.GetLockout()
 		if err != nil {
 			log.Println("error getting lockout: ", err)
 
