@@ -62,7 +62,7 @@ type Config struct {
 	path          string
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
-	CheckUpdates  bool   `json:",omitempty"` // Done
+	CheckUpdates  bool   `json:",omitempty"`
 	NumberProxies int
 	Proxied       bool
 	ExposePorts   []string `json:",omitempty"`
@@ -70,11 +70,11 @@ type Config struct {
 
 	MFATemplatesDirectory string `json:",omitempty"`
 
-	HelpMail                        string // Done
-	Lockout                         int    // Done
-	ExternalAddress                 string // Done
-	MaxSessionLifetimeMinutes       int    // Done
-	SessionInactivityTimeoutMinutes int    // Done
+	HelpMail                        string
+	Lockout                         int
+	ExternalAddress                 string
+	MaxSessionLifetimeMinutes       int
+	SessionInactivityTimeoutMinutes int
 
 	DownloadConfigFileName string `json:",omitempty"`
 
@@ -92,10 +92,10 @@ type Config struct {
 	Clustering ClusteringDetails
 
 	Authenticators struct {
-		DefaultMethod string   `json:",omitempty"` // Done
-		Issuer        string   // Done
+		DefaultMethod string `json:",omitempty"`
+		Issuer        string
 		Methods       []string `json:",omitempty"`
-		DomainURL     string   // Done
+		DomainURL     string
 
 		OIDC struct {
 			IssuerURL       string

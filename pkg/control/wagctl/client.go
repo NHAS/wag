@@ -11,10 +11,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control"
+	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
 type CtrlClient struct {
@@ -189,6 +192,50 @@ func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err err
 	return
 }
 
+func (c *CtrlClient) ListAllGroups() (groups []control.GroupData, err error) {
+
+	response, err := c.httpClient.Get("http://unix/groups/list")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&groups)
+
+	return
+}
+
+func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error) {
+
+	response, err := c.httpClient.Get("http://unix/user/groups?username=" + url.QueryEscape(username))
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&userGroups)
+
+	return
+}
+
 // Take device address to remove
 func (c *CtrlClient) DeleteUser(username string) error {
 	form := url.Values{}
@@ -218,6 +265,31 @@ func (c *CtrlClient) ResetUserMFA(username string) error {
 	form.Add("username", username)
 
 	return c.simplepost("users/reset", form)
+}
+
+func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
+
+	response, err := c.httpClient.Get("http://unix/user/acls?username=" + url.QueryEscape(username))
+	if err != nil {
+		return acls.Acl{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return acls.Acl{}, err
+		}
+
+		return acls.Acl{}, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&acl)
+	if err != nil {
+		return acls.Acl{}, err
+	}
+
+	return acl, nil
 }
 
 func (c *CtrlClient) Sessions() (out []string, err error) {
@@ -451,6 +523,54 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 	return nil
 }
 
+func (c *CtrlClient) GetAllSettings() (allSettings data.AllSettings, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings")
+	if err != nil {
+		return allSettings, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return allSettings, err
+		}
+		return allSettings, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&allSettings)
+	if err != nil {
+		return allSettings, err
+	}
+
+	return allSettings, nil
+}
+
+func (c *CtrlClient) GetLockout() (lockout int, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings")
+	if err != nil {
+		return 0, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return 0, err
+		}
+		return 0, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&lockout)
+	if err != nil {
+		return 0, err
+	}
+
+	return lockout, nil
+}
+
 func (c *CtrlClient) GetVersion() (string, error) {
 
 	response, err := c.httpClient.Get("http://unix/version")
@@ -569,4 +689,73 @@ func (c *CtrlClient) Shutdown(cleanup bool) (err error) {
 	form.Add("cleanup", fmt.Sprintf("%t", cleanup))
 
 	return c.simplepost("shutdown", form)
+}
+
+func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err error) {
+	response, err := c.httpClient.Get("http://unix/clustering/errors")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&clusterErrors); err != nil {
+		return nil, errors.New("unable to decode json: " + err.Error())
+	}
+
+	return clusterErrors, nil
+}
+
+func (c *CtrlClient) GetClusterMembers() (clusterMembers []*membership.Member, err error) {
+	response, err := c.httpClient.Get("http://unix/clustering/members")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&clusterMembers); err != nil {
+		return nil, errors.New("unable to decode json: " + err.Error())
+	}
+
+	return clusterMembers, nil
+}
+
+func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error) {
+	response, err := c.httpClient.Get("http://unix/clustering/members")
+	if err != nil {
+		return t, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return t, err
+		}
+
+		return t, errors.New(string(result))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&t); err != nil {
+		return t, errors.New("unable to decode json: " + err.Error())
+	}
+
+	return t, nil
 }

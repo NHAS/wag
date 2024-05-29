@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 )
 
@@ -155,9 +154,16 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	acls, err := ctrl.GetUsersAcls(username)
+	if err != nil {
+		log.Println("unable to get users acls: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	acl := ""
 	if username != "" {
-		b, _ := json.MarshalIndent(data.GetEffectiveAcl(username), "", "    ")
+		b, _ := json.MarshalIndent(acls, "", "    ")
 		acl = string(b)
 	}
 

@@ -6,8 +6,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
-	"github.com/NHAS/wag/internal/data"
 )
 
 func usersUI(w http.ResponseWriter, r *http.Request) {
@@ -64,9 +62,14 @@ func manageUsers(w http.ResponseWriter, r *http.Request) {
 		var usersData []UsersData
 
 		for _, u := range users {
-			devices, _ := ctrl.ListDevice(u.Username)
+			devices, err := ctrl.ListDevice(u.Username)
+			if err != nil {
+				log.Println("failed to get devices for ", u.Username, "err", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-			groups, err := data.GetUserGroupMembership(u.Username)
+			groups, err := ctrl.UserGroups(u.Username)
 			if err != nil {
 				log.Println("unable to get users groups: ", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)

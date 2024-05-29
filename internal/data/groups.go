@@ -221,6 +221,8 @@ func GetUserGroupMembership(username string) ([]string, error) {
 		return nil, fmt.Errorf("failed to unmarshal group membership: %s", err)
 	}
 
+	groupMembership = append(groupMembership, "*")
+
 	return groupMembership, nil
 }
 

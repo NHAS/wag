@@ -13,14 +13,9 @@ import (
 )
 
 func listDevices(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -31,13 +26,13 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 
 		user, err := users.GetUser(username)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		devices, err = user.GetDevices()
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -45,7 +40,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 
 		devices, err = data.GetAllDevices()
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -56,7 +51,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(devices)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -65,14 +60,9 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func lockDevice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -104,20 +94,15 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func unlockDevice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	address, err := url.QueryUnescape(r.FormValue("address"))
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -130,7 +115,7 @@ func unlockDevice(w http.ResponseWriter, r *http.Request) {
 
 	err = user.ResetDeviceAuthAttempts(address)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -140,22 +125,17 @@ func unlockDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func sessions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	sessions, err := router.GetAllAuthorised()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	result, err := json.Marshal(sessions)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -163,14 +143,9 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteDevice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -178,13 +153,13 @@ func deleteDevice(w http.ResponseWriter, r *http.Request) {
 
 	user, err := users.GetUserFromAddress(net.ParseIP(address))
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = user.DeleteDevice(address)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

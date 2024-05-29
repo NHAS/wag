@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 )
 
@@ -43,7 +42,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lockout, err := data.GetLockout()
+	lockout, err := ctrl.GetLockout()
 	if err != nil {
 		log.Println("error getting lockout: ", err)
 
@@ -82,7 +81,7 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s, err := data.GetAllSettings()
+	s, err := ctrl.GetAllSettings()
 	if err != nil {
 		log.Println("error getting server settings: ", err)
 

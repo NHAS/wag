@@ -10,14 +10,10 @@ import (
 )
 
 func listUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -27,13 +23,13 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 
 		user, err := users.GetUser(username)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		b, err := json.Marshal(user)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -45,13 +41,42 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 
 	currentUsers, err := data.GetAllUsers()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b, err := json.Marshal(currentUsers)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+func getUserGroups(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	username := r.FormValue("username")
+	if username == "" {
+		http.Error(w, "No user specified", http.StatusNotFound)
+		return
+	}
+
+	user, err := users.GetUser(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b, err := json.Marshal(user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -60,14 +85,9 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func lockUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -91,14 +111,10 @@ func lockUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func unlockUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -122,14 +138,9 @@ func unlockUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -153,14 +164,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func listAdminUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -170,13 +176,13 @@ func listAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 		user, err := data.GetAdminUser(username)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		b, err := json.Marshal(user)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -188,13 +194,13 @@ func listAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 	currentAdminUsers, err := data.GetAllAdminUsers()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	b, err := json.Marshal(currentAdminUsers)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -203,14 +209,9 @@ func listAdminUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func lockAdminUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -228,14 +229,9 @@ func lockAdminUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -243,7 +239,7 @@ func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	err = data.SetAdminUserUnlock(username)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -253,14 +249,9 @@ func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteAdminUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -278,14 +269,9 @@ func deleteAdminUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetAdminUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -304,14 +290,10 @@ func resetAdminUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func addAdminUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -331,14 +313,9 @@ func addAdminUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetMfaUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -359,4 +336,29 @@ func resetMfaUser(w http.ResponseWriter, r *http.Request) {
 	log.Println(username, "MFA has been reset and will be shown")
 
 	w.Write([]byte("OK"))
+}
+
+func getUserAcl(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	username := r.FormValue("username")
+	if username == "" {
+		http.Error(w, "No username specified", http.StatusNotFound)
+		return
+	}
+
+	acl := data.GetEffectiveAcl(username)
+
+	b, err := json.Marshal(acl)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
 }

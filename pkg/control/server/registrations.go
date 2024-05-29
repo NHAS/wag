@@ -13,14 +13,10 @@ import (
 )
 
 func listRegistrations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
 
 	result, err := data.GetRegistrationTokens()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -28,7 +24,7 @@ func listRegistrations(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(result)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -36,14 +32,9 @@ func listRegistrations(w http.ResponseWriter, r *http.Request) {
 }
 
 func newRegistration(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -57,7 +48,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	var groups []string = nil
 	err = json.Unmarshal([]byte(groupsString), &groups)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -65,7 +56,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 		for _, group := range groups {
 			if !strings.HasPrefix(group, "group:") {
-				http.Error(w, "group did not have the 'group:' prefix '"+group+"'", 500)
+				http.Error(w, "group did not have the 'group:' prefix '"+group+"'", http.StatusInternalServerError)
 				return
 			}
 		}
@@ -74,7 +65,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	uses, err := strconv.Atoi(usesString)
 	if err != nil {
-		http.Error(w, "invalid number of uses for registration token: "+err.Error(), 500)
+		http.Error(w, "invalid number of uses for registration token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -93,13 +84,13 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	if token != "" {
 		err := data.AddRegistrationToken(token, username, overwrite, groups, uses)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		b, err := json.Marshal(resp)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -111,7 +102,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	token, err = data.GenerateToken(username, overwrite, groups, uses)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -119,7 +110,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -128,14 +119,9 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteRegistration(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -144,7 +130,7 @@ func deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	err = data.DeleteRegistrationToken(id)
 	if err != nil {
 
-		http.Error(w, errors.New("Could not delete token: "+err.Error()).Error(), 500)
+		http.Error(w, errors.New("Could not delete token: "+err.Error()).Error(), http.StatusInternalServerError)
 		return
 	}
 

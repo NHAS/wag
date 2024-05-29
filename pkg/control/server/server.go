@@ -9,13 +9,10 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/pkg/httputils"
 )
 
 func firewallRules(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
 
 	rules, err := router.GetRules()
 	if err != nil {
@@ -34,11 +31,6 @@ func firewallRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func version(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	if config.Version == "" {
 		config.Version = "DEBUG (git tag not injected)"
 	}
@@ -47,20 +39,10 @@ func version(w http.ResponseWriter, r *http.Request) {
 }
 
 func bpfVersion(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.NotFound(w, r)
-		return
-	}
-
 	w.Write([]byte(router.GetBPFHash()))
 }
 
 func shutdown(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
-
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -100,47 +82,57 @@ func StartControlSocket() error {
 
 	log.Println("Started control socket: \n\t\t\t", config.Values.Socket)
 
-	controlMux := http.NewServeMux()
+	controlMux := httputils.NewMux()
 
-	controlMux.HandleFunc("/device/list", listDevices)
-	controlMux.HandleFunc("/device/lock", lockDevice)
-	controlMux.HandleFunc("/device/unlock", unlockDevice)
-	controlMux.HandleFunc("/device/sessions", sessions)
-	controlMux.HandleFunc("/device/delete", deleteDevice)
+	controlMux.Get("/device/list", listDevices)
+	controlMux.Post("/device/lock", lockDevice)
+	controlMux.Post("/device/unlock", unlockDevice)
+	controlMux.Get("/device/sessions", sessions)
+	controlMux.Post("/device/delete", deleteDevice)
 
-	controlMux.HandleFunc("/users/list", listUsers)
-	controlMux.HandleFunc("/users/lock", lockUser)
-	controlMux.HandleFunc("/users/unlock", unlockUser)
-	controlMux.HandleFunc("/users/delete", deleteUser)
-	controlMux.HandleFunc("/users/reset", resetMfaUser)
+	controlMux.Get("/users/groups", getUserGroups)
+	controlMux.Get("/users/list", listUsers)
+	controlMux.Post("/users/lock", lockUser)
+	controlMux.Post("/users/unlock", unlockUser)
+	controlMux.Post("/users/delete", deleteUser)
+	controlMux.Post("/users/reset", resetMfaUser)
+	controlMux.Get("/users/acls", getUserAcl)
 
-	controlMux.HandleFunc("/webadmin/list", listAdminUsers)
-	controlMux.HandleFunc("/webadmin/lock", lockAdminUser)
-	controlMux.HandleFunc("/webadmin/unlock", unlockAdminUser)
-	controlMux.HandleFunc("/webadmin/delete", deleteAdminUser)
-	controlMux.HandleFunc("/webadmin/reset", resetAdminUser)
-	controlMux.HandleFunc("/webadmin/add", addAdminUser)
+	controlMux.Get("/groups/list", listGroups)
 
-	controlMux.HandleFunc("/firewall/list", firewallRules)
+	controlMux.Get("/webadmin/list", listAdminUsers)
+	controlMux.Post("/webadmin/lock", lockAdminUser)
+	controlMux.Post("/webadmin/unlock", unlockAdminUser)
+	controlMux.Post("/webadmin/delete", deleteAdminUser)
+	controlMux.Post("/webadmin/reset", resetAdminUser)
+	controlMux.Post("/webadmin/add", addAdminUser)
 
-	controlMux.HandleFunc("/config/policies/list", policies)
-	controlMux.HandleFunc("/config/policy/edit", editPolicy)
-	controlMux.HandleFunc("/config/policy/create", newPolicy)
-	controlMux.HandleFunc("/config/policies/delete", deletePolicies)
+	controlMux.Get("/firewall/list", firewallRules)
+	controlMux.Get("/config/policies/list", policies)
+	controlMux.Post("/config/policy/edit", editPolicy)
+	controlMux.Post("/config/policy/create", newPolicy)
+	controlMux.Post("/config/policies/delete", deletePolicies)
 
-	controlMux.HandleFunc("/config/group/list", groups)
-	controlMux.HandleFunc("/config/group/edit", editGroup)
-	controlMux.HandleFunc("/config/group/create", newGroup)
-	controlMux.HandleFunc("/config/group/delete", deleteGroup)
+	controlMux.Get("/config/group/list", groups)
+	controlMux.Post("/config/group/edit", editGroup)
+	controlMux.Post("/config/group/create", newGroup)
+	controlMux.Post("/config/group/delete", deleteGroup)
 
-	controlMux.HandleFunc("/version", version)
-	controlMux.HandleFunc("/version/bpf", bpfVersion)
+	controlMux.Get("/config/settings", getAllSettings)
+	controlMux.Get("/config/settings/lockout", getLockout)
 
-	controlMux.HandleFunc("/shutdown", shutdown)
+	controlMux.Get("/version", version)
+	controlMux.Get("/version/bpf", bpfVersion)
 
-	controlMux.HandleFunc("/registration/list", listRegistrations)
-	controlMux.HandleFunc("/registration/create", newRegistration)
-	controlMux.HandleFunc("/registration/delete", deleteRegistration)
+	controlMux.Post("/shutdown", shutdown)
+
+	controlMux.Get("/registration/list", listRegistrations)
+	controlMux.Post("/registration/create", newRegistration)
+	controlMux.Post("/registration/delete", deleteRegistration)
+
+	controlMux.Get("/clustering/errors", listErrors)
+	controlMux.Get("/clustering/members", listMembers)
+	controlMux.Get("/clustering/ping", getLastMemberPing)
 
 	go func() {
 		srv := &http.Server{
