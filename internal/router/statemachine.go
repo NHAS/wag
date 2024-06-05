@@ -113,7 +113,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			}
 
 			if current.Authorised.IsZero() {
-				reasons = append(reasons, "admin action")
+				reasons = append(reasons, "session terminated")
 			}
 
 			err := Deauthenticate(current.Address)

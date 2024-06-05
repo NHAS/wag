@@ -16,8 +16,9 @@ type MembershipDTO struct {
 	IsDrained bool
 	IsWitness bool
 
-	Ping   string
-	Status string
+	Version string
+	Ping    string
+	Status  string
 }
 
 func clusterMembersUI(w http.ResponseWriter, r *http.Request) {

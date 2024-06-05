@@ -114,6 +114,21 @@ func IsWitness(idHex string) (bool, error) {
 	return isDrained.Count != 0, nil
 }
 
+func GetVersion(idHex string) (string, error) {
+	_, err := strconv.ParseUint(idHex, 16, 64)
+	if err != nil {
+		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
+	}
+
+	return getString(path.Join(NodeInfo, idHex, "version"))
+}
+
+func SetVersion() error {
+	d, _ := json.Marshal(config.Version)
+	_, err := etcd.Put(context.Background(), path.Join(NodeInfo, GetServerID().String(), "version"), string(d))
+	return err
+}
+
 func SetDrained(idHex string, on bool) error {
 
 	isWitness, err := IsWitness(idHex)

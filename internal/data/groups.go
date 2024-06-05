@@ -237,5 +237,9 @@ func SetUserGroupMembership(username string, newGroups []string) error {
 		return string(userGroups), nil
 	})
 
-	return fmt.Errorf("failed to update group membership: %s", err)
+	if err != nil {
+		return fmt.Errorf("failed to update group membership: %v", err)
+	}
+
+	return nil
 }

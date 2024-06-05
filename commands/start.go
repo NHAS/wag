@@ -172,6 +172,13 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 						errorChan <- fmt.Errorf("to write witness data when cluster is healthy: %v", err)
 						return
 					}
+
+					err = data.SetVersion()
+					if err != nil {
+						errorChan <- fmt.Errorf("to write version data when cluster is healthy: %v", err)
+						return
+					}
+
 				}
 
 				wasDead = false
