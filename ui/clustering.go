@@ -64,6 +64,13 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		version, err := data.GetVersion(members[i].ID.String())
+		if err != nil {
+			log.Println("unable to get version: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		status := "healthy" // full liveness
 		if drained {
 			status = "drained"
@@ -99,6 +106,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 			IsWitness: witness,
 			Status:    status,
 			Ping:      ping,
+			Version:   version,
 		})
 
 	}
