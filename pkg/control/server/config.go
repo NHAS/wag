@@ -51,7 +51,6 @@ func editPolicy(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&polciyData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-
 	}
 
 	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes, Deny: polciyData.DenyRoutes}, true); err != nil {
