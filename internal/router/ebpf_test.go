@@ -435,9 +435,9 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
-	if err != nil {
-		t.Fatal("could not parse ip: ", err)
+	ip := net.ParseIP(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	if ip == nil {
+		t.Fatal("could not parse ip")
 	}
 
 	testAuthorizedPacket := ipv4.Header{
