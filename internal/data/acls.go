@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
@@ -196,6 +197,10 @@ func GetEffectiveAcl(username string) acls.Acl {
 		Mfa:   maps.Keys(mfaSet),
 		Deny:  maps.Keys(denySet),
 	}
+
+	sort.Strings(resultingACLs.Allow)
+	sort.Strings(resultingACLs.Mfa)
+	sort.Strings(resultingACLs.Deny)
 
 	return resultingACLs
 }
