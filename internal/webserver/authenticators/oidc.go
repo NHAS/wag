@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -199,11 +200,12 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if issuerDetails.Issuer != rp.Issuer() {
-				return errors.New("stored issuer " + issuerDetails.Issuer + " did not equal actual issuer: " + rp.Issuer())
+				return fmt.Errorf("stored issuer %q did not equal actual issuer: %q", issuerDetails.Issuer, rp.Issuer())
+
 			}
 
 			if deviceUsername != username {
-				log.Printf("Error logging in user, idP supplied device username (%s) does not equal expected username (%s)", deviceUsername, username)
+				log.Printf("Error logging in user, idP supplied device username (%q) does not equal expected username (%q)", deviceUsername, username)
 				return errors.New("user is not associated with device")
 			}
 
@@ -215,7 +217,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			msg, _ := resultMessage(err)
 			if strings.Contains(err.Error(), "returned username") {
-				msg = "username '" + info.GetPreferredUsername() + "' not associated with device, device owned by '" + user.Username + "'"
+				msg = fmt.Sprintf("username %q not associated with device, device owned by %q", info.GetPreferredUsername(), user.Username)
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)
