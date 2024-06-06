@@ -1,6 +1,7 @@
 package authenticators
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"log"
@@ -181,7 +182,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if d.Challenge == response.Challenge {
+		if subtle.ConstantTimeCompare([]byte(d.Challenge), []byte(response.Challenge)) == 1 {
 			_, err := data.AuthoriseDevice(user.Username, remoteAddress.String())
 			if err != nil {
 				log.Println("unable to authorise device based on challenge: ", err)
