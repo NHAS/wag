@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/queue"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -83,7 +84,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 		options = append(options, clientv3.WithPrefix())
 	}
 
-	key, err := generateRandomBytes(16)
+	key, err := utils.GenerateRandomBytes(16)
 	if err != nil {
 		return "", err
 	}
@@ -166,7 +167,7 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
 
-	key, err := generateRandomBytes(16)
+	key, err := utils.GenerateRandomBytes(16)
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +260,7 @@ func RaiseError(raisedError error, value []byte) (err error) {
 		Time:            time.Now(),
 	}
 
-	ee.ErrorID, err = generateRandomBytes(16)
+	ee.ErrorID, err = utils.GenerateRandomBytes(16)
 	if err != nil {
 		return err
 	}

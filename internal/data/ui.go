@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/crypto/argon2"
 )
@@ -29,16 +29,6 @@ type AdminModel struct {
 type admin struct {
 	AdminModel
 	Hash string
-}
-
-func generateSalt() ([]byte, error) {
-	randomData := make([]byte, 16)
-	_, err := rand.Read(randomData)
-	if err != nil {
-		return nil, err
-	}
-
-	return randomData, nil
 }
 
 func IncrementAdminAuthenticationAttempt(username string) error {
@@ -75,12 +65,12 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := generateSalt()
+	salt, err := utils.GenerateRandomBytes(32)
 	if err != nil {
 		return err
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
 	newAdmin := admin{
 		AdminModel: AdminModel{
@@ -102,9 +92,10 @@ func CompareAdminKeys(username, password string) error {
 
 	wasteTime := func() {
 		// Null op to stop timing discovery attacks
-		salt, _ := generateSalt()
 
-		hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+		salt, _ := utils.GenerateRandomBytes(32)
+
+		hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
 		subtle.ConstantTimeCompare(hash, hash)
 	}
@@ -235,12 +226,12 @@ func SetAdminPassword(username, password string) error {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := generateSalt()
+	salt, err := utils.GenerateRandomBytes(32)
 	if err != nil {
 		return err
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
 	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 

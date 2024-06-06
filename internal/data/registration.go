@@ -3,14 +3,13 @@ package data
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -111,7 +110,7 @@ func FinaliseRegistration(token string) error {
 
 // Randomly generate a token for a specific username
 func GenerateToken(username, overwrite string, groups []string, uses int) (token string, err error) {
-	token, err = generateRandomBytes(32)
+	token, err = utils.GenerateRandomBytes(32)
 	if err != nil {
 		return "", err
 	}
@@ -160,14 +159,4 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 	_, err = etcd.Put(context.Background(), "tokens-"+token, string(b))
 
 	return err
-}
-
-func generateRandomBytes(n uint32) (string, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(b), nil
 }

@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"crypto/rand"
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"html"
@@ -18,6 +16,7 @@ import (
 	"github.com/NHAS/session"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control/wagctl"
 	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/NHAS/wag/pkg/queue"
@@ -193,20 +192,15 @@ func StartWebServer(errs chan<- error) error {
 	if len(admins) == 0 {
 		log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
 
-		b := make([]byte, 16)
-		_, err := rand.Read(b)
+		password, err := utils.GenerateRandomBytes(8)
 		if err != nil {
 			return err
 		}
 
-		password := hex.EncodeToString(b)
-
-		_, err = rand.Read(b[:8])
+		username, err := utils.GenerateRandomBytes(16)
 		if err != nil {
 			return err
 		}
-
-		username := hex.EncodeToString(b[:8])
 
 		log.Println("Username: ", username)
 		log.Println("Password: ", password)

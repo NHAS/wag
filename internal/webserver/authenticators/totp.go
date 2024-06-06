@@ -135,6 +135,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
+
 		if err := user.EnforceMFA(); err != nil {
 			log.Println(user.Username, clientTunnelIp, "enforce mfa failed:", err)
 			return

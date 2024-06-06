@@ -17,6 +17,7 @@ import (
 	"github.com/NHAS/autoetcdtls/manager"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data/migrations"
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/fsops"
 	_ "github.com/mattn/go-sqlite3"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -111,7 +112,7 @@ func Load(path, joinToken string, testing bool) error {
 			}
 		}
 	}
-	part, err := generateRandomBytes(10)
+	part, err := utils.GenerateRandomBytes(10)
 	if err != nil {
 		return err
 	}

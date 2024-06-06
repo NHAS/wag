@@ -1,8 +1,6 @@
 package authenticators
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,19 +33,13 @@ type Oidc struct {
 	details  data.OIDC
 }
 
-func (o Oidc) state() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
-
 func (o *Oidc) LogoutPath() string {
 	return o.provider.GetEndSessionEndpoint()
 }
 
 func (o *Oidc) Init() error {
-	key := make([]byte, 32)
-	_, err := rand.Read(key)
+
+	key, err := utils.GenerateRandomBytes(32)
 	if err != nil {
 		return errors.New("failed to get random key: " + err.Error())
 	}
@@ -57,7 +49,7 @@ func (o *Oidc) Init() error {
 		return err
 	}
 
-	cookieHandler := httphelper.NewCookieHandler(key, key, httphelper.WithUnsecure())
+	cookieHandler := httphelper.NewCookieHandler([]byte(key), []byte(key), httphelper.WithUnsecure())
 
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
@@ -132,7 +124,10 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rp.AuthURLHandler(o.state, o.provider)(w, r)
+	rp.AuthURLHandler(func() string {
+		r, _ := utils.GenerateRandomBytes(32)
+		return r
+	}, o.provider)(w, r)
 }
 
 func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
@@ -201,7 +196,6 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			if issuerDetails.Issuer != rp.Issuer() {
 				return fmt.Errorf("stored issuer %q did not equal actual issuer: %q", issuerDetails.Issuer, rp.Issuer())
-
 			}
 
 			if deviceUsername != username {
@@ -248,7 +242,10 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, _, _ string) {
-	rp.AuthURLHandler(o.state, o.provider)(w, r)
+	rp.AuthURLHandler(func() string {
+		r, _ := utils.GenerateRandomBytes(32)
+		return r
+	}, o.provider)(w, r)
 }
 
 func (o *Oidc) RegistrationUI(w http.ResponseWriter, r *http.Request, _, _ string) {
