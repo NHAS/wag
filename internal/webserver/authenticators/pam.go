@@ -44,14 +44,14 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
 
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -131,15 +131,15 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 	return func(mfaSecret, username string) error {
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, "Bad request", 400)
-			return err
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return fmt.Errorf("failed to parse form: %s", err)
 		}
 
 		passwd := r.FormValue("password")
 
 		pamDetails, err := data.GetPAM()
 		if err != nil {
-			http.Error(w, "Unable to get pam details: "+err.Error(), 500)
+			http.Error(w, "Unable to get pam details: "+err.Error(), http.StatusInternalServerError)
 			return err
 		}
 
@@ -177,10 +177,9 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 		pamUsername, err := t.GetItem(pam.User)
 		if err != nil {
 			return fmt.Errorf("PAM get user '%s' (%s) failed", pamUsername, username)
-		} else {
-			return nil
 		}
 
+		return nil
 	}
 }
 

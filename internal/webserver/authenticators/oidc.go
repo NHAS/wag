@@ -107,14 +107,14 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
 
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -127,7 +127,7 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	err = data.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
-		http.Error(w, "Unknown error", 500)
+		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		for i := range groupsIntf {
 			conv, ok := groupsIntf[i].(string)
 			if !ok {
-				log.Println("Error, could not convert group claim to string, probably error in oidc idP configuration")
+				log.Println("Error, could not convert group claim to string, probably mistake in your OIDC idP configuration")
 				http.Error(w, "Server Error", http.StatusInternalServerError)
 				return
 			}

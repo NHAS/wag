@@ -69,14 +69,14 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
 
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 

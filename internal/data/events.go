@@ -58,6 +58,21 @@ var (
 	exit        = make(chan bool)
 )
 
+func DeregisterEventListener(key string) error {
+	clusterHealthLck.Lock()
+	defer clusterHealthLck.Unlock()
+	cancelFunc, ok := contextMaps[key]
+	if !ok {
+		return fmt.Errorf("even listener was not found: %s", key)
+	}
+
+	cancelFunc()
+
+	delete(contextMaps, key)
+
+	return nil
+}
+
 func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
 
 	options := []clientv3.OpOption{

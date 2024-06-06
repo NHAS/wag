@@ -106,12 +106,12 @@ func (u *user) Authenticate(device, mfaType string, authenticator types.Authenti
 	// Make sure that the attempts is always incremented first to stop race condition attacks
 	err := data.IncrementAuthenticationAttempt(u.Username, device)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to pre-emptively increment authentication attempt counter: %s", err)
 	}
 
 	mfa, userMfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get authenticator details: %s", err)
 	}
 
 	lockout, err := data.GetLockout()
@@ -158,7 +158,7 @@ func (u *user) Deauthenticate(device string) error {
 func (u *user) MFA() (string, error) {
 	url, err := data.GetMFASecret(u.Username)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get MFA details: %s", err)
 	}
 
 	return url, nil

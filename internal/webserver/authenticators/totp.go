@@ -59,14 +59,14 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
 
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to get issuer from datastore")
 
-			http.Error(w, "Bad request", 400)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
 		key, err := totp.Generate(totp.GenerateOpts{
@@ -86,21 +86,21 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "generate key failed:", err)
-			http.Error(w, "Unknown error", 500)
+			http.Error(w, "Unknown error", http.StatusInternalServerError)
 			return
 		}
 
 		err = data.SetUserMfa(user.Username, key.URL(), t.Type())
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
-			http.Error(w, "Unknown error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		image, err := key.Image(200, 200)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "generating image failed:", err)
-			http.Error(w, "Unknown error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -108,7 +108,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		err = png.Encode(&buff, image)
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "encoding mfa secret as png failed:", err)
-			http.Error(w, "Unknown error", 500)
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
@@ -122,7 +122,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			AccountName: key.AccountName(),
 		}
 
-		jsonResponse(w, &mfa, 200)
+		jsonResponse(w, &mfa, http.StatusOK)
 
 	case "POST":
 		err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
@@ -137,6 +137,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "authorised")
 		if err := user.EnforceMFA(); err != nil {
 			log.Println(user.Username, clientTunnelIp, "enforce mfa failed:", err)
+			return
 		}
 
 	default:
@@ -162,7 +163,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	user, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", 400)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -178,6 +179,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		// Intentionally missing http.Error as its returned via json
 		return
 	}
 
@@ -189,7 +191,7 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authe
 	return func(mfaSecret, username string) error {
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, "Bad request", 400)
+			http.Error(w, "Bad request", http.StatusBadRequest)
 			return err
 		}
 
@@ -200,12 +202,12 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authe
 			return err
 		}
 
+		lockULock.Lock()
+		defer lockULock.Unlock()
+
 		if !totp.Validate(code, key.Secret()) {
 			return errors.New("code does not match expected")
 		}
-
-		lockULock.Lock()
-		defer lockULock.Unlock()
 
 		e := usedCodes[username]
 		if e.code == code && e.usetime.Add(30*time.Second).After(time.Now()) {

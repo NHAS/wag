@@ -26,6 +26,7 @@ type Device struct {
 	Active       bool
 	Authorised   time.Time
 
+	Challenge      string
 	AssociatedNode types.ID
 }
 

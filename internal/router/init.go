@@ -58,7 +58,7 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 			select {
 			case <-cancel:
 				return
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(500 * time.Millisecond):
 				dev, err := ctrl.Device(config.Values.Wireguard.DevName)
 				if err != nil {
 					errorChan <- fmt.Errorf("endpoint watcher: %s", err)
@@ -92,16 +92,9 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 					if ourPeerAddresses[device.Address] != p.Endpoint.String() && p.Endpoint != nil {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 
-						// If we register an endpoint change on our real world device, and the Endpoint is not the same as what the cluster knows
-						// i.e the peer has either roamed and its egress has changed, or it's an attacker using a stolen wireguard profile
-						// Deauthenticate it
 						if device.Endpoint.String() != p.Endpoint.String() {
+							// This condition will trigger a challenge on the cluster
 							log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
-
-							err = data.DeauthenticateDevice(device.Address)
-							if err != nil {
-								log.Printf("failed to deauth device (%s:%s) endpoint: %s", device.Address, device.Username, err)
-							}
 						}
 
 						// Otherwise, just update the node association
