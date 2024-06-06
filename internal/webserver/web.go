@@ -28,7 +28,6 @@ import (
 	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
-	"github.com/gorilla/websocket"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -39,11 +38,6 @@ var (
 
 	publicHTTPServ *http.Server
 	publicTLSServ  *http.Server
-
-	upgrader = websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-	}
 )
 
 func Teardown() {
@@ -62,6 +56,10 @@ func Teardown() {
 
 	if publicTLSServ != nil {
 		publicTLSServ.Close()
+	}
+
+	if authenticators.ChallengesManager != nil {
+		authenticators.ChallengesManager.Stop()
 	}
 
 	log.Println("Stopped MFA portal")
@@ -176,7 +174,7 @@ func Start(errChan chan<- error) error {
 	// For any change to the authentication config re-up
 	err = registerListeners()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed ot register listeners: %s", err)
 	}
 
 	tunnel.GetOrPost("/authorise/", authorise)
@@ -184,7 +182,12 @@ func Start(errChan chan<- error) error {
 
 	tunnel.Get("/public_key/", publicKey)
 
-	tunnel.Get("/challenge/", challenge)
+	err = authenticators.ChallengesManager.Start()
+	if err != nil {
+		return fmt.Errorf("unable to start challenge manager: %s", err)
+	}
+
+	tunnel.Get("/challenge/", authenticators.ChallengesManager.WS)
 
 	tunnel.GetOrPost("/", index)
 
@@ -671,25 +674,6 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, method.LogoutPath(), http.StatusTemporaryRedirect)
-}
-
-func challenge(w http.ResponseWriter, r *http.Request) {
-	remoteAddress := utils.GetIPFromRequest(r)
-	user, err := users.GetUserFromAddress(remoteAddress)
-	if err != nil {
-		log.Println("unknown", remoteAddress, "Could not find user: ", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	// Upgrade HTTP connection to WebSocket connection
-	_, err = upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(user.Username, remoteAddress, "failed to create websocket challenger:", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
-	}
-
 }
 
 func routes(w http.ResponseWriter, r *http.Request) {

@@ -186,7 +186,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Will set enforcing on first use
-		err = user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuerString, username string) error {
+		challenge, err := user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuerString, username string) error {
 
 			var issuerDetails issuer
 			err := json.Unmarshal([]byte(issuerString), &issuerDetails)
@@ -230,6 +230,8 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+
+		IssueChallengeTokenCookie(w, r, challenge)
 
 		log.Println(user.Username, clientTunnelIp, "used sso to login with groups: ", groups)
 

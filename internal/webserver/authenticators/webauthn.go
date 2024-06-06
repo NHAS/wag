@@ -117,7 +117,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 		jsonResponse(w, options, http.StatusOK)
 	case "POST":
-		err = user.Authenticate(clientTunnelIp.String(), wa.Type(),
+		challenge, err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
 
 			func(mfaSecret, username string) error {
 
@@ -164,6 +164,8 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 			return
 		}
+
+		w.Header().Set("WAG-CHALLENGE", challenge)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
@@ -232,7 +234,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
 	case "POST":
 
-		err = user.Authenticate(clientTunnelIp.String(), wa.Type(),
+		challenge, err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
 			func(mfaSecret, username string) error {
 
 				var webauthnUser WebauthnUser
@@ -279,6 +281,8 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 			return
 		}
+
+		w.Header().Set("WAG-CHALLENGE", challenge)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 

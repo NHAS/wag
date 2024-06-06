@@ -11,6 +11,7 @@ import (
 	"go.etcd.io/etcd/client/pkg/v3/types"
 
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -95,8 +96,14 @@ func GetDevice(username, id string) (device Device, err error) {
 }
 
 // Set device as authorized and clear authentication attempts
-func AuthoriseDevice(username, address string) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
+func AuthoriseDevice(username, address string) (string, error) {
+
+	challenge, err := utils.GenerateRandomBytes(32)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
+	}
+
+	err = doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -120,11 +127,17 @@ func AuthoriseDevice(username, address string) error {
 		device.AssociatedNode = GetServerID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
+		device.Challenge = challenge
 
 		b, _ := json.Marshal(device)
 
 		return string(b), err
 	})
+	if err != nil {
+		return "", fmt.Errorf("failed to update device authorisation state: %s", err)
+	}
+
+	return challenge, nil
 }
 
 func DeauthenticateDevice(address string) error {

@@ -125,7 +125,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, &mfa, http.StatusOK)
 
 	case "POST":
-		err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+		challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 		msg, status := resultMessage(err)
 		jsonResponse(w, msg, status)
 
@@ -135,6 +135,8 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
+
+		w.Header().Set("WAG-CHALLENGE", challenge)
 
 		if err := user.EnforceMFA(); err != nil {
 			log.Println(user.Username, clientTunnelIp, "enforce mfa failed:", err)
@@ -173,7 +175,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
 	msg, status := resultMessage(err)
 	jsonResponse(w, msg, status)
@@ -183,6 +185,8 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		// Intentionally missing http.Error as its returned via json
 		return
 	}
+
+	w.Header().Set("WAG-CHALLENGE", challenge)
 
 	log.Println(user.Username, clientTunnelIp, "authorised")
 

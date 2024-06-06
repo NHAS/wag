@@ -67,7 +67,7 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, user.Username, 200)
 
 	case "POST":
-		err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+		challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 		msg, status := resultMessage(err)
 		jsonResponse(w, msg, status)
 
@@ -80,6 +80,8 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		if err := user.EnforceMFA(); err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to enforce mfa: ", err)
 		}
+
+		w.Header().Set("WAG-CHALLENGE", challenge)
 
 	default:
 		http.NotFound(w, r)
@@ -113,7 +115,7 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
 	msg, status := resultMessage(err)
 	jsonResponse(w, msg, status)
@@ -122,6 +124,8 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		return
 	}
+
+	w.Header().Set("WAG-CHALLENGE", challenge)
 
 	log.Println(user.Username, clientTunnelIp, "authorised")
 

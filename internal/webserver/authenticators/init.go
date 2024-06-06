@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/internal/data"
 )
@@ -48,4 +49,19 @@ func (e *enable) Disable() {
 
 func (e *enable) Enable() {
 	*e = true
+}
+
+func IssueChallengeTokenCookie(w http.ResponseWriter, r *http.Request, challenge string) error {
+
+	cookie := http.Cookie{
+		Name:     "challenge",
+		Value:    challenge,
+		Expires:  time.Now().Add(8 * time.Hour),
+		SameSite: http.SameSiteLaxMode,
+		Secure:   r.URL.Scheme == "https",
+		HttpOnly: false,
+	}
+	http.SetCookie(w, &cookie)
+
+	return nil
 }

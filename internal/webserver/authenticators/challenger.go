@@ -3,28 +3,46 @@ package authenticators
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/users"
+	"github.com/NHAS/wag/internal/utils"
 	"github.com/gorilla/websocket"
 )
-
-type challenge struct {
-	ws    *websocket.Conn
-	value string
-}
 
 type Challenger struct {
 	sync.RWMutex
 	listenerKey string
-	challenges  map[string]challenge
+	challenges  map[string]*websocket.Conn
+
+	upgrader websocket.Upgrader
 }
 
 func NewChallenger() *Challenger {
 	r := &Challenger{
-		challenges: make(map[string]challenge),
+		challenges: make(map[string]*websocket.Conn),
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				domain, err := data.GetDomain()
+				if err != nil {
+					log.Println("was unable to get the wag domain: ", err)
+					return false
+				}
+
+				valid := r.Header.Get("Origin") == domain
+				if !valid {
+					log.Printf("websocket origin does not equal expected value: %q != %q", r.Header.Get("Origin"), domain)
+				}
+
+				return valid
+			},
+		},
 	}
 
 	return r
@@ -58,8 +76,8 @@ func (c *Challenger) Stop() error {
 	c.listenerKey = ""
 
 	for i := range c.challenges {
-		if c.challenges[i].ws != nil {
-			c.challenges[i].ws.Close()
+		if c.challenges[i] != nil {
+			c.challenges[i].Close()
 		}
 	}
 
@@ -68,21 +86,111 @@ func (c *Challenger) Stop() error {
 	return errors.Join(errs...)
 }
 
-func (c *Challenger) IssueChallengeToken(w http.ResponseWriter, r *http.Request) {
-	c.Lock()
-	defer c.Unlock()
+func (c *Challenger) deviceChangeHandler(_ string, current, previous data.Device, et data.EventType) error {
 
-	cookie := http.Cookie{
-		Name:     "challenge",
-		Value:    "abcd",
-		Expires:  time.Now().Add(365 * 24 * time.Hour),
-		SameSite: http.SameSiteLaxMode,
-		Secure:   r.URL.Scheme == "https",
-		HttpOnly: false,
+	switch et {
+	case data.MODIFIED:
+		c.Lock()
+		defer c.Unlock()
+
+		conn, ok := c.challenges[current.Address]
+		if !ok {
+			// we dont have a challenge for this device
+			return nil
+		}
+
+		if current.Challenge != previous.Challenge ||
+			current.Endpoint.String() != previous.Endpoint.String() {
+
+			conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
+			err := conn.WriteJSON(struct{ Type string }{Type: "check"})
+			if err != nil {
+				conn.Close()
+				log.Println("failed to check authorisation: ", err)
+				return nil
+			}
+			conn.SetWriteDeadline(time.Time{})
+
+		}
+
+	case data.DELETED:
+		c.Lock()
+		defer c.Unlock()
+
+		conn, ok := c.challenges[current.Address]
+		if !ok {
+			// we dont have a challenge for this device
+			return nil
+		}
+
+		conn.Close()
+
+		delete(c.challenges, current.Address)
+
 	}
-	http.SetCookie(w, &cookie)
+
+	return nil
 }
 
-func (c *Challenger) deviceChangeHandler(_ string, current, previous data.Device, et data.EventType) error {
-	return nil
+func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
+	remoteAddress := utils.GetIPFromRequest(r)
+	user, err := users.GetUserFromAddress(remoteAddress)
+	if err != nil {
+		log.Println("unknown", remoteAddress, "Could not find user: ", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Upgrade HTTP connection to WebSocket connection
+	conn, err := c.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(user.Username, remoteAddress, "failed to create websocket challenger:", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	c.Lock()
+	if conn, ok := c.challenges[remoteAddress.String()]; ok && conn != nil {
+		conn.Close()
+		delete(c.challenges, remoteAddress.String())
+	}
+	c.challenges[remoteAddress.String()] = conn
+	c.Unlock()
+
+	var response struct {
+		Challenge string
+	}
+
+	defer func() {
+		c.Lock()
+		defer c.Unlock()
+
+		conn.Close()
+		delete(c.challenges, remoteAddress.String())
+	}()
+
+	for {
+
+		err := conn.ReadJSON(&response)
+		if err != nil {
+			return
+		}
+
+		d, err := data.GetDeviceByAddress(remoteAddress.String())
+		if err != nil {
+			return
+		}
+
+		if d.Challenge == response.Challenge {
+			_, err := data.AuthoriseDevice(user.Username, remoteAddress.String())
+			if err != nil {
+				log.Println("unable to authorise device based on challenge: ", err)
+				return
+			}
+		} else {
+			data.DeauthenticateDevice(remoteAddress.String())
+			return
+		}
+	}
+
 }
