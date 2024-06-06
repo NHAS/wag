@@ -590,10 +590,16 @@ static __always_inline int conntrack(struct ip *ip_info)
                 // Then we can fail/succeed fast
 
                 // If device does not belong to a locked account, the device itself isnt locked and if it isnt timed out
-                return (*current_node_id != current_device->associatedNode && 
+                decision = (*current_node_id != current_device->associatedNode && 
                         !*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
                         // If either max session lifetime is disabled, or it is before the max lifetime of the session
                         (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry));
+
+                // if we match an MFA policy, but are not authorised then immediately return 0 so we cant match another public rule
+                // Otherwise continue to make sure we hit any deny rules that are present and match        
+                if(!decision) {
+                    return 0;
+                }
             }
         }
     }
