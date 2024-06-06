@@ -519,13 +519,6 @@ static __always_inline int conntrack(struct ip *ip_info)
         return 0;
     }
 
-    // If the traffic comes from a peer that we are not associated with, i.e traffic is coming to a node who has not talked to this peer before
-    // kill it
-    if(*current_node_id != current_device->associatedNode) {
-       return 0;
-    }
-
-
     __u64 *inactivity_timeout = bpf_map_lookup_elem(&inactivity_timeout_minutes, &index);
     if (inactivity_timeout == NULL)
     {
@@ -597,7 +590,8 @@ static __always_inline int conntrack(struct ip *ip_info)
                 // Then we can fail/succeed fast
 
                 // If device does not belong to a locked account, the device itself isnt locked and if it isnt timed out
-                return (!*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
+                return (*current_node_id != current_device->associatedNode && 
+                        !*isAccountLocked && !isTimedOut && current_device->sessionExpiry != 0 &&
                         // If either max session lifetime is disabled, or it is before the max lifetime of the session
                         (current_device->sessionExpiry == __UINT64_MAX__ || currentTime < current_device->sessionExpiry));
             }
