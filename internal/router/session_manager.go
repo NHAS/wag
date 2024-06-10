@@ -76,12 +76,14 @@ func (c *Challenger) Challenge(address string) error {
 	c.RLock()
 	defer c.RUnlock()
 
+	var err error
+
 	conn, ok := c.connections[address]
 	if !ok {
 		return fmt.Errorf("no connection found for device: %s", address)
 	}
 
-	err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
 		conn.Close()
 		return err
@@ -159,11 +161,10 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	conn := &wsConnWrapper{Conn: _c, wait: make(chan interface{})}
 
 	defer func() {
+		c.Lock()
 		if conn != nil {
 			conn.Close()
 		}
-
-		c.Lock()
 		delete(c.connections, remoteAddress.String())
 		c.Unlock()
 
@@ -180,9 +181,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	err = c.Challenge(remoteAddress.String())
 	if err != nil {
 		c.Reset(remoteAddress.String())
-		log.Printf("client did not complete inital ws challenge: %s", err)
+		log.Printf("%s:%s client did not complete inital ws challenge: %s", user.Username, remoteAddress, err)
 		return
 	}
+
+	log.Println(user.Username, remoteAddress, conn, "established new challenge connection!")
 
 	for {
 		select {

@@ -22,8 +22,11 @@ function connect() {
     };
 
     ws.onmessage = function (e) {
+        backoff = 200
         console.log('Message:', e.data);
-        switch(e.data) {
+
+        let msg = JSON.parse(e.data)
+        switch(msg) {
             case "challenge":
                 ws.send(
                     JSON.stringify({challenge: challenge

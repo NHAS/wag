@@ -100,13 +100,13 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
-		if current.Endpoint.String() != previous.Endpoint.String() {
+		if current.Endpoint.String() != previous.Endpoint.String() && IsAuthed(current.Address) {
 
 			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
-			// Will take at most 4 seconds
+			// Will take at most 6 seconds
 
-			attempts := 0
-			for ; attempts < 3; attempts++ {
+			var err error
+			for attempts := 0; attempts < 3; attempts++ {
 				err = Verifier.Challenge(current.Address)
 				if err != nil {
 					time.Sleep(2 * time.Second)
@@ -115,7 +115,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				}
 			}
 
-			if attempts >= 3 {
+			if err != nil {
 				log.Printf("%s:%s failed to pass websockets challenge: %s", current.Username, current.Address, err)
 				err := Deauthenticate(current.Address)
 				if err != nil {
@@ -126,7 +126,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			}
 		}
 
-		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
+		if IsAuthed(current.Address) && current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 
 			var reasons []string

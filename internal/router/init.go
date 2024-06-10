@@ -94,11 +94,6 @@ func Setup(errorChan chan<- error, iptables bool) (err error) {
 					if ourPeerAddresses[device.Address] != p.Endpoint.String() && p.Endpoint != nil {
 						ourPeerAddresses[device.Address] = p.Endpoint.String()
 
-						if device.Endpoint.String() != p.Endpoint.String() {
-							// This condition will trigger a challenge on the cluster
-							log.Printf("%s:%s endpoint changed %s -> %s", device.Address, device.Username, device.Endpoint.String(), p.Endpoint.String())
-						}
-
 						// Otherwise, just update the node association
 						err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
 						if err != nil {
