@@ -154,6 +154,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	if conn, ok := c.challenges[remoteAddress.String()]; ok && conn != nil {
 		conn.Close()
 		delete(c.challenges, remoteAddress.String())
+		data.DeauthenticateDevice(remoteAddress.String())
 	}
 	c.challenges[remoteAddress.String()] = conn
 	c.Unlock()

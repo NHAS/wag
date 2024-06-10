@@ -226,7 +226,7 @@ func GetMFASecret(username string) (string, error) {
 
 func GetMFAType(username string) (string, error) {
 
-	userResponse, err := etcd.Get(context.Background(), "users-"+username+"-")
+	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
 	if err != nil {
 		return "", err
 	}
@@ -246,7 +246,7 @@ func GetMFAType(username string) (string, error) {
 
 func DeleteUser(username string) error {
 
-	_, err := etcd.Delete(context.Background(), "users-"+username+"-", clientv3.WithPrefix())
+	_, err := etcd.Delete(context.Background(), UsersPrefix+username+"-", clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func DeleteUser(username string) error {
 
 func GetUserData(username string) (u UserModel, err error) {
 
-	userResponse, err := etcd.Get(context.Background(), "users-"+username+"-")
+	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
 	if err != nil {
 		return
 	}
@@ -299,7 +299,7 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 
 func SetUserMfa(username, value, mfaType string) error {
 
-	return doSafeUpdate(context.Background(), "users-"+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -331,7 +331,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing("users-" + username + "-"))
-	txn.Then(clientv3.OpPut("users-"+username+"-", string(b)))
+	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, string(b)))
 
 	res, err := txn.Commit()
 	if err != nil {
@@ -347,7 +347,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 func GetAllUsers() (users []UserModel, err error) {
 
-	response, err := etcd.Get(context.Background(), "users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
