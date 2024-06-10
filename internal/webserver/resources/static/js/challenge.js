@@ -23,9 +23,17 @@ function connect() {
 
     ws.onmessage = function (e) {
         console.log('Message:', e.data);
-        ws.send(
-            JSON.stringify({challenge: challenge
-        }));
+        switch(e.data) {
+            case "challenge":
+                ws.send(
+                    JSON.stringify({challenge: challenge
+                }));
+            return
+            case "reset":
+                window.location.href = '/'
+            return
+        }
+   
     };
 
     ws.onclose = function (e) {

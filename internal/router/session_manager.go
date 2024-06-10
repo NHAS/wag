@@ -33,6 +33,8 @@ func (ws *wsConnWrapper) Close() error {
 		return nil
 	}
 
+	ws.isClosed = true
+
 	close(ws.wait)
 	return ws.Conn.Close()
 }
@@ -73,6 +75,9 @@ func NewChallenger() *Challenger {
 func (c *Challenger) Challenge(address string) error {
 	c.RLock()
 	defer c.RUnlock()
+
+	log.Println("challenging")
+	defer log.Println("end challenging")
 
 	conn, ok := c.connections[address]
 	if !ok {
@@ -125,6 +130,18 @@ func (c *Challenger) Challenge(address string) error {
 	return nil
 }
 
+func (c *Challenger) Reset(address string) {
+	c.RLock()
+	defer c.RUnlock()
+
+	conn, ok := c.connections[address]
+	if !ok {
+		return
+	}
+
+	conn.WriteJSON("reset")
+}
+
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
@@ -166,6 +183,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	err = c.Challenge(remoteAddress.String())
 	if err != nil {
+		c.Reset(remoteAddress.String())
 		log.Printf("client did not complete inital ws challenge: %s", err)
 		return
 	}
