@@ -157,8 +157,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	select {
-	case <-cancel:
-	case <-conn.Await():
+	for {
+		select {
+		case <-cancel:
+		case <-conn.Await():
+		}
 	}
+
 }

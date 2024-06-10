@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 func setupWgTest() error {
-	if err := config.Load("../config/testing_config2.json"); err != nil {
+	if err := config.Load("../../config/testing_config2.json"); err != nil {
 		return err
 	}
 
