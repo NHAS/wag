@@ -112,7 +112,7 @@ func Load(path, joinToken string, testing bool) error {
 			}
 		}
 	}
-	part, err := utils.GenerateRandomBytes(10)
+	part, err := utils.GenerateRandomHex(10)
 	if err != nil {
 		return err
 	}

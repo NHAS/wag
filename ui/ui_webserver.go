@@ -192,12 +192,12 @@ func StartWebServer(errs chan<- error) error {
 	if len(admins) == 0 {
 		log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
 
-		password, err := utils.GenerateRandomBytes(8)
+		password, err := utils.GenerateRandomHex(8)
 		if err != nil {
 			return err
 		}
 
-		username, err := utils.GenerateRandomBytes(16)
+		username, err := utils.GenerateRandomHex(16)
 		if err != nil {
 			return err
 		}

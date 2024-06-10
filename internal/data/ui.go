@@ -65,7 +65,7 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := utils.GenerateRandomBytes(32)
+	salt, err := utils.GenerateRandomHex(8)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func CompareAdminKeys(username, password string) error {
 	wasteTime := func() {
 		// Null op to stop timing discovery attacks
 
-		salt, _ := utils.GenerateRandomBytes(32)
+		salt, _ := utils.GenerateRandomHex(32)
 
 		hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
@@ -122,9 +122,12 @@ func CompareAdminKeys(username, password string) error {
 			return "", err
 		}
 
-		thisHash := argon2.IDKey([]byte(password), rawHashSalt[len(rawHashSalt)-16:], 1, 10*1024, 4, 32)
+		salt := rawHashSalt[len(rawHashSalt)-16:]
+		expectedHash := rawHashSalt[:len(rawHashSalt)-16]
 
-		if subtle.ConstantTimeCompare(thisHash, rawHashSalt[:len(rawHashSalt)-16]) != 1 {
+		thisHash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
+
+		if subtle.ConstantTimeCompare(thisHash, expectedHash) != 1 {
 			return "", errors.New("passwords did not match")
 		}
 
@@ -226,7 +229,7 @@ func SetAdminPassword(username, password string) error {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := utils.GenerateRandomBytes(32)
+	salt, err := utils.GenerateRandomHex(32)
 	if err != nil {
 		return err
 	}

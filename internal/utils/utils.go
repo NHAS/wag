@@ -42,7 +42,7 @@ func GetIPFromRequest(r *http.Request) net.IP {
 	return net.ParseIP(GetIP(r.RemoteAddr)).To4()
 }
 
-func GenerateRandomBytes(n uint32) (string, error) {
+func GenerateRandomHex(n uint32) (string, error) {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
 	if err != nil {

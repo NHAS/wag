@@ -98,7 +98,7 @@ func GetDevice(username, id string) (device Device, err error) {
 // Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) (string, error) {
 
-	challenge, err := utils.GenerateRandomBytes(32)
+	challenge, err := utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
 	}

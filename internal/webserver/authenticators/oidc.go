@@ -39,7 +39,7 @@ func (o *Oidc) LogoutPath() string {
 
 func (o *Oidc) Init() error {
 
-	key, err := utils.GenerateRandomBytes(32)
+	key, err := utils.GenerateRandomHex(32)
 	if err != nil {
 		return errors.New("failed to get random key: " + err.Error())
 	}
@@ -125,7 +125,7 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rp.AuthURLHandler(func() string {
-		r, _ := utils.GenerateRandomBytes(32)
+		r, _ := utils.GenerateRandomHex(32)
 		return r
 	}, o.provider)(w, r)
 }
@@ -245,7 +245,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, _, _ string) {
 	rp.AuthURLHandler(func() string {
-		r, _ := utils.GenerateRandomBytes(32)
+		r, _ := utils.GenerateRandomHex(32)
 		return r
 	}, o.provider)(w, r)
 }

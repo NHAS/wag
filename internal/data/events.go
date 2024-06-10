@@ -84,7 +84,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 		options = append(options, clientv3.WithPrefix())
 	}
 
-	key, err := utils.GenerateRandomBytes(16)
+	key, err := utils.GenerateRandomHex(16)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +167,7 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
 
-	key, err := utils.GenerateRandomBytes(16)
+	key, err := utils.GenerateRandomHex(16)
 	if err != nil {
 		return "", err
 	}
@@ -260,7 +260,7 @@ func RaiseError(raisedError error, value []byte) (err error) {
 		Time:            time.Now(),
 	}
 
-	ee.ErrorID, err = utils.GenerateRandomBytes(16)
+	ee.ErrorID, err = utils.GenerateRandomHex(16)
 	if err != nil {
 		return err
 	}

@@ -110,7 +110,7 @@ func FinaliseRegistration(token string) error {
 
 // Randomly generate a token for a specific username
 func GenerateToken(username, overwrite string, groups []string, uses int) (token string, err error) {
-	token, err = utils.GenerateRandomBytes(32)
+	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
 	}
