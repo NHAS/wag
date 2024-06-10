@@ -53,7 +53,7 @@ func (hum *HTTPUtilMux) Post(path string, h http.HandlerFunc) {
 }
 
 func (hum *HTTPUtilMux) PostJSON(path string, h http.HandlerFunc) {
-	hum.AllowedMethods(path, JSON, h, http.MethodGet)
+	hum.AllowedMethods(path, JSON, h, http.MethodPost)
 }
 
 func (hum *HTTPUtilMux) Delete(path string, h http.HandlerFunc) {
@@ -61,7 +61,7 @@ func (hum *HTTPUtilMux) Delete(path string, h http.HandlerFunc) {
 }
 
 func (hum *HTTPUtilMux) DeleteJSON(path string, h http.HandlerFunc) {
-	hum.AllowedMethods(path, JSON, h, http.MethodGet)
+	hum.AllowedMethods(path, JSON, h, http.MethodDelete)
 }
 
 func NewMux() *HTTPUtilMux {
