@@ -57,7 +57,7 @@ func IssueChallengeTokenCookie(w http.ResponseWriter, r *http.Request, challenge
 		Name:     "challenge",
 		Value:    challenge,
 		Expires:  time.Now().Add(8 * time.Hour),
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 		Secure:   r.URL.Scheme == "https",
 		HttpOnly: false,
 	}
