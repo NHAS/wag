@@ -109,6 +109,15 @@ func (c *Challenger) Challenge(address string) error {
 		return fmt.Errorf("failed to get device address for ws challenge: %s", err)
 	}
 
+	maxLifetimeMinutes, err := data.GetSessionLifetimeMinutes()
+	if err != nil {
+		return fmt.Errorf("failed max lifetime: %s", err)
+	}
+
+	if time.Now().After(deviceDetails.Authorised.Add(time.Duration(maxLifetimeMinutes) * time.Minute)) {
+		return fmt.Errorf("challenge came from expired session")
+	}
+
 	if subtle.ConstantTimeCompare([]byte(deviceDetails.Challenge), []byte(msg.Challenge)) != 1 {
 		return fmt.Errorf("challenge does not match")
 	}
