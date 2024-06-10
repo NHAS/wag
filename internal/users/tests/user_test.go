@@ -1,4 +1,4 @@
-package users
+package user_tests
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
+	"github.com/NHAS/wag/internal/users"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -47,7 +48,7 @@ func setupWgTest() error {
 
 func TestCreateUser(t *testing.T) {
 
-	user, err := CreateUser("fronk1")
+	user, err := users.CreateUser("fronk1")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -77,7 +78,7 @@ func TestCreateUser(t *testing.T) {
 
 func TestAddDevice(t *testing.T) {
 
-	user, err := CreateUser("fronk2")
+	user, err := users.CreateUser("fronk2")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -109,7 +110,7 @@ func TestAddDevice(t *testing.T) {
 
 func TestDeleteDevice(t *testing.T) {
 
-	user, err := CreateUser("fronk3")
+	user, err := users.CreateUser("fronk3")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
@@ -145,7 +146,7 @@ func TestDeleteDevice(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 
-	user, err := CreateUser("fronk4")
+	user, err := users.CreateUser("fronk4")
 	if err != nil {
 		t.Fatal("could not make user:", err)
 	}
