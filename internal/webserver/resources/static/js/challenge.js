@@ -3,7 +3,7 @@ const httpsEnabled = window.location.protocol == "https:";
 const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/challenge/";
 
 
-let challenge = localStorage.getItem("challange");
+let challenge = localStorage.getItem("challenge");
 if (challenge === null) {
     // oidc sets the challenge via cookie
     challenge = getCookie("challenge");

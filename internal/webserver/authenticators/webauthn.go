@@ -156,13 +156,9 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 				return nil
 			})
+		w.Header().Set("WAG-CHALLENGE", challenge)
 
 		msg, status := resultMessage(err)
-
-		if err != nil {
-			w.Header().Set("WAG-CHALLENGE", challenge)
-		}
-
 		jsonResponse(w, msg, status) // Send back an error message before we do the server side of handling it
 
 		if err != nil {

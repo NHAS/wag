@@ -176,9 +176,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
-	if err != nil {
-		w.Header().Set("WAG-CHALLENGE", challenge)
-	}
+	w.Header().Set("WAG-CHALLENGE", challenge)
 
 	msg, status := resultMessage(err)
 	jsonResponse(w, msg, status)

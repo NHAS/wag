@@ -118,9 +118,7 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
 	msg, status := resultMessage(err)
-	if err != nil {
-		w.Header().Set("WAG-CHALLENGE", challenge)
-	}
+	w.Header().Set("WAG-CHALLENGE", challenge)
 
 	jsonResponse(w, msg, status)
 
