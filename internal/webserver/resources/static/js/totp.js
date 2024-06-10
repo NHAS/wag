@@ -80,8 +80,11 @@ async function loginUser(location) {
             return
         }
 
-        localStorage.setItem("challenge", send.headers.get("WAG-CHALLENGE"))
-        
+
+        if (send.headers.get("WAG-CHALLENGE") !== null) {
+            localStorage.setItem("challenge", send.headers.get("WAG-CHALLENGE"))
+        }
+
     } catch (e) {
         console.log("logging in user failed")
         document.getElementById("errorMsg").textContent = e.message;

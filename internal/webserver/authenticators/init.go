@@ -51,17 +51,17 @@ func (e *enable) Enable() {
 	*e = true
 }
 
-func IssueChallengeTokenCookie(w http.ResponseWriter, r *http.Request, challenge string) error {
+func IssueChallengeTokenCookie(w http.ResponseWriter, r *http.Request, challenge string) {
 
 	cookie := http.Cookie{
 		Name:     "challenge",
 		Value:    challenge,
 		Expires:  time.Now().Add(8 * time.Hour),
-		SameSite: http.SameSiteNoneMode,
-		Secure:   r.URL.Scheme == "https",
+		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
 		HttpOnly: false,
+		Path:     "/",
 	}
 	http.SetCookie(w, &cookie)
 
-	return nil
 }

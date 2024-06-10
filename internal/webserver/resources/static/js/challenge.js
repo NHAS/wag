@@ -4,11 +4,12 @@ const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/chall
 
 let backoff = 200;
 let challenge = localStorage.getItem("challenge");
-if (challenge === null) {
+if (challenge === null || challenge === "null") {
     // oidc sets the challenge via cookie
     challenge = getCookie("challenge");
-    localStorage.setItem("challenge", challenge)
-
+    if(challenge !== null) {
+        localStorage.setItem("challenge", challenge)
+    }
     deleteCookie("challenge")
 }
 

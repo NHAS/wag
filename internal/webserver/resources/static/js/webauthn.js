@@ -213,8 +213,10 @@ async function loginUser(event) {
 
             return
         }
-
-        localStorage.setItem("challenge", send.headers.get("WAG-CHALLENGE"))
+        
+        if (send.headers.get("WAG-CHALLENGE") !== null) {
+            localStorage.setItem("challenge", send.headers.get("WAG-CHALLENGE"))
+        }
 
     } catch (e) {
         console.log("logging in failed: ", e)
