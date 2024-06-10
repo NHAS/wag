@@ -329,9 +329,13 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	}
 	b, _ := json.Marshal(&newUser)
 
+	emptyGroups := []string{}
+
+	groups, _ := json.Marshal(emptyGroups)
+
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing("users-" + username + "-"))
-	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, ""))
+	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, string(groups)))
 
 	res, err := txn.Commit()
 	if err != nil {
