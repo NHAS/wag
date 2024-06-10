@@ -67,8 +67,7 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 		version, err := data.GetVersion(members[i].ID.String())
 		if err != nil {
 			log.Println("unable to get version: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			version = "unknown"
 		}
 
 		status := "healthy" // full liveness
