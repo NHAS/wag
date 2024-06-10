@@ -331,7 +331,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing("users-" + username + "-"))
-	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, string(b)))
+	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, ""))
 
 	res, err := txn.Commit()
 	if err != nil {
