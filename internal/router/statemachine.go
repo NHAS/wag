@@ -110,6 +110,8 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				err = Verifier.Challenge(current.Address)
 				if err != nil {
 					time.Sleep(1 * time.Second)
+				} else {
+					break
 				}
 			}
 
@@ -121,7 +123,6 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				}
 			} else {
 				log.Printf("%s:%s device succeeded challenge", current.Username, current.Address)
-
 			}
 		}
 
