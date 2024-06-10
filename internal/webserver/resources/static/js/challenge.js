@@ -34,6 +34,7 @@ function connect() {
                 }));
             return
             case "reset":
+                localStorage.removeItem("challenge")
                 window.location.href = '/'
             return
         }
