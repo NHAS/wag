@@ -17,6 +17,8 @@ import (
 type wsConnWrapper struct {
 	*websocket.Conn
 	wait chan interface{}
+	sync.Mutex
+	isClosed bool
 }
 
 func (ws *wsConnWrapper) Await() <-chan interface{} {
@@ -24,6 +26,13 @@ func (ws *wsConnWrapper) Await() <-chan interface{} {
 }
 
 func (ws *wsConnWrapper) Close() error {
+	ws.Lock()
+	defer ws.Unlock()
+
+	if ws.isClosed {
+		return nil
+	}
+
 	close(ws.wait)
 	return ws.Conn.Close()
 }

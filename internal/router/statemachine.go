@@ -101,6 +101,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 
 		if current.Endpoint.String() != previous.Endpoint.String() {
 
+			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
 			// Will take at most 4 seconds
 			err := Verifier.Challenge(current.Address)
 			if err != nil {
@@ -109,6 +110,8 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				if err != nil {
 					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 				}
+			} else {
+				log.Printf("%s:%s device succeeded challenge", current.Username, current.Address)
 			}
 		}
 
