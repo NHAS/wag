@@ -185,7 +185,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(user.Username, remoteAddress, conn, "established new challenge connection!")
+	log.Println(user.Username, remoteAddress, "established new challenge connection!")
 
 	for {
 		select {
