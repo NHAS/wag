@@ -43,11 +43,20 @@ func GetIPFromRequest(r *http.Request) net.IP {
 }
 
 func GenerateRandomHex(n uint32) (string, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
+	b, err := GenerateRandom(n)
 	if err != nil {
 		return "", err
 	}
 
 	return hex.EncodeToString(b), nil
+}
+
+func GenerateRandom(n uint32) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return b, err
+	}
+
+	return b, nil
 }

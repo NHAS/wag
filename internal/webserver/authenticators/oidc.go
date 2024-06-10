@@ -39,9 +39,14 @@ func (o *Oidc) LogoutPath() string {
 
 func (o *Oidc) Init() error {
 
-	key, err := utils.GenerateRandomHex(32)
+	key, err := utils.GenerateRandom(32)
 	if err != nil {
 		return errors.New("failed to get random key: " + err.Error())
+	}
+
+	hashkey, err := utils.GenerateRandom(32)
+	if err != nil {
+		return errors.New("failed to get random hash key: " + err.Error())
 	}
 
 	o.details, err = data.GetOidc()
@@ -49,7 +54,7 @@ func (o *Oidc) Init() error {
 		return err
 	}
 
-	cookieHandler := httphelper.NewCookieHandler([]byte(key), []byte(key), httphelper.WithUnsecure())
+	cookieHandler := httphelper.NewCookieHandler([]byte(hashkey), []byte(key), httphelper.WithUnsecure())
 
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
