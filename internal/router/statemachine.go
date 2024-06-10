@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
@@ -103,8 +104,16 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 
 			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
 			// Will take at most 4 seconds
-			err := Verifier.Challenge(current.Address)
-			if err != nil {
+
+			attempts := 0
+			for ; attempts < 3; attempts++ {
+				err = Verifier.Challenge(current.Address)
+				if err != nil {
+					time.Sleep(1 * time.Second)
+				}
+			}
+
+			if attempts >= 3 {
 				log.Printf("%s:%s failed to pass websockets challenge: %s", current.Username, current.Address, err)
 				err := Deauthenticate(current.Address)
 				if err != nil {
@@ -112,6 +121,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				}
 			} else {
 				log.Printf("%s:%s device succeeded challenge", current.Username, current.Address)
+
 			}
 		}
 

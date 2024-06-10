@@ -81,22 +81,26 @@ func (c *Challenger) Challenge(address string) error {
 
 	err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
+		conn.Close()
 		return err
 	}
 
 	err = conn.WriteJSON("challenge")
 	if err != nil {
+		conn.Close()
 		return err
 	}
 
 	err = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
+		conn.Close()
 		return err
 	}
 
 	msg := struct{ Challenge string }{}
 	err = conn.ReadJSON(&msg)
 	if err != nil {
+		conn.Close()
 		return err
 	}
 
@@ -153,7 +157,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	err = c.Challenge(remoteAddress.String())
 	if err != nil {
-		log.Printf("client did not complete ws challenge: %s", err)
+		log.Printf("client did not complete inital ws challenge: %s", err)
 		return
 	}
 
