@@ -20,8 +20,6 @@ var (
 		types.Pam:      new(Pam),
 	}
 	lck sync.RWMutex
-
-	ChallengesManager = NewChallenger()
 )
 
 func GetMethod(method string) (Authenticator, bool) {

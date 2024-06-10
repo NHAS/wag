@@ -17,6 +17,8 @@ import (
 var (
 	lock   sync.RWMutex
 	cancel = make(chan bool)
+
+	Verifier = NewChallenger()
 )
 
 func Setup(errorChan chan<- error, iptables bool) (err error) {

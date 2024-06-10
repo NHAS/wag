@@ -58,10 +58,6 @@ func Teardown() {
 		publicTLSServ.Close()
 	}
 
-	if authenticators.ChallengesManager != nil {
-		authenticators.ChallengesManager.Stop()
-	}
-
 	log.Println("Stopped MFA portal")
 }
 
@@ -182,12 +178,7 @@ func Start(errChan chan<- error) error {
 
 	tunnel.Get("/public_key/", publicKey)
 
-	err = authenticators.ChallengesManager.Start()
-	if err != nil {
-		return fmt.Errorf("unable to start challenge manager: %s", err)
-	}
-
-	tunnel.Get("/challenge/", authenticators.ChallengesManager.WS)
+	tunnel.Get("/challenge/", router.Verifier.WS)
 
 	tunnel.GetOrPost("/", index)
 
