@@ -158,14 +158,17 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			})
 
 		msg, status := resultMessage(err)
+
+		if err != nil {
+			w.Header().Set("WAG-CHALLENGE", challenge)
+		}
+
 		jsonResponse(w, msg, status) // Send back an error message before we do the server side of handling it
 
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 			return
 		}
-
-		w.Header().Set("WAG-CHALLENGE", challenge)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
