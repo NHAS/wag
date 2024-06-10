@@ -109,7 +109,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			for ; attempts < 3; attempts++ {
 				err = Verifier.Challenge(current.Address)
 				if err != nil {
-					time.Sleep(1 * time.Second)
+					time.Sleep(2 * time.Second)
 				} else {
 					break
 				}

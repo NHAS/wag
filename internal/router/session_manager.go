@@ -76,9 +76,6 @@ func (c *Challenger) Challenge(address string) error {
 	c.RLock()
 	defer c.RUnlock()
 
-	log.Println("challenging")
-	defer log.Println("end challenging")
-
 	conn, ok := c.connections[address]
 	if !ok {
 		return fmt.Errorf("no connection found for device: %s", address)
@@ -173,7 +170,6 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	c.Lock()
-
 	if prev, ok := c.connections[remoteAddress.String()]; ok && prev != nil {
 		prev.Close()
 	}

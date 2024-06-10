@@ -2,7 +2,7 @@
 const httpsEnabled = window.location.protocol == "https:";
 const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/challenge/";
 
-
+let backoff = 200;
 let challenge = localStorage.getItem("challenge");
 if (challenge === null) {
     // oidc sets the challenge via cookie
@@ -37,10 +37,13 @@ function connect() {
     };
 
     ws.onclose = function (e) {
-        console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
+        console.log(`Socket is closed. Reconnect will be attempted in ${backoff} ms.`, e.reason);
+        if(backoff < 1000) {
+            backoff += backoff*2
+        }
         setTimeout(function () {
             connect();
-        }, 1000);
+        }, backoff);
     };
 
     ws.onerror = function (err) {
