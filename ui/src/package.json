@@ -10,6 +10,7 @@
         "NHAS"
     ],
     "dependencies": {
+        "@fontsource/nunito": "^5.0.19",
         "bootstrap": "4.6.0",
         "bootstrap-table": "^1.21.2",
         "jquery": "3.6.3",

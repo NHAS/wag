@@ -57,13 +57,16 @@ function modules() {
   var jqueryEasing = gulp.src('./node_modules/jquery.easing/*.min.js')
     .pipe(gulp.dest('../vendor/jquery-easing'));
 
+
+  var nunitoFont = gulp.src('./node_modules/@fontsource/nunito/files/*').pipe(gulp.dest('../fonts'));
+
   // jQuery
   var jquery = gulp.src([
     './node_modules/jquery/dist/jquery.min.js',
     '!./node_modules/jquery/dist/core.js'
   ])
     .pipe(gulp.dest('../vendor/jquery'));
-  return merge(bootstrapJS, bootstrapSCSS, bootstrapTableJS, bootstrapTableCSS, jquery, jqueryEasing, toastifyJS, toastifyCSS);
+  return merge(bootstrapJS, bootstrapSCSS, bootstrapTableJS, bootstrapTableCSS, jquery, jqueryEasing, toastifyJS, toastifyCSS, nunitoFont);
 }
 
 // SCSS task
