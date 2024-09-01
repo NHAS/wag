@@ -204,10 +204,21 @@ func oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
-		adminLogin := data.AdminModel{
-			Username: tokens.IDTokenClaims.PreferredUsername,
-			Type:     "oidc",
+		adminLogin, err := data.GetAdminUser(info.Subject)
+		if err != nil {
+			log.Printf("new admin user logged in via oidc: %q", info.PreferredUsername)
+
+			adminLogin, err = data.CreateOidcAdminUser(info.PreferredUsername, info.Subject)
+			if err != nil {
+				log.Println("unable to create oidc admin entry: ", err)
+				http.Error(w, "Server Error", http.StatusInternalServerError)
+				return
+			}
 		}
+
+		log.Println(info.PreferredUsername, info.Subject, r.RemoteAddr, "oidc admin logged in")
+
+		data.SetLastLoginInformation(info.Subject, r.RemoteAddr)
 
 		sessionManager.StartSession(w, r, adminLogin, nil)
 		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)

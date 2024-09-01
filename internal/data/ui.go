@@ -96,7 +96,7 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 	return err
 }
 
-func CreateOidcAdminUser(username, guid string) error {
+func CreateOidcAdminUser(username, guid string) (AdminModel, error) {
 
 	newAdmin := admin{
 		AdminModel: AdminModel{
@@ -112,7 +112,7 @@ func CreateOidcAdminUser(username, guid string) error {
 
 	_, err := etcd.Put(context.Background(), "admin-users-"+guid, string(b))
 
-	return err
+	return newAdmin.AdminModel, err
 }
 
 func CompareAdminKeys(username, password string) error {

@@ -9,6 +9,12 @@ $(function () {
       sortable: true,
       escape: "true"
     }, {
+      field: 'user_type',
+      title: 'Type',
+      sortable: true,
+      align: 'center',
+      escape: "true"
+    },{
       field: 'date_added',
       title: 'Date Added',
       sortable: true,

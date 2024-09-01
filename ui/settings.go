@@ -17,7 +17,6 @@ func adminUsersUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := Page{
-
 		Description: "Wag settings",
 		Title:       "Settings - Admin Users",
 	}
