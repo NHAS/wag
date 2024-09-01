@@ -8,3 +8,4 @@ ui/vendor
 ui/src/vendor
 wag-ui
 *.min.*
+ui/fonts/nunito*
