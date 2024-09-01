@@ -24,7 +24,8 @@ import (
 )
 
 type issuer struct {
-	Issuer string
+	Issuer  string
+	Subject string
 }
 
 type Oidc struct {
@@ -123,7 +124,8 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	log.Println(user.Username, clientTunnelIp, "registering with oidc")
 
 	value, _ := json.Marshal(issuer{
-		Issuer: o.provider.Issuer(),
+		Issuer:  o.provider.Issuer(),
+		Subject: "", // Empty is unconfigured waiting for first login
 	})
 
 	err = data.SetUserMfa(user.Username, string(value), o.Type())
@@ -167,7 +169,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		deviceUsername := info.PreferredUsername
+		suppliedUsername := info.PreferredUsername
 
 		if len(o.details.DeviceUsernameClaim) != 0 {
 
@@ -178,7 +180,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			deviceUsername = deviceUsernameClaim
+			suppliedUsername = deviceUsernameClaim
 
 		}
 
@@ -207,8 +209,26 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 				return fmt.Errorf("stored issuer %q did not equal actual issuer: %q", issuerDetails.Issuer, rp.Issuer())
 			}
 
-			if deviceUsername != username {
-				log.Printf("Error logging in user, idP supplied device username (%q) does not equal expected username (%q)", deviceUsername, username)
+			// On first OIDC login this will be unset
+			if issuerDetails.Subject == "" {
+
+				issuerDetails.Subject = info.Subject
+
+				value, _ := json.Marshal(issuerDetails)
+
+				err = data.SetUserMfa(user.Username, string(value), o.Type())
+				if err != nil {
+					return fmt.Errorf("unable to set oidc subject: %s", err)
+				}
+			}
+
+			if issuerDetails.Subject != info.Subject {
+				log.Printf("Error logging in user, idP supplied device username (%q) does not equal expected username (%q)", suppliedUsername, username)
+				return fmt.Errorf("idp subject %q is not equal to subject %q associated with username %q", info.Subject, issuerDetails.Subject, username)
+			}
+
+			if suppliedUsername != username {
+				log.Printf("Error logging in user, idP supplied username (%q) does not equal username (%q) associated with device", suppliedUsername, username)
 				return errors.New("user is not associated with device")
 			}
 
