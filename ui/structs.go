@@ -33,6 +33,11 @@ type Login struct {
 	SSO          bool
 }
 
+func (l Login) Error(msg string) Login {
+	l.ErrorMessage = msg
+	return l
+}
+
 type ChangePassword struct {
 	Page
 	Message string

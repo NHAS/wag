@@ -76,7 +76,10 @@ func (o *Oidc) Init() error {
 	log.Println("OIDC callback: ", u.String())
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
-	o.provider, err = rp.NewRelyingPartyOIDC(context.TODO(), o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	o.provider, err = rp.NewRelyingPartyOIDC(ctx, o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
+	cancel()
 	if err != nil {
 		return err
 	}

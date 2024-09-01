@@ -18,6 +18,7 @@ const minPasswordLength = 14
 
 // DTO
 type AdminModel struct {
+	Type      string `json:"user_type"`
 	Username  string `json:"username"`
 	Attempts  int    `json:"attempts"`
 	DateAdded string `json:"date_added"`
@@ -74,6 +75,7 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 
 	newAdmin := admin{
 		AdminModel: AdminModel{
+			Type:      "local",
 			Username:  username,
 			DateAdded: time.Now().Format(time.RFC3339),
 			Change:    changeOnFirstUse,

@@ -114,10 +114,12 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 
 func doLogin(w http.ResponseWriter, r *http.Request) {
 
+	msg := Login{SSO: config.Values.ManagementUI.OIDC.Enabled}
+
 	switch r.Method {
 	case "GET":
 
-		err := render(w, r, Login{}, "templates/login.html")
+		err := render(w, r, msg, "templates/login.html")
 
 		if err != nil {
 			log.Println("unable to render login template:", err)
@@ -130,7 +132,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("bad form value: ", err)
 
-			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			render(w, r, msg.Error("Unable to login"), "templates/login.html")
 			return
 		}
 
@@ -138,7 +140,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
 
-			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			render(w, r, msg.Error("Unable to login"), "templates/login.html")
 			return
 		}
 
@@ -146,14 +148,14 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
 
-			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			render(w, r, msg.Error("Unable to login"), "templates/login.html")
 			return
 		}
 
 		if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
 			log.Println("unable to login: ", err)
 
-			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			render(w, r, msg.Error("Unable to login"), "templates/login.html")
 			return
 		}
 
@@ -161,7 +163,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("unable to login: ", err)
 
-			render(w, r, Login{ErrorMessage: "Unable to login"}, "templates/login.html")
+			render(w, r, msg.Error("Unable to login"), "templates/login.html")
 			return
 		}
 
@@ -180,6 +182,13 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 func oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
+
+		adminLogin := data.AdminModel{
+			Username: tokens.IDTokenClaims.PreferredUsername,
+			Type:     "oidc",
+		}
+
+		sessionManager.StartSession(w, r, adminLogin, nil)
 		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
 	}
 
@@ -228,7 +237,10 @@ func StartWebServer(errs chan<- error) error {
 		log.Println("Admin OIDC callback: ", u.String())
 		log.Println("Connecting to Admin UI OIDC provider: ", config.Values.ManagementUI.OIDC.IssuerURL)
 
-		oidcProvider, err = rp.NewRelyingPartyOIDC(context.TODO(), config.Values.ManagementUI.OIDC.IssuerURL, config.Values.ManagementUI.OIDC.ClientID, config.Values.ManagementUI.OIDC.ClientSecret, u.String(), []string{"openid"}, options...)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		oidcProvider, err = rp.NewRelyingPartyOIDC(ctx, config.Values.ManagementUI.OIDC.IssuerURL, config.Values.ManagementUI.OIDC.ClientID, config.Values.ManagementUI.OIDC.ClientSecret, u.String(), []string{"openid"}, options...)
+		cancel()
 		if err != nil {
 			return fmt.Errorf("unable to connect to oidc provider for admin ui. err %s", err)
 		}
@@ -338,16 +350,21 @@ func StartWebServer(errs chan<- error) error {
 			},
 			func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
 
-				key, _ := sessionManager.GetSessionFromRequest(r)
+				key, adminDetails := sessionManager.GetSessionFromRequest(r)
+				if adminDetails != nil {
+					if adminDetails.Type == "" || adminDetails.Type == "local" {
+						d, err := data.GetAdminUser(dAdmin.Username)
+						if err != nil {
+							sessionManager.DeleteSession(w, r)
+							http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+							return false
+						}
 
-				d, err := data.GetAdminUser(dAdmin.Username)
-				if err != nil {
-					sessionManager.DeleteSession(w, r)
-					http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-					return false
+						sessionManager.UpdateSession(key, d)
+					}
+
+					// Otherwise the admin type is OIDC, and will no be in the local db
 				}
-
-				sessionManager.UpdateSession(key, d)
 
 				return true
 			}))
