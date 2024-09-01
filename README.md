@@ -279,7 +279,7 @@ The web interface itself cannot add administrative users.
 `Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
 `Authenticators.OIDC.ClientID`:  OIDC identifier for application
 `Authenticators.OIDC.ClientSecret`: OIDC secret
-`Authenticators.OIDC.GroupsClaimName`: Not yet used.  
+`Authenticators.OIDC.GroupsClaimName`: Claim that contains user groups to map into wag groups  
   
 `Authenticators.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`  will default to `/etc/pam.d/login` if unset or empty  
   
@@ -302,6 +302,13 @@ The web interface itself cannot add administrative users.
 `ManagementUI.ListenAddress`: Listen address to expose the management UI on  
 `ManagementUI.CertPath`: TLS Certificate path for management endpoint  
 `ManagementUI.KeyPath`: TLS key for the management endpoint  
+`ManagementUI.OIDC`: Object that contains `OIDC` specific configuration options for the admin login.
+`ManagementUI.OIDC.Enabled`: Boolean to enable OIDC login on the admin page.  
+`ManagementUI.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`  
+`ManagementUI.OIDC.ClientID`:  OIDC identifier for application  
+`ManagementUI.OIDC.ClientSecret`: OIDC secret  
+`ManagementUI.OIDC.AdminDomainURL`: The administrative page domain  
+
   
 Full config example
 ```json
@@ -334,7 +341,14 @@ Full config example
         "ListenAddress": "127.0.0.1:4433",
         "CertPath": "/etc/example/cert/path",
         "KeyPath": "/etc/ssl/private/somecert.key",
-        "Enabled": true
+        "Enabled": true,
+        "OIDC": {
+            "Enabled": true,
+            "IssuerURL": "http://localhost:8080/",
+            "AdminDomainURL":"http://localhost:4433/",
+            "ClientSecret": "<OMITTED>",
+            "ClientID": "test"
+        }
     },
     "Authenticators": {
         "Issuer": "vpn.test",
