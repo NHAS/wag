@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -9,7 +10,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -20,11 +23,16 @@ import (
 	"github.com/NHAS/wag/pkg/control/wagctl"
 	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/NHAS/wag/pkg/queue"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	httphelper "github.com/zitadel/oidc/v3/pkg/http"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
 var (
 	sessionManager *session.SessionStore[data.AdminModel]
 	ctrl           *wagctl.CtrlClient
+
+	oidcProvider rp.RelyingParty
 
 	WagVersion string
 
@@ -109,7 +117,7 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 
-		err := render(w, r, nil, "templates/login.html")
+		err := render(w, r, Login{}, "templates/login.html")
 
 		if err != nil {
 			log.Println("unable to render login template:", err)
@@ -169,6 +177,15 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func oidcCallback(w http.ResponseWriter, r *http.Request) {
+
+	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
+		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
+	}
+
+	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), oidcProvider)(w, r)
+}
+
 func StartWebServer(errs chan<- error) error {
 
 	if !config.Values.ManagementUI.Enabled {
@@ -182,6 +199,41 @@ func StartWebServer(errs chan<- error) error {
 	WagVersion, err = ctrl.GetVersion()
 	if err != nil {
 		return err
+	}
+
+	if config.Values.ManagementUI.OIDC.Enabled {
+		key, err := utils.GenerateRandom(32)
+		if err != nil {
+			return errors.New("failed to get random key: " + err.Error())
+		}
+
+		hashkey, err := utils.GenerateRandom(32)
+		if err != nil {
+			return errors.New("failed to get random hash key: " + err.Error())
+		}
+
+		cookieHandler := httphelper.NewCookieHandler([]byte(hashkey), []byte(key), httphelper.WithUnsecure())
+
+		options := []rp.Option{
+			rp.WithCookieHandler(cookieHandler),
+			rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
+		}
+
+		u, err := url.Parse(config.Values.ManagementUI.OIDC.AdminDomainURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.ManagementUI.OIDC.AdminDomainURL, err)
+		}
+
+		u.Path = path.Join(u.Path, "/login/oidc/callback")
+		log.Println("Admin OIDC callback: ", u.String())
+		log.Println("Connecting to Admin UI OIDC provider: ", config.Values.ManagementUI.OIDC.IssuerURL)
+
+		oidcProvider, err = rp.NewRelyingPartyOIDC(context.TODO(), config.Values.ManagementUI.OIDC.IssuerURL, config.Values.ManagementUI.OIDC.ClientID, config.Values.ManagementUI.OIDC.ClientSecret, u.String(), []string{"openid"}, options...)
+		if err != nil {
+			return fmt.Errorf("unable to connect to oidc provider for admin ui. err %s", err)
+		}
+
+		log.Println("Connected to admin oidc provider!")
 	}
 
 	admins, err := ctrl.ListAdminUsers("")
@@ -256,6 +308,17 @@ func StartWebServer(errs chan<- error) error {
 		protectedRoutes := httputils.NewMux()
 		allRoutes := httputils.NewMux()
 		allRoutes.GetOrPost("/login", doLogin)
+		if config.Values.ManagementUI.OIDC.Enabled {
+
+			allRoutes.Get("/login/oidc", func(w http.ResponseWriter, r *http.Request) {
+				rp.AuthURLHandler(func() string {
+					r, _ := utils.GenerateRandomHex(32)
+					return r
+				}, oidcProvider)(w, r)
+			})
+
+			allRoutes.GetOrPost("/login/oidc/callback", oidcCallback)
+		}
 
 		if config.Values.ManagementUI.Debug {
 			static := http.FileServer(http.Dir("./ui/src/"))

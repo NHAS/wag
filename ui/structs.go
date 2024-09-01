@@ -30,6 +30,7 @@ type Dashboard struct {
 
 type Login struct {
 	ErrorMessage string
+	SSO          bool
 }
 
 type ChangePassword struct {

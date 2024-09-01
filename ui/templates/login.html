@@ -30,6 +30,10 @@
         <input type="password" id="password" class="form-control" placeholder="Password" required name="password">
         <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
 
+        {{if .SSO}}
+        <a class="btn btn-lg btn-success btn-block" href="/login/oidc">Sign in with SSO</button>
+        {{end}}
+
         {{if .ErrorMessage}}
         <div class="alert alert-danger mt-2" role="alert">
             {{.ErrorMessage}}

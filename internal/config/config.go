@@ -82,6 +82,15 @@ type Config struct {
 		usualWeb
 		Enabled bool
 		Debug   bool
+
+		OIDC struct {
+			AdminDomainURL string
+
+			IssuerURL    string
+			ClientSecret string
+			ClientID     string
+			Enabled      bool
+		} `json:",omitempty"`
 	} `json:",omitempty"`
 
 	Webserver struct {
