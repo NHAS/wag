@@ -36,12 +36,8 @@ func clusterMembersUI(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "Clustering Management Page",
-			Title:        "Clustering",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Clustering Management Page",
+			Title:       "Clustering",
 		},
 
 		Leader:      data.GetLeader(),
@@ -222,12 +218,8 @@ func clusterEventsUI(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "Clustering Management Page",
-			Title:        "Clustering",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Clustering Management Page",
+			Title:       "Clustering",
 		},
 
 		EventLog: data.EventsQueue.ReadAll(),

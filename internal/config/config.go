@@ -83,6 +83,10 @@ type Config struct {
 		Enabled bool
 		Debug   bool
 
+		Password struct {
+			Enabled *bool `json:",omitempty"`
+		} `json:",omitempty"`
+
 		OIDC struct {
 			AdminDomainURL string
 
@@ -358,6 +362,11 @@ func load(path string) (c Config, err error) {
 
 	if len(c.Authenticators.Methods) == 1 {
 		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
+	}
+
+	if c.ManagementUI.Password.Enabled == nil {
+		enabled := true
+		c.ManagementUI.Password.Enabled = &enabled
 	}
 
 	return c, nil

@@ -87,6 +87,19 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 			return getNotifications()
 		},
 		"mod": func(i, j int) bool { return i%j == 0 },
+		"User": func() *data.AdminModel {
+			_, u := sessionManager.GetSessionFromRequest(r)
+			return u
+		},
+		"WagVersion": func() string {
+			return WagVersion
+		},
+		"ClusterState": func() string {
+			return clusterState
+		},
+		"ServerID": func() string {
+			return serverID
+		},
 	}
 
 	if !config.Values.ManagementUI.Debug {
@@ -114,7 +127,10 @@ func render(w http.ResponseWriter, r *http.Request, model interface{}, content .
 
 func doLogin(w http.ResponseWriter, r *http.Request) {
 
-	msg := Login{SSO: config.Values.ManagementUI.OIDC.Enabled}
+	msg := Login{
+		SSO:      config.Values.ManagementUI.OIDC.Enabled,
+		Password: *config.Values.ManagementUI.Password.Enabled,
+	}
 
 	switch r.Method {
 	case "GET":
@@ -128,50 +144,55 @@ func doLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "POST":
-		err := r.ParseForm()
-		if err != nil {
-			log.Println("bad form value: ", err)
+		if *config.Values.ManagementUI.Password.Enabled {
+			err := r.ParseForm()
+			if err != nil {
+				log.Println("bad form value: ", err)
 
-			render(w, r, msg.Error("Unable to login"), "templates/login.html")
-			return
+				render(w, r, msg.Error("Unable to login"), "templates/login.html")
+				return
+			}
+
+			err = data.IncrementAdminAuthenticationAttempt(r.Form.Get("username"))
+			if err != nil {
+				log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
+
+				render(w, r, msg.Error("Unable to login"), "templates/login.html")
+				return
+			}
+
+			err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
+			if err != nil {
+				log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
+
+				render(w, r, msg.Error("Unable to login"), "templates/login.html")
+				return
+			}
+
+			if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
+				log.Println("unable to login: ", err)
+
+				render(w, r, msg.Error("Unable to login"), "templates/login.html")
+				return
+			}
+
+			adminDetails, err := data.GetAdminUser(r.Form.Get("username"))
+			if err != nil {
+				log.Println("unable to login: ", err)
+
+				render(w, r, msg.Error("Unable to login"), "templates/login.html")
+				return
+			}
+
+			sessionManager.StartSession(w, r, adminDetails, nil)
+
+			log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
+
+			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+
+		} else {
+			http.NotFound(w, r)
 		}
-
-		err = data.IncrementAdminAuthenticationAttempt(r.Form.Get("username"))
-		if err != nil {
-			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
-
-			render(w, r, msg.Error("Unable to login"), "templates/login.html")
-			return
-		}
-
-		err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
-		if err != nil {
-			log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
-
-			render(w, r, msg.Error("Unable to login"), "templates/login.html")
-			return
-		}
-
-		if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
-			log.Println("unable to login: ", err)
-
-			render(w, r, msg.Error("Unable to login"), "templates/login.html")
-			return
-		}
-
-		adminDetails, err := data.GetAdminUser(r.Form.Get("username"))
-		if err != nil {
-			log.Println("unable to login: ", err)
-
-			render(w, r, msg.Error("Unable to login"), "templates/login.html")
-			return
-		}
-
-		sessionManager.StartSession(w, r, adminDetails, nil)
-
-		log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
-
-		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 
 	default:
 		http.NotFound(w, r)
@@ -352,7 +373,7 @@ func StartWebServer(errs chan<- error) error {
 
 				key, adminDetails := sessionManager.GetSessionFromRequest(r)
 				if adminDetails != nil {
-					if adminDetails.Type == "" || adminDetails.Type == "local" {
+					if adminDetails.Type == "" || adminDetails.Type == data.LocalUser {
 						d, err := data.GetAdminUser(dAdmin.Username)
 						if err != nil {
 							sessionManager.DeleteSession(w, r)
@@ -493,15 +514,16 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if u.Type != data.LocalUser {
+		http.NotFound(w, r)
+		return
+	}
+
 	d := ChangePassword{
 		Page: Page{
 
-			Description:  "Change password page",
-			Title:        "Change password",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Change password page",
+			Title:       "Change password",
 		},
 	}
 
@@ -519,6 +541,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 
 		return
 	case "POST":
+
 		d.Type = 0
 		d.Message = "Success!"
 
@@ -566,6 +589,7 @@ func changePassword(w http.ResponseWriter, r *http.Request) {
 		}
 
 		renderDefaults(w, r, ChangePassword{Message: "Success!", Type: 0}, "change_password.html")
+
 	}
 
 }

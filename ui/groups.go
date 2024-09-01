@@ -17,12 +17,8 @@ func groupsUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Groups",
-		Title:        "Groups",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Groups",
+		Title:       "Groups",
 	}
 
 	err := renderDefaults(w, r, d, "policy/groups.html", "delete_modal.html")

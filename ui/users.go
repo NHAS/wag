@@ -17,12 +17,8 @@ func usersUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Users Management Page",
-		Title:        "Users",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Users Management Page",
+		Title:       "Users",
 	}
 
 	err := renderDefaults(w, r, d, "management/users.html", "delete_modal.html")

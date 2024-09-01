@@ -17,12 +17,8 @@ func policiesUI(w http.ResponseWriter, r *http.Request) {
 	}
 	d := Page{
 
-		Description:  "Firewall rules",
-		Title:        "Rules",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Firewall rules",
+		Title:       "Rules",
 	}
 
 	err := renderDefaults(w, r, d, "policy/rules.html", "delete_modal.html")

@@ -18,12 +18,8 @@ func adminUsersUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Wag settings",
-		Title:        "Settings - Admin Users",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Wag settings",
+		Title:       "Settings - Admin Users",
 	}
 
 	err := renderDefaults(w, r, d, "settings/management_users.html")
@@ -79,12 +75,8 @@ func generalSettingsUI(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "Wag settings",
-			Title:        "Settings - General",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Wag settings",
+			Title:       "Settings - General",
 		},
 
 		Settings:   datastoreSettings,

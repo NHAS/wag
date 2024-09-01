@@ -16,12 +16,8 @@ func devicesMgmtUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Devices Management Page",
-		Title:        "Devices",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Devices Management Page",
+		Title:       "Devices",
 	}
 
 	err := renderDefaults(w, r, d, "management/devices.html", "delete_modal.html")

@@ -93,12 +93,8 @@ func populateDashboard(w http.ResponseWriter, r *http.Request) {
 	d := Dashboard{
 		Page: Page{
 
-			Description:  "Dashboard",
-			Title:        "Dashboard",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Dashboard",
+			Title:       "Dashboard",
 		},
 
 		Port:            port,

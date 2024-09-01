@@ -40,12 +40,8 @@ func firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "Firewall state page",
-			Title:        "Firewall",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "Firewall state page",
+			Title:       "Firewall",
 		},
 		XDPState: string(result),
 	}
@@ -70,12 +66,8 @@ func wgDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Wireguard Devices",
-		Title:        "wg",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Wireguard Devices",
+		Title:       "wg",
 	}
 
 	renderDefaults(w, r, d, "diagnostics/wireguard_peers.html")
@@ -151,12 +143,8 @@ func aclsTest(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "ACL Checker",
-			Title:        "ACLs",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "ACL Checker",
+			Title:       "ACLs",
 		},
 		AclString: acl,
 		Username:  username,
@@ -240,12 +228,8 @@ func firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	}{
 		Page: Page{
 
-			Description:  "ACL Checker",
-			Title:        "ACLs",
-			User:         u.Username,
-			WagVersion:   WagVersion,
-			ServerID:     serverID,
-			ClusterState: clusterState,
+			Description: "ACL Checker",
+			Title:       "ACLs",
 		},
 		Decision: decision,
 		Address:  address,

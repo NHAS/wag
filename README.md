@@ -302,6 +302,8 @@ The web interface itself cannot add administrative users.
 `ManagementUI.ListenAddress`: Listen address to expose the management UI on  
 `ManagementUI.CertPath`: TLS Certificate path for management endpoint  
 `ManagementUI.KeyPath`: TLS key for the management endpoint  
+`ManagementUI.Password`: Object that contains password authentication configuration options for the admin login.  
+`ManagementUI.Password.Enabled`: Boolean, enable password login (defaults to true).  
 `ManagementUI.OIDC`: Object that contains `OIDC` specific configuration options for the admin login.
 `ManagementUI.OIDC.Enabled`: Boolean to enable OIDC login on the admin page.  
 `ManagementUI.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`  
@@ -342,6 +344,9 @@ Full config example
         "CertPath": "/etc/example/cert/path",
         "KeyPath": "/etc/ssl/private/somecert.key",
         "Enabled": true,
+        "Password": {
+            "Enabled": true
+        },
         "OIDC": {
             "Enabled": true,
             "IssuerURL": "http://localhost:8080/",

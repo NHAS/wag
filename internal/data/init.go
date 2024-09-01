@@ -361,7 +361,7 @@ func migrateFromSql(database *sql.DB) error {
 		}
 
 		for _, admin := range adminUsers {
-			err := CreateAdminUser(admin.Username, "aaaaaaaaaaaaaaaaaaa", false)
+			err := CreateLocalAdminUser(admin.Username, "aaaaaaaaaaaaaaaaaaa", false)
 			if err != nil {
 				return err
 			}

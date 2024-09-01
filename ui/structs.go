@@ -1,12 +1,8 @@
 package ui
 
 type Page struct {
-	Description  string
-	Title        string
-	User         string
-	WagVersion   string
-	ClusterState string
-	ServerID     string
+	Description string
+	Title       string
 }
 
 type Dashboard struct {
@@ -31,6 +27,7 @@ type Dashboard struct {
 type Login struct {
 	ErrorMessage string
 	SSO          bool
+	Password     bool
 }
 
 func (l Login) Error(msg string) Login {

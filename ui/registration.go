@@ -17,12 +17,8 @@ func registrationUI(w http.ResponseWriter, r *http.Request) {
 
 	d := Page{
 
-		Description:  "Registration Tokens Management Page",
-		Title:        "Registration",
-		User:         u.Username,
-		WagVersion:   WagVersion,
-		ServerID:     serverID,
-		ClusterState: clusterState,
+		Description: "Registration Tokens Management Page",
+		Title:       "Registration",
 	}
 
 	err := renderDefaults(w, r, d, "management/registration_tokens.html", "delete_modal.html")

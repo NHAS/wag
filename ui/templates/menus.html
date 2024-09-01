@@ -212,9 +212,9 @@
                         <li class="nav-item">
                             <div class="nav-link">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">
-                                    <div title="{{.ClusterState}}"
-                                        class='status {{if eq .ClusterState "healthy" }}open{{ else if eq .ClusterState "dead"}}dead{{else}}in-progress{{end}}'>
-                                        {{.ServerID}}
+                                    <div title="{{ClusterState}}"
+                                        class='status {{if eq ClusterState "healthy" }}open{{ else if eq ClusterState "dead"}}dead{{else}}in-progress{{end}}'>
+                                        {{ServerID}}
                                     </div>
                                 </span>
                             </div>
@@ -254,20 +254,25 @@
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="icon-user mr-2 text-gray-400"></i>
-                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{.User}}</span>
+                                <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{User.Username}}</span>
 
                             </a>
                             <!-- Dropdown - User Information -->
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
                                 aria-labelledby="userDropdown">
                                 <div class="dropdown-item">
-                                    <div class="ml-4 small text-gray-800">Wag {{.WagVersion}}</div>
+                                    <div class="ml-4 small text-gray-800">Wag {{WagVersion}}</div>
                                 </div>
+                              
+                                {{if eq User.Type "local"}}
                                 <div cflass="dropdown-divider"></div>
+
                                 <a class="dropdown-item" href="/change_password">
                                     <i class="icon-cogs mr-2 text-gray-400"></i>
                                     Change Password
                                 </a>
+                                {{end}}
+                             
                                 <div class="dropdown-divider"></div>
                                 <a class="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
                                     <i class="icon-exit mr-2 text-gray-400"></i>

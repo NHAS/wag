@@ -14,7 +14,12 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-const minPasswordLength = 14
+const (
+	minPasswordLength = 14
+
+	LocalUser = "local"
+	OidcUser  = "oidc"
+)
 
 // DTO
 type AdminModel struct {
@@ -25,6 +30,7 @@ type AdminModel struct {
 	LastLogin string `json:"last_login"`
 	IP        string `json:"ip"`
 	Change    bool   `json:"change"`
+	OidcGUID  string `json:"oidc_guid"`
 }
 
 type admin struct {
@@ -61,7 +67,7 @@ func IncrementAdminAuthenticationAttempt(username string) error {
 	})
 }
 
-func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
+func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -75,7 +81,7 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 
 	newAdmin := admin{
 		AdminModel: AdminModel{
-			Type:      "local",
+			Type:      LocalUser,
 			Username:  username,
 			DateAdded: time.Now().Format(time.RFC3339),
 			Change:    changeOnFirstUse,
@@ -86,6 +92,25 @@ func CreateAdminUser(username, password string, changeOnFirstUse bool) error {
 	b, _ := json.Marshal(newAdmin)
 
 	_, err = etcd.Put(context.Background(), "admin-users-"+username, string(b))
+
+	return err
+}
+
+func CreateOidcAdminUser(username, guid string) error {
+
+	newAdmin := admin{
+		AdminModel: AdminModel{
+			Type:      OidcUser,
+			OidcGUID:  guid,
+			Username:  username,
+			DateAdded: time.Now().Format(time.RFC3339),
+		},
+		Hash: "",
+	}
+
+	b, _ := json.Marshal(newAdmin)
+
+	_, err := etcd.Put(context.Background(), "admin-users-"+guid, string(b))
 
 	return err
 }
@@ -117,6 +142,14 @@ func CompareAdminKeys(username, password string) error {
 		if result.Attempts >= lockout {
 			wasteTime()
 			return "", errors.New("account locked")
+		}
+
+		if result.Type == "" {
+			result.Type = LocalUser
+		}
+
+		if result.Type == OidcUser {
+			return "", errors.New("oidc users cannot sign in with compare admin keys")
 		}
 
 		rawHashSalt, err := base64.RawStdEncoding.DecodeString(result.Hash)
@@ -191,9 +224,9 @@ func DeleteAdminUser(username string) error {
 	return err
 }
 
-func GetAdminUser(username string) (a AdminModel, err error) {
+func GetAdminUser(id string) (a AdminModel, err error) {
 
-	response, err := etcd.Get(context.Background(), "admin-users-"+username)
+	response, err := etcd.Get(context.Background(), "admin-users-"+id)
 	if err != nil {
 		return a, err
 	}
