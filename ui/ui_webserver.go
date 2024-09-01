@@ -228,7 +228,11 @@ func StartWebServer(errs chan<- error) error {
 	var err error
 	WagVersion, err = ctrl.GetVersion()
 	if err != nil {
-		return err
+		return fmt.Errorf("admin ui failed to start as we could not get wag version: %s", err)
+	}
+
+	if !config.Values.ManagementUI.OIDC.Enabled && !*config.Values.ManagementUI.Password.Enabled {
+		return errors.New("neither oidc or password authentication was enabled for the admin user interface, you wont be able to log in despite having it enabled")
 	}
 
 	if config.Values.ManagementUI.OIDC.Enabled {
@@ -269,32 +273,35 @@ func StartWebServer(errs chan<- error) error {
 		log.Println("Connected to admin oidc provider!")
 	}
 
-	admins, err := ctrl.ListAdminUsers("")
-	if err != nil {
-		return err
-	}
+	if *config.Values.ManagementUI.Password.Enabled {
 
-	if len(admins) == 0 {
-		log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
-
-		username, err := utils.GenerateRandomHex(8)
+		admins, err := ctrl.ListAdminUsers("")
 		if err != nil {
 			return err
 		}
 
-		password, err := utils.GenerateRandomHex(16)
-		if err != nil {
-			return err
-		}
+		if len(admins) == 0 {
+			log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
 
-		log.Println("Username: ", username)
-		log.Println("Password: ", password)
+			username, err := utils.GenerateRandomHex(8)
+			if err != nil {
+				return err
+			}
 
-		log.Println("This information will not be shown again. ")
+			password, err := utils.GenerateRandomHex(16)
+			if err != nil {
+				return err
+			}
 
-		err = ctrl.AddAdminUser(username, password, true)
-		if err != nil {
-			return err
+			log.Println("Username: ", username)
+			log.Println("Password: ", password)
+
+			log.Println("This information will not be shown again. ")
+
+			err = ctrl.AddAdminUser(username, password, true)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
