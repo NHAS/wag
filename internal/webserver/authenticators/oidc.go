@@ -1,6 +1,7 @@
 package authenticators
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,9 +18,9 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/internal/webserver/authenticators/types"
 	"github.com/NHAS/wag/internal/webserver/resources"
-	"github.com/zitadel/oidc/pkg/client/rp"
-	httphelper "github.com/zitadel/oidc/pkg/http"
-	"github.com/zitadel/oidc/pkg/oidc"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	httphelper "github.com/zitadel/oidc/v3/pkg/http"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
 
 type issuer struct {
@@ -75,7 +76,7 @@ func (o *Oidc) Init() error {
 	log.Println("OIDC callback: ", u.String())
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
-	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
+	o.provider, err = rp.NewRelyingPartyOIDC(context.TODO(), o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
 	if err != nil {
 		return err
 	}
@@ -152,9 +153,9 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens, state string, rp rp.RelyingParty, info oidc.UserInfo) {
+	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
-		groupsIntf, ok := tokens.IDTokenClaims.GetClaim(o.details.GroupsClaimName).([]interface{})
+		groupsIntf, ok := tokens.IDTokenClaims.Claims[o.details.GroupsClaimName].([]interface{})
 		if !ok {
 			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
 
@@ -163,11 +164,11 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		deviceUsername := info.GetPreferredUsername()
+		deviceUsername := info.PreferredUsername
 
 		if len(o.details.DeviceUsernameClaim) != 0 {
 
-			deviceUsernameClaim, ok := tokens.IDTokenClaims.GetClaim(o.details.DeviceUsernameClaim).(string)
+			deviceUsernameClaim, ok := tokens.IDTokenClaims.Claims[o.details.DeviceUsernameClaim].(string)
 			if !ok {
 				log.Println("Error, Device Username Claim set but idP has not set attribute in users token")
 				http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -216,7 +217,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 			msg, _ := resultMessage(err)
 			if strings.Contains(err.Error(), "returned username") {
-				msg = fmt.Sprintf("username %q not associated with device, device owned by %q", info.GetPreferredUsername(), user.Username)
+				msg = fmt.Sprintf("username %q not associated with device, device owned by %q", info.PreferredUsername, user.Username)
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)
