@@ -12,51 +12,48 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func handleEvents(errorChan chan<- error) {
+func (f *Firewall) handleEvents() error {
+	var err error
 
-	_, err := data.RegisterEventListener(data.DevicesPrefix, true, deviceChanges)
+	f.listenerKeys.Device, err = data.RegisterEventListener(data.DevicesPrefix, true, f.deviceChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
 
-	_, err = data.RegisterEventListener(data.GroupMembershipPrefix, true, membershipChanges)
+	f.listenerKeys.Membership, err = data.RegisterEventListener(data.GroupMembershipPrefix, true, f.membershipChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
 
-	_, err = data.RegisterEventListener(data.UsersPrefix, true, userChanges)
+	f.listenerKeys.Users, err = data.RegisterEventListener(data.UsersPrefix, true, f.userChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
 
-	_, err = data.RegisterEventListener(data.AclsPrefix, true, aclsChanges)
+	f.listenerKeys.Acls, err = data.RegisterEventListener(data.AclsPrefix, true, f.aclsChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
 
-	_, err = data.RegisterEventListener(data.GroupsPrefix, true, groupChanges)
+	f.listenerKeys.Groups, err = data.RegisterEventListener(data.GroupsPrefix, true, f.groupChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
 
-	_, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, inactivityTimeoutChanges)
+	f.listenerKeys.Timeout, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
 	if err != nil {
-		errorChan <- err
-		return
+		return err
 	}
+
+	return nil
 
 }
 
-func inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error {
+func (f *Firewall) inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error {
 
 	switch et {
 	case data.MODIFIED, data.CREATED:
-		if err := SetInactivityTimeout(current); err != nil {
+		if err := f.SetInactivityTimeout(current); err != nil {
 			return fmt.Errorf("unable to set inactivity timeout: %s", err)
 		}
 		log.Println("inactivity timeout changed")
@@ -65,11 +62,11 @@ func inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error
 	return nil
 }
 
-func deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
+func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
 
 	switch et {
 	case data.DELETED:
-		err := RemovePeer(current.Publickey, current.Address)
+		err := f.RemovePeer(current.Publickey, current.Address)
 		if err != nil {
 			return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
 		}
@@ -78,7 +75,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 	case data.CREATED:
 
 		key, _ := wgtypes.ParseKey(current.Publickey)
-		err := AddPeer(key, current.Username, current.Address, current.PresharedKey, uint64(current.AssociatedNode))
+		err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, uint64(current.AssociatedNode))
 		if err != nil {
 			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 		}
@@ -88,7 +85,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 	case data.MODIFIED:
 		if current.Publickey != previous.Publickey {
 			key, _ := wgtypes.ParseKey(current.Publickey)
-			err := ReplacePeer(previous, key)
+			err := f.ReplacePeer(previous, key)
 			if err != nil {
 				return fmt.Errorf("failed to replace peer pub key: %s", err)
 			}
@@ -100,14 +97,14 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
-		if current.Endpoint.String() != previous.Endpoint.String() && IsAuthed(current.Address) {
+		if current.Endpoint.String() != previous.Endpoint.String() && f.IsAuthed(current.Address) {
 
 			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
 			// Will take at most 6 seconds
 
 			var err error
 			for attempts := 0; attempts < 3; attempts++ {
-				err = Verifier.Challenge(current.Address)
+				err = f.challenger.Challenge(current.Address)
 				if err != nil {
 					time.Sleep(2 * time.Second)
 				} else {
@@ -117,7 +114,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 
 			if err != nil {
 				log.Printf("%s:%s failed to pass websockets challenge: %s", current.Username, current.Address, err)
-				err := Deauthenticate(current.Address)
+				err := f.Deauthenticate(current.Address)
 				if err != nil {
 					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 				}
@@ -126,7 +123,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 			}
 		}
 
-		if IsAuthed(current.Address) && current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
+		if f.IsAuthed(current.Address) && current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
 			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
 
 			var reasons []string
@@ -138,7 +135,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 				reasons = append(reasons, "session terminated")
 			}
 
-			err := Deauthenticate(current.Address)
+			err := f.Deauthenticate(current.Address)
 			if err != nil {
 				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
@@ -148,7 +145,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 		}
 
 		if current.AssociatedNode != previous.AssociatedNode {
-			err := UpdateNodeAssociation(current)
+			err := f.UpdateNodeAssociation(current)
 			if err != nil {
 				return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
 			}
@@ -159,7 +156,7 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 		// If the authorisation state has changed and is not disabled
 		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() {
 			if current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
-				err := SetAuthorized(current.Address, current.Username, uint64(current.AssociatedNode))
+				err := f.SetAuthorized(current.Address, uint64(current.AssociatedNode))
 				if err != nil {
 					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 				}
@@ -174,12 +171,12 @@ func deviceChanges(_ string, current, previous data.Device, et data.EventType) e
 	return nil
 }
 
-func membershipChanges(key string, _, _ []string, et data.EventType) error {
+func (f *Firewall) membershipChanges(key string, _, _ []string, et data.EventType) error {
 	username := strings.TrimPrefix(key, data.GroupMembershipPrefix)
 
 	switch et {
 	case data.CREATED, data.MODIFIED:
-		err := RefreshUserAcls(username)
+		err := f.RefreshUserAcls(username)
 		if err != nil {
 			log.Printf("failed to refresh acls for user %s: %s", username, err)
 			return fmt.Errorf("could not refresh acls: %s", err)
@@ -189,17 +186,17 @@ func membershipChanges(key string, _, _ []string, et data.EventType) error {
 	return nil
 }
 
-func userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
+func (f *Firewall) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
 	switch et {
 	case data.CREATED:
 		newUserAcls := data.GetEffectiveAcl(current.Username)
-		err := AddUser(current.Username, newUserAcls)
+		err := f.AddUser(current.Username, newUserAcls)
 		if err != nil {
 			log.Printf("cannot create user %s: %s", current.Username, err)
 			return fmt.Errorf("cannot create user %s: %s", current.Username, err)
 		}
 	case data.DELETED:
-		err := RemoveUser(current.Username)
+		err := f.RemoveUser(current.Username)
 		if err != nil {
 			log.Printf("cannot remove user %s: %s", current.Username, err)
 			return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
@@ -208,12 +205,7 @@ func userChanges(_ string, current, previous data.UserModel, et data.EventType) 
 
 		if current.Locked != previous.Locked || current.Locked {
 
-			lock := uint32(1)
-			if !current.Locked {
-				lock = 0
-			}
-
-			err := SetLockAccount(current.Username, lock)
+			err := f.SetLockAccount(current.Username, current.Locked)
 			if err != nil {
 				log.Printf("cannot lock user %s: %s", current.Username, err)
 				return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
@@ -222,7 +214,7 @@ func userChanges(_ string, current, previous data.UserModel, et data.EventType) 
 
 		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType ||
 			!current.Enforcing || types.MFA(current.MfaType) == types.Unset {
-			err := DeauthenticateAllDevices(current.Username)
+			err := f.DeauthenticateAllDevices(current.Username)
 			if err != nil {
 				log.Printf("cannot deauthenticate user %s: %s", current.Username, err)
 				return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
@@ -234,11 +226,11 @@ func userChanges(_ string, current, previous data.UserModel, et data.EventType) 
 	return nil
 }
 
-func aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error {
+func (f *Firewall) aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error {
 	// TODO refresh the users that the acl applies to as a potential performance improvement
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
-		err := RefreshConfiguration()
+		err := f.RefreshConfiguration()
 		if err != nil {
 			return fmt.Errorf("failed to refresh configuration: %s", err)
 		}
@@ -248,12 +240,12 @@ func aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error {
 	return nil
 }
 
-func groupChanges(_ string, current, _ []string, et data.EventType) error {
+func (f *Firewall) groupChanges(_ string, current, _ []string, et data.EventType) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 
 		for _, username := range current {
-			err := RefreshUserAcls(username)
+			err := f.RefreshUserAcls(username)
 			if err != nil {
 				return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
 			}

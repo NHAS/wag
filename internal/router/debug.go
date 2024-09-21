@@ -9,11 +9,6 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-const (
-	XDP_DROP = 1
-	XDP_PASS = 2
-)
-
 func CheckRoute(device string, ip net.IP, proto string, port int) (decision string, err error) {
 
 	deviceIP := net.ParseIP(device)
@@ -27,19 +22,7 @@ func CheckRoute(device string, ip net.IP, proto string, port int) (decision stri
 		port = 0
 	}
 
-	buff := createPacket(deviceIP, ip, pro, port)
-
-	decisionInt, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(buff)
-	if err != nil {
-		return "error", err
-	}
-
-	switch decisionInt {
-	case XDP_DROP:
-		return "dropped", nil
-	case XDP_PASS:
-		return "allow", nil
-	}
+	createPacket(deviceIP, ip, pro, port)
 
 	return "unknown", nil
 

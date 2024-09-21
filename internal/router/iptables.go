@@ -10,7 +10,10 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
-func setupIptables() error {
+func (f *Firewall) setupIptables() error {
+	f.Lock()
+	defer f.Unlock()
+
 	ipt, err := iptables.New()
 	if err != nil {
 		return err

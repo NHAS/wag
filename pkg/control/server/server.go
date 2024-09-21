@@ -38,10 +38,6 @@ func version(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(config.Version))
 }
 
-func bpfVersion(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(router.GetBPFHash()))
-}
-
 func shutdown(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -122,7 +118,6 @@ func StartControlSocket() error {
 	controlMux.Get("/config/settings/lockout", getLockout)
 
 	controlMux.Get("/version", version)
-	controlMux.Get("/version/bpf", bpfVersion)
 
 	controlMux.Post("/shutdown", shutdown)
 

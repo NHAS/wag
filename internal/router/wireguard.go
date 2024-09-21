@@ -4,82 +4,312 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"net/netip"
+	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
+	"tailscale.com/net/packet"
 
+	"golang.zx2c4.com/wireguard/conn"
+	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/ipc"
+	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var (
-	ctrl *wgctrl.Client
-)
+var parsedPacketPool = sync.Pool{New: func() any { return new(packet.Parsed) }}
 
-type IfInfomsg struct {
-	Family uint8
-	_      uint8
-	Type   uint16
-	Index  int32
-	Flags  uint32
-	Change uint32
+type Wrapper struct {
+	tun.Device
+
+	eventsUpDown chan tun.Event
+	// eventsOther yields non-up-and-down tun.Events that arrive on a Wrapper's events channel.
+	eventsOther chan tun.Event
+
+	// closed signals poll (by closing) when the device is closed.
+	closed chan struct{}
+
+	closeOnce sync.Once
 }
 
-func (msg *IfInfomsg) Serialize() []byte {
-	return (*(*[unix.SizeofIfInfomsg]byte)(unsafe.Pointer(msg)))[:]
+func NewWrap(tdev tun.Device) *Wrapper {
+	w := &Wrapper{
+		Device: tdev,
+		closed: make(chan struct{}),
+
+		eventsUpDown: make(chan tun.Event),
+		eventsOther:  make(chan tun.Event),
+	}
+
+	go w.pumpEvents()
+
+	return w
 }
 
-type IfAddrmsg struct {
-	Family    uint8
-	Prefixlen uint8
-	Flags     uint8
-	Scope     uint8
-	Index     uint32
+// EventsUpDown returns a TUN event channel that contains all Up and Down events.
+func (t *Wrapper) EventsUpDown() chan tun.Event {
+	return t.eventsUpDown
 }
 
-func (msg *IfAddrmsg) Serialize() []byte {
-	return (*(*[unix.SizeofIfAddrmsg]byte)(unsafe.Pointer(msg)))[:]
+// Events returns a TUN event channel that contains all non-Up, non-Down events.
+// It is named Events because it is the set of events that we want to expose to wireguard-go,
+// and Events is the name specified by the wireguard-go tun.Device interface.
+func (t *Wrapper) Events() <-chan tun.Event {
+	return t.eventsOther
 }
 
-func setupWireguard(devices []data.Device) error {
-	lock.Lock()
-	defer lock.Unlock()
+func (t *Wrapper) pumpEvents() {
+	defer close(t.eventsUpDown)
+	defer close(t.eventsOther)
+	src := t.Device.Events()
+	for {
+		// Retrieve an event from the TUN device.
+		var event tun.Event
+		var ok bool
+		select {
+		case <-t.closed:
+			return
+		case event, ok = <-src:
+			if !ok {
+				return
+			}
+		}
 
-	var c wgtypes.Config
+		// Pass along event to the correct recipient.
+		// Though event is a bitmask, in practice there is only ever one bit set at a time.
+		dst := t.eventsOther
+		if event&(tun.EventUp|tun.EventDown) != 0 {
+			dst = t.eventsUpDown
+		}
+		select {
+		case <-t.closed:
+			return
+		case dst <- event:
+		}
+	}
+}
 
-	if !config.Values.Wireguard.External {
+func (t *Wrapper) Close() error {
+	var err error
+	t.closeOnce.Do(func() {
+		err = t.Device.Close()
+	})
+	return err
+}
+
+func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
+
+	p := parsedPacketPool.Get().(*packet.Parsed)
+	defer parsedPacketPool.Put(p)
+
+	n, err := t.Device.Read(buffs, sizes, offset)
+	if err != nil {
+		return n, err
+	}
+
+	for i := 0; i < n; i++ {
+		p.Decode(buffs[i][offset : offset+sizes[i]])
+	}
+
+	return n, err
+}
+
+func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
+
+	p := parsedPacketPool.Get().(*packet.Parsed)
+	defer parsedPacketPool.Put(p)
+
+	for _, buff := range buffs {
+		p.Decode(buff[offset:])
+	}
+
+	return t.Device.Write(buffs, offset)
+}
+
+func (f *Firewall) endpointChange(e device.Event) {
+	switch e.Type {
+	case device.EventEndpointChange:
+
+		k, err := wgtypes.NewKey(e.Pk[:])
+		if err != nil {
+			panic(err)
+		}
+
+		log.Println(k)
+
+		// if len(p.AllowedIPs) != 1 {
+		// 	log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
+		// 	continue
+		// }
+
+		// device, ok := devices[p.AllowedIPs[0].IP.String()]
+		// if !ok {
+		// 	log.Println("found unknown device,", p.AllowedIPs[0].IP.String())
+		// 	continue
+		// }
+
+		// // If the peer endpoint has become empty (due to peer roaming) or if we dont have a record of it, set the map
+		// if _, ok := ourPeerAddresses[device.Address]; !ok || p.Endpoint == nil {
+		// 	ourPeerAddresses[device.Address] = p.Endpoint.String()
+		// }
+
+		// // If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
+		// if ourPeerAddresses[device.Address] != p.Endpoint.String() && p.Endpoint != nil {
+		// 	ourPeerAddresses[device.Address] = p.Endpoint.String()
+
+		// 	// Otherwise, just update the node association
+		// 	err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
+		// 	if err != nil {
+		// 		log.Printf("unable to update device (%s:%s) endpoint: %s", device.Address, device.Username, err)
+		// 	}
+
+		// }
+
+	default:
+		log.Println("unknown event type: ", e.Type)
+	}
+}
+
+func (f *Firewall) setupWireguard() error {
+
+	// open TUN device
+
+	tdev, err := tun.CreateTUN(config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
+	if err != nil {
+		return fmt.Errorf("failed to create TUN device: %v", err)
+	}
+
+	uapiInterfaceName := config.Values.Wireguard.DevName
+	realInterfaceName, err2 := tdev.Name()
+	if err2 == nil {
+		uapiInterfaceName = realInterfaceName
+	}
+
+	logger := device.NewLogger(
+		device.LogLevelError,
+		fmt.Sprintf("(%s) ", uapiInterfaceName),
+	)
+
+	// open UAPI file
+
+	fileUAPI, err := ipc.UAPIOpen(uapiInterfaceName)
+	if err != nil {
+		return fmt.Errorf("UAPI listen error: %v", err)
+	}
+
+	tdev = NewWrap(tdev)
+	device := device.NewDevice(tdev, conn.NewDefaultBind(), logger)
+	device.SetEventHandler(f.endpointChange)
+
+	logger.Verbosef("Wireguard Device started")
+
+	errs := make(chan error)
+
+	uapi, err := ipc.UAPIListen(config.Values.Wireguard.DevName, fileUAPI)
+	if err != nil {
+		return fmt.Errorf("failed to listen on uapi socket: %v", err)
+	}
+
+	go func() {
+		for {
+			conn, err := uapi.Accept()
+			if err != nil {
+				errs <- err
+				return
+			}
+			go device.IpcHandle(conn)
+		}
+	}()
+
+	logger.Verbosef("UAPI listener started")
+
+	err = func(network string) error {
 
 		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
 		if err != nil {
-			return fmt.Errorf("failed to connect to netlink: err: %s", err)
+			return err
 		}
 		defer conn.Close()
 
-		ip, network, err := net.ParseCIDR(config.Values.Wireguard.Address)
+		ip, ipNet, err := net.ParseCIDR(network)
 		if err != nil {
-			return fmt.Errorf("failed to parse wireguard address: err: %s", err)
-		}
-		network.IP = ip.To4()[:4] // Stop netlink freaking out at a ipv6 length ipv4 address
-
-		err = addWg(conn, config.Values.Wireguard.DevName, *network, config.Values.Wireguard.MTU)
-		if err != nil {
-			return fmt.Errorf("failed to create wireguard device: err: %s", err)
+			return err
 		}
 
-		key, err := wgtypes.ParseKey(config.Values.Wireguard.PrivateKey)
-		if err != nil {
-			return fmt.Errorf("failed to parse wireguard private key: err: %s", err)
-		}
-		c.PrivateKey = &key
+		ipNet.IP = ip
 
-		port := config.Values.Wireguard.ListenPort
-		c.ListenPort = &port
+		err = f.setIp(conn, config.Values.Wireguard.DevName, *ipNet)
+		if err != nil {
+			return err
+		}
+
+		return f.setUp(conn, config.Values.Wireguard.DevName)
+	}(config.Values.Wireguard.Address)
+	if err != nil {
+		return fmt.Errorf("unable to set wireguard tunnel ip: %s", err)
 	}
+
+	err = device.Up()
+	if err != nil {
+		return fmt.Errorf("unable to bring wireguard device up: %s", err)
+	}
+
+	go func() {
+
+		// wait for device to be closed
+		select {
+		case <-errs:
+		case <-device.Wait():
+		}
+
+		// clean up
+		uapi.Close()
+		device.Close()
+
+		logger.Verbosef("Shutting down")
+	}()
+	return nil
+}
+
+func (f *Firewall) setupUsers(users []data.UserModel) error {
+
+	var errs []error
+
+	for _, user := range users {
+		err := f.AddUser(user.Username, data.GetEffectiveAcl(user.Username))
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (f *Firewall) setupDevices(devices []data.Device) error {
+	f.Lock()
+	defer f.Unlock()
+
+	var c wgtypes.Config
+
+	err := f.setupWireguard()
+	if err != nil {
+		return fmt.Errorf("failed to create wireguard device: err: %s", err)
+	}
+
+	key, err := wgtypes.ParseKey(config.Values.Wireguard.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to parse wireguard private key: err: %s", err)
+	}
+	c.PrivateKey = &key
+
+	port := config.Values.Wireguard.ListenPort
+	c.ListenPort = &port
 
 	for _, device := range devices {
 		pk, _ := wgtypes.ParseKey(device.Publickey)
@@ -108,25 +338,20 @@ func setupWireguard(devices []data.Device) error {
 			pc.PersistentKeepaliveInterval = &d
 		}
 
-		addressesMap, ok := usersToAddresses[device.Username]
-		if !ok {
-			addressesMap = make(map[string]string)
+		err = f._addPeerToMaps(pk, device.Address, device.Username, uint64(device.AssociatedNode))
+		if err != nil {
+			return err
 		}
-
-		addressesMap[device.Address] = pk.String()
-		usersToAddresses[device.Username] = addressesMap
-		addressesToUsers[device.Address] = device.Username
 
 		c.Peers = append(c.Peers, pc)
 	}
 
-	var err error
-	ctrl, err = wgctrl.New()
+	f.ctrl, err = wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("cannot start wireguard control: err: %s", err)
 	}
 
-	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	err = f.ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
 		return fmt.Errorf("cannot configure wireguard device: err: %s", err)
 
@@ -135,230 +360,29 @@ func setupWireguard(devices []data.Device) error {
 	return nil
 }
 
-func ServerDetails() (key wgtypes.Key, port int, err error) {
-	ctr, err := wgctrl.New()
+func (f *Firewall) setUp(c *netlink.Conn, interfaceName string) error {
+
+	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		return key, port, fmt.Errorf("cannot start wireguard control %v", err)
+		return fmt.Errorf("wireguard network iface %s does not exist: %s", interfaceName, err)
 	}
-	defer ctr.Close()
-
-	dev, err := ctr.Device(config.Values.Wireguard.DevName)
-	if err != nil {
-		return key, port, fmt.Errorf("unable to start wireguard-ctrl on device with name %s: %v", config.Values.Wireguard.DevName, err)
-	}
-
-	return dev.PublicKey, dev.ListenPort, nil
-}
-
-// Remove a wireguard peer from xdp firewall and wg device
-func RemovePeer(publickey, address string) error {
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	return _removePeer(publickey, address)
-}
-
-func _removePeer(publickey, address string) error {
-	pubkey, err := wgtypes.ParseKey(publickey)
-	if err != nil {
-		return err
-	}
-
-	var c wgtypes.Config
-	c.Peers = append(c.Peers, wgtypes.PeerConfig{
-		PublicKey: pubkey,
-		Remove:    true,
-	})
-
-	// Try all removals, if any work then the device is effectively blocked
-	err1 := ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
-	err2 := xdpRemoveDevice(address)
-
-	if err1 != nil {
-		return err1
-	}
-
-	if err2 != nil {
-		return err1
-	}
-
-	user := addressesToUsers[address]
-	addr := usersToAddresses[user]
-	delete(addr, address)
-	usersToAddresses[user] = addr
-
-	return nil
-}
-
-// Takes the device to replace and returns the address of said device
-func ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	//As the api for managing wireguard has no "update public key" function we have to do it manually remove -> add
-	oldPublicKey, err := wgtypes.ParseKey(device.Publickey)
-	if err != nil {
-		return err
-	}
-
-	var c wgtypes.Config
-	c.Peers = append(c.Peers, wgtypes.PeerConfig{
-		PublicKey: oldPublicKey,
-		Remove:    true,
-	})
-
-	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
-	if err != nil {
-		return err
-	}
-
-	_, network, err := net.ParseCIDR(device.Address + "/32")
-	if err != nil {
-		return err
-	}
-
-	c.Peers = []wgtypes.PeerConfig{
-		{
-			PublicKey:         newPublicKey,
-			ReplaceAllowedIPs: true,
-			AllowedIPs:        []net.IPNet{*network},
-		},
-	}
-
-	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
-	if err != nil {
-		return err
-	}
-
-	addresses := usersToAddresses[device.Username]
-	addresses[device.Address] = newPublicKey.String()
-	usersToAddresses[device.Username] = addresses
-
-	return nil
-}
-
-func setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) error {
-
-	id, err := wgtypes.ParseKey(device.Publickey)
-	if err != nil {
-		return err
-	}
-
-	var c wgtypes.Config
-	c.Peers = []wgtypes.PeerConfig{
-		{
-			UpdateOnly: true,
-			PublicKey:  id,
-			Endpoint:   endpoint,
-		},
-	}
-
-	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func ListPeers() ([]wgtypes.Peer, error) {
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	dev, err := ctrl.Device(config.Values.Wireguard.DevName)
-	if err != nil {
-		return nil, err
-	}
-
-	return dev.Peers, err
-}
-
-// AddPeer adds the device to wireguard
-func AddPeer(public wgtypes.Key, username, addresss, presharedKey string, node uint64) (err error) {
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	preshared_key, err := wgtypes.ParseKey(presharedKey)
-	if err != nil {
-		return err
-	}
-
-	_, network, err := net.ParseCIDR(addresss + "/32")
-	if err != nil {
-		return err
-	}
-
-	var c wgtypes.Config
-	c.Peers = []wgtypes.PeerConfig{
-		{
-			PublicKey:         public,
-			ReplaceAllowedIPs: true,
-			AllowedIPs:        []net.IPNet{*network},
-			PresharedKey:      &preshared_key,
-		},
-	}
-
-	err = xdpAddDevice(username, addresss, node)
-	if err != nil {
-		return err
-	}
-
-	err = ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
-	if err != nil {
-		return err
-	}
-
-	addressesMap, ok := usersToAddresses[username]
-	if !ok {
-		addressesMap = make(map[string]string)
-	}
-
-	addressesMap[addresss] = public.String()
-	usersToAddresses[username] = addressesMap
-	addressesToUsers[addresss] = username
-
-	return nil
-}
-
-func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {
-
-	infomsg := IfInfomsg{
-		Family: unix.AF_UNSPEC,
-		Change: unix.IFF_UP | unix.IFF_LOWER_UP,
-		Flags:  unix.IFF_UP | unix.IFF_LOWER_UP,
-	}
-
-	ne := netlink.NewAttributeEncoder()
-	// If MTU is 0 it is unset, so let wireguard try and sense what MTU should be set
-	if mtu != 0 {
-		ne.Int32(unix.IFLA_MTU, int32(mtu))
-	}
-	ne.String(unix.IFLA_IFNAME, name)
-
-	ne.Nested(unix.IFLA_LINKINFO, func(nae *netlink.AttributeEncoder) error {
-		nae.String(unix.IFLA_INFO_KIND, unix.WG_GENL_NAME)
-		return nil
-	})
 
 	req := netlink.Message{
 		Header: netlink.Header{
 			Type:  unix.RTM_NEWLINK,
-			Flags: netlink.Request | netlink.Create | netlink.Excl | netlink.Acknowledge,
+			Flags: netlink.Request | netlink.Acknowledge,
 		},
 	}
 
-	req.Data = infomsg.Serialize()
-
-	msg, err := ne.Encode()
-	if err != nil {
-		return fmt.Errorf("failed to encode: %v", err)
+	msg := &IfInfomsg{
+		Family: unix.AF_UNSPEC,
+		Change: unix.IFF_UP,
+		Flags:  unix.IFF_UP,
 	}
 
-	req.Data = append(req.Data, msg...)
+	msg.Index = int32(iface.Index)
+
+	req.Data = msg.Serialize()
 
 	resp, err := c.Execute(req)
 	if err != nil {
@@ -371,12 +395,13 @@ func addWg(c *netlink.Conn, name string, address net.IPNet, mtu int) error {
 		if errCode != 0 {
 			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
 		}
+
 	}
 
-	return setIp(c, name, address)
+	return nil
 }
 
-func setIp(c *netlink.Conn, name string, address net.IPNet) error {
+func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error {
 
 	req := netlink.Message{
 		Header: netlink.Header{
@@ -426,49 +451,222 @@ func setIp(c *netlink.Conn, name string, address net.IPNet) error {
 	return nil
 }
 
-func delWg(c *netlink.Conn, name string) error {
-	infomsg := IfInfomsg{
-		Family: unix.AF_UNSPEC,
-		Change: unix.IFF_UP | unix.IFF_LOWER_UP,
-		Flags:  unix.IFF_UP | unix.IFF_LOWER_UP,
+func (f *Firewall) ServerDetails() (key wgtypes.Key, port int, err error) {
+	ctr, err := wgctrl.New()
+	if err != nil {
+		return key, port, fmt.Errorf("cannot start wireguard control %v", err)
+	}
+	defer ctr.Close()
+
+	dev, err := ctr.Device(config.Values.Wireguard.DevName)
+	if err != nil {
+		return key, port, fmt.Errorf("unable to start wireguard-ctrl on device with name %s: %v", config.Values.Wireguard.DevName, err)
 	}
 
-	ne := netlink.NewAttributeEncoder()
-	ne.String(unix.IFLA_IFNAME, name)
+	return dev.PublicKey, dev.ListenPort, nil
+}
 
-	ne.Nested(unix.IFLA_LINKINFO, func(nae *netlink.AttributeEncoder) error {
-		nae.String(unix.IFLA_INFO_KIND, unix.WG_GENL_NAME)
-		return nil
-	})
+func (f *Firewall) setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) error {
 
-	req := netlink.Message{
-		Header: netlink.Header{
-			Type:  unix.RTM_DELLINK,
-			Flags: netlink.Request | netlink.Acknowledge,
+	id, err := wgtypes.ParseKey(device.Publickey)
+	if err != nil {
+		return err
+	}
+
+	var c wgtypes.Config
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			UpdateOnly: true,
+			PublicKey:  id,
+			Endpoint:   endpoint,
 		},
 	}
 
-	req.Data = infomsg.Serialize()
-
-	msg, err := ne.Encode()
+	err = f.ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
 	if err != nil {
-		return fmt.Errorf("failed to encode: %v", err)
+		return err
 	}
 
-	req.Data = append(req.Data, msg...)
+	return nil
+}
 
-	resp, err := c.Execute(req)
+// Remove a wireguard peer from xdp firewall and wg device
+func (f *Firewall) RemovePeer(publickey, address string) error {
+
+	f.Lock()
+	defer f.Unlock()
+
+	return f._removePeer(publickey, address)
+}
+
+func (f *Firewall) _removePeer(publickey, address string) error {
+
+	addressNetAddr, err := netip.ParseAddr(address)
 	if err != nil {
-		return fmt.Errorf("failed to execute message: %v", err)
+		return fmt.Errorf("address %q could not be parsed to netip.Addr for removal: %s", address, err)
 	}
 
-	switch resp[0].Header.Type {
-	case netlink.Error:
-		errCode := binary.LittleEndian.Uint32(resp[0].Data)
-		if errCode != 0 {
-			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
-		}
+	pubkey, err := wgtypes.ParseKey(publickey)
+	if err != nil {
+		return fmt.Errorf("could not parse %q as wireguard public key for removal: %s", publickey, err)
 	}
+
+	deviceToRemove, ok := f.addressToDevice[addressNetAddr]
+	if !ok {
+		return fmt.Errorf("device with address %q not found", address)
+	}
+
+	delete(f.addressToPolicies, deviceToRemove.address)
+	delete(f.addressToDevice, deviceToRemove.address)
+	delete(f.deviceToUser, deviceToRemove.address)
+
+	userdevices := f.userToDevices[deviceToRemove.username]
+	delete(userdevices, address)
+	f.userToDevices[deviceToRemove.username] = userdevices
+
+	var c wgtypes.Config
+	c.Peers = append(c.Peers, wgtypes.PeerConfig{
+		PublicKey: pubkey,
+		Remove:    true,
+	})
+
+	// Try all removals, if any work then the device is effectively blocked
+	err = f.ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	if err != nil {
+		return fmt.Errorf("failed to remove wireguard peer %q from wireguard device: %s", address, err)
+	}
+
+	return nil
+}
+
+// Takes the device to replace and returns the address of said device
+func (f *Firewall) ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
+
+	f.Lock()
+	defer f.Unlock()
+
+	addressesMap, ok := f.userToDevices[device.Username]
+	if !ok {
+		return fmt.Errorf("user %q not found when replacing peer %q", device.Username, device.Address)
+	}
+
+	currentDevice, ok := addressesMap[device.Address]
+	if !ok {
+		return fmt.Errorf("device %q does not exist", device.Address)
+	}
+
+	//As the api for managing wireguard has no "update public key" function we have to do it manually remove -> add
+	oldPublicKey, err := wgtypes.ParseKey(device.Publickey)
+	if err != nil {
+		return err
+	}
+
+	var c wgtypes.Config
+	c.Peers = append(c.Peers, wgtypes.PeerConfig{
+		PublicKey: oldPublicKey,
+		Remove:    true,
+	})
+
+	err = f.ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
+
+	_, network, err := net.ParseCIDR(device.Address + "/32")
+	if err != nil {
+		return err
+	}
+
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			PublicKey:         newPublicKey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        []net.IPNet{*network},
+		},
+	}
+
+	err = f.ctrl.ConfigureDevice(config.Values.Wireguard.DevName, c)
+	if err != nil {
+		return err
+	}
+
+	currentDevice.public = newPublicKey
+	addressesMap[device.Address] = currentDevice
+
+	return nil
+}
+
+func (f *Firewall) ListPeers() ([]wgtypes.Peer, error) {
+
+	f.Lock()
+	defer f.Unlock()
+
+	dev, err := f.ctrl.Device(f.Config.DeviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	return dev.Peers, err
+}
+
+// AddPeer adds the device to wireguard
+func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey string, node uint64) (err error) {
+
+	f.Lock()
+	defer f.Unlock()
+
+	preshared_key, err := wgtypes.ParseKey(presharedKey)
+	if err != nil {
+		return err
+	}
+
+	_, network, err := net.ParseCIDR(address + "/32")
+	if err != nil {
+		return err
+	}
+
+	var c wgtypes.Config
+	c.Peers = []wgtypes.PeerConfig{
+		{
+			PublicKey:         public,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        []net.IPNet{*network},
+			PresharedKey:      &preshared_key,
+		},
+	}
+
+	err = f.ctrl.ConfigureDevice(f.Config.DeviceName, c)
+	if err != nil {
+		return fmt.Errorf("failed to add new wireguard peer: %s", err)
+	}
+
+	return f._addPeerToMaps(public, username, address, node)
+}
+
+func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, node uint64) error {
+	addressNetAddr, err := netip.ParseAddr(address)
+	if err != nil {
+		return fmt.Errorf("address %q could not be parsed to netip addr: %s", address, err)
+	}
+
+	addressesMap, ok := f.userToDevices[username]
+	if !ok {
+		return fmt.Errorf("user %q not found when adding peer %q", username, address)
+	}
+
+	if _, ok := addressesMap[address]; ok {
+		return fmt.Errorf("address %q already exists for user %q", address, username)
+	}
+
+	device := FirewallDevice{
+		public:         public,
+		address:        addressNetAddr,
+		associatedNode: node,
+		username:       username,
+	}
+
+	addressesMap[address] = &device
+	f.userToDevices[username] = addressesMap
 
 	return nil
 }

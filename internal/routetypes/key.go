@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 )
 
 type Key struct {
@@ -12,18 +13,28 @@ type Key struct {
 	// first member must be a prefix u32 wide
 	// rest can be arbitrary
 	Prefixlen uint32
-	IP        [4]byte
+	IP        []byte
 }
 
-func (l *Key) AsIP() net.IP {
-	return net.IP(l.IP[:]).To4()
+func (l *Key) ToPrefix() netip.Prefix {
+
+	addr, _ := netip.AddrFromSlice(l.IP)
+
+	return netip.PrefixFrom(addr, int(l.Prefixlen))
+}
+
+func (l *Key) AsIPv4() net.IP {
+	return net.IP(l.IP).To4()
+}
+
+func (l *Key) AsIPv6() net.IP {
+	return net.IP(l.IP).To16()
 }
 
 func (l Key) Bytes() []byte {
 	output := make([]byte, 8)
 	binary.LittleEndian.PutUint32(output[0:4], l.Prefixlen)
-	copy(output[4:], l.IP[:])
-
+	copy(output[4:], l.IP)
 	return output
 }
 
@@ -40,7 +51,7 @@ func (l *Key) Unpack(b []byte) error {
 }
 
 func (l Key) String() string {
-	return fmt.Sprintf("%s/%d", net.IP(l.IP[:]).To4().String(), l.Prefixlen)
+	return fmt.Sprintf("%s/%d", net.IP(l.IP).To4().String(), l.Prefixlen)
 }
 
 func lookupProtocol(t uint16) string {

@@ -59,7 +59,6 @@ type ClusteringDetails struct {
 }
 
 type Config struct {
-	path          string
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
 	CheckUpdates  bool   `json:",omitempty"`
@@ -129,7 +128,6 @@ type Config struct {
 		MTU        int
 
 		//Not externally configurable
-		External                  bool       `json:"-"`
 		Range                     *net.IPNet `json:"-"`
 		ServerAddress             net.IP     `json:"-"`
 		ServerPersistentKeepAlive int
@@ -186,38 +184,9 @@ func load(path string) (c Config, err error) {
 		return c, fmt.Errorf("tls manager listen url must be https://")
 	}
 
-	i, err := net.InterfaceByName(c.Wireguard.DevName)
+	_, err = net.InterfaceByName(c.Wireguard.DevName)
 	if err == nil {
-		//A device already exists, so we're assuming it was externally set up (with something like wg-quick)
-		c.Wireguard.External = true
-
-		addresses, err := i.Addrs()
-		if err != nil {
-			return c, fmt.Errorf("unable to get address for interface %s: %v", c.Wireguard.DevName, err)
-		}
-
-		if len(addresses) < 1 {
-			return c, errors.New("wireguard interface does not have an ip address")
-		}
-
-		addr := addresses[0].String()
-		for i := len(addr) - 1; i > 0; i-- {
-			if addr[i] == ':' || addr[i] == '/' {
-				addr = addr[:i]
-				break
-			}
-		}
-
-		c.Wireguard.ServerAddress = net.ParseIP(addr)
-		if c.Wireguard.ServerAddress == nil {
-			return c, fmt.Errorf("unable to find server address from tunnel interface:  '%s'", addr)
-		}
-
-		_, c.Wireguard.Range, err = net.ParseCIDR(addresses[0].String())
-		if err != nil {
-			return c, errors.New("unable to parse VPN range from tune device address: " + addresses[0].String() + " : " + err.Error())
-		}
-
+		return c, fmt.Errorf("interface %q already exists, wag no longer supports external wireguard interfaces", c.Wireguard.DevName)
 	} else {
 		// A device doesnt already exist
 		c.Wireguard.ServerAddress, c.Wireguard.Range, err = net.ParseCIDR(c.Wireguard.Address)

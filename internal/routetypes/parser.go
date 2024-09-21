@@ -235,7 +235,7 @@ func parseKeys(address string) (keys []Key, err error) {
 		keys = append(keys,
 			Key{
 				Prefixlen: uint32(maskLength),
-				IP:        [4]byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
+				IP:        []byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
 			},
 		)
 	}

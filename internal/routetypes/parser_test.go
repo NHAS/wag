@@ -12,7 +12,7 @@ func checkKey(reality Key, expectedKey Key) error {
 		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(reality.Bytes()))
 	}
 
-	if !net.IP.Equal(reality.AsIP(), expectedKey.AsIP()) {
+	if !net.IP.Equal(reality.AsIPv4(), expectedKey.AsIPv4()) {
 		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, reality.IP)
 	}
 
@@ -47,7 +47,7 @@ func checkPolicy(reality Policy, expectedValue Policy) error {
 func TestParseEasyRules(t *testing.T) {
 
 	expected := Key{
-		IP:        [4]byte{1, 1, 1, 1},
+		IP:        []byte{1, 1, 1, 1},
 		Prefixlen: 32,
 	}
 
@@ -127,7 +127,7 @@ func TestParseSimpleSingles(t *testing.T) {
 
 	expectedKey := Key{
 		Prefixlen: 32,
-		IP:        [4]byte{1, 2, 1, 2},
+		IP:        []byte{1, 2, 1, 2},
 	}
 
 	expectedValues := []Policy{
@@ -210,7 +210,7 @@ func TestParsePortRange(t *testing.T) {
 
 	expected := Key{
 		Prefixlen: 32,
-		IP:        [4]byte{1, 3, 1, 3},
+		IP:        []byte{1, 3, 1, 3},
 	}
 
 	expectedValue := Policy{
@@ -235,7 +235,7 @@ func TestParsePortRange(t *testing.T) {
 
 	expected = Key{
 		Prefixlen: 32,
-		IP:        [4]byte{1, 4, 1, 4},
+		IP:        []byte{1, 4, 1, 4},
 	}
 
 	expectedValue = Policy{
