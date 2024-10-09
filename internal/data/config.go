@@ -93,7 +93,7 @@ func getInt(key string) (ret int, err error) {
 
 func GetPAM() (details PAM, err error) {
 
-	response, err := etcd.Get(context.Background(), OidcDetailsKey)
+	response, err := etcd.Get(context.Background(), PamDetailsKey)
 	if err != nil {
 		return PAM{}, err
 	}
