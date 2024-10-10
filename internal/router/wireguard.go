@@ -116,6 +116,10 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 
 	for i := 0; i < n; i++ {
 		p.Decode(buffs[i][offset : offset+sizes[i]])
+		if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+			buffs[i] = buff
+			i++
+		}
 	}
 
 	return n, err
@@ -126,8 +130,19 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 	p := parsedPacketPool.Get().(*packet.Parsed)
 	defer parsedPacketPool.Put(p)
 
+	i := 0
 	for _, buff := range buffs {
 		p.Decode(buff[offset:])
+
+		if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+			buffs[i] = buff
+			i++
+		}
+	}
+
+	buffs = buffs[:i]
+	if len(buffs) == 0 {
+		return 0, nil
 	}
 
 	return t.Device.Write(buffs, offset)
