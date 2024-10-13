@@ -21,6 +21,8 @@ import (
 type Firewall struct {
 	sync.RWMutex
 
+	closed bool
+
 	inactivityTimeout time.Duration
 
 	// Username to policy
@@ -60,6 +62,10 @@ func (f *Firewall) SetInactivityTimeout(inactivityTimeoutMinutes int) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	f.inactivityTimeout = time.Duration(inactivityTimeoutMinutes) * time.Minute
 
 	return nil
@@ -68,6 +74,10 @@ func (f *Firewall) SetInactivityTimeout(inactivityTimeoutMinutes int) error {
 func (f *Firewall) RefreshUserAcls(username string) error {
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	return f._refreshUserAcls(username)
 }
@@ -98,6 +108,11 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 }
 
 func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
+
+	if f.closed {
+		return false
+	}
+
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
 	f.RLock()
@@ -166,6 +181,10 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	// If the peer roams away from us, unset the endpoint in wireguard to make sure the peer watcher will absolutely register a change if they roam back
 	var endpoint *net.UDPAddr = nil
 
@@ -197,6 +216,10 @@ func (f *Firewall) SetAuthorized(address string, node uint64) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	netipAddr, err := netip.ParseAddr(address)
 	if err != nil {
 		return err
@@ -223,6 +246,10 @@ func (f *Firewall) Deauthenticate(address string) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	addr, err := netip.ParseAddr(address)
 	if err != nil {
 		return fmt.Errorf("failed to parse address as netip.Addr: %s", err)
@@ -232,6 +259,7 @@ func (f *Firewall) Deauthenticate(address string) error {
 }
 
 func (f *Firewall) _deauthenticate(address netip.Addr) error {
+
 	device, ok := f.addressToDevice[address]
 	if !ok {
 		return fmt.Errorf("device %q was not found", address)
@@ -247,6 +275,10 @@ func (f *Firewall) DeauthenticateAllDevices(username string) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	for _, device := range f.userToDevices[username] {
 		err := f._deauthenticate(device.address)
 		if err != nil {
@@ -260,6 +292,10 @@ func (f *Firewall) DeauthenticateAllDevices(username string) error {
 func (f *Firewall) AddUser(username string, acls acls.Acl) error {
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	if _, ok := f.userIsLocked[username]; ok {
 		return errors.New("user already exists")
@@ -276,6 +312,10 @@ func (f *Firewall) AddUser(username string, acls acls.Acl) error {
 func (f *Firewall) RefreshConfiguration() []error {
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return []error{errors.New("firewall instance has been closed")}
+	}
 
 	allUsers, err := data.GetAllUsers()
 	if err != nil {
@@ -304,6 +344,10 @@ func (f *Firewall) RemoveUser(username string) error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	delete(f.userIsLocked, username)
 	delete(f.userPolicies, username)
 
@@ -321,6 +365,10 @@ func (f *Firewall) GetAllAuthorised() ([]string, error) {
 	f.RLock()
 	defer f.RUnlock()
 
+	if f.closed {
+		return nil, errors.New("firewall instance has been closed")
+	}
+
 	result := []string{}
 	for addr, device := range f.addressToDevice {
 		if f.isAuthed(addr) {
@@ -336,6 +384,10 @@ func (f *Firewall) IsAuthed(address string) bool {
 	f.RLock()
 	defer f.RUnlock()
 
+	if f.closed {
+		return false
+	}
+
 	addr, err := netip.ParseAddr(address)
 	if err != nil {
 		return false
@@ -345,6 +397,7 @@ func (f *Firewall) IsAuthed(address string) bool {
 }
 
 func (f *Firewall) isAuthed(addr netip.Addr) bool {
+
 	ok := f.userIsLocked[addr.String()]
 	if !ok {
 		return false
@@ -370,6 +423,10 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 func (f *Firewall) SetLockAccount(username string, locked bool) error {
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	_, ok := f.userIsLocked[username]
 	if !ok {

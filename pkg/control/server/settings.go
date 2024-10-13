@@ -7,7 +7,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 )
 
-func getAllSettings(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) getAllSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := data.GetAllSettings()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -24,7 +24,7 @@ func getAllSettings(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getLockout(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) getLockout(w http.ResponseWriter, r *http.Request) {
 	lockout, err := data.GetLockout()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

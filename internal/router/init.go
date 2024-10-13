@@ -3,72 +3,62 @@ package router
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 )
 
-var (
-	globalFirewall *Firewall
-)
+func New(iptables bool) (*Firewall, error) {
 
-func NewFirewall(iptables bool) (*Firewall, error) {
-
-	m := &Firewall{}
+	log.Println("[ROUTER] Starting up")
+	var fw Firewall
 	initialUsers, knownDevices, err := data.GetInitialData()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get users and devices from etcd: %s", err)
+		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %s", err)
 	}
 
-	err = m.setupUsers(initialUsers)
+	log.Println("[ROUTER] Adding users")
+
+	err = fw.setupUsers(initialUsers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup users: %s")
 	}
 
-	err = m.setupDevices(knownDevices)
+	log.Println("[ROUTER] Adding wireguard devices")
+	err = fw.setupDevices(knownDevices)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup devices: %s")
 	}
 
-	err = m.handleEvents()
+	log.Println("[ROUTER] Registering event handlers")
+	err = fw.handleEvents()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to start handling etcd events: %s")
 	}
 
-	return m, nil
+	if iptables {
+
+		routeMode := "MASQUERADE (NAT)"
+		if config.Values.NAT != nil && !*config.Values.NAT {
+			routeMode = "RAW (No NAT)"
+		}
+
+		log.Printf("[ROUTER] Setting up iptables in %s mode", routeMode)
+
+		err := fw.setupIptables()
+		if err != nil {
+			return nil, fmt.Errorf("failed to start handling etcd events: %s")
+		}
+	}
+	return &fw, nil
 }
 
-func Setup(errorChan chan<- error, iptables bool) (err error) {
+func (f *Firewall) Close() {
+	f.Lock()
+	defer f.Unlock()
 
-	if globalFirewall != nil {
-		globalFirewall.TearDown()
-	}
-
-	globalFirewall, err = NewFirewall(iptables)
-	if err != nil {
-		return err
-	}
-
-	output := []string{"Started firewall management: ",
-		"\t\t\tSetting filter FORWARD policy to DROP",
-		"\t\t\tXDP eBPF program managing firewall",
-		"\t\t\tAllow Iptables FORWARDS to and from wireguard device",
-		"\t\t\tAllow input to VPN host"}
-
-	routeMode := "MASQUERADE (NAT)"
-	if config.Values.NAT != nil && !*config.Values.NAT {
-		routeMode = "RAW (No NAT)"
-	}
-
-	output = append(output, "\t\t\tSet routing mode to "+routeMode)
-
-	log.Println(strings.Join(output, "\n"))
-
-	return nil
-}
-
-func (f *Firewall) TearDown() {
+	log.Println("Removing handlers")
+	f.deregisterEventHandlers()
 
 	log.Println("Removing wireguard device")
 	if f.device != nil {
@@ -82,6 +72,7 @@ func (f *Firewall) TearDown() {
 	log.Println("Wireguard device removed")
 
 	log.Println("Removing Firewall rules...")
-	teardownIptables()
+	f.teardownIptables()
 
+	f.closed = true
 }

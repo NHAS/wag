@@ -8,11 +8,10 @@ import (
 	"net/url"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 )
 
-func listDevices(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -46,7 +45,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := range devices {
-		devices[i].Active = router.IsAuthed(devices[i].Address)
+		devices[i].Active = wsg.firewall.IsAuthed(devices[i].Address)
 	}
 
 	b, err := json.Marshal(devices)
@@ -59,7 +58,7 @@ func listDevices(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func lockDevice(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) lockDevice(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -93,7 +92,7 @@ func lockDevice(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func unlockDevice(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) unlockDevice(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -124,10 +123,10 @@ func unlockDevice(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func sessions(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) sessions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	sessions, err := router.GetAllAuthorised()
+	sessions, err := wsg.firewall.GetAllAuthorised()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -142,7 +141,7 @@ func sessions(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func deleteDevice(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deleteDevice(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

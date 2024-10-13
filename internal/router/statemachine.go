@@ -49,6 +49,25 @@ func (f *Firewall) handleEvents() error {
 
 }
 
+func (f *Firewall) deregisterEventHandlers() {
+
+	eventKeys := []string{
+		f.listenerKeys.Device,
+		f.listenerKeys.Membership,
+		f.listenerKeys.Users,
+		f.listenerKeys.Acls,
+		f.listenerKeys.Groups,
+		f.listenerKeys.Timeout,
+	}
+
+	for _, key := range eventKeys {
+		err := data.DeregisterEventListener(key)
+		if err != nil {
+			log.Println("failed to deregister: ", err)
+		}
+	}
+}
+
 func (f *Firewall) inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error {
 
 	switch et {

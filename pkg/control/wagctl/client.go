@@ -15,7 +15,6 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
@@ -310,30 +309,30 @@ func (c *CtrlClient) Sessions() (out []string, err error) {
 	return
 }
 
-func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
+// func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
 
-	response, err := c.httpClient.Get("http://unix/firewall/list")
-	if err != nil {
-		return rules, err
-	}
-	defer response.Body.Close()
+// 	response, err := c.httpClient.Get("http://unix/firewall/list")
+// 	if err != nil {
+// 		return rules, err
+// 	}
+// 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return rules, err
-		}
+// 	if response.StatusCode != 200 {
+// 		result, err := io.ReadAll(response.Body)
+// 		if err != nil {
+// 			return rules, err
+// 		}
 
-		return rules, errors.New("Error: " + string(result))
-	}
+// 		return rules, errors.New("Error: " + string(result))
+// 	}
 
-	err = json.NewDecoder(response.Body).Decode(&rules)
-	if err != nil {
-		return rules, err
-	}
+// 	err = json.NewDecoder(response.Body).Decode(&rules)
+// 	if err != nil {
+// 		return rules, err
+// 	}
 
-	return
-}
+// 	return
+// }
 
 func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 

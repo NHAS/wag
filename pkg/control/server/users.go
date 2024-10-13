@@ -9,7 +9,7 @@ import (
 	"github.com/NHAS/wag/internal/users"
 )
 
-func listUsers(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
@@ -55,7 +55,7 @@ func listUsers(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getUserGroups(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) getUserGroups(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -84,7 +84,7 @@ func getUserGroups(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func lockUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) lockUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,7 +110,7 @@ func lockUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func unlockUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) unlockUser(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
@@ -137,7 +137,7 @@ func unlockUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func deleteUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deleteUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -163,7 +163,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func listAdminUsers(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -208,7 +208,7 @@ func listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func lockAdminUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) lockAdminUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -228,7 +228,7 @@ func lockAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) unlockAdminUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -248,7 +248,7 @@ func unlockAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func deleteAdminUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deleteAdminUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -268,7 +268,7 @@ func deleteAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func resetAdminUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) resetAdminUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -289,7 +289,7 @@ func resetAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func addAdminUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) addAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
@@ -312,7 +312,7 @@ func addAdminUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func resetMfaUser(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) resetMfaUser(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -338,7 +338,7 @@ func resetMfaUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func getUserAcl(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) getUserAcl(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

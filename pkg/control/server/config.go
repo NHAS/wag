@@ -10,7 +10,7 @@ import (
 	"github.com/NHAS/wag/pkg/control"
 )
 
-func policies(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) policies(w http.ResponseWriter, r *http.Request) {
 	policies, err := data.GetPolicies()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -23,7 +23,7 @@ func policies(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultBytes)
 }
 
-func newPolicy(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) newPolicy(w http.ResponseWriter, r *http.Request) {
 
 	var acl control.PolicyData
 
@@ -44,7 +44,7 @@ func newPolicy(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
-func editPolicy(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Request) {
 
 	var polciyData control.PolicyData
 
@@ -64,7 +64,7 @@ func editPolicy(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
-func deletePolicies(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deletePolicies(w http.ResponseWriter, r *http.Request) {
 	var policyNames []string
 	if err := json.NewDecoder(r.Body).Decode(&policyNames); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -85,7 +85,7 @@ func deletePolicies(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
-func groups(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) groups(w http.ResponseWriter, r *http.Request) {
 	groups, err := data.GetGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,7 +98,7 @@ func groups(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func newGroup(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) newGroup(w http.ResponseWriter, r *http.Request) {
 
 	var gData control.GroupData
 
@@ -118,7 +118,7 @@ func newGroup(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
-func editGroup(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Request) {
 
 	var gdata control.GroupData
 
@@ -138,7 +138,7 @@ func editGroup(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK!"))
 }
 
-func deleteGroup(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deleteGroup(w http.ResponseWriter, r *http.Request) {
 
 	var groupNames []string
 	if err := json.NewDecoder(r.Body).Decode(&groupNames); err != nil {

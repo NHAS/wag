@@ -7,7 +7,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 )
 
-func listErrors(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listErrors(w http.ResponseWriter, r *http.Request) {
 
 	errors, err := data.GetAllErrors()
 	if err != nil {
@@ -25,7 +25,7 @@ func listErrors(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func listMembers(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listMembers(w http.ResponseWriter, r *http.Request) {
 
 	errors := data.GetMembers()
 
@@ -39,7 +39,7 @@ func listMembers(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func getLastMemberPing(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) getLastMemberPing(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {

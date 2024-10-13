@@ -61,7 +61,7 @@ func Teardown() {
 	log.Println("Stopped MFA portal")
 }
 
-func Start(errChan chan<- error) error {
+func NewAuthorisationServer(errChan chan<- error) error {
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
 		// Only use curves which have assembly implementations

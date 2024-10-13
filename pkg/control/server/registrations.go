@@ -12,7 +12,7 @@ import (
 	"github.com/NHAS/wag/pkg/control"
 )
 
-func listRegistrations(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listRegistrations(w http.ResponseWriter, r *http.Request) {
 
 	result, err := data.GetRegistrationTokens()
 	if err != nil {
@@ -31,7 +31,7 @@ func listRegistrations(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func newRegistration(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -118,7 +118,7 @@ func newRegistration(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func deleteRegistration(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) deleteRegistration(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

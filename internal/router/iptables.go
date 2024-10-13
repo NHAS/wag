@@ -14,6 +14,10 @@ func (f *Firewall) setupIptables() error {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
+
 	ipt, err := iptables.New()
 	if err != nil {
 		return err
@@ -101,7 +105,12 @@ func (f *Firewall) setupIptables() error {
 	return nil
 }
 
-func teardownIptables() {
+func (f *Firewall) teardownIptables() {
+
+	if f.closed {
+		panic("something called teardown on an already torn down firewall instance")
+	}
+
 	log.Println("Removing Firewall rules...")
 
 	ipt, err := iptables.New()

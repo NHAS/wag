@@ -1,7 +1,7 @@
 package server
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -12,25 +12,25 @@ import (
 	"github.com/NHAS/wag/pkg/httputils"
 )
 
-func firewallRules(w http.ResponseWriter, r *http.Request) {
+// func (wsg *WagControlSocketServer) firewallRules(w http.ResponseWriter, r *http.Request) {
 
-	rules, err := router.GetRules()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+// 	rules, err := router.GetRules()
+// 	if err != nil {
+// 		http.Error(w, err.Error(), 500)
+// 		return
+// 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	result, err := json.Marshal(rules)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+// 	w.Header().Set("Content-Type", "application/json")
+// 	result, err := json.Marshal(rules)
+// 	if err != nil {
+// 		http.Error(w, err.Error(), 500)
+// 		return
+// 	}
 
-	w.Write(result)
-}
+// 	w.Write(result)
+// }
 
-func version(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) version(w http.ResponseWriter, r *http.Request) {
 	if config.Version == "" {
 		config.Version = "DEBUG (git tag not injected)"
 	}
@@ -38,7 +38,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(config.Version))
 }
 
-func shutdown(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) shutdown(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -53,26 +53,40 @@ func shutdown(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("OK"))
 
-	TearDown()
+	wsg.TearDown()
 
 	os.Exit(returnCode)
 }
 
-func StartControlSocket() error {
+type WagControlSocketServer struct {
+	socket net.Listener
+
+	firewall *router.Firewall
+	httpSrv  *http.Server
+}
+
+func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error) {
+	if firewall == nil {
+		panic("firewall is nil")
+	}
+
+	var srvSock WagControlSocketServer
+	srvSock.firewall = firewall
 
 	l, err := net.Listen("unix", config.Values.Socket)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to create unix socket %q for control server: %s", config.Values.Socket, err)
 	}
+	srvSock.socket = l
 
 	//Yes I know this is doubling up on the umask, but meh
 	if err := os.Chmod(config.Values.Socket, 0760); err != nil {
-		return err
+		return nil, fmt.Errorf("failed to chmod control socket %q to allow group control: %s", config.Values.Socket, err)
 	}
 
 	if config.Values.GID != nil {
 		if err := os.Chown(config.Values.Socket, -1, *config.Values.GID); err != nil {
-			return err
+			return nil, fmt.Errorf("failed to chown control socket %q to group %d: %s", config.Values.Socket, *config.Values.GID, err)
 		}
 	}
 
@@ -80,68 +94,76 @@ func StartControlSocket() error {
 
 	controlMux := httputils.NewMux()
 
-	controlMux.Get("/device/list", listDevices)
-	controlMux.Post("/device/lock", lockDevice)
-	controlMux.Post("/device/unlock", unlockDevice)
-	controlMux.Get("/device/sessions", sessions)
-	controlMux.Post("/device/delete", deleteDevice)
+	controlMux.Get("/device/list", srvSock.listDevices)
+	controlMux.Post("/device/lock", srvSock.lockDevice)
+	controlMux.Post("/device/unlock", srvSock.unlockDevice)
+	controlMux.Get("/device/sessions", srvSock.sessions)
+	controlMux.Post("/device/delete", srvSock.deleteDevice)
 
-	controlMux.Get("/users/groups", getUserGroups)
-	controlMux.Get("/users/list", listUsers)
-	controlMux.Post("/users/lock", lockUser)
-	controlMux.Post("/users/unlock", unlockUser)
-	controlMux.Post("/users/delete", deleteUser)
-	controlMux.Post("/users/reset", resetMfaUser)
-	controlMux.Get("/users/acls", getUserAcl)
+	controlMux.Get("/users/groups", srvSock.getUserGroups)
+	controlMux.Get("/users/list", srvSock.listUsers)
+	controlMux.Post("/users/lock", srvSock.lockUser)
+	controlMux.Post("/users/unlock", srvSock.unlockUser)
+	controlMux.Post("/users/delete", srvSock.deleteUser)
+	controlMux.Post("/users/reset", srvSock.resetMfaUser)
+	controlMux.Get("/users/acls", srvSock.getUserAcl)
 
-	controlMux.Get("/groups/list", listGroups)
+	controlMux.Get("/groups/list", srvSock.listGroups)
 
-	controlMux.Get("/webadmin/list", listAdminUsers)
-	controlMux.Post("/webadmin/lock", lockAdminUser)
-	controlMux.Post("/webadmin/unlock", unlockAdminUser)
-	controlMux.Post("/webadmin/delete", deleteAdminUser)
-	controlMux.Post("/webadmin/reset", resetAdminUser)
-	controlMux.Post("/webadmin/add", addAdminUser)
+	controlMux.Get("/webadmin/list", srvSock.listAdminUsers)
+	controlMux.Post("/webadmin/lock", srvSock.lockAdminUser)
+	controlMux.Post("/webadmin/unlock", srvSock.unlockAdminUser)
+	controlMux.Post("/webadmin/delete", srvSock.deleteAdminUser)
+	controlMux.Post("/webadmin/reset", srvSock.resetAdminUser)
+	controlMux.Post("/webadmin/add", srvSock.addAdminUser)
 
-	controlMux.Get("/firewall/list", firewallRules)
-	controlMux.Get("/config/policies/list", policies)
-	controlMux.Post("/config/policy/edit", editPolicy)
-	controlMux.Post("/config/policy/create", newPolicy)
-	controlMux.Post("/config/policies/delete", deletePolicies)
+	//controlMux.Get("/firewall/list", firewallRules)
+	controlMux.Get("/config/policies/list", srvSock.policies)
+	controlMux.Post("/config/policy/edit", srvSock.editPolicy)
+	controlMux.Post("/config/policy/create", srvSock.newPolicy)
+	controlMux.Post("/config/policies/delete", srvSock.deletePolicies)
 
-	controlMux.Get("/config/group/list", groups)
-	controlMux.Post("/config/group/edit", editGroup)
-	controlMux.Post("/config/group/create", newGroup)
-	controlMux.Post("/config/group/delete", deleteGroup)
+	controlMux.Get("/config/group/list", srvSock.groups)
+	controlMux.Post("/config/group/edit", srvSock.editGroup)
+	controlMux.Post("/config/group/create", srvSock.newGroup)
+	controlMux.Post("/config/group/delete", srvSock.deleteGroup)
 
-	controlMux.Get("/config/settings", getAllSettings)
-	controlMux.Get("/config/settings/lockout", getLockout)
+	controlMux.Get("/config/settings", srvSock.getAllSettings)
+	controlMux.Get("/config/settings/lockout", srvSock.getLockout)
 
-	controlMux.Get("/version", version)
+	controlMux.Get("/version", srvSock.version)
 
-	controlMux.Post("/shutdown", shutdown)
+	controlMux.Post("/shutdown", srvSock.shutdown)
 
-	controlMux.Get("/registration/list", listRegistrations)
-	controlMux.Post("/registration/create", newRegistration)
-	controlMux.Post("/registration/delete", deleteRegistration)
+	controlMux.Get("/registration/list", srvSock.listRegistrations)
+	controlMux.Post("/registration/create", srvSock.newRegistration)
+	controlMux.Post("/registration/delete", srvSock.deleteRegistration)
 
-	controlMux.Get("/clustering/errors", listErrors)
-	controlMux.Get("/clustering/members", listMembers)
-	controlMux.Get("/clustering/ping", getLastMemberPing)
+	controlMux.Get("/clustering/errors", srvSock.listErrors)
+	controlMux.Get("/clustering/members", srvSock.listMembers)
+	controlMux.Get("/clustering/ping", srvSock.getLastMemberPing)
+
+	srvSock.httpSrv = &http.Server{
+		Handler: controlMux,
+	}
 
 	go func() {
-		srv := &http.Server{
-			Handler: controlMux,
+		err := srvSock.httpSrv.Serve(srvSock.socket)
+		if err != nil {
+			log.Println("failed to serve control socket: ", err)
 		}
-
-		log.Println("failed to serve control socket: ", srv.Serve(l))
 	}()
-	return nil
+
+	return &srvSock, nil
 }
 
-func TearDown() {
-	err := os.Remove(config.Values.Socket)
+func (wsg *WagControlSocketServer) TearDown() error {
+
+	// contains an implicit wsg.socket.Close(), which will remove the unix socket
+	err := wsg.httpSrv.Close()
 	if err != nil {
-		log.Println(err)
+		return fmt.Errorf("failed to stop (and remove) wag control socket %q this may cause error on next start, delete to start %q: %s", config.Values.Socket, config.Values.Socket, err)
 	}
+
+	return nil
 }

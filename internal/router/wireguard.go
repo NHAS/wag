@@ -116,10 +116,11 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 
 	for i := 0; i < n; i++ {
 		p.Decode(buffs[i][offset : offset+sizes[i]])
-		if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
-			buffs[i] = buff
-			i++
-		}
+		// TODO
+		// if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+		// 	buffs[i] = buff
+		// 	i++
+		// }
 	}
 
 	return n, err
@@ -134,10 +135,10 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 	for _, buff := range buffs {
 		p.Decode(buff[offset:])
 
-		if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
-			buffs[i] = buff
-			i++
-		}
+		// if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+		// 	buffs[i] = buff
+		// 	i++
+		// }
 	}
 
 	buffs = buffs[:i]
@@ -467,6 +468,10 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 }
 
 func (f *Firewall) ServerDetails() (key wgtypes.Key, port int, err error) {
+	if f.closed {
+		return key, 0, errors.New("firewall instance has been closed")
+	}
+
 	ctr, err := wgctrl.New()
 	if err != nil {
 		return key, port, fmt.Errorf("cannot start wireguard control %v", err)
@@ -507,9 +512,12 @@ func (f *Firewall) setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) er
 
 // Remove a wireguard peer from xdp firewall and wg device
 func (f *Firewall) RemovePeer(publickey, address string) error {
-
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	return f._removePeer(publickey, address)
 }
@@ -559,6 +567,10 @@ func (f *Firewall) ReplacePeer(device data.Device, newPublicKey wgtypes.Key) err
 
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	addressesMap, ok := f.userToDevices[device.Username]
 	if !ok {
@@ -616,6 +628,10 @@ func (f *Firewall) ListPeers() ([]wgtypes.Peer, error) {
 	f.Lock()
 	defer f.Unlock()
 
+	if f.closed {
+		return nil, errors.New("firewall instance has been closed")
+	}
+
 	dev, err := f.ctrl.Device(f.Config.DeviceName)
 	if err != nil {
 		return nil, err
@@ -629,6 +645,10 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 
 	f.Lock()
 	defer f.Unlock()
+
+	if f.closed {
+		return errors.New("firewall instance has been closed")
+	}
 
 	preshared_key, err := wgtypes.ParseKey(presharedKey)
 	if err != nil {

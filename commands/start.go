@@ -98,21 +98,32 @@ func (g *start) Check() error {
 
 }
 
-func teardown(force bool) {
-	router.TearDown(force)
-	// Tear down Unix socket
-	server.TearDown()
-
-	ui.Teardown()
-	webserver.Teardown()
-}
-
 func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 
 	// Make sure that node states are sync'd
-	var lck sync.Mutex
-	wasDead := true
-	lastState := ""
+	var (
+		lck       sync.Mutex
+		wasDead   bool = true
+		lastState string
+
+		controlServer *server.WagControlSocketServer
+		routerFw      *router.Firewall
+
+		err error
+	)
+
+	teardown := func(force bool) {
+		routerFw.Close()
+
+		if controlServer != nil {
+			// Tear down Unix socket
+			controlServer.TearDown()
+		}
+
+		ui.Teardown()
+		webserver.Teardown()
+	}
+
 	return func(stateText string) {
 		lck.Lock()
 		defer lck.Unlock()
@@ -141,19 +152,19 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 			if wasDead {
 
 				if !config.Values.Clustering.Witness {
-					err := router.Setup(errorChan, !noIptables)
+					routerFw, err = router.New(!noIptables)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start router: %v", err)
 						return
 					}
 
-					err = server.StartControlSocket()
+					controlServer, err = server.NewControlServer(routerFw)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to create control socket: %v", err)
 						return
 					}
 
-					err = webserver.Start(errorChan)
+					err = webserver.NewAuthorisationServer(errorChan)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start webserver: %v", err)
 						return
@@ -237,7 +248,7 @@ func (g *start) Run() error {
 
 	err = <-errorChan
 
-	teardown(true)
+	// TODO, teardown on control c
 
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err

@@ -1,14 +1,11 @@
 package commands
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"strings"
 
 	"github.com/NHAS/wag/pkg/control"
-	"github.com/NHAS/wag/pkg/control/wagctl"
 )
 
 type firewallCmd struct {
@@ -59,19 +56,19 @@ func (g *firewallCmd) Check() error {
 
 func (g *firewallCmd) Run() error {
 
-	ctl := wagctl.NewControlClient(g.socket)
+	//ctl := wagctl.NewControlClient(g.socket)
 
 	switch g.action {
 	case "list":
 
-		rules, err := ctl.FirewallRules()
-		if err != nil {
-			return err
-		}
+		// rules, err := ctl.FirewallRules()
+		// if err != nil {
+		// 	return err
+		// }
 
-		b, _ := json.Marshal(rules)
+		// b, _ := json.Marshal(rules)
 
-		fmt.Println(string(b))
+		// fmt.Println(string(b))
 	}
 	return nil
 
