@@ -695,7 +695,7 @@ func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
 
 	routes, err := mp.firewall.GetRoutes(user.Username)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "Getting routes from xdp failed: ", err)
+		log.Println(user.Username, remoteAddress, "Getting routes from firewall failed: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}

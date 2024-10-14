@@ -510,7 +510,7 @@ func (f *Firewall) setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) er
 	return nil
 }
 
-// Remove a wireguard peer from xdp firewall and wg device
+// Remove a wireguard peer from firewall and wg device
 func (f *Firewall) RemovePeer(publickey, address string) error {
 	f.Lock()
 	defer f.Unlock()
