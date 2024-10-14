@@ -20,33 +20,33 @@ func (au *AdminUI) firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// rules, err := au.ctrl.FirewallRules()
-	// if err != nil {
-	// 	log.Println("error getting firewall rules data", err)
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
+	rules, err := au.ctrl.FirewallRules()
+	if err != nil {
+		log.Println("error getting firewall rules data", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	// result, err := json.MarshalIndent(rules, "", "    ")
-	// if err != nil {
-	// 	log.Println("error marshalling data", err)
-	// 	http.Error(w, "Bad Request", http.StatusBadRequest)
-	// 	return
-	// }
+	result, err := json.MarshalIndent(rules, "", "    ")
+	if err != nil {
+		log.Println("error marshalling data", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
 
 	d := struct {
 		Page
-		XDPState string
+		State string
 	}{
 		Page: Page{
 
 			Description: "Firewall state page",
 			Title:       "Firewall",
 		},
-		XDPState: "TODO",
+		State: string(result),
 	}
 
-	err := au.renderDefaults(w, r, d, "diagnostics/firewall_state.html")
+	err = au.renderDefaults(w, r, d, "diagnostics/firewall_state.html")
 
 	if err != nil {
 		log.Println("unable to render firewall page: ", err)
