@@ -50,7 +50,7 @@ sudo ./wag gen-config
 sudo ./wag start -config <generated_config_name>
 ```
   
-From source (will require `go1.19`, `npm`, `gulp`, `clang`, `llvm-strip`, `libbpf`):  
+From source (will require `go1.19`, `npm`, `gulp`):  
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
@@ -549,9 +549,7 @@ Example:
 
 # Limitations
 - Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
-- IPv4 only.
-- Linux only
-- Very Modern kernel 5.9+ at least (>5.9 allows loops in ebpf and `bpf_link`)
+- Primarily Linux only but windows may work with some effort
 
 
 # Development 
@@ -578,8 +576,6 @@ When the option is set, you must define *all* the files this guide is a brief de
 cd internal/router
 sudo go test -v .
 ```
-
-Sudo is required to load the eBPF program into the kernel.
 
 ## Building a release
 

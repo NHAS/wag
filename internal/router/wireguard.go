@@ -36,16 +36,19 @@ type Wrapper struct {
 	// closed signals poll (by closing) when the device is closed.
 	closed chan struct{}
 
+	fw *Firewall
+
 	closeOnce sync.Once
 }
 
-func NewWrap(tdev tun.Device) *Wrapper {
+func NewWrap(tdev tun.Device, fw *Firewall) *Wrapper {
 	w := &Wrapper{
 		Device: tdev,
 		closed: make(chan struct{}),
 
 		eventsUpDown: make(chan tun.Event),
 		eventsOther:  make(chan tun.Event),
+		fw:           fw,
 	}
 
 	go w.pumpEvents()
@@ -104,6 +107,7 @@ func (t *Wrapper) Close() error {
 	return err
 }
 
+// Read from the OS tun device
 func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 
 	p := parsedPacketPool.Get().(*packet.Parsed)
@@ -126,6 +130,7 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 	return n, err
 }
 
+// Write to the OS tun device i.e going from wireguard peer -> real world
 func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 
 	p := parsedPacketPool.Get().(*packet.Parsed)
@@ -135,10 +140,10 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 	for _, buff := range buffs {
 		p.Decode(buff[offset:])
 
-		// if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
-		// 	buffs[i] = buff
-		// 	i++
-		// }
+		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+			buffs[i] = buff
+			i++
+		}
 	}
 
 	buffs = buffs[:i]
@@ -220,7 +225,7 @@ func (f *Firewall) setupWireguard() error {
 		return fmt.Errorf("UAPI listen error: %v", err)
 	}
 
-	tdev = NewWrap(tdev)
+	tdev = NewWrap(tdev, f)
 	device := device.NewDevice(tdev, conn.NewDefaultBind(), logger)
 	device.SetEventHandler(f.endpointChange)
 

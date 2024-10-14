@@ -73,14 +73,8 @@ func (g *version) Run() error {
 			return err
 		}
 
-		hash, err := ctl.GetBPFVersion()
-		if err != nil {
-			return err
-		}
-
 		fmt.Println("remote")
 		fmt.Println("Version:", ver)
-		fmt.Println("Hash:", hash)
 		return nil
 	}
 
