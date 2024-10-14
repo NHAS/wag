@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -12,23 +13,23 @@ import (
 	"github.com/NHAS/wag/pkg/httputils"
 )
 
-// func (wsg *WagControlSocketServer) firewallRules(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) firewallRules(w http.ResponseWriter, r *http.Request) {
 
-// 	rules, err := router.GetRules()
-// 	if err != nil {
-// 		http.Error(w, err.Error(), 500)
-// 		return
-// 	}
+	rules, err := wsg.firewall.GetRules()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-// 	w.Header().Set("Content-Type", "application/json")
-// 	result, err := json.Marshal(rules)
-// 	if err != nil {
-// 		http.Error(w, err.Error(), 500)
-// 		return
-// 	}
+	w.Header().Set("Content-Type", "application/json")
+	result, err := json.Marshal(rules)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-// 	w.Write(result)
-// }
+	w.Write(result)
+}
 
 func (wsg *WagControlSocketServer) version(w http.ResponseWriter, r *http.Request) {
 	if config.Version == "" {
@@ -41,7 +42,7 @@ func (wsg *WagControlSocketServer) version(w http.ResponseWriter, r *http.Reques
 func (wsg *WagControlSocketServer) shutdown(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -117,7 +118,7 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 	controlMux.Post("/webadmin/reset", srvSock.resetAdminUser)
 	controlMux.Post("/webadmin/add", srvSock.addAdminUser)
 
-	//controlMux.Get("/firewall/list", firewallRules)
+	controlMux.Get("/firewall/list", srvSock.firewallRules)
 	controlMux.Get("/config/policies/list", srvSock.policies)
 	controlMux.Post("/config/policy/edit", srvSock.editPolicy)
 	controlMux.Post("/config/policy/create", srvSock.newPolicy)

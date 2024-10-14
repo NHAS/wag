@@ -99,12 +99,13 @@ func (g *start) Check() error {
 
 }
 
-func clusterState(noIptables bool, errorChan chan<- error) func(string) {
+func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(string) {
 
 	// Make sure that node states are sync'd
 	var (
 		lck       sync.Mutex
 		wasDead   bool = true
+		cancelled bool
 		lastState string
 
 		routerFw *router.Firewall
@@ -137,9 +138,21 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 		}
 	}
 
+	go func() {
+		<-cancel
+		lck.Lock()
+		defer lck.Unlock()
+		cancelled = true
+		teardown()
+	}()
+
 	return func(stateText string) {
 		lck.Lock()
 		defer lck.Unlock()
+
+		if cancelled {
+			return
+		}
 
 		if lastState != stateText {
 			log.Println("node entered state: ", stateText)
@@ -219,8 +232,9 @@ func (g *start) Run() error {
 	defer data.TearDown()
 
 	errorChan := make(chan error)
+	cancel := make(chan bool)
 
-	_, err = data.RegisterClusterHealthListener(clusterState(g.noIptables, errorChan))
+	_, err = data.RegisterClusterHealthListener(startWag(g.noIptables, cancel, errorChan))
 	if err != nil {
 		return err
 	}
@@ -262,8 +276,7 @@ func (g *start) Run() error {
 	log.Printf("%s starting, Ctrl + C to stop", wagType)
 
 	err = <-errorChan
-
-	// TODO, teardown on control c
+	cancel <- true
 
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err

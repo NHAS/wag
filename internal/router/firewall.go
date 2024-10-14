@@ -64,7 +64,15 @@ func (f *Firewall) GetRoutes(username string) ([]string, error) {
 	f.RLock()
 	defer f.RUnlock()
 
-	// TODO
+	result := make([]string, 0, f.userPolicies[username].policies.Size())
+	if _, ok := f.userPolicies[username]; !ok {
+		return result, fmt.Errorf("user not found: %q", username)
+	}
+
+	f.userPolicies[username].policies.All()(func(pfx netip.Prefix, val *[]routetypes.Policy) bool {
+		result = append(result, pfx.String())
+		return true
+	})
 
 	return nil, nil
 }
@@ -454,6 +462,57 @@ func (f *Firewall) SetLockAccount(username string, locked bool) error {
 
 }
 
+type fwDevice struct {
+	LastPacketTimestamp uint64
+	Expiry              uint64
+	IP                  string
+	Authorized          bool
+	AssociatedNode      string
+}
+
+type FirewallRules struct {
+	Policies      []string
+	Devices       []fwDevice
+	AccountLocked bool
+}
+
+func (f *Firewall) GetRules() (map[string]FirewallRules, error) {
+	f.RLock()
+	defer f.RUnlock()
+
+	users, err := data.GetAllUsers()
+	if err != nil {
+		return nil, errors.New("fw rule get all users: " + err.Error())
+	}
+
+	result := make(map[string]FirewallRules)
+
+	for _, user := range users {
+		r := FirewallRules{}
+
+		for _, device := range f.userToDevices[user.Username] {
+			dto := device.toDTO()
+			dto.Authorized = f.isAuthed(device.address)
+			r.Devices = append(r.Devices, dto)
+		}
+
+		f.userPolicies[user.Username].policies.All()(func(pfx netip.Prefix, val *[]routetypes.Policy) bool {
+
+			strPfx := pfx.String()
+			for _, v := range *val {
+				r.Policies = append(r.Policies, fmt.Sprintf("%s %s", strPfx, v.String()))
+			}
+
+			return true
+		})
+
+		r.AccountLocked = f.userIsLocked[user.Username]
+		result[user.Username] = r
+	}
+
+	return result, nil
+}
+
 type FirewallDevice struct {
 	sync.RWMutex
 
@@ -463,11 +522,19 @@ type FirewallDevice struct {
 
 	lastPacketTime time.Time
 	sessionExpiry  time.Time
-	//username       string
 
 	associatedNode uint64
 
 	username string
+}
+
+func (fwd *FirewallDevice) toDTO() fwDevice {
+	return fwDevice{
+		LastPacketTimestamp: uint64(fwd.lastPacketTime.Unix()),
+		Expiry:              uint64(fwd.sessionExpiry.Unix()),
+
+		IP: fwd.address.String(),
+	}
 }
 
 func (d *FirewallDevice) isAuthed() bool {
