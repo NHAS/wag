@@ -7,7 +7,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 )
 
-func listGroups(w http.ResponseWriter, r *http.Request) {
+func (wsg *WagControlSocketServer) listGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := data.GetGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

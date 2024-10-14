@@ -12,11 +12,11 @@ import (
 
 	"github.com/NHAS/session"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
-	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/NHAS/webauthn/protocol"
 	"github.com/NHAS/webauthn/webauthn"
 )
@@ -25,9 +25,13 @@ type Webauthn struct {
 	enable
 	sessions         *session.SessionStore[*webauthn.SessionData]
 	webauthnExecutor *webauthn.WebAuthn
+
+	fw *router.Firewall
 }
 
-func (wa *Webauthn) Init() error {
+func (wa *Webauthn) Init(fw *router.Firewall) error {
+
+	wa.fw = fw
 
 	d, err := data.GetWebauthn()
 	if err != nil {
@@ -60,7 +64,7 @@ func (wa *Webauthn) FriendlyName() string {
 func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if wa.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return
@@ -180,7 +184,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if wa.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return

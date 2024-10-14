@@ -8,7 +8,8 @@ import (
 	"sync"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
+	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/httputils"
 )
 
@@ -55,7 +56,7 @@ func EnableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
+func ReinitaliseMethods(firewall *router.Firewall, method ...types.MFA) ([]types.MFA, error) {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -64,7 +65,7 @@ func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
 	var errRet error
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
-			err := a.Init()
+			err := a.Init(firewall)
 			if err != nil {
 				if errRet == nil {
 					errRet = fmt.Errorf("%s failed to init: %s", m, err)
@@ -129,7 +130,7 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	return
 }
 
-func AddMFARoutes(mux *httputils.HTTPUtilMux) error {
+func AddMFARoutes(mux *httputils.HTTPUtilMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -144,7 +145,7 @@ func AddMFARoutes(mux *httputils.HTTPUtilMux) error {
 	}
 
 	for _, method := range enabledMethods {
-		err := allMfa[types.MFA(method)].Init()
+		err := allMfa[types.MFA(method)].Init(firewall)
 		if err != nil {
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
@@ -168,7 +169,7 @@ func checkEnabled(a Authenticator, f func(w http.ResponseWriter, r *http.Request
 }
 
 type Authenticator interface {
-	Init() error
+	Init(fw *router.Firewall) error
 
 	IsEnabled() bool
 	Enable()

@@ -1,11 +1,11 @@
-package webserver
+package mfaportal
 
 import (
 	"log"
 	"net/http"
 	"path/filepath"
 
-	"github.com/NHAS/wag/internal/webserver/resources"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 )
 
 func setMimeType(w http.ResponseWriter, r *http.Request) {

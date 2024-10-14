@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
-	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
@@ -33,9 +33,13 @@ var (
 
 type Totp struct {
 	enable
+
+	fw *router.Firewall
 }
 
-func (t *Totp) Init() error {
+func (t *Totp) Init(fw *router.Firewall) error {
+
+	t.fw = fw
 	return nil
 }
 
@@ -50,7 +54,7 @@ func (t *Totp) FriendlyName() string {
 func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if t.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return
@@ -157,7 +161,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if t.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return

@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
-	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -33,13 +33,16 @@ type Oidc struct {
 
 	provider rp.RelyingParty
 	details  data.OIDC
+	fw       *router.Firewall
 }
 
 func (o *Oidc) LogoutPath() string {
 	return o.provider.GetEndSessionEndpoint()
 }
 
-func (o *Oidc) Init() error {
+func (o *Oidc) Init(fw *router.Firewall) error {
+
+	o.fw = fw
 
 	key, err := utils.GenerateRandom(32)
 	if err != nil {
@@ -101,7 +104,7 @@ func (o *Oidc) FriendlyName() string {
 func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if o.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return
@@ -145,7 +148,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if o.fw.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 		return

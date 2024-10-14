@@ -3,12 +3,10 @@ package commands
 import (
 	"flag"
 	"fmt"
-	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/router"
-	"github.com/NHAS/wag/pkg/control/server"
 	"log"
 	"os"
+
+	"github.com/NHAS/wag/internal/config"
 )
 
 type cleanup struct {
@@ -61,9 +59,9 @@ func (g *cleanup) Run() error {
 	if result != "0" && result != "3" {
 		log.Println("Cleaning up")
 
-		router.TearDown(true)
-		server.TearDown()
-		data.TearDown()
+		// router.TearDown(true)
+		// server.TearDown()
+		// data.TearDown()
 
 		return nil
 

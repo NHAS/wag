@@ -11,12 +11,13 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/NHAS/wag/adminui"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal"
+
 	"github.com/NHAS/wag/internal/router"
-	"github.com/NHAS/wag/internal/webserver"
 	"github.com/NHAS/wag/pkg/control/server"
-	"github.com/NHAS/wag/ui"
 	"golang.org/x/sys/unix"
 )
 
@@ -106,22 +107,34 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 		wasDead   bool = true
 		lastState string
 
+		routerFw *router.Firewall
+
 		controlServer *server.WagControlSocketServer
-		routerFw      *router.Firewall
+		mfaPortal     *mfaportal.MfaPortal
+		adminUI       *adminui.AdminUI
 
 		err error
 	)
 
-	teardown := func(force bool) {
-		routerFw.Close()
+	teardown := func() {
+		// Guarded by lck
 
 		if controlServer != nil {
 			// Tear down Unix socket
 			controlServer.TearDown()
 		}
 
-		ui.Teardown()
-		webserver.Teardown()
+		if mfaPortal != nil {
+			mfaPortal.Close()
+		}
+
+		if adminUI != nil {
+			adminUI.Close()
+		}
+
+		if routerFw != nil {
+			routerFw.Close()
+		}
 	}
 
 	return func(stateText string) {
@@ -139,7 +152,7 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 
 				if !config.Values.Clustering.Witness {
 					log.Println("Tearing down node")
-					teardown(false)
+					teardown()
 					log.Println("Tear down complete")
 				} else {
 					log.Println("refusing to tear down witness node (nothing to tear down)")
@@ -164,16 +177,18 @@ func clusterState(noIptables bool, errorChan chan<- error) func(string) {
 						return
 					}
 
-					err = webserver.NewAuthorisationServer(errorChan)
+					mfaPortal, err = mfaportal.New(routerFw, errorChan)
 					if err != nil {
-						errorChan <- fmt.Errorf("unable to start webserver: %v", err)
+						errorChan <- fmt.Errorf("unable to start mfa portal: %v", err)
 						return
 					}
 
-					err = ui.StartWebServer(errorChan)
-					if err != nil {
-						errorChan <- fmt.Errorf("unable to start management web server: %v", err)
-						return
+					if config.Values.ManagementUI.Enabled {
+						adminUI, err = adminui.New(routerFw, errorChan)
+						if err != nil {
+							errorChan <- fmt.Errorf("unable to start management web server: %v", err)
+							return
+						}
 					}
 				}
 

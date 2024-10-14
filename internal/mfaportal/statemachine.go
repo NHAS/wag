@@ -1,39 +1,57 @@
-package webserver
+package mfaportal
 
 import (
 	"log"
 	"slices"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 )
 
-func registerListeners() error {
-	_, err := data.RegisterEventListener(data.OidcDetailsKey, false, oidcChanges)
+func (mp *MfaPortal) registerListeners() error {
+	var err error
+
+	mp.listenerKeys.Oidc, err = data.RegisterEventListener(data.OidcDetailsKey, false, mp.oidcChanges)
 	if err != nil {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.DomainKey, false, domainChanged)
+	mp.listenerKeys.Domain, err = data.RegisterEventListener(data.DomainKey, false, mp.domainChanged)
 	if err != nil {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.MFAMethodsEnabledKey, false, enabledMethodsChanged)
+	mp.listenerKeys.MFAMethods, err = data.RegisterEventListener(data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
 	if err != nil {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.IssuerKey, false, issuerKeyChanged)
+	mp.listenerKeys.Issuer, err = data.RegisterEventListener(data.IssuerKey, false, mp.issuerKeyChanged)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func (mp *MfaPortal) deregisterListeners() {
+	eventKeys := []string{
+		mp.listenerKeys.Oidc,
+		mp.listenerKeys.Domain,
+		mp.listenerKeys.MFAMethods,
+		mp.listenerKeys.Issuer,
+	}
+
+	for _, key := range eventKeys {
+		err := data.DeregisterEventListener(key)
+		if err != nil {
+			log.Println("failed to deregister: ", err)
+		}
+	}
+}
+
 // OidcDetailsKey = "wag-config-authentication-oidc"
-func oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
+func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Oidc)
@@ -46,7 +64,7 @@ func oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Oidc)
 
 			return err
 		}
@@ -56,7 +74,7 @@ func oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
 }
 
 // DomainKey            = "wag-config-authentication-domain"
-func domainChanged(_ string, _ string, _ string, et data.EventType) error {
+func (mp *MfaPortal) domainChanged(_ string, _ string, _ string, et data.EventType) error {
 	switch et {
 	case data.MODIFIED:
 
@@ -67,7 +85,7 @@ func domainChanged(_ string, _ string, _ string, et data.EventType) error {
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Oidc)
 
 			return err
 		}
@@ -77,21 +95,21 @@ func domainChanged(_ string, _ string, _ string, et data.EventType) error {
 }
 
 // MethodsEnabledKey    = "wag-config-authentication-methods"
-func enabledMethodsChanged(_ string, current, previous []string, et data.EventType) (err error) {
+func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string, et data.EventType) (err error) {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
 	case data.CREATED:
 		var initdMethods []types.MFA
 
-		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
+		initdMethods, err = authenticators.ReinitaliseMethods(mp.firewall, authenticators.StringsToMFA(current)...)
 		authenticators.EnableMethods(initdMethods...)
 
 	case data.MODIFIED:
 		var initdMethods []types.MFA
 
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
-		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
+		initdMethods, err = authenticators.ReinitaliseMethods(mp.firewall, authenticators.StringsToMFA(current)...)
 
 		authenticators.EnableMethods(initdMethods...)
 	}
@@ -100,12 +118,12 @@ func enabledMethodsChanged(_ string, current, previous []string, et data.EventTy
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
-func issuerKeyChanged(_ string, _, _ string, et data.EventType) error {
+func (mp *MfaPortal) issuerKeyChanged(_ string, _, _ string, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
 	case data.CREATED, data.MODIFIED:
-		_, err := authenticators.ReinitaliseMethods(types.Totp, types.Webauthn)
+		_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Totp, types.Webauthn)
 		return err
 	}
 

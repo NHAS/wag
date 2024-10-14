@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 

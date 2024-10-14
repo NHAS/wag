@@ -1,0 +1,15 @@
+{
+  "name": "jquery.easing",
+  "homepage": "https://github.com/gdsmith/jquery.easing",
+  "version": "1.3.2",
+  "_release": "1.3.2",
+  "_resolution": {
+    "type": "version",
+    "tag": "1.3.2",
+    "commit": "979dcadfad6edad95d10967f80c16e5a0c111c07"
+  },
+  "_source": "git://github.com/gdsmith/jquery.easing.git",
+  "_target": "~1.3.2",
+  "_originalSource": "jquery-easing-original",
+  "_direct": true
+}

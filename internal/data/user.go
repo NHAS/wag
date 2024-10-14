@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/NHAS/wag/internal/webserver/authenticators/types"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )

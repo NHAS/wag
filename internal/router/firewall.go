@@ -51,11 +51,22 @@ type Firewall struct {
 		Groups  string
 		Timeout string
 	}
+
+	Verifier *Challenger
 }
 
 type FirewallConfig struct {
 	DeviceName string
 	NodeID     uint64
+}
+
+func (f *Firewall) GetRoutes(username string) ([]string, error) {
+	f.RLock()
+	defer f.RUnlock()
+
+	// TODO
+
+	return nil, nil
 }
 
 func (f *Firewall) SetInactivityTimeout(inactivityTimeoutMinutes int) error {

@@ -1,0 +1,63 @@
+/**
+ * @author zhixin wen <wenzhixin2010@gmail.com>
+ * https://github.com/wenzhixin/bootstrap-table/
+ * theme: https://github.com/Semantic-Org/Semantic-UI
+ */
+
+@import "./variables";
+@import "../theme";
+
+.bootstrap-table {
+  .fixed-table-container.fixed-height:not(.has-footer),
+  .fixed-table-body {
+    border-bottom-left-radius: 0.2857rem;
+    border-bottom-right-radius: 0.2857rem;
+  }
+
+  .float-left {
+    float: left;
+  }
+
+  .float-right {
+    float: right;
+  }
+
+  .fixed-table-toolbar {
+    .search input {
+      padding-top: 0.6071rem;
+      padding-bottom: 0.6071rem;
+    }
+
+    .button.dropdown {
+      padding: 0;
+
+      .button {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+    }
+
+    .ui.buttons .button:last-child .button {
+      border-top-right-radius: 0.2857rem;
+      border-bottom-right-radius: 0.2857rem;
+    }
+  }
+
+  .fixed-table-header .table {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+  }
+
+  .table {
+    background: transparent;
+
+    thead th[data-not-first-th] {
+      border-left: 1px solid $border-color !important;
+    }
+  }
+
+  .dropup i.icon.dropdown::before {
+    content: "\f0d8";
+  }
+}

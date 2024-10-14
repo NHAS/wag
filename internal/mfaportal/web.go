@@ -1,4 +1,4 @@
-package webserver
+package mfaportal
 
 import (
 	"bytes"
@@ -19,12 +19,12 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/internal/webserver/authenticators"
-	"github.com/NHAS/wag/internal/webserver/resources"
 	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
@@ -32,36 +32,53 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var (
+type MfaPortal struct {
 	tunnelHTTPServ *http.Server
 	tunnelTLSServ  *http.Server
 
 	publicHTTPServ *http.Server
 	publicTLSServ  *http.Server
-)
+	firewall       *router.Firewall
 
-func Teardown() {
+	listenerKeys struct {
+		Oidc       string
+		Domain     string
+		MFAMethods string
+		Issuer     string
+	}
+}
 
-	if tunnelHTTPServ != nil {
-		tunnelHTTPServ.Close()
+func (mp *MfaPortal) Close() {
+
+	if mp.tunnelHTTPServ != nil {
+		mp.tunnelHTTPServ.Close()
 	}
 
-	if tunnelTLSServ != nil {
-		tunnelTLSServ.Close()
+	if mp.tunnelTLSServ != nil {
+		mp.tunnelTLSServ.Close()
 	}
 
-	if publicHTTPServ != nil {
-		publicHTTPServ.Close()
+	if mp.publicHTTPServ != nil {
+		mp.publicHTTPServ.Close()
 	}
 
-	if publicTLSServ != nil {
-		publicTLSServ.Close()
+	if mp.publicTLSServ != nil {
+		mp.publicTLSServ.Close()
 	}
+
+	mp.deregisterListeners()
 
 	log.Println("Stopped MFA portal")
 }
 
-func NewAuthorisationServer(errChan chan<- error) error {
+func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
+	if firewall == nil {
+		panic("firewall was nil")
+	}
+
+	var mfaPortal MfaPortal
+	mfaPortal.firewall = firewall
+
 	//https://blog.cloudflare.com/exposing-go-on-the-internet/
 	tlsConfig := &tls.Config{
 		// Only use curves which have assembly implementations
@@ -82,14 +99,14 @@ func NewAuthorisationServer(errChan chan<- error) error {
 
 	public := httputils.NewMux()
 	public.Get("/static/", embeddedStatic)
-	public.Get("/register_device", registerDevice)
-	public.Get("/reachability", reachability)
+	public.Get("/register_device", mfaPortal.registerDevice)
+	public.Get("/reachability", mfaPortal.reachability)
 
 	if config.Values.Webserver.Public.SupportsTLS() {
 
 		go func() {
 
-			publicTLSServ = &http.Server{
+			mfaPortal.publicTLSServ = &http.Server{
 				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -98,7 +115,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			if err := publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver public listener failed: %v", err)
 			}
 		}()
@@ -119,7 +136,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 					port = ""
 				}
 
-				publicHTTPServ = &http.Server{
+				mfaPortal.publicHTTPServ = &http.Server{
 					Addr:         address + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
@@ -127,13 +144,13 @@ func NewAuthorisationServer(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				log.Printf("Creating redirection from 80/tcp to TLS webserver public listener failed: %v", publicHTTPServ.ListenAndServe())
+				log.Printf("Creating redirection from 80/tcp to TLS webserver public listener failed: %v", mfaPortal.publicHTTPServ.ListenAndServe())
 			}()
 		}
 
 	} else {
 		go func() {
-			publicHTTPServ = &http.Server{
+			mfaPortal.publicHTTPServ = &http.Server{
 				Addr:         config.Values.Webserver.Public.ListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -141,7 +158,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(public),
 			}
 
-			if err := publicHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.publicHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("HTTP webserver public listener failed: %v", err)
 			}
 		}()
@@ -149,10 +166,10 @@ func NewAuthorisationServer(errChan chan<- error) error {
 
 	tunnel := httputils.NewMux()
 
-	tunnel.Get("/status/", status)
-	tunnel.Get("/routes/", routes)
+	tunnel.Get("/status/", mfaPortal.status)
+	tunnel.Get("/routes/", mfaPortal.routes)
 
-	tunnel.Get("/logout/", logout)
+	tunnel.Get("/logout/", mfaPortal.logout)
 
 	if config.Values.MFATemplatesDirectory != "" {
 		fs := http.FileServer(http.Dir(path.Join(config.Values.MFATemplatesDirectory, "static")))
@@ -162,32 +179,32 @@ func NewAuthorisationServer(errChan chan<- error) error {
 	tunnel.Get("/static/", embeddedStatic)
 
 	// Do inital state setup for our authentication methods
-	err := authenticators.AddMFARoutes(tunnel)
+	err = authenticators.AddMFARoutes(tunnel, mfaPortal.firewall)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to add mfa routes: %s", err)
 	}
 
 	// For any change to the authentication config re-up
-	err = registerListeners()
+	err = mfaPortal.registerListeners()
 	if err != nil {
-		return fmt.Errorf("failed ot register listeners: %s", err)
+		return nil, fmt.Errorf("failed ot register listeners: %s", err)
 	}
 
-	tunnel.GetOrPost("/authorise/", authorise)
-	tunnel.GetOrPost("/register_mfa/", registerMFA)
+	tunnel.GetOrPost("/authorise/", mfaPortal.authorise)
+	tunnel.GetOrPost("/register_mfa/", mfaPortal.registerMFA)
 
-	tunnel.Get("/public_key/", publicKey)
+	tunnel.Get("/public_key/", mfaPortal.publicKey)
 
-	tunnel.Get("/challenge/", router.Verifier.WS)
+	tunnel.Get("/challenge/", mfaPortal.firewall.Verifier.WS)
 
-	tunnel.GetOrPost("/", index)
+	tunnel.GetOrPost("/", mfaPortal.index)
 
 	tunnelListenAddress := config.Values.Wireguard.ServerAddress.String() + ":" + config.Values.Webserver.Tunnel.Port
 	if config.Values.Webserver.Tunnel.SupportsTLS() {
 
 		go func() {
 
-			tunnelTLSServ = &http.Server{
+			mfaPortal.tunnelTLSServ = &http.Server{
 				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -195,7 +212,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 				TLSConfig:    tlsConfig,
 				Handler:      setSecurityHeaders(tunnel),
 			}
-			if err := tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
 			}
 
@@ -209,7 +226,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 					port = ""
 				}
 
-				tunnelHTTPServ = &http.Server{
+				mfaPortal.tunnelHTTPServ = &http.Server{
 					Addr:         config.Values.Wireguard.ServerAddress.String() + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
@@ -217,12 +234,12 @@ func NewAuthorisationServer(errChan chan<- error) error {
 					Handler:      setSecurityHeaders(setRedirectHandler(port)),
 				}
 
-				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", tunnelHTTPServ.ListenAndServe())
+				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", mfaPortal.tunnelHTTPServ.ListenAndServe())
 			}()
 		}
 	} else {
 		go func() {
-			tunnelHTTPServ = &http.Server{
+			mfaPortal.tunnelHTTPServ = &http.Server{
 				Addr:         tunnelListenAddress,
 				ReadTimeout:  5 * time.Second,
 				WriteTimeout: 10 * time.Second,
@@ -230,7 +247,7 @@ func NewAuthorisationServer(errChan chan<- error) error {
 				Handler:      setSecurityHeaders(tunnel),
 			}
 
-			if err := tunnelHTTPServ.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.tunnelHTTPServ.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("webserver tunnel listener failed: %v", err)
 			}
 
@@ -241,13 +258,13 @@ func NewAuthorisationServer(errChan chan<- error) error {
 	log.Println("Started listening:\n",
 		"\t\t\tTunnel Listener: ", tunnelListenAddress, "\n",
 		"\t\t\tPublic Listener: ", config.Values.Webserver.Public.ListenAddress)
-	return nil
+	return m, nil
 }
 
-func index(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) index(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 
@@ -269,11 +286,11 @@ func index(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/register_mfa/", http.StatusTemporaryRedirect)
 }
 
-func registerMFA(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) registerMFA(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 
@@ -336,10 +353,10 @@ func registerMFA(w http.ResponseWriter, r *http.Request) {
 	mfaMethod.RegistrationUI(w, r, user.Username, clientTunnelIp.String())
 }
 
-func authorise(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) authorise(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if router.IsAuthed(clientTunnelIp.String()) {
+	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
 		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 		resources.Render("success.html", w, nil)
 
@@ -369,7 +386,7 @@ func authorise(w http.ResponseWriter, r *http.Request) {
 	mfaMethod.MFAPromptUI(w, r, user.Username, clientTunnelIp.String())
 }
 
-func reachability(w http.ResponseWriter, _ *http.Request) {
+func (mp *MfaPortal) reachability(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "text/plain")
 
 	isDrained, err := data.IsDrained(data.GetServerID().String())
@@ -389,7 +406,7 @@ func reachability(w http.ResponseWriter, _ *http.Request) {
 
 }
 
-func registerDevice(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) registerDevice(w http.ResponseWriter, r *http.Request) {
 	remoteAddr := utils.GetIPFromRequest(r)
 
 	key, err := url.PathUnescape(r.URL.Query().Get("key"))
@@ -496,7 +513,7 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 
 	acl := data.GetEffectiveAcl(username)
 
-	wgPublicKey, wgPort, err := router.ServerDetails()
+	wgPublicKey, wgPort, err := mp.firewall.ServerDetails()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable access wireguard device: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -636,10 +653,10 @@ func registerDevice(w http.ResponseWriter, r *http.Request) {
 	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
 }
 
-func logout(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if !router.IsAuthed(clientTunnelIp.String()) {
+	if !mp.firewall.IsAuthed(clientTunnelIp.String()) {
 		http.NotFound(w, r)
 		return
 	}
@@ -667,7 +684,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, method.LogoutPath(), http.StatusTemporaryRedirect)
 }
 
-func routes(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
@@ -676,7 +693,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	routes, err := router.GetRoutes(user.Username)
+	routes, err := mp.firewall.GetRoutes(user.Username)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "Getting routes from xdp failed: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -689,7 +706,7 @@ func routes(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func status(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) status(w http.ResponseWriter, r *http.Request) {
 	remoteAddress := utils.GetIPFromRequest(r)
 	user, err := users.GetUserFromAddress(remoteAddress)
 	if err != nil {
@@ -707,7 +724,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 		MFA          []string
 		Public       []string
 	}{
-		IsAuthorised: router.IsAuthed(remoteAddress.String()),
+		IsAuthorised: mp.firewall.IsAuthed(remoteAddress.String()),
 		MFA:          acl.Mfa,
 		Public:       acl.Allow,
 	}
@@ -722,11 +739,11 @@ func status(w http.ResponseWriter, r *http.Request) {
 	w.Write(result)
 }
 
-func publicKey(w http.ResponseWriter, r *http.Request) {
+func (mp *MfaPortal) publicKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=pubkey")
 	w.Header().Set("Content-Type", "text/plain")
 
-	wgPublicKey, _, err := router.ServerDetails()
+	wgPublicKey, _, err := mp.firewall.ServerDetails()
 	if err != nil {
 		log.Println("unable access wireguard device: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)

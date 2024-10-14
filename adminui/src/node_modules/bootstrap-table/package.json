@@ -1,0 +1,124 @@
+{
+  "name": "bootstrap-table",
+  "description": "An extended table to integration with some of the most widely used CSS frameworks. (Supports Bootstrap, Semantic UI, Bulma, Material Design, Foundation)",
+  "version": "1.22.5",
+  "type": "module",
+  "style": "dist/bootstrap-table.min.css",
+  "sass": "src/bootstrap-table.scss",
+  "main": "dist/bootstrap-table.min.js",
+  "directories": {
+    "doc": "site"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-inject": "^5.0.5",
+    "@rollup/plugin-multi-entry": "^6.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@vue/compiler-sfc": "^3.4.20",
+    "chalk": "^5.3.0",
+    "clean-css-cli": "^5.6.3",
+    "core-js": "^3.36.0",
+    "cross-env": "^7.0.3",
+    "cspell": "^8.4.1",
+    "cypress": "^13.6.6",
+    "editorconfig-checker": "^5.1.5",
+    "eslint": "^8.57.0",
+    "esm": "^3.2.25",
+    "foreach-cli": "^1.8.1",
+    "glob": "^10.3.10",
+    "headr": "^0.0.4",
+    "node-sass": "^9.0.0",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^5.0.5",
+    "rollup": "^4.12.0",
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-vue": "5.1.9",
+    "stylelint": "^16.2.1",
+    "stylelint-config-standard-scss": "^13.0.0",
+    "vue-template-compiler": "^2.7.16"
+  },
+  "scripts": {
+    "lint:js": "eslint src",
+    "lint:css": "stylelint src/**/*.scss",
+    "lint:spell": "cspell lint --no-progress 'src/**/*.{js,json,vue,scss}' 'site/**/*.md' '*.md'",
+    "lint:editor": "editorconfig-checker -exclude dist",
+    "lint": "run-s lint:*",
+    "test": "cypress run --headless",
+    "docs:check:api": "cd tools && node check-api.js",
+    "docs:check:locale": "cd tools && node check-locale.js",
+    "docs:check": "run-s docs:check:*",
+    "docs:serve": "bundle exec jekyll serve",
+    "docs": "bundle exec jekyll build",
+    "js:build:base": "rollup -c",
+    "js:build:min": "cross-env NODE_ENV=production rollup -c",
+    "js:build:banner": "foreach -g \"dist/**/*.min.js\" -x \"headr #{path} -o #{path} --version --homepage --author --license\"",
+    "js:build": "run-s js:build:*",
+    "css:build:src": "node-sass --output-style expanded src -o src",
+    "css:build:base": "node-sass --output-style expanded src -o dist",
+    "css:build:min": "foreach -g \"dist/**/*.css\" -x \"cleancss #{path} -o #{dir}/#{name}.min.css\"",
+    "css:build:banner": "foreach -g \"dist/**/*.min.css\" -x \"headr #{path} -o #{path} --version --homepage --author --license\"",
+    "css:build": "run-s css:build:*",
+    "clean": "rimraf dist",
+    "build": "run-s lint clean *:build",
+    "pre-commit": "run-s lint docs:check"
+  },
+  "peerDependencies": {
+    "jquery": "3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wenzhixin/bootstrap-table.git"
+  },
+  "keywords": [
+    "bootstrap",
+    "table",
+    "pagination",
+    "checkbox",
+    "radio",
+    "datatables",
+    "css",
+    "css-framework",
+    "semantic",
+    "semantic-ui",
+    "bulma",
+    "material",
+    "material-design",
+    "materialize",
+    "foundation"
+  ],
+  "author": "wenzhixin <wenzhixin2010@gmail.com> (http://wenzhixin.net.cn/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wenzhixin/bootstrap-table/issues"
+  },
+  "homepage": "https://bootstrap-table.com",
+  "types": "./index.d.ts",
+  "cspell": {
+    "dictionaries": [
+      "cspell-words"
+    ],
+    "dictionaryDefinitions": [
+      {
+        "name": "cspell-words",
+        "path": "./.cspell-words.txt",
+        "addWords": true
+      }
+    ],
+    "ignoreRegExpList": [
+      "/.*data:image/png;base64.*/g",
+      "/ * @author.*/g",
+      "/ * @update.*/g",
+      "/ +\"name\": \".*\",/"
+    ],
+    "ignorePaths": [
+      "src/locale/**",
+      "site/_themes/node_modules/**",
+      "tools/**",
+      "DONATORS.md"
+    ]
+  }
+}

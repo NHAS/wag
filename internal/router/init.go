@@ -21,19 +21,19 @@ func New(iptables bool) (*Firewall, error) {
 
 	err = fw.setupUsers(initialUsers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup users: %s")
+		return nil, fmt.Errorf("failed to setup users: %s", err)
 	}
 
 	log.Println("[ROUTER] Adding wireguard devices")
 	err = fw.setupDevices(knownDevices)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup devices: %s")
+		return nil, fmt.Errorf("failed to setup devices: %s", err)
 	}
 
 	log.Println("[ROUTER] Registering event handlers")
 	err = fw.handleEvents()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start handling etcd events: %s")
+		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
 	}
 
 	if iptables {
@@ -47,9 +47,12 @@ func New(iptables bool) (*Firewall, error) {
 
 		err := fw.setupIptables()
 		if err != nil {
-			return nil, fmt.Errorf("failed to start handling etcd events: %s")
+			return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
 		}
 	}
+
+	fw.Verifier = NewChallenger()
+
 	return &fw, nil
 }
 
