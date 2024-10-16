@@ -713,6 +713,8 @@ func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, 
 		address:        addressNetAddr,
 		associatedNode: node,
 		username:       username,
+		lastPacketTime: time.Time{},
+		sessionExpiry:  time.Time{}, // Todo take this from db
 	}
 
 	addressesMap[address] = &device

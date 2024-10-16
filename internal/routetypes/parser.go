@@ -16,8 +16,6 @@ import (
 )
 
 const (
-	MAX_POLICIES = 128
-
 	ICMP = 1  // Internet Control Message
 	TCP  = 6  // Transmission Control
 	UDP  = 17 // User Datagram
@@ -25,10 +23,8 @@ const (
 
 type Rule struct {
 	//We may have multiple keys in the instance where a domain with multiple A/AAA records is passed in
-	Keys []Key
-
-	NumPolicies int
-	Values      []Policy
+	Keys   []Key
+	Values []Policy
 }
 
 var (
@@ -127,20 +123,6 @@ func ParseRules(mfa, public, deny []string) (result []Rule, errs []error) {
 			cache[r.Keys[i].String()] = len(result) - 1
 		}
 
-	}
-
-	for i := range result {
-		if len(result[i].Values) > MAX_POLICIES {
-			errs = append(errs, errors.New("number of policies defined was greather than max"))
-			return nil, errs
-		}
-
-		temp := make([]Policy, 0, MAX_POLICIES)
-		temp = append(temp, result[i].Values...)
-
-		result[i].NumPolicies = len(result[i].Values)
-
-		result[i].Values = temp[:cap(temp)]
 	}
 
 	// Dont add a cache entry if there was an error parsing
