@@ -172,7 +172,7 @@ func (f *Firewall) endpointChange(e device.Event) {
 			panic(err)
 		}
 
-		log.Println(k)
+		log.Println("Endpoint changed!", k)
 
 		// if len(p.AllowedIPs) != 1 {
 		// 	log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")

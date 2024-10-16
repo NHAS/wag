@@ -19,4 +19,4 @@ docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 
 .build_ui:
-	cd ui/src; npm install; gulp build
+	cd adminui/src; npm install; gulp build
