@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"log"
+	"net/netip"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -11,7 +12,20 @@ import (
 func New(iptables bool) (*Firewall, error) {
 
 	log.Println("[ROUTER] Starting up")
-	var fw Firewall
+	fw := Firewall{
+		userPolicies: make(map[string]*Policies),
+		userIsLocked: make(map[string]bool),
+
+		addressToDevice:   make(map[netip.Addr]*FirewallDevice),
+		addressToPolicies: make(map[netip.Addr]*Policies),
+
+		deviceToUser:  make(map[netip.Addr]string),
+		userToDevices: make(map[string]map[string]*FirewallDevice),
+	}
+
+	fw.nodeID = data.GetServerID()
+	fw.deviceName = config.Values.Wireguard.DevName
+
 	initialUsers, knownDevices, err := data.GetInitialData()
 	if err != nil {
 		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %s", err)

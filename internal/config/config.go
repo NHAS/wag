@@ -172,6 +172,10 @@ func load(path string) (c Config, err error) {
 		c.NumberProxies = 1
 	}
 
+	if c.Wireguard.MTU == 0 {
+		c.Wireguard.MTU = 1420
+	}
+
 	if c.Clustering.TLSManagerStorage == "" {
 		c.Clustering.TLSManagerStorage = "certificates"
 	}

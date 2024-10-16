@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   container1:
     image: archlinux
@@ -20,7 +18,7 @@ services:
     ports:
       - "4433:4433/tcp"
     volumes:
-       - ./wag:/usr/local/bin/wag:ro
+       - .:/usr/local/bin/wag:ro
        - ./docker-test-config.json:/opt/config.json
        - ./devices.db:/opt/devices.db
     networks:

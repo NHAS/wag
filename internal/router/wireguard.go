@@ -13,6 +13,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/mdlayher/netlink"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	"golang.org/x/sys/unix"
 	"tailscale.com/net/packet"
 
@@ -213,7 +214,7 @@ func (f *Firewall) setupWireguard() error {
 
 	tdev, err := tun.CreateTUN(config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
 	if err != nil {
-		return fmt.Errorf("failed to create TUN device: %v", err)
+		return fmt.Errorf("failed to create TUN device:  path: %q mtu: %d, err %v", config.Values.Wireguard.DevName, config.Values.Wireguard.MTU, err)
 	}
 
 	uapiInterfaceName := config.Values.Wireguard.DevName
@@ -368,7 +369,7 @@ func (f *Firewall) setupDevices(devices []data.Device) error {
 			pc.PersistentKeepaliveInterval = &d
 		}
 
-		err = f._addPeerToMaps(pk, device.Address, device.Username, uint64(device.AssociatedNode))
+		err = f._addPeerToMaps(pk, device.Address, device.Username, device.AssociatedNode)
 		if err != nil {
 			return err
 		}
@@ -646,16 +647,16 @@ func (f *Firewall) ListPeers() ([]wgtypes.Peer, error) {
 		return nil, errors.New("firewall instance has been closed")
 	}
 
-	dev, err := f.ctrl.Device(f.Config.DeviceName)
+	dev, err := f.ctrl.Device(f.deviceName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get wireguard device: %q, err %v", f.deviceName, err)
 	}
 
 	return dev.Peers, err
 }
 
 // AddPeer adds the device to wireguard
-func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey string, node uint64) (err error) {
+func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey string, node types.ID) (err error) {
 
 	f.Lock()
 	defer f.Unlock()
@@ -684,7 +685,7 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 		},
 	}
 
-	err = f.ctrl.ConfigureDevice(f.Config.DeviceName, c)
+	err = f.ctrl.ConfigureDevice(f.deviceName, c)
 	if err != nil {
 		return fmt.Errorf("failed to add new wireguard peer: %s", err)
 	}
@@ -692,7 +693,7 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 	return f._addPeerToMaps(public, username, address, node)
 }
 
-func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, node uint64) error {
+func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, node types.ID) error {
 	addressNetAddr, err := netip.ParseAddr(address)
 	if err != nil {
 		return fmt.Errorf("address %q could not be parsed to netip addr: %s", address, err)

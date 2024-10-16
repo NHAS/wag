@@ -15,6 +15,9 @@ debug:  .build_ui
 release: .build_ui
 	go build -ldflags="$(LDFLAGS_RELEASE)"
 
+dev:	debug
+	sudo docker compose -f docker-compose.dev.yml up 
+
 docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 

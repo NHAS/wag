@@ -94,7 +94,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 	case data.CREATED:
 
 		key, _ := wgtypes.ParseKey(current.Publickey)
-		err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, uint64(current.AssociatedNode))
+		err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, current.AssociatedNode)
 		if err != nil {
 			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 		}
@@ -175,7 +175,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		// If the authorisation state has changed and is not disabled
 		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() {
 			if current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
-				err := f.SetAuthorized(current.Address, uint64(current.AssociatedNode))
+				err := f.SetAuthorized(current.Address, current.AssociatedNode)
 				if err != nil {
 					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 				}

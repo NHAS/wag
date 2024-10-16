@@ -13,6 +13,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/gaissmai/bart"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -37,7 +38,10 @@ type Firewall struct {
 
 	ctrl   *wgctrl.Client
 	device *device.Device
-	Config FirewallConfig
+
+	deviceName string
+
+	nodeID types.ID
 
 	challenger *Challenger
 
@@ -53,11 +57,6 @@ type Firewall struct {
 	}
 
 	Verifier *Challenger
-}
-
-type FirewallConfig struct {
-	DeviceName string
-	NodeID     uint64
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -226,12 +225,12 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 		return fmt.Errorf("device %q was not found", address)
 	}
 
-	d.associatedNode = uint64(device.AssociatedNode)
+	d.associatedNode = device.AssociatedNode
 
 	return nil
 }
 
-func (f *Firewall) SetAuthorized(address string, node uint64) error {
+func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 	f.Lock()
 	defer f.Unlock()
 
@@ -427,7 +426,7 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 		return false
 	}
 
-	if device.associatedNode != f.Config.NodeID {
+	if device.associatedNode != f.nodeID {
 		return false
 	}
 
@@ -523,7 +522,7 @@ type FirewallDevice struct {
 	lastPacketTime time.Time
 	sessionExpiry  time.Time
 
-	associatedNode uint64
+	associatedNode types.ID
 
 	username string
 }
