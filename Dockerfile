@@ -6,7 +6,7 @@ FROM golang:latest AS builder
 # hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    make wget llvm clang gcc git npm gulp libbpf-dev libpam0g-dev && \
+    make wget llvm clang gcc git npm gulp libpam0g-dev && \
     ln -s "/usr/include/$(uname -m)-linux-gnu/asm" /usr/include/asm
 
 WORKDIR /app

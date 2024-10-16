@@ -118,16 +118,23 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 		return n, err
 	}
 
+	placement := 0
 	for i := 0; i < n; i++ {
 		p.Decode(buffs[i][offset : offset+sizes[i]])
-		// TODO
-		// if globalFirewall.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
-		// 	buffs[i] = buff
-		// 	i++
-		// }
+
+		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+			buffs[placement] = buffs[i]
+			sizes[placement] = sizes[i]
+			placement++
+		}
 	}
 
-	return n, err
+	buffs = buffs[:placement]
+	if len(buffs) == 0 {
+		return 0, nil
+	}
+
+	return placement, err
 }
 
 // Write to the OS tun device i.e going from wireguard peer -> real world
@@ -151,7 +158,9 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 		return 0, nil
 	}
 
-	return t.Device.Write(buffs, offset)
+	_, err := t.Device.Write(buffs, offset)
+
+	return len(buffs), err
 }
 
 func (f *Firewall) endpointChange(e device.Event) {

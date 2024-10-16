@@ -587,22 +587,6 @@ func (c *CtrlClient) GetVersion() (string, error) {
 	return string(result), nil
 }
 
-func (c *CtrlClient) GetBPFVersion() (string, error) {
-
-	response, err := c.httpClient.Get("http://unix/version/bpf")
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-
-	result, err := io.ReadAll(response.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(result), nil
-}
-
 func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err error) {
 
 	response, err := c.httpClient.Get("http://unix/registration/list")
