@@ -88,7 +88,6 @@ func (f *Firewall) Close() {
 
 	log.Println("Wireguard device removed")
 
-	log.Println("Removing Firewall rules...")
 	f.teardownIptables()
 
 	f.closed = true

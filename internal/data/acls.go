@@ -27,13 +27,14 @@ func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 	policyJson, _ := json.Marshal(policy)
 
 	if overwrite {
-		_, err := etcd.Put(context.Background(), "wag-acls-"+effects, string(policyJson))
+
+		_, err := etcd.Put(context.Background(), AclsPrefix+effects, string(policyJson))
 		return err
 	}
 
 	txn := etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyMissing("wag-acls-" + effects))
-	txn.Then(clientv3.OpPut("wag-acls-"+effects, string(policyJson)))
+	txn.If(clientv3util.KeyMissing(AclsPrefix + effects))
+	txn.Then(clientv3.OpPut(AclsPrefix+effects, string(policyJson)))
 
 	resp, err := txn.Commit()
 	if err != nil {
@@ -49,7 +50,7 @@ func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 
 func GetPolicies() (result []control.PolicyData, err error) {
 
-	resp, err := etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	resp, err := etcd.Get(context.Background(), AclsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +64,7 @@ func GetPolicies() (result []control.PolicyData, err error) {
 		}
 
 		result = append(result, control.PolicyData{
-			Effects:      string(bytes.TrimPrefix(r.Key, []byte("wag-acls-"))),
+			Effects:      string(bytes.TrimPrefix(r.Key, []byte(AclsPrefix))),
 			PublicRoutes: policy.Allow,
 			MfaRoutes:    policy.Mfa,
 			DenyRoutes:   policy.Deny,
@@ -74,7 +75,7 @@ func GetPolicies() (result []control.PolicyData, err error) {
 }
 
 func RemoveAcl(effects string) error {
-	_, err := etcd.Delete(context.Background(), "wag-acls-"+effects)
+	_, err := etcd.Delete(context.Background(), AclsPrefix+effects)
 	return err
 }
 
@@ -96,7 +97,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 	insertMap(allowSet, config.Values.Wireguard.ServerAddress.String()+"/32")
 
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet("wag-acls-*"), clientv3.OpGet("wag-acls-"+username), clientv3.OpGet(MembershipKey+"-"+username), clientv3.OpGet(dnsKey))
+	txn.Then(clientv3.OpGet(AclsPrefix+"*"), clientv3.OpGet(AclsPrefix+username), clientv3.OpGet(MembershipKey+"-"+username), clientv3.OpGet(dnsKey))
 	resp, err := txn.Commit()
 	if err != nil {
 		log.Println("failed to get policy data for user", username, "err:", err)
@@ -147,7 +148,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 			//If the user belongs to a series of groups, grab those, and add their rules
 			var ops []clientv3.Op
 			for _, group := range userGroups {
-				ops = append(ops, clientv3.OpGet("wag-acls-"+group))
+				ops = append(ops, clientv3.OpGet(AclsPrefix+group))
 			}
 
 			resp, err := txn.Then(ops...).Commit()

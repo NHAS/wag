@@ -117,7 +117,7 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 
 	for _, rule := range rules {
 		for i := range rule.Keys {
-			currentUserPolicies.Insert(rules[i].Keys[i].ToPrefix(), &rule.Values)
+			currentUserPolicies.Insert(rule.Keys[i].ToPrefix(), &rule.Values)
 		}
 	}
 
@@ -350,7 +350,7 @@ func (f *Firewall) RefreshConfiguration() []error {
 	var allErrors []error
 	for _, user := range allUsers {
 		f.userIsLocked[user.Username] = user.Locked
-		if err := f.RefreshUserAcls(user.Username); err != nil {
+		if err := f._refreshUserAcls(user.Username); err != nil {
 			allErrors = append(allErrors, err)
 		}
 	}
@@ -462,8 +462,8 @@ func (f *Firewall) SetLockAccount(username string, locked bool) error {
 }
 
 type fwDevice struct {
-	LastPacketTimestamp uint64
-	Expiry              uint64
+	LastPacketTimestamp time.Time
+	Expiry              time.Time
 	IP                  string
 	Authorized          bool
 	AssociatedNode      string
@@ -529,8 +529,8 @@ type FirewallDevice struct {
 
 func (fwd *FirewallDevice) toDTO() fwDevice {
 	return fwDevice{
-		LastPacketTimestamp: uint64(fwd.lastPacketTime.Unix()),
-		Expiry:              uint64(fwd.sessionExpiry.Unix()),
+		LastPacketTimestamp: fwd.lastPacketTime,
+		Expiry:              fwd.sessionExpiry,
 
 		IP: fwd.address.String(),
 	}
