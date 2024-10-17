@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
@@ -334,8 +335,9 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	groups, _ := json.Marshal(emptyGroups)
 
 	txn := etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyMissing("users-" + username + "-"))
-	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)), clientv3.OpPut(MembershipKey+"-"+username, string(groups)))
+
+	txn.If(clientv3util.KeyMissing(UsersPrefix + username + "-"))
+	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)))
 
 	res, err := txn.Commit()
 	if err != nil {
@@ -344,6 +346,11 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 
 	if !res.Succeeded {
 		return UserModel{}, errors.New("user " + username + " exists")
+	}
+
+	_, err = etcd.Put(context.Background(), MembershipKey+"-"+username, string(groups))
+	if err != nil {
+		return UserModel{}, fmt.Errorf("failed to create membership key: %q, err: %s", MembershipKey+"-"+username, err)
 	}
 
 	return newUser, err

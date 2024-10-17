@@ -69,15 +69,6 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if len(groups) != 0 {
-		err := data.SetUserGroupMembership(username, groups)
-		if err != nil {
-			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
-			http.Error(w, "Server error", http.StatusInternalServerError)
-			return
-		}
-	}
-
 	var publickey, privatekey wgtypes.Key
 	pubkeyParam, err := url.PathUnescape(r.URL.Query().Get("pubkey"))
 	if err != nil {
@@ -109,6 +100,16 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		if err != nil {
 			log.Println(username, remoteAddr, "unable create new user: "+err.Error())
 			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if len(groups) != 0 {
+		log.Println("groups?", len(groups), groups)
+		err := data.SetUserGroupMembership(username, groups)
+		if err != nil {
+			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
+			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
 	}
