@@ -150,7 +150,7 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 
 	go func() {
 		err := srvSock.httpSrv.Serve(srvSock.socket)
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			log.Println("failed to serve control socket: ", err)
 		}
 	}()
