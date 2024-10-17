@@ -95,8 +95,8 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		}
 
 		u.Path = path.Join(u.Path, "/login/oidc/callback")
-		log.Println("Admin OIDC callback: ", u.String())
-		log.Println("Connecting to Admin UI OIDC provider: ", config.Values.ManagementUI.OIDC.IssuerURL)
+		log.Println("[ADMINUI] OIDC callback: ", u.String())
+		log.Println("[ADMINUI] Connecting to OIDC provider: ", config.Values.ManagementUI.OIDC.IssuerURL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -106,7 +106,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			return nil, fmt.Errorf("unable to connect to oidc provider for admin ui. err %s", err)
 		}
 
-		log.Println("Connected to admin oidc provider!")
+		log.Println("[ADMINUI] Connected to admin oidc provider!")
 	}
 
 	if *config.Values.ManagementUI.Password.Enabled {
@@ -117,7 +117,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		}
 
 		if len(admins) == 0 {
-			log.Println("[INFO] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
+			log.Println("[ADMINUI] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
 
 			username, err := utils.GenerateRandomHex(8)
 			if err != nil {
@@ -129,10 +129,10 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 				return nil, fmt.Errorf("failed to generate random password: %s", err)
 			}
 
-			log.Println("Username: ", username)
-			log.Println("Password: ", password)
+			log.Println("[ADMINUI] Username: ", username)
+			log.Println("[ADMINUI] Password: ", password)
 
-			log.Println("This information will not be shown again. ")
+			log.Println("[ADMINUI] This information will not be shown again. ")
 
 			err = adminUI.ctrl.AddAdminUser(username, password, true)
 			if err != nil {
@@ -303,7 +303,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
 					TLSConfig:    tlsConfig,
-					Handler:      setSecurityHeaders(allRoutes),
+					Handler:      utils.SetSecurityHeaders(allRoutes),
 				}
 
 				if err := adminUI.https.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -318,7 +318,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
-					Handler:      setSecurityHeaders(allRoutes),
+					Handler:      utils.SetSecurityHeaders(allRoutes),
 				}
 				if err := adminUI.http.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errs <- fmt.Errorf("webserver management listener failed: %v", adminUI.http.ListenAndServe())
@@ -328,7 +328,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		}
 	}()
 
-	log.Println("Started Managemnt UI:\n\t\t\tListening:", config.Values.ManagementUI.ListenAddress)
+	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.ManagementUI.ListenAddress)
 
 	return &adminUI, nil
 }

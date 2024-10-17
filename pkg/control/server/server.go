@@ -91,7 +91,7 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 		}
 	}
 
-	log.Println("Started control socket: \n\t\t\t", config.Values.Socket)
+	log.Println("[CONTROL] Started socket: ", config.Values.Socket)
 
 	controlMux := httputils.NewMux()
 

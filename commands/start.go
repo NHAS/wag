@@ -14,6 +14,7 @@ import (
 	"github.com/NHAS/wag/adminui"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/enrolment"
 	"github.com/NHAS/wag/internal/mfaportal"
 
 	"github.com/NHAS/wag/internal/router"
@@ -90,9 +91,10 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 
 		routerFw *router.Firewall
 
-		controlServer *server.WagControlSocketServer
-		mfaPortal     *mfaportal.MfaPortal
-		adminUI       *adminui.AdminUI
+		controlServer   *server.WagControlSocketServer
+		mfaPortal       *mfaportal.MfaPortal
+		enrolmentServer *enrolment.EnrolmentServer
+		adminUI         *adminui.AdminUI
 
 		err error
 	)
@@ -107,6 +109,10 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 
 		if mfaPortal != nil {
 			mfaPortal.Close()
+		}
+
+		if enrolmentServer != nil {
+			enrolmentServer.Close()
 		}
 
 		if adminUI != nil {
@@ -173,6 +179,12 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 					mfaPortal, err = mfaportal.New(routerFw, errorChan)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start mfa portal: %v", err)
+						return
+					}
+
+					enrolmentServer, err = enrolment.New(routerFw, errorChan)
+					if err != nil {
+						errorChan <- fmt.Errorf("unable to start enrolment server: %v", err)
 						return
 					}
 

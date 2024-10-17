@@ -17,6 +17,8 @@ services:
     command: sleep infinity
     ports:
       - "4433:4433/tcp"
+      - "53230:53230/udp"
+      - "8081:8081/tcp"
     volumes:
        - .:/usr/local/bin/wag:ro
        - ./docker-test-config.json:/opt/config.json

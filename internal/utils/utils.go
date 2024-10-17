@@ -2,14 +2,112 @@ package utils
 
 import (
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
 )
+
+func EmbeddedStatic(fs embed.FS) func(w http.ResponseWriter, r *http.Request) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var fileContent []byte
+
+		if len(r.URL.Path) > 0 {
+			r.URL.Path = r.URL.Path[1:]
+		}
+
+		if fileContent, err = fs.ReadFile(r.URL.Path); err != nil {
+			log.Println("Error getting static: ", err)
+			http.NotFound(w, r)
+			return
+		}
+
+		headers := w.Header()
+		ext := filepath.Ext(r.URL.Path)
+
+		switch ext {
+		case ".js":
+			headers.Set("Content-Type", "text/javascript")
+		case ".css":
+			headers.Set("Content-Type", "text/css")
+		case ".png":
+			headers.Set("Content-Type", "image/png")
+		case ".jpg":
+			headers.Set("Content-Type", "image/jpg")
+		case ".svg":
+			headers.Set("Content-Type", "image/svg")
+		}
+
+		_, err = w.Write(fileContent)
+		if err != nil {
+			log.Println("Unable to write static resource: ", err, " path: ", r.URL.Path)
+			http.Error(w, "Server Error", 500)
+		}
+	}
+}
+
+type httpRedirectHandler struct {
+	TLSPort string
+}
+
+func (sh *httpRedirectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port in address") {
+			host = r.Host
+		} else {
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, "https://"+host+r.RequestURI, http.StatusTemporaryRedirect)
+}
+
+func SetRedirectHandler(TLSPort string) http.Handler {
+	return &httpRedirectHandler{TLSPort: TLSPort}
+}
+
+type security struct {
+	next http.Handler
+}
+
+func (sh *security) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	if r.Method != "GET" {
+		u, err := url.Parse(r.Header.Get("Origin"))
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+
+		//If origin != host header
+		if r.Host != u.Host {
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+	}
+
+	sh.next.ServeHTTP(w, r)
+}
+
+func SetSecurityHeaders(f http.Handler) http.Handler {
+	return &security{
+		next: f,
+	}
+}
 
 func GetIP(addr string) string {
 	for i := len(addr) - 1; i > 0; i-- {
