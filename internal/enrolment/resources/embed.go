@@ -9,7 +9,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 )
 
-type Interface struct {
+type WireguardConfig struct {
 	ClientPrivateKey   string
 	ClientAddress      string
 	ClientPresharedKey string
@@ -19,8 +19,7 @@ type Interface struct {
 	CapturedAddresses []string
 	DNS               []string
 }
-
-type QrCodeRegistrationDisplay struct {
+type QrCodeEnrolmentDisplay struct {
 	ImageData template.URL
 	Username  string
 }

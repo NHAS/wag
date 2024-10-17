@@ -9,17 +9,6 @@ import (
 	"github.com/NHAS/wag/internal/config"
 )
 
-type Interface struct {
-	ClientPrivateKey   string
-	ClientAddress      string
-	ClientPresharedKey string
-
-	ServerAddress     string
-	ServerPublicKey   string
-	CapturedAddresses []string
-	DNS               []string
-}
-
 type Msg struct {
 	Message    string
 	URL        string
@@ -34,11 +23,6 @@ type Menu struct {
 
 type MenuEntry struct {
 	Path, FriendlyName string
-}
-
-type QrCodeRegistrationDisplay struct {
-	ImageData template.URL
-	Username  string
 }
 
 //go:embed templates/*

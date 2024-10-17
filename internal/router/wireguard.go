@@ -314,7 +314,7 @@ func (f *Firewall) setupUsers(users []data.UserModel) error {
 	var errs []error
 
 	for _, user := range users {
-		err := f.AddUser(user.Username, data.GetEffectiveAcl(user.Username))
+		err := f.AddUser(user.Username)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -369,7 +369,7 @@ func (f *Firewall) setupDevices(devices []data.Device) error {
 			pc.PersistentKeepaliveInterval = &d
 		}
 
-		err = f._addPeerToMaps(pk, device.Address, device.Username, device.AssociatedNode)
+		err = f._addPeerToMaps(pk, device.Username, device.Address, device.AssociatedNode)
 		if err != nil {
 			return err
 		}
@@ -694,7 +694,7 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 	return f._addPeerToMaps(public, username, address, node)
 }
 
-func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, node types.ID) error {
+func (f *Firewall) _addPeerToMaps(public wgtypes.Key, username, address string, node types.ID) error {
 	addressNetAddr, err := netip.ParseAddr(address)
 	if err != nil {
 		return fmt.Errorf("address %q could not be parsed to netip addr: %s", address, err)

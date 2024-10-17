@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/gaissmai/bart"
@@ -307,7 +306,7 @@ func (f *Firewall) DeauthenticateAllDevices(username string) error {
 	return nil
 }
 
-func (f *Firewall) AddUser(username string, acls acls.Acl) error {
+func (f *Firewall) AddUser(username string) error {
 	f.Lock()
 	defer f.Unlock()
 
@@ -322,6 +321,7 @@ func (f *Firewall) AddUser(username string, acls acls.Acl) error {
 	// New users are obviously unlocked
 	f.userIsLocked[username] = false
 	f.userPolicies[username] = new(Policies)
+
 	f.userToDevices[username] = make(map[string]*FirewallDevice)
 
 	return f._refreshUserAcls(username)

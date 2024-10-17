@@ -17,7 +17,9 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/mfaportal/resources"
+	"github.com/NHAS/wag/internal/enrolment/resources"
+	styling "github.com/NHAS/wag/internal/mfaportal/resources"
+
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/users"
@@ -190,7 +192,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	wireguardInterface := resources.Interface{
+	wireguardInterface := resources.WireguardConfig{
 		ClientPrivateKey:   keyStr,
 		ClientAddress:      address,
 		ServerPublicKey:    wgPublicKey.String(),
@@ -250,12 +252,12 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		qrCodeBytes := resources.QrCodeRegistrationDisplay{
+		qrCodeBytes := resources.QrCodeEnrolmentDisplay{
 			ImageData: template.URL("data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes())),
 			Username:  username,
 		}
 
-		err = resources.Render("qrcode_registration.html", w, &qrCodeBytes)
+		err = resources.Render("qrcode_enrolment.html", w, &qrCodeBytes)
 		if err != nil {
 			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
 			http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -266,7 +268,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 
 		w.Header().Set("Content-Disposition", "attachment; filename="+data.GetWireguardConfigName())
 
-		err = resources.RenderWithFuncs("interface.tmpl", w, &wireguardInterface, template.FuncMap{
+		err = resources.RenderWithFuncs("wgconf_enrolment.tmpl", w, &wireguardInterface, template.FuncMap{
 			"StringsJoin": strings.Join,
 			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
 		})
@@ -339,7 +341,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 	}
 
 	public := httputils.NewMux()
-	public.Get("/static/", utils.EmbeddedStatic(resources.Static))
+	public.Get("/static/", utils.EmbeddedStatic(styling.Static))
 	public.Get("/reachability", es.reachability)
 	public.Get("/register_device", es.registerDevice)
 

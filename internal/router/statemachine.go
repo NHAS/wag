@@ -197,9 +197,10 @@ func (f *Firewall) membershipChanges(key string, _, _ []string, et data.EventTyp
 	case data.CREATED, data.MODIFIED:
 		err := f.RefreshUserAcls(username)
 		if err != nil {
-			log.Printf("failed to refresh acls for user %s: %s", username, err)
 			return fmt.Errorf("could not refresh acls: %s", err)
 		}
+
+		log.Printf("refreshed acls for user %q", username)
 	}
 
 	return nil
@@ -208,25 +209,25 @@ func (f *Firewall) membershipChanges(key string, _, _ []string, et data.EventTyp
 func (f *Firewall) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
 	switch et {
 	case data.CREATED:
-		newUserAcls := data.GetEffectiveAcl(current.Username)
-		err := f.AddUser(current.Username, newUserAcls)
+		err := f.AddUser(current.Username)
 		if err != nil {
-			log.Printf("cannot create user %s: %s", current.Username, err)
 			return fmt.Errorf("cannot create user %s: %s", current.Username, err)
 		}
+		log.Printf("added user: %q", current.Username)
+
 	case data.DELETED:
 		err := f.RemoveUser(current.Username)
 		if err != nil {
-			log.Printf("cannot remove user %s: %s", current.Username, err)
 			return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
 		}
+		log.Printf("removed user: %q", current.Username)
+
 	case data.MODIFIED:
 
 		if current.Locked != previous.Locked || current.Locked {
 
 			err := f.SetLockAccount(current.Username, current.Locked)
 			if err != nil {
-				log.Printf("cannot lock user %s: %s", current.Username, err)
 				return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
 			}
 		}
@@ -235,10 +236,11 @@ func (f *Firewall) userChanges(_ string, current, previous data.UserModel, et da
 			!current.Enforcing || types.MFA(current.MfaType) == types.Unset {
 			err := f.DeauthenticateAllDevices(current.Username)
 			if err != nil {
-				log.Printf("cannot deauthenticate user %s: %s", current.Username, err)
 				return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
 			}
 		}
+
+		log.Printf("modified user: %q", current.Username)
 
 	}
 
@@ -253,7 +255,7 @@ func (f *Firewall) aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error
 		if err != nil {
 			return fmt.Errorf("failed to refresh configuration: %s", err)
 		}
-
+		log.Printf("refreshed configuration")
 	}
 
 	return nil
@@ -269,6 +271,8 @@ func (f *Firewall) groupChanges(_ string, current, _ []string, et data.EventType
 				return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
 			}
 		}
+
+		log.Printf("refreshed acls for %d users", len(current))
 
 	}
 	return nil
