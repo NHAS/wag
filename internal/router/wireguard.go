@@ -633,7 +633,6 @@ func (f *Firewall) ReplacePeer(device data.Device, newPublicKey wgtypes.Key) err
 	}
 
 	currentDevice.public = newPublicKey
-	addressesMap[device.Address] = currentDevice
 
 	return nil
 }
@@ -719,6 +718,11 @@ func (f *Firewall) _addPeerToMaps(public wgtypes.Key, address, username string, 
 
 	addressesMap[address] = &device
 	f.userToDevices[username] = addressesMap
+
+	f.addressToDevice[addressNetAddr] = &device
+	f.addressToPolicies[addressNetAddr] = f.userPolicies[username]
+
+	f.deviceToUser[addressNetAddr] = username
 
 	return nil
 }
