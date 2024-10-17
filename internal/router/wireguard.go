@@ -551,7 +551,9 @@ func (f *Firewall) _removePeer(publickey, address string) error {
 
 	deviceToRemove, ok := f.addressToDevice[addressNetAddr]
 	if !ok {
-		return fmt.Errorf("device with address %q not found", address)
+		// If the device has already been removed, ignore this
+		// Happens if we delete a user, then etcd registers the device key has been deleted
+		return nil
 	}
 
 	delete(f.addressToPolicies, deviceToRemove.address)

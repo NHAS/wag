@@ -370,9 +370,8 @@ func (f *Firewall) RemoveUser(username string) error {
 	delete(f.userPolicies, username)
 
 	for _, d := range f.userToDevices[username] {
-		delete(f.addressToPolicies, d.address)
-		delete(f.addressToDevice, d.address)
-		delete(f.deviceToUser, d.address)
+
+		f._removePeer(d.public.String(), d.address.String())
 	}
 	delete(f.userToDevices, username)
 
