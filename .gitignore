@@ -1,11 +1,11 @@
 wag
 devices.db
 config.json
-ui/src/css/sb-admin-2.css
-ui/src/node_modules
-ui/src/package-lock.json
-ui/vendor
-ui/src/vendor
+adminui/src/css/sb-admin-2.css
+adminui/src/node_modules
+adminui/src/package-lock.json
+adminui/vendor
+adminui/src/vendor
 wag-ui
 *.min.*
-ui/fonts/nunito*
+adminui/fonts/nunito*
