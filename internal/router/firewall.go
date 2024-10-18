@@ -31,9 +31,10 @@ type Firewall struct {
 
 	addressToDevice   map[netip.Addr]*FirewallDevice
 	addressToPolicies map[netip.Addr]*Policies
+	addressToUser     map[netip.Addr]string
 
-	deviceToUser  map[netip.Addr]string
-	userToDevices map[string]map[string]*FirewallDevice
+	pubkeyToDevice map[string]*FirewallDevice
+	userToDevices  map[string]map[string]*FirewallDevice
 
 	ctrl   *wgctrl.Client
 	device *device.Device
@@ -56,6 +57,9 @@ type Firewall struct {
 	}
 
 	Verifier *Challenger
+
+	connectedPeersLck       sync.RWMutex
+	currentlyConnectedPeers map[string]string
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -517,6 +521,9 @@ type FirewallDevice struct {
 
 	public wgtypes.Key
 
+	// The real world IP address the device is connecting from
+	endpoint *net.UDPAddr
+	// The internal vpn address the device occupies
 	address netip.Addr
 
 	lastPacketTime time.Time

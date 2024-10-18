@@ -19,8 +19,11 @@ func New(iptables bool) (*Firewall, error) {
 		addressToDevice:   make(map[netip.Addr]*FirewallDevice),
 		addressToPolicies: make(map[netip.Addr]*Policies),
 
-		deviceToUser:  make(map[netip.Addr]string),
-		userToDevices: make(map[string]map[string]*FirewallDevice),
+		addressToUser:  make(map[netip.Addr]string),
+		userToDevices:  make(map[string]map[string]*FirewallDevice),
+		pubkeyToDevice: make(map[string]*FirewallDevice),
+
+		currentlyConnectedPeers: make(map[string]string),
 	}
 
 	fw.nodeID = data.GetServerID()

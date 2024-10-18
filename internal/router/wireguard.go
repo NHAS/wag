@@ -173,35 +173,34 @@ func (f *Firewall) endpointChange(e device.Event) {
 			panic(err)
 		}
 
-		log.Println("Endpoint changed!", k)
+		device, ok := f.pubkeyToDevice[k.String()]
+		if !ok {
+			log.Println("found unknown device,", k.String())
+			return
+		}
 
-		// if len(p.AllowedIPs) != 1 {
-		// 	log.Println("Warning, peer ", p.PublicKey.String(), " len(p.AllowedIPs) != 1, which is not supported")
-		// 	continue
-		// }
+		addrPort, err := netip.ParseAddrPort(e.Endpoint)
+		if err != nil {
+			log.Println("invalid endpoint string: ", err, e.Endpoint)
+			return
+		}
 
-		// device, ok := devices[p.AllowedIPs[0].IP.String()]
-		// if !ok {
-		// 	log.Println("found unknown device,", p.AllowedIPs[0].IP.String())
-		// 	continue
-		// }
+		udpAddr := net.UDPAddrFromAddrPort(addrPort)
 
-		// // If the peer endpoint has become empty (due to peer roaming) or if we dont have a record of it, set the map
-		// if _, ok := ourPeerAddresses[device.Address]; !ok || p.Endpoint == nil {
-		// 	ourPeerAddresses[device.Address] = p.Endpoint.String()
-		// }
+		f.connectedPeersLck.Lock()
+		defer f.connectedPeersLck.Unlock()
 
-		// // If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
-		// if ourPeerAddresses[device.Address] != p.Endpoint.String() && p.Endpoint != nil {
-		// 	ourPeerAddresses[device.Address] = p.Endpoint.String()
+		// If the peer address has changed, but is not empty (empty indicates the peer has changed it node association away from this node)
+		if f.currentlyConnectedPeers[device.address.String()] != udpAddr.String() {
+			f.currentlyConnectedPeers[device.address.String()] = udpAddr.String()
 
-		// 	// Otherwise, just update the node association
-		// 	err = data.UpdateDeviceConnectionDetails(p.AllowedIPs[0].IP.String(), p.Endpoint)
-		// 	if err != nil {
-		// 		log.Printf("unable to update device (%s:%s) endpoint: %s", device.Address, device.Username, err)
-		// 	}
+			// Otherwise, just update the node association
+			err = data.UpdateDeviceConnectionDetails(device.address.String(), udpAddr)
+			if err != nil {
+				log.Printf("unable to update device (%s:%s) endpoint: %s", device.address, device.username, err)
+			}
 
-		// }
+		}
 
 	default:
 		log.Println("unknown event type: ", e.Type)
@@ -556,9 +555,11 @@ func (f *Firewall) _removePeer(publickey, address string) error {
 		return nil
 	}
 
+	delete(f.pubkeyToDevice, deviceToRemove.public.String())
+
 	delete(f.addressToPolicies, deviceToRemove.address)
 	delete(f.addressToDevice, deviceToRemove.address)
-	delete(f.deviceToUser, deviceToRemove.address)
+	delete(f.addressToUser, deviceToRemove.address)
 
 	userdevices := f.userToDevices[deviceToRemove.username]
 	delete(userdevices, address)
@@ -716,15 +717,18 @@ func (f *Firewall) _addPeerToMaps(public wgtypes.Key, username, address string, 
 		username:       username,
 		lastPacketTime: time.Time{},
 		sessionExpiry:  time.Time{}, // Todo take this from db
+
 	}
 
 	addressesMap[address] = &device
 	f.userToDevices[username] = addressesMap
 
 	f.addressToDevice[addressNetAddr] = &device
+	f.pubkeyToDevice[public.String()] = &device
+
 	f.addressToPolicies[addressNetAddr] = f.userPolicies[username]
 
-	f.deviceToUser[addressNetAddr] = username
+	f.addressToUser[addressNetAddr] = username
 
 	return nil
 }
