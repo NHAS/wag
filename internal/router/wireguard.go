@@ -125,7 +125,6 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 
 		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
 
-			log.Println("adding to buffer")
 			buffs[placement] = buffs[i]
 			sizes[placement] = sizes[i]
 			placement++
@@ -151,8 +150,6 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 		p.Decode(buff[offset:])
 
 		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
-
-			log.Println("adding to buffer write")
 
 			buffs[i] = buff
 			i++
@@ -441,7 +438,7 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 	req := netlink.Message{
 		Header: netlink.Header{
 			Type:  unix.RTM_NEWADDR,
-			Flags: netlink.Request | netlink.Acknowledge,
+			Flags: netlink.Request | netlink.Create | netlink.Excl | netlink.Acknowledge,
 		},
 	}
 
@@ -453,6 +450,7 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 	addrMsg := IfAddrmsg{
 		Family: unix.AF_INET,
 		Index:  uint32(iface.Index),
+		Scope:  unix.RT_SCOPE_LINK,
 	}
 
 	preflen, _ := address.Mask.Size()
@@ -460,10 +458,12 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 
 	req.Data = addrMsg.Serialize()
 
-	ne := netlink.NewAttributeEncoder()
-	ne.Bytes(unix.IFA_LOCAL, address.IP[:4])
+	attrs := []netlink.Attribute{
+		{Type: unix.IFA_LOCAL, Data: address.IP.To4()},
+		{Type: unix.IFA_ADDRESS, Data: address.IP.To4()},
+	}
 
-	msg, err := ne.Encode()
+	msg, err := netlink.MarshalAttributes(attrs)
 	if err != nil {
 		return fmt.Errorf("failed to encode af: %v", err)
 	}
