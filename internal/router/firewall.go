@@ -103,7 +103,7 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 
 	currentUserPolicies, ok := f.userPolicies[username]
 	if !ok {
-		return fmt.Errorf("user %q did not have a policies table", username)
+		return nil
 	}
 	userAcls := data.GetEffectiveAcl(username)
 
