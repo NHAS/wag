@@ -178,13 +178,14 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 		//      If type is SINGLE and the port is either any, or equal
 		//      OR
 		//      If type is RANGE and the port is within bounds
-		if decision.Proto == routetypes.ANY || decision.Proto == proto &&
+		if (decision.Proto == routetypes.ANY || decision.Proto == proto) &&
 			((decision.Is(routetypes.SINGLE) && (decision.LowerPort == routetypes.ANY || decision.LowerPort == targetAddr.Port())) ||
 				(decision.Is(routetypes.RANGE) && (decision.LowerPort <= targetAddr.Port() && decision.UpperPort >= targetAddr.Port()))) {
 
 			if decision.Is(routetypes.DENY) {
 				return false
 			} else if decision.Is(routetypes.PUBLIC) {
+
 				action = true
 			} else {
 				action = authorized
@@ -521,8 +522,6 @@ type FirewallDevice struct {
 
 	public wgtypes.Key
 
-	// The real world IP address the device is connecting from
-	endpoint *net.UDPAddr
 	// The internal vpn address the device occupies
 	address netip.Addr
 
@@ -588,16 +587,7 @@ func (table *Policies) LookupBytes(ip []byte) *[]routetypes.Policy {
 }
 
 func (table *Policies) tableLookup(ip netip.Addr) *[]routetypes.Policy {
-
-	if ip.Is4() {
-		policy, _ := table.policies.Get(netip.PrefixFrom(ip, net.IPv4len))
-		return policy
-
-	} else if ip.Is6() {
-		policy, _ := table.policies.Get(netip.PrefixFrom(ip, net.IPv6len))
-		return policy
-	}
-
-	panic(errors.New("looking up unknown address type"))
+	policy, _ := table.policies.Lookup(ip)
+	return policy
 
 }

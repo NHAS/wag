@@ -124,6 +124,8 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 		p.Decode(buffs[i][offset : offset+sizes[i]])
 
 		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+
+			log.Println("adding to buffer")
 			buffs[placement] = buffs[i]
 			sizes[placement] = sizes[i]
 			placement++
@@ -149,6 +151,9 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 		p.Decode(buff[offset:])
 
 		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {
+
+			log.Println("adding to buffer write")
+
 			buffs[i] = buff
 			i++
 		}
