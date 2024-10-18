@@ -23,7 +23,7 @@ function ownersFormatter(values, row) {
 }
 
 function lockedFormatter(value) {
-  let p = document.createElement('p')
+  let p = document.createElement('span')
   if (value === true) {
     p.className = "badge badge-danger"
   }

@@ -22,7 +22,7 @@ function devicesFormatter(value, row) {
 }
 
 function lockedFormatter(value) {
-  let p = document.createElement('p')
+  let p = document.createElement('span')
   if (value === true) {
     p.className = "badge badge-danger"
   }
@@ -32,7 +32,7 @@ function lockedFormatter(value) {
 
 
 function mfaFormatter(value) {
-  let p = document.createElement('p')
+  let p = document.createElement('span')
   if (value === "unset") {
     p.className = "badge badge-danger"
   }
