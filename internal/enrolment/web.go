@@ -105,7 +105,6 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(groups) != 0 {
-		log.Println("groups?", len(groups), groups)
 		err := data.SetUserGroupMembership(username, groups)
 		if err != nil {
 			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
