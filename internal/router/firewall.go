@@ -138,8 +138,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
 	f.RLock()
-	targetAddr := dst
-	deviceAddr := src
+	targetAddr := &dst
+	deviceAddr := &src
 	policies, ok := f.addressToPolicies[src.Addr()]
 	if !ok || policies == nil {
 		policies, ok = f.addressToPolicies[dst.Addr()]
@@ -148,8 +148,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 			return false
 		}
 
-		deviceAddr = dst
-		targetAddr = src
+		deviceAddr = &dst
+		targetAddr = &src
 	}
 
 	policy := policies.tableLookup(targetAddr.Addr())
@@ -169,8 +169,6 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	}
 
 	f.RUnlock()
-
-	log.Println("policies for", targetAddr.String(), *policy)
 
 	action := false
 	for _, decision := range *policy {

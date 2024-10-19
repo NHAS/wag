@@ -41,6 +41,12 @@ services:
     cap_add:
       - NET_ADMIN
 
+  speedtest:
+     image: mlabbe/iperf3
+     networks:
+      custom_network:
+        ipv4_address: 172.20.0.5
+
 networks:
   custom_network:
     ipam:
