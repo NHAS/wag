@@ -76,7 +76,7 @@ func (f *Firewall) GetRoutes(username string) ([]string, error) {
 		return true
 	})
 
-	return nil, nil
+	return result, nil
 }
 
 func (f *Firewall) SetInactivityTimeout(inactivityTimeoutMinutes int) error {
@@ -169,6 +169,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	}
 
 	f.RUnlock()
+
+	log.Println("policies for", targetAddr.String(), *policy)
 
 	action := false
 	for _, decision := range *policy {
