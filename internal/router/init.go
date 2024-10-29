@@ -89,6 +89,8 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 
 	fw.Verifier = NewChallenger()
 
+	log.Println("[ROUTER] Setup finished")
+
 	return &fw, nil
 }
 

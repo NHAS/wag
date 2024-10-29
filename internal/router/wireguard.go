@@ -210,6 +210,8 @@ func (f *Firewall) endpointChange(e device.Event) {
 }
 
 func (f *Firewall) setupWireguard() error {
+	// open TUN device
+
 	tdev, err := tun.CreateTUN(config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
 	if err != nil {
 		return fmt.Errorf("failed to create TUN device:  path: %q mtu: %d, err %v", config.Values.Wireguard.DevName, config.Values.Wireguard.MTU, err)
@@ -254,8 +256,6 @@ func (f *Firewall) setupWireguardDebug(dev tun.Device) error {
 }
 
 func (f *Firewall) openWireguard(tdev tun.Device) error {
-
-	// open TUN device
 
 	uapiInterfaceName := config.Values.Wireguard.DevName
 	realInterfaceName, err2 := tdev.Name()
@@ -680,25 +680,28 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 		return errors.New("firewall instance has been closed")
 	}
 
-	preshared_key, err := wgtypes.ParseKey(presharedKey)
-	if err != nil {
-		return err
-	}
-
 	_, network, err := net.ParseCIDR(address + "/32")
 	if err != nil {
 		return err
 	}
 
-	var c wgtypes.Config
-	c.Peers = []wgtypes.PeerConfig{
-		{
-			PublicKey:         public,
-			ReplaceAllowedIPs: true,
-			AllowedIPs:        []net.IPNet{*network},
-			PresharedKey:      &preshared_key,
-		},
+	newPeer := wgtypes.PeerConfig{
+		PublicKey:         public,
+		ReplaceAllowedIPs: true,
+		AllowedIPs:        []net.IPNet{*network},
 	}
+
+	if len(presharedKey) != 0 && presharedKey != "unset" {
+		preshared_key, err := wgtypes.ParseKey(presharedKey)
+		if err != nil {
+			return err
+		}
+
+		newPeer.PresharedKey = &preshared_key
+	}
+
+	var c wgtypes.Config
+	c.Peers = []wgtypes.PeerConfig{newPeer}
 
 	err = f.ctrl.ConfigureDevice(f.deviceName, c)
 	if err != nil {

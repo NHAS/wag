@@ -335,8 +335,6 @@ func (f *Firewall) AddUser(username string) error {
 }
 
 func (f *Firewall) Test(packetBytes []byte) bool {
-	f.Lock()
-	defer f.Unlock()
 
 	p := parsedPacketPool.Get().(*packet.Parsed)
 	defer parsedPacketPool.Put(p)

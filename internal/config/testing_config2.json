@@ -26,7 +26,7 @@
         "Issuer": "192.168.121.61"
     },
     "Wireguard": {
-        "DevName": "wg0",
+        "DevName": "loopbackTun1",
         "ListenPort": 53230,
         "PrivateKey": "cFYv9YROACD78hFBxQ29mkXol974NMLMt4hFOe+oXl4=",
         "Address": "192.168.1.1/24",

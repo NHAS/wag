@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 	"math/rand/v2"
 	"net"
@@ -1017,21 +1018,19 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 func addDevices(fw *Firewall) error {
 
 	for _, device := range devices {
-		_, err := data.CreateUserDataAccount(device.Username)
+
+		err := fw.AddUser(device.Username)
 		if err != nil {
 			return err
 		}
 
-		err = fw.AddUser(device.Username)
+		k, err := wgtypes.ParseKey(device.Publickey)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse key: %s, err %s", device.Publickey, err)
 		}
-
-		k, _ := wgtypes.ParseKey(device.Publickey)
-
-		err = fw._addPeerToMaps(k, device.Username, device.Address, data.GetServerID())
+		err = fw.AddPeer(k, device.Username, device.Address, device.PresharedKey, device.AssociatedNode)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to create peer: %s: err: %s", device.Address, err)
 		}
 	}
 	return nil
@@ -1067,6 +1066,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	data.TearDown()
+
 	testFw.Close()
 
 	os.Exit(code)
