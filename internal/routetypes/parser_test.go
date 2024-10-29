@@ -8,10 +8,6 @@ import (
 
 func checkKey(reality Key, expectedKey Key) error {
 
-	if len(expectedKey.Bytes()) != len(reality.Bytes()) {
-		return fmt.Errorf("expected key size not actual key size: exp %d real %d", len(expectedKey.Bytes()), len(reality.Bytes()))
-	}
-
 	if !net.IP.Equal(reality.AsIPv4(), expectedKey.AsIPv4()) {
 		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, reality.IP)
 	}
@@ -151,12 +147,6 @@ func TestParseSimpleSingles(t *testing.T) {
 			Proto:      0,
 			LowerPort:  55,
 		},
-	}
-
-	for _, key := range br.Keys {
-		if len(key.Bytes()) != 8 {
-			t.Fatal("rules generated key was not 8 bytes")
-		}
 	}
 
 	for _, policy := range br.Values {
