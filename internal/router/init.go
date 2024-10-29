@@ -33,6 +33,7 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 		pubkeyToDevice: make(map[string]*FirewallDevice),
 
 		currentlyConnectedPeers: make(map[string]string),
+		hasIptables:             iptables,
 	}
 
 	fw.nodeID = data.GetServerID()
@@ -72,7 +73,7 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
 	}
 
-	if iptables {
+	if fw.hasIptables {
 
 		routeMode := "MASQUERADE (NAT)"
 		if config.Values.NAT != nil && !*config.Values.NAT {
@@ -112,7 +113,8 @@ func (f *Firewall) Close() {
 
 	log.Println("Wireguard device removed")
 
-	f.teardownIptables()
-
+	if f.hasIptables {
+		f.teardownIptables()
+	}
 	f.closed = true
 }

@@ -22,7 +22,8 @@ import (
 type Firewall struct {
 	sync.RWMutex
 
-	closed bool
+	closed      bool
+	hasIptables bool
 
 	inactivityTimeout time.Duration
 
