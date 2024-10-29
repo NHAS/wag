@@ -7,10 +7,19 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"golang.zx2c4.com/wireguard/tun"
 )
 
-func New(iptables bool) (*Firewall, error) {
+func newDebugFirewall(testDev tun.Device) (*Firewall, error) {
+	return newFw(true, false, testDev)
 
+}
+
+func New(iptables bool) (*Firewall, error) {
+	return newFw(false, iptables, nil)
+}
+
+func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 	log.Println("[ROUTER] Starting up")
 	fw := Firewall{
 		userPolicies: make(map[string]*Policies),
@@ -32,6 +41,16 @@ func New(iptables bool) (*Firewall, error) {
 	initialUsers, knownDevices, err := data.GetInitialData()
 	if err != nil {
 		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %s", err)
+	}
+
+	if testing {
+		err = fw.setupWireguardDebug(testDev)
+	} else {
+		err = fw.setupWireguard()
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wireguard device: err: %s", err)
 	}
 
 	log.Println("[ROUTER] Adding users")

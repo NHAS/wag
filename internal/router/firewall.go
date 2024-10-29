@@ -16,6 +16,7 @@ import (
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"tailscale.com/net/packet"
 )
 
 type Firewall struct {
@@ -331,6 +332,18 @@ func (f *Firewall) AddUser(username string) error {
 	f.userToDevices[username] = make(map[string]*FirewallDevice)
 
 	return f._refreshUserAcls(username)
+}
+
+func (f *Firewall) Test(packetBytes []byte) bool {
+	f.Lock()
+	defer f.Unlock()
+
+	p := parsedPacketPool.Get().(*packet.Parsed)
+	defer parsedPacketPool.Put(p)
+
+	p.Decode(packetBytes)
+
+	return f.Evaluate(p.Src, p.Dst, uint16(p.IPProto))
 }
 
 func (f *Firewall) RefreshConfiguration() []error {

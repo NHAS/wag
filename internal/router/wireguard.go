@@ -111,13 +111,13 @@ func (t *Wrapper) Close() error {
 // Read from the OS tun device
 func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 
-	p := parsedPacketPool.Get().(*packet.Parsed)
-	defer parsedPacketPool.Put(p)
-
 	n, err := t.Device.Read(buffs, sizes, offset)
 	if err != nil {
 		return n, err
 	}
+
+	p := parsedPacketPool.Get().(*packet.Parsed)
+	defer parsedPacketPool.Put(p)
 
 	placement := 0
 	for i := 0; i < n; i++ {
@@ -210,13 +210,52 @@ func (f *Firewall) endpointChange(e device.Event) {
 }
 
 func (f *Firewall) setupWireguard() error {
-
-	// open TUN device
-
 	tdev, err := tun.CreateTUN(config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
 	if err != nil {
 		return fmt.Errorf("failed to create TUN device:  path: %q mtu: %d, err %v", config.Values.Wireguard.DevName, config.Values.Wireguard.MTU, err)
 	}
+
+	err = f.openWireguard(tdev)
+	if err != nil {
+		return fmt.Errorf("failed to open wireguard device: %s", err)
+	}
+
+	err = func(network string) error {
+
+		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+
+		ip, ipNet, err := net.ParseCIDR(network)
+		if err != nil {
+			return err
+		}
+
+		ipNet.IP = ip
+
+		err = f.setIp(conn, config.Values.Wireguard.DevName, *ipNet)
+		if err != nil {
+			return err
+		}
+
+		return f.setUp(conn, config.Values.Wireguard.DevName)
+	}(config.Values.Wireguard.Address)
+	if err != nil {
+		return fmt.Errorf("unable to set wireguard tunnel ip: %s", err)
+	}
+
+	return err
+}
+
+func (f *Firewall) setupWireguardDebug(dev tun.Device) error {
+	return f.openWireguard(dev)
+}
+
+func (f *Firewall) openWireguard(tdev tun.Device) error {
+
+	// open TUN device
 
 	uapiInterfaceName := config.Values.Wireguard.DevName
 	realInterfaceName, err2 := tdev.Name()
@@ -262,32 +301,6 @@ func (f *Firewall) setupWireguard() error {
 
 	logger.Verbosef("UAPI listener started")
 
-	err = func(network string) error {
-
-		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
-		if err != nil {
-			return err
-		}
-		defer conn.Close()
-
-		ip, ipNet, err := net.ParseCIDR(network)
-		if err != nil {
-			return err
-		}
-
-		ipNet.IP = ip
-
-		err = f.setIp(conn, config.Values.Wireguard.DevName, *ipNet)
-		if err != nil {
-			return err
-		}
-
-		return f.setUp(conn, config.Values.Wireguard.DevName)
-	}(config.Values.Wireguard.Address)
-	if err != nil {
-		return fmt.Errorf("unable to set wireguard tunnel ip: %s", err)
-	}
-
 	err = device.Up()
 	if err != nil {
 		return fmt.Errorf("unable to bring wireguard device up: %s", err)
@@ -328,11 +341,6 @@ func (f *Firewall) setupDevices(devices []data.Device) error {
 	defer f.Unlock()
 
 	var c wgtypes.Config
-
-	err := f.setupWireguard()
-	if err != nil {
-		return fmt.Errorf("failed to create wireguard device: err: %s", err)
-	}
 
 	key, err := wgtypes.ParseKey(config.Values.Wireguard.PrivateKey)
 	if err != nil {
