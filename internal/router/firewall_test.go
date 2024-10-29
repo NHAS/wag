@@ -66,7 +66,7 @@ func TestAddNewDevices(t *testing.T) {
 
 	for address, device := range testFw.addressToDevice {
 
-		if device.lastPacketTime.IsZero() || device.sessionExpiry.IsZero() {
+		if !device.lastPacketTime.IsZero() || !device.sessionExpiry.IsZero() {
 			t.Fatal("timers were not 0 immediately after device add")
 		}
 		found[address.String()] = true
@@ -787,9 +787,6 @@ func TestPortRestrictions(t *testing.T) {
 	for _, rule := range rules {
 
 		for _, policy := range rule.Values {
-			if policy.Is(routetypes.STOP) {
-				break
-			}
 
 			// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
 			successProto := policy.Proto
@@ -895,9 +892,6 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 		for _, rule := range rules {
 
 			for _, policy := range rule.Values {
-				if policy.Is(routetypes.STOP) {
-					break
-				}
 
 				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
 				successProto := policy.Proto
@@ -985,10 +979,6 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("policy was not marked as allow all despite having no rules defined")
 	}
 
-	if !policies[1].Is(routetypes.STOP) {
-		t.Fatal("policy should only contain one any/any rule")
-	}
-
 	k = routetypes.Key{
 		IP:        []byte{3, 3, 3, 3},
 		Prefixlen: 32,
@@ -1007,10 +997,6 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 
 	if policies[0].LowerPort != 33 || policies[0].Proto != routetypes.TCP {
 		t.Fatal("policy had incorrect proto and port defintions")
-	}
-
-	if !policies[1].Is(routetypes.STOP) {
-		t.Fatal("policy should only contain one any/any rule")
 	}
 
 }

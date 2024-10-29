@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/netip"
+	"time"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -35,6 +36,13 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 		currentlyConnectedPeers: make(map[string]string),
 		hasIptables:             iptables,
 	}
+
+	inactivityTimeoutInt, err := data.GetSessionInactivityTimeoutMinutes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session inactivity timeout: %s", err)
+	}
+
+	fw.inactivityTimeout = time.Duration(inactivityTimeoutInt) * time.Minute
 
 	fw.nodeID = data.GetServerID()
 	fw.deviceName = config.Values.Wireguard.DevName

@@ -9,8 +9,7 @@ import (
 type PolicyType uint16
 
 const (
-	ANY  = 0
-	STOP = 0 // Special directive, stop searching through the array, this is the end
+	ANY = 0
 
 	PUBLIC = 1 << PolicyType(iota)
 	RANGE
@@ -78,10 +77,6 @@ func (r Policy) String() string {
 
 	if r.Is(DENY) {
 		restrictionType = "deny"
-	}
-
-	if r.Is(STOP) {
-		return "stop"
 	}
 
 	if r.Is(SINGLE) {

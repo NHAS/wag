@@ -433,11 +433,6 @@ func (f *Firewall) IsAuthed(address string) bool {
 
 func (f *Firewall) isAuthed(addr netip.Addr) bool {
 
-	ok := f.userIsLocked[addr.String()]
-	if !ok {
-		return false
-	}
-
 	device, ok := f.addressToDevice[addr]
 	if !ok {
 		return false
@@ -449,6 +444,7 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 
 	// If the device has been inactive
 	if device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
+
 		return false
 	}
 
