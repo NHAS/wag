@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand/v2"
@@ -503,8 +504,14 @@ func TestCompositeRules(t *testing.T) {
 	for i := range successPackets {
 
 		if !testFw.Test(successPackets[i]) {
-			fw, _ := testFw.GetRules()
-			t.Logf("%+v", fw)
+			fw, err := testFw.GetRules()
+			if err != nil {
+				t.Logf("failed to read fw rules: %s", err)
+			}
+
+			s, _ := json.MarshalIndent(fw, "", "\t")
+
+			t.Logf("%s", s)
 			t.Fatalf("did not pass packet %d", i)
 		}
 	}
@@ -780,6 +787,8 @@ func TestPortRestrictions(t *testing.T) {
 		t.Fatal(errs)
 	}
 
+	testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+
 	var packets [][]byte
 	expectedResults := []bool{}
 
@@ -795,7 +804,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Add matching/passing packet
-			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), rule.Keys[0].AsIPv4(), int(successProto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, true)
 
 			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.Is(routetypes.SINGLE) {
@@ -869,8 +878,8 @@ func TestPortRestrictions(t *testing.T) {
 
 			info := iphdr.Src.String() + " -> " + iphdr.Dst.String() + ", proto " + pkt.String()
 
-			m, _ := testFw.GetRules()
-			t.Logf("%+v", m)
+			//m, _ := testFw.GetRules()
+			//t.Logf("%+v", m)
 			t.Fatalf("%s program did not %t packet instead did: %t", info, expectedResults[i], testFw.Test(packet))
 		}
 	}
@@ -1005,9 +1014,9 @@ func addDevices(fw *Firewall) error {
 
 	for _, device := range devices {
 
-		err := fw.AddUser(device.Username)
+		_, err := data.CreateUserDataAccount(device.Username)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create data account: %s", err)
 		}
 
 		k, err := wgtypes.ParseKey(device.Publickey)

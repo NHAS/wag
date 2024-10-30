@@ -37,27 +37,29 @@ func createPacket(src, dst net.IP, proto, port int) []byte {
 		Protocol: proto,
 	}
 
-	hdrbytes, _ := iphdr.Marshal()
-
 	pkt := pkthdr{
 		src: 3884,
 		dst: uint16(port),
 	}
 
+	content := []byte{}
 	switch proto {
 	case routetypes.UDP:
-		hdrbytes = append(hdrbytes, pkt.Udp()...)
+		content = pkt.Udp()
 	case routetypes.TCP:
-		hdrbytes = append(hdrbytes, pkt.Tcp()...)
+		content = pkt.Tcp()
 
 	case routetypes.ICMP:
-		hdrbytes = append(hdrbytes, pkt.Icmp()...)
+		content = pkt.Icmp()
 
 	default:
-		hdrbytes = append(hdrbytes, pkt.Any()...)
-
+		content = pkt.Any()
 	}
 
+	iphdr.TotalLen = ipv4.HeaderLen + len(content)
+
+	hdrbytes, _ := iphdr.Marshal()
+	hdrbytes = append(hdrbytes, content...)
 	return hdrbytes
 }
 

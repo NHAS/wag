@@ -147,6 +147,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 		policies, ok = f.addressToPolicies[dst.Addr()]
 		if !ok || policies == nil {
 			f.RUnlock()
+			log.Println("src/dst not device")
 			return false
 		}
 
@@ -157,6 +158,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	policy := policies.tableLookup(targetAddr.Addr())
 	if policy == nil {
 		f.RUnlock()
+		log.Println("no policy table")
+
 		return false
 	}
 
@@ -175,6 +178,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	action := false
 	for _, decision := range *policy {
 
+		log.Println(src, "->", dst, decision, "dproto: ", decision.Proto, "proto:", proto, "eval: ", (decision.Proto == routetypes.ANY || decision.Proto == proto), (decision.Is(routetypes.SINGLE) && (decision.LowerPort == routetypes.ANY || decision.LowerPort == targetAddr.Port())), (decision.Is(routetypes.RANGE) && (decision.LowerPort <= targetAddr.Port() && decision.UpperPort >= targetAddr.Port())))
+
 		//      ANY = 0
 		//      If we match the protocol,
 		//      If type is SINGLE and the port is either any, or equal
@@ -185,6 +190,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 				(decision.Is(routetypes.RANGE) && (decision.LowerPort <= targetAddr.Port() && decision.UpperPort >= targetAddr.Port()))) {
 
 			if decision.Is(routetypes.DENY) {
+				log.Println("deny")
+
 				return false
 			} else if decision.Is(routetypes.PUBLIC) {
 
@@ -192,6 +199,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 			} else {
 				action = authorized
 				if !action {
+					log.Println("mfa deny and unauthorized")
+
 					return false
 				}
 			}
