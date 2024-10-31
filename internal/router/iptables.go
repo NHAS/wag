@@ -18,7 +18,16 @@ func (f *Firewall) setupIptables() error {
 		return errors.New("firewall instance has been closed")
 	}
 
-	ipt, err := iptables.New()
+	var (
+		err error
+		ipt *iptables.IPTables
+	)
+	if config.Values.Wireguard.Range.IP.To16() == nil {
+		ipt, err = iptables.New()
+	} else {
+		ipt, err = iptables.New(iptables.IPFamily(iptables.ProtocolIPv6))
+	}
+
 	if err != nil {
 		return err
 	}
@@ -109,7 +118,16 @@ func (f *Firewall) teardownIptables() {
 
 	log.Println("Removing Firewall rules...")
 
-	ipt, err := iptables.New()
+	var (
+		err error
+		ipt *iptables.IPTables
+	)
+	if config.Values.Wireguard.Range.IP.To16() == nil {
+		ipt, err = iptables.New()
+	} else {
+		ipt, err = iptables.New(iptables.IPFamily(iptables.ProtocolIPv6))
+	}
+
 	if err != nil {
 		log.Println("Unable to clean up firewall rules: ", err)
 		return
