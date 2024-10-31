@@ -182,7 +182,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	for i := 0; i < len(dnsWithOutSubnet); i++ {
-		dnsWithOutSubnet[i] = strings.TrimSuffix(dnsWithOutSubnet[i], "/32")
+		dnsWithOutSubnet[i] = strings.TrimSuffix(strings.TrimSuffix(dnsWithOutSubnet[i], "/32"), "/128")
 	}
 
 	routes, err := routetypes.AclsToRoutes(append(acl.Allow, acl.Mfa...))
