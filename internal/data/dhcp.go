@@ -2,8 +2,10 @@ package data
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"math"
+	"math/big"
 	"math/rand"
 	"net"
 
@@ -11,16 +13,29 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-// https://gist.github.com/udhos/b468fbfd376aa0b655b6b0c539a88c03
 func incrementIP(ip net.IP, inc uint) net.IP {
-	i := ip.To4()
-	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
-	v += inc
-	v3 := byte(v & 0xFF)
-	v2 := byte((v >> 8) & 0xFF)
-	v1 := byte((v >> 16) & 0xFF)
-	v0 := byte((v >> 24) & 0xFF)
-	return net.IPv4(v0, v1, v2, v3)
+
+	if ip.To4() != nil {
+		r := binary.BigEndian.Uint32(ip.To4()) + uint32(inc)
+
+		newIp := make([]byte, 4)
+		binary.BigEndian.PutUint32(newIp, r)
+
+		return net.IP(newIp)
+	}
+
+	ip = ip.To16()
+
+	asBigInt := big.NewInt(0).SetBytes(ip)
+	asBigInt.Add(asBigInt, big.NewInt(int64(inc)))
+
+	result := make([]byte, 16)
+	bigIntBytes := asBigInt.Bytes()
+
+	copy(result[16-min(len(bigIntBytes), 16):], bigIntBytes)
+
+	return net.IP(result)
+
 }
 
 func getNextIP(subnet string) (string, error) {
@@ -30,8 +45,13 @@ func getNextIP(subnet string) (string, error) {
 		return "", err
 	}
 
+	max := 32
+	if serverIP.To16() != nil {
+		max = 128
+	}
+
 	used, _ := cidr.Mask.Size()
-	maxNumberOfAddresses := int(math.Pow(2, float64(32-used))) - 2 // Do not allocate largest address or 0
+	maxNumberOfAddresses := int(math.Pow(2, float64(max-used))) - 2 // Do not allocate largest address or 0
 	if maxNumberOfAddresses < 1 {
 		return "", errors.New("subnet is too small to contain a new device")
 	}
