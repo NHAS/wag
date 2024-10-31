@@ -336,6 +336,17 @@ func (f *Firewall) setupUsers(users []data.UserModel) error {
 	return errors.Join(errs...)
 }
 
+func (f *Firewall) hostIPWithMask(s string) string {
+	ip := net.ParseIP(s)
+
+	mask := "/32"
+	if ip.To16() == nil {
+		mask = "/128"
+	}
+
+	return s + mask
+}
+
 func (f *Firewall) setupDevices(devices []data.Device) error {
 	f.Lock()
 	defer f.Unlock()
@@ -360,7 +371,7 @@ func (f *Firewall) setupDevices(devices []data.Device) error {
 			psk = &testKey
 		}
 
-		_, network, _ := net.ParseCIDR(device.Address + "/32")
+		_, network, _ := net.ParseCIDR(f.hostIPWithMask(device.Address))
 
 		pc := wgtypes.PeerConfig{
 			PublicKey:         pk,
@@ -472,7 +483,6 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 	} else if address.IP.To16() == nil {
 		IP = address.IP.To16()
 		addrMsg.Family = unix.AF_INET6
-
 	} else {
 		return errors.New("unrecognised ip version")
 	}
@@ -645,7 +655,7 @@ func (f *Firewall) ReplacePeer(device data.Device, newPublicKey wgtypes.Key) err
 		return err
 	}
 
-	_, network, err := net.ParseCIDR(device.Address + "/32")
+	_, network, err := net.ParseCIDR(f.hostIPWithMask(device.Address))
 	if err != nil {
 		return err
 	}
@@ -695,7 +705,7 @@ func (f *Firewall) AddPeer(public wgtypes.Key, username, address, presharedKey s
 		return errors.New("firewall instance has been closed")
 	}
 
-	_, network, err := net.ParseCIDR(address + "/32")
+	_, network, err := net.ParseCIDR(f.hostIPWithMask(address))
 	if err != nil {
 		return err
 	}

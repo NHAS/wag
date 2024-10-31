@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"sort"
 
 	"github.com/NHAS/wag/internal/acls"
@@ -85,6 +86,15 @@ func insertMap(m map[string]bool, values ...string) {
 	}
 }
 
+func hostIPWithMask(ip net.IP) string {
+	mask := "/32"
+	if ip.To16() == nil {
+		mask = "/128"
+	}
+
+	return ip.String() + mask
+}
+
 func GetEffectiveAcl(username string) acls.Acl {
 
 	var (
@@ -94,7 +104,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 		denySet  = map[string]bool{}
 	)
 
-	insertMap(allowSet, config.Values.Wireguard.ServerAddress.String()+"/32")
+	insertMap(allowSet, hostIPWithMask(config.Values.Wireguard.ServerAddress))
 
 	txn := etcd.Txn(context.Background())
 	txn.Then(clientv3.OpGet(AclsPrefix+"*"), clientv3.OpGet(AclsPrefix+username), clientv3.OpGet(MembershipKey+"-"+username), clientv3.OpGet(dnsKey))
@@ -102,7 +112,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 	if err != nil {
 		log.Println("failed to get policy data for user", username, "err:", err)
 		return acls.Acl{
-			Allow: []string{config.Values.Wireguard.ServerAddress.String() + "/32"},
+			Allow: []string{hostIPWithMask(config.Values.Wireguard.ServerAddress)},
 		}
 	}
 
