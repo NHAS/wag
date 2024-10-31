@@ -53,7 +53,7 @@ func (au *AdminUI) devicesMgmt(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var deviceData []DevicesData
+		deviceData := []DevicesData{}
 
 		for _, dev := range allDevices {
 			deviceData = append(deviceData, DevicesData{

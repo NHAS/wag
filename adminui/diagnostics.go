@@ -79,7 +79,7 @@ func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var wireguardPeers []WgDevicesData
+	wireguardPeers := []WgDevicesData{}
 
 	for _, peer := range peers {
 		ip := "-"
