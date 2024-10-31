@@ -88,7 +88,7 @@ func insertMap(m map[string]bool, values ...string) {
 
 func hostIPWithMask(ip net.IP) string {
 	mask := "/32"
-	if ip.To16() == nil {
+	if ip.To4() == nil && ip.To16() != nil {
 		mask = "/128"
 	}
 

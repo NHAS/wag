@@ -209,12 +209,35 @@ func (f *Firewall) endpointChange(e device.Event) {
 	}
 }
 
-func (f *Firewall) setupWireguard() error {
+func (f *Firewall) bringUpInterface(devName, network string) error {
+
+	conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	ip, ipNet, err := net.ParseCIDR(network)
+	if err != nil {
+		return err
+	}
+
+	ipNet.IP = ip
+
+	err = f.setIp(conn, devName, *ipNet)
+	if err != nil {
+		return err
+	}
+
+	return f.setUp(conn, devName)
+}
+
+func (f *Firewall) setupWireguard(devName, address string, MTU int) error {
 	// open TUN device
 
-	tdev, err := tun.CreateTUN(config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
+	tdev, err := tun.CreateTUN(devName, MTU)
 	if err != nil {
-		return fmt.Errorf("failed to create TUN device:  path: %q mtu: %d, err %v", config.Values.Wireguard.DevName, config.Values.Wireguard.MTU, err)
+		return fmt.Errorf("failed to create TUN device:  path: %q mtu: %d, err %v", devName, MTU, err)
 	}
 
 	err = f.openWireguard(tdev)
@@ -222,30 +245,9 @@ func (f *Firewall) setupWireguard() error {
 		return fmt.Errorf("failed to open wireguard device: %s", err)
 	}
 
-	err = func(network string) error {
-
-		conn, err := netlink.Dial(unix.NETLINK_ROUTE, nil)
-		if err != nil {
-			return err
-		}
-		defer conn.Close()
-
-		ip, ipNet, err := net.ParseCIDR(network)
-		if err != nil {
-			return err
-		}
-
-		ipNet.IP = ip
-
-		err = f.setIp(conn, config.Values.Wireguard.DevName, *ipNet)
-		if err != nil {
-			return err
-		}
-
-		return f.setUp(conn, config.Values.Wireguard.DevName)
-	}(config.Values.Wireguard.Address)
+	err = f.bringUpInterface(devName, address)
 	if err != nil {
-		return fmt.Errorf("unable to set wireguard tunnel ip: %s", err)
+		return fmt.Errorf("failed to set ip and bring wireguard tun device up: %s", err)
 	}
 
 	return err
@@ -480,10 +482,10 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 
 	preflen, _ := address.Mask.Size()
 
-	if address.IP.To4() == nil {
+	if address.IP.To4() != nil {
 		IP = address.IP.To4()
 		addrMsg.Family = unix.AF_INET
-	} else if address.IP.To16() == nil {
+	} else if address.IP.To16() != nil {
 		IP = address.IP.To16()
 		addrMsg.Family = unix.AF_INET6
 	} else {

@@ -22,7 +22,6 @@ services:
     volumes:
        - .:/usr/local/bin/wag:ro
        - ./docker-test-config.json:/opt/config.json
-       - ./devices.db:/opt/devices.db
     networks:
       custom_network:
         ipv4_address: 172.20.0.3

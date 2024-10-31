@@ -16,6 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/routetypes"
 	"golang.org/x/net/ipv4"
+	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -51,6 +52,33 @@ var (
 	testFw  *Firewall
 	mockTun *tuntest.ChannelTUN
 )
+
+func TestSetupRealWireguardDevice(t *testing.T) {
+
+	const dummyIPv4Device = "dev-ipv4"
+	tdev4, err := tun.CreateTUN(dummyIPv4Device, 1500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tdev4.Close()
+
+	const dummyIPv6Device = "dev-ipv6"
+	tdev6, err := tun.CreateTUN(dummyIPv6Device, 1500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tdev6.Close()
+
+	err = testFw.bringUpInterface(dummyIPv4Device, "192.168.0.1/24")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = testFw.bringUpInterface(dummyIPv6Device, "2001:db8::1/6")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestBlankPacket(t *testing.T) {
 

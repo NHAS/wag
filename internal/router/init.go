@@ -59,7 +59,7 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 	if testing {
 		err = fw.setupWireguardDebug(testDev)
 	} else {
-		err = fw.setupWireguard()
+		err = fw.setupWireguard(config.Values.Wireguard.Address, config.Values.Wireguard.DevName, config.Values.Wireguard.MTU)
 	}
 
 	if err != nil {
