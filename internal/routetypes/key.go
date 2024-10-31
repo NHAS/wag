@@ -29,6 +29,10 @@ func (l *Key) AsIPv6() net.IP {
 	return net.IP(l.IP).To16()
 }
 
+func (l *Key) AsIP() net.IP {
+	return net.IP(l.IP)
+}
+
 func (l Key) String() string {
 	return fmt.Sprintf("%s/%d", net.IP(l.IP).String(), l.Prefixlen)
 }

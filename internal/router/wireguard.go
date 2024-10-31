@@ -337,10 +337,13 @@ func (f *Firewall) setupUsers(users []data.UserModel) error {
 }
 
 func (f *Firewall) hostIPWithMask(s string) string {
-	ip := net.ParseIP(s)
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		return s + "/32"
+	}
 
 	mask := "/32"
-	if ip.To16() == nil {
+	if addr.Is6() {
 		mask = "/128"
 	}
 

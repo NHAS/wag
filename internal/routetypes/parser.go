@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -359,8 +360,8 @@ var (
 
 func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 
-	ip := net.ParseIP(address)
-	if ip == nil {
+	addr, err := netip.ParseAddr(address)
+	if err != nil {
 
 		_, cidr, err := net.ParseCIDR(address)
 		if err != nil {
@@ -412,13 +413,13 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 	}
 
 	var resultIP net.IPNet
-
-	if ip.To4() == nil {
-		resultIP.IP = ip.To4()
+	resultIP.IP = addr.AsSlice()
+	if addr.Is4() {
 		resultIP.Mask = net.CIDRMask(32, 32)
-	} else if ip.To16() == nil {
-		resultIP.IP = ip.To16()
+	} else if addr.Is6() {
 		resultIP.Mask = net.CIDRMask(128, 128)
+	} else {
+		return nil, errors.New("invalid ip")
 	}
 
 	return []net.IPNet{

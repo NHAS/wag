@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -365,9 +366,9 @@ func Load(path string) error {
 }
 
 func parseAddress(address string) ([]string, error) {
-	ip := net.ParseIP(address)
-	if ip == nil {
 
+	addr, err := netip.ParseAddr(address)
+	if err != nil {
 		_, cidr, err := net.ParseCIDR(address)
 		if err != nil {
 
@@ -406,9 +407,9 @@ func parseAddress(address string) ([]string, error) {
 	}
 
 	mask := "/32"
-	if ip.To16() == nil {
+	if addr.Is6() {
 		mask = "/128"
 	}
 
-	return []string{ip.String() + mask}, nil
+	return []string{addr.String() + mask}, nil
 }

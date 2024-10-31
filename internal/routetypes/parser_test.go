@@ -8,8 +8,8 @@ import (
 
 func checkKey(reality Key, expectedKey Key) error {
 
-	if !net.IP.Equal(reality.AsIPv4(), expectedKey.AsIPv4()) {
-		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.IP, reality.IP)
+	if !net.IP.Equal(reality.AsIP(), expectedKey.AsIP()) {
+		return fmt.Errorf("key had incorrect ip: expected: %s got: %s", expectedKey.AsIP(), reality.AsIP())
 	}
 
 	if reality.Prefixlen != expectedKey.Prefixlen {
