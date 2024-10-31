@@ -30,7 +30,7 @@ func (l *Key) AsIPv6() net.IP {
 }
 
 func (l Key) String() string {
-	return fmt.Sprintf("%s/%d", net.IP(l.IP).To4().String(), l.Prefixlen)
+	return fmt.Sprintf("%s/%d", net.IP(l.IP).String(), l.Prefixlen)
 }
 
 func lookupProtocol(t uint16) string {

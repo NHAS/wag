@@ -387,6 +387,11 @@ func parseAddress(address string) ([]string, error) {
 				if addr.To4() != nil {
 					addedSomething = true
 					output = append(output, addr.String()+"/32")
+					continue
+				} else if addr.To16() != nil {
+					addedSomething = true
+					output = append(output, addr.String()+"/128")
+					continue
 				}
 			}
 
@@ -400,5 +405,10 @@ func parseAddress(address string) ([]string, error) {
 		return []string{cidr.String()}, nil
 	}
 
-	return []string{ip.To4().String() + "/32"}, nil
+	mask := "/32"
+	if ip.To16() == nil {
+		mask = "/128"
+	}
+
+	return []string{ip.String() + mask}, nil
 }

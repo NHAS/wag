@@ -160,11 +160,6 @@ func TestParseSimpleSingles(t *testing.T) {
 	}
 
 	for i := 0; i < len(br.Values); i++ {
-
-		if br.Values[i].PolicyType == STOP {
-			return
-		}
-
 		found := false
 		for _, v := range expectedValues {
 

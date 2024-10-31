@@ -217,7 +217,7 @@ func parseKeys(address string) (keys []Key, err error) {
 		keys = append(keys,
 			Key{
 				Prefixlen: uint32(maskLength),
-				IP:        []byte{ip.IP.To4()[0], ip.IP.To4()[1], ip.IP.To4()[2], ip.IP.To4()[3]},
+				IP:        ip.IP,
 			},
 		)
 	}
@@ -387,11 +387,18 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 				if addr.To4() != nil {
 					addedSomething = true
 					resultAddresses = append(resultAddresses, net.IPNet{IP: addr.To4(), Mask: net.IPv4Mask(255, 255, 255, 255)})
+					continue
 				}
+
+				if addr.To16() != nil {
+					addedSomething = true
+					resultAddresses = append(resultAddresses, net.IPNet{IP: addr.To16(), Mask: net.CIDRMask(128, 128)})
+				}
+
 			}
 
 			if !addedSomething {
-				return nil, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", address)
+				return nil, fmt.Errorf("no addresses for domain %s were added", address)
 			}
 
 			dnsLock.Lock()
@@ -404,11 +411,17 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 		return []net.IPNet{*cidr}, nil
 	}
 
-	// /32
+	var resultIP net.IPNet
+
+	if ip.To4() == nil {
+		resultIP.IP = ip.To4()
+		resultIP.Mask = net.CIDRMask(32, 32)
+	} else if ip.To16() == nil {
+		resultIP.IP = ip.To16()
+		resultIP.Mask = net.CIDRMask(128, 128)
+	}
+
 	return []net.IPNet{
-		{
-			IP:   ip.To4(),
-			Mask: net.IPv4Mask(255, 255, 255, 255),
-		},
+		resultIP,
 	}, nil
 }

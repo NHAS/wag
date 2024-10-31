@@ -130,14 +130,14 @@ func GetIPFromRequest(r *http.Request) net.IP {
 
 			if len(addresses)-config.Values.NumberProxies < 0 {
 				log.Println("WARNING XFF parsing may be broken: ", len(addresses)-config.Values.NumberProxies, " check config.Values.NumberProxies")
-				return net.ParseIP(strings.TrimSpace(addresses[len(addresses)-1])).To4()
+				return net.ParseIP(strings.TrimSpace(addresses[len(addresses)-1]))
 			}
 
-			return net.ParseIP(strings.TrimSpace(addresses[len(addresses)-config.Values.NumberProxies])).To4()
+			return net.ParseIP(strings.TrimSpace(addresses[len(addresses)-config.Values.NumberProxies]))
 		}
 	}
 
-	return net.ParseIP(GetIP(r.RemoteAddr)).To4()
+	return net.ParseIP(GetIP(r.RemoteAddr))
 }
 
 func GenerateRandomHex(n uint32) (string, error) {

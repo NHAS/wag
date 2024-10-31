@@ -455,20 +455,35 @@ func (f *Firewall) setIp(c *netlink.Conn, name string, address net.IPNet) error 
 		return fmt.Errorf("wireguard network iface %s does not exist: %s", name, err)
 	}
 
-	addrMsg := IfAddrmsg{
-		Family: unix.AF_INET,
-		Index:  uint32(iface.Index),
-		Scope:  unix.RT_SCOPE_LINK,
-	}
+	var (
+		IP      net.IP
+		addrMsg = IfAddrmsg{
+
+			Index: uint32(iface.Index),
+			Scope: unix.RT_SCOPE_LINK,
+		}
+	)
 
 	preflen, _ := address.Mask.Size()
+
+	if address.IP.To4() == nil {
+		IP = address.IP.To4()
+		addrMsg.Family = unix.AF_INET
+	} else if address.IP.To16() == nil {
+		IP = address.IP.To16()
+		addrMsg.Family = unix.AF_INET6
+
+	} else {
+		return errors.New("unrecognised ip version")
+	}
+
 	addrMsg.Prefixlen = uint8(preflen)
 
 	req.Data = addrMsg.Serialize()
 
 	attrs := []netlink.Attribute{
-		{Type: unix.IFA_LOCAL, Data: address.IP.To4()},
-		{Type: unix.IFA_ADDRESS, Data: address.IP.To4()},
+		{Type: unix.IFA_LOCAL, Data: IP},
+		{Type: unix.IFA_ADDRESS, Data: IP},
 	}
 
 	msg, err := netlink.MarshalAttributes(attrs)

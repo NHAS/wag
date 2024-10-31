@@ -193,7 +193,7 @@ func GetUser(username string) (user, error) {
 }
 
 func GetUserFromAddress(address net.IP) (user, error) {
-	ud, err := data.GetUserDataFromAddress(address.To4().String())
+	ud, err := data.GetUserDataFromAddress(address.String())
 	if err != nil {
 		return user{}, err
 	}
