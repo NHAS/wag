@@ -89,7 +89,11 @@ func (f *Firewall) SetInactivityTimeout(inactivityTimeoutMinutes int) error {
 		return errors.New("firewall instance has been closed")
 	}
 
-	f.inactivityTimeout = time.Duration(inactivityTimeoutMinutes) * time.Minute
+	if inactivityTimeoutMinutes < 0 {
+		f.inactivityTimeout = -1
+	} else {
+		f.inactivityTimeout = time.Duration(inactivityTimeoutMinutes) * time.Minute
+	}
 
 	return nil
 }
@@ -164,7 +168,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	// It doesnt matter if this gets race conditioned
 	device := f.addressToDevice[deviceAddr.Addr()]
-	if device != nil && time.Since(device.lastPacketTime) < f.inactivityTimeout {
+	if device != nil && (f.inactivityTimeout == -1 || time.Since(device.lastPacketTime) < f.inactivityTimeout) {
 		device.lastPacketTime = time.Now()
 	} else {
 		authorized = false
@@ -174,7 +178,6 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	action := false
 	for _, decision := range *policy {
-
 		//      ANY = 0
 		//      If we match the protocol,
 		//      If type is SINGLE and the port is either any, or equal
@@ -259,7 +262,16 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 		return err
 	}
 
-	device.sessionExpiry = time.Now().Add(time.Duration(maxSession) * time.Minute)
+	device.disableSessionExpiry = maxSession < 0
+
+	timeToSet := maxSession
+	if !device.disableSessionExpiry {
+		// when the session expiry is set, it doesnt matter what we set this to, it just cant be the time.Time{} zero value ( as that indicates unauthed)
+		timeToSet = 1
+	}
+
+	device.sessionExpiry = time.Now().Add(time.Duration(timeToSet) * time.Minute)
+
 	device.lastPacketTime = time.Now()
 	device.associatedNode = node
 
@@ -362,7 +374,11 @@ func (f *Firewall) RefreshConfiguration() []error {
 		return []error{err}
 	}
 
-	f.inactivityTimeout = time.Duration(inactivityTimeoutMinutes) * time.Minute
+	if inactivityTimeoutMinutes < 0 {
+		f.inactivityTimeout = -1
+	} else {
+		f.inactivityTimeout = time.Duration(inactivityTimeoutMinutes) * time.Minute
+	}
 
 	var allErrors []error
 	for _, user := range allUsers {
@@ -442,8 +458,7 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 	}
 
 	// If the device has been inactive
-	if device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
-
+	if f.inactivityTimeout > 0 && device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
 		return false
 	}
 
@@ -533,7 +548,9 @@ type FirewallDevice struct {
 	address netip.Addr
 
 	lastPacketTime time.Time
-	sessionExpiry  time.Time
+
+	disableSessionExpiry bool
+	sessionExpiry        time.Time
 
 	associatedNode types.ID
 
@@ -551,8 +568,9 @@ func (fwd *FirewallDevice) toDTO() fwDevice {
 
 func (d *FirewallDevice) isAuthed() bool {
 	t := time.Now()
+
 	return !d.sessionExpiry.Equal(time.Time{}) &&
-		t.Before(d.sessionExpiry)
+		(t.Before(d.sessionExpiry) || d.disableSessionExpiry)
 
 }
 

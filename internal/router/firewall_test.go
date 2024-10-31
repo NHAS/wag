@@ -557,86 +557,77 @@ func TestCompositeRules(t *testing.T) {
 
 }
 
-// func TestDisabledSlidingWindow(t *testing.T) {
+func TestDisabledSlidingWindow(t *testing.T) {
 
-// 	err := data.SetSessionInactivityTimeoutMinutes(-1)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	err := data.SetSessionInactivityTimeoutMinutes(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	timeout, err := data.GetSessionInactivityTimeoutMinutes()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// no op to give etcd time to update the value
+	data.GetSessionInactivityTimeoutMinutes()
 
-// 	err = testFw.SetInactivityTimeout(timeout)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	maxSessionLife, _ := data.GetSessionLifetimeMinutes()
 
-// 	var timeoutFromMap uint64
-// 	err = xdpObjects.InactivityTimeoutMinutes.Lookup(uint32(0), &timeoutFromMap)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if testFw.inactivityTimeout != -1 {
+		t.Fatalf("the inactivity timeout was not set to -1, was %d", testFw.inactivityTimeout)
+	}
 
-// 	if timeoutFromMap != math.MaxUint64 {
-// 		t.Fatalf("the inactivity timeout was not set to max uint64, was %d (maxuint64 %d)", timeoutFromMap, uint64(math.MaxUint64))
-// 	}
+	err = testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	err = SetAuthorized(devices["tester"].Address, devices["tester"].Username, uint64(data.GetServerID()))
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if !testFw.IsAuthed(devices["tester"].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
 
-// 	if !IsAuthed(devices["tester"].Address) {
-// 		t.Fatal("after setting user as authorized it should be.... authorized")
-// 	}
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
 
-// 	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
-// 	if err != nil {
-// 		t.Fatal("could not parse ip: ", err)
-// 	}
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(devices["tester"].Address),
+		Len:     ipv4.HeaderLen,
+	}
 
-// 	testAuthorizedPacket := ipv4.Header{
-// 		Version: 4,
-// 		Dst:     ip,
-// 		Src:     net.ParseIP(devices["tester"].Address),
-// 		Len:     ipv4.HeaderLen,
-// 	}
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
 
-// 	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
-// 		t.Fatal("could not parse ip")
-// 	}
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	packet, err := testAuthorizedPacket.Marshal()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	t.Logf("Now doing timing test for disabled sliding window waiting...")
 
-// 	t.Logf("Now doing timing test for disabled sliding window waiting...")
+	elapsed := 0
+	for {
 
-// 	elapsed := 0
-// 	for {
-// 		time.Sleep(15 * time.Second)
-// 		elapsed += 15
+		value := testFw.Test(packet)
+		if err != nil {
+			t.Fatalf("program failed %s", err)
+		}
 
-// 		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
-// 		if err != nil {
-// 			t.Fatalf("program failed %s", err)
-// 		}
+		if !value {
+			if elapsed < maxSessionLife*60 {
+				t.Fatal("blocking valid traffic early: ", elapsed)
+			} else {
+				break
+			}
 
-// 		if value == 1 {
-// 			if elapsed < config.Values.MaxSessionLifetimeMinutes*60 {
-// 				t.Fatal("epbf kernel blocking valid traffic early")
-// 			} else {
-// 				break
-// 			}
+		}
 
-// 		}
-// 	}
+		time.Sleep(15 * time.Second)
+		elapsed += 15
 
-// }
+	}
+
+}
 
 func TestMaxSessionLifetime(t *testing.T) {
 
@@ -687,84 +678,77 @@ func TestMaxSessionLifetime(t *testing.T) {
 	}
 }
 
-// func TestDisablingMaxLifetime(t *testing.T) {
+func TestDisablingMaxLifetime(t *testing.T) {
 
-// 	// Disable session max lifetime
-// 	err := data.SetSessionLifetimeMinutes(-1)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Disable session max lifetime
+	err := data.SetSessionLifetimeMinutes(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	err = testFw.SetAuthorized(devices["tester"].Address,  data.GetServerID())
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	err = testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	if !testFw.IsAuthed(devices["tester"].Address) {
-// 		t.Fatal("after setting user as authorized it should be.... authorized")
-// 	}
+	if !testFw.IsAuthed(devices["tester"].Address) {
+		t.Fatal("after setting user as authorized it should be.... authorized")
+	}
 
-// 	var maxSessionLifeDevice fwentry
-// 	deviceBytes, err := xdpObjects.Devices.LookupBytes(net.ParseIP(devices["tester"].Address).To4())
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	addr, err := netip.ParseAddr(devices["tester"].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	err = maxSessionLifeDevice.Unpack(deviceBytes)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	device := testFw.addressToDevice[addr]
 
-// 	if maxSessionLifeDevice.sessionExpiry != math.MaxUint64 {
-// 		t.Fatalf("lifetime was not set to max uint64, was %d (maxuint64 %d)", maxSessionLifeDevice.sessionExpiry, uint64(math.MaxUint64))
-// 	}
+	if !device.disableSessionExpiry {
+		t.Fatalf("session expiry not disabled")
+	}
 
-// 	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
-// 	if err != nil {
-// 		t.Fatal("could not parse ip: ", err)
-// 	}
+	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	if err != nil {
+		t.Fatal("could not parse ip: ", err)
+	}
 
-// 	testAuthorizedPacket := ipv4.Header{
-// 		Version: 4,
-// 		Dst:     ip,
-// 		Src:     net.ParseIP(devices["tester"].Address),
-// 		Len:     ipv4.HeaderLen,
-// 	}
+	testAuthorizedPacket := ipv4.Header{
+		Version: 4,
+		Dst:     ip,
+		Src:     net.ParseIP(devices["tester"].Address),
+		Len:     ipv4.HeaderLen,
+	}
 
-// 	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
-// 		t.Fatal("could not parse ip")
-// 	}
+	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
+		t.Fatal("could not parse ip")
+	}
 
-// 	packet, err := testAuthorizedPacket.Marshal()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	t.Log(GetRoutes("tester"))
-// 	t.Logf("Now doing timing test for disabled sliding window waiting...")
+	packet, err := testAuthorizedPacket.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(testFw.GetRoutes("tester"))
+	t.Logf("Now doing timing test for disabled sliding window waiting...")
 
-// 	elapsed := 0
-// 	for {
-// 		time.Sleep(15 * time.Second)
-// 		elapsed += 15
+	elapsed := 0
+	for {
+		time.Sleep(15 * time.Second)
+		elapsed += 15
 
-// 		t.Logf("waiting %d sec...", elapsed)
+		t.Logf("waiting %d sec...", elapsed)
 
-// 		value, _, err := xdpObjects.bpfPrograms.XdpWagFirewall.Test(packet)
-// 		if err != nil {
-// 			t.Fatalf("program failed %s", err)
-// 		}
+		value := testFw.Test(packet)
 
-// 		if value == 1 {
-// 			t.Fatalf("should not block traffic")
-// 		}
+		if !value {
+			t.Fatalf("should not block traffic")
+		}
 
-// 		if elapsed > 30 {
-// 			break
-// 		}
+		if elapsed > 30 {
+			break
+		}
 
-// 	}
+	}
 
-// }
+}
 
 func TestPortRestrictions(t *testing.T) {
 

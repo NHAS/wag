@@ -42,7 +42,11 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 		return nil, fmt.Errorf("failed to get session inactivity timeout: %s", err)
 	}
 
-	fw.inactivityTimeout = time.Duration(inactivityTimeoutInt) * time.Minute
+	if inactivityTimeoutInt > 0 {
+		fw.inactivityTimeout = time.Duration(inactivityTimeoutInt) * time.Minute
+	} else {
+		fw.inactivityTimeout = -1
+	}
 
 	fw.nodeID = data.GetServerID()
 	fw.deviceName = config.Values.Wireguard.DevName
