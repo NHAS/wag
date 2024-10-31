@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-func CheckRoute(device string, ip net.IP, proto string, port int) (decision string, err error) {
+func (f *Firewall) CheckRoute(device string, ip net.IP, proto string, port int) (decision string, err error) {
 
 	deviceIP := net.ParseIP(device)
 
@@ -23,9 +23,11 @@ func CheckRoute(device string, ip net.IP, proto string, port int) (decision stri
 		port = 0
 	}
 
-	createPacket(deviceIP, ip, pro, port)
+	if f.Test(createPacket(deviceIP, ip, pro, port)) {
+		return "passed", nil
+	}
 
-	return "unknown", nil
+	return "dropped", nil
 
 }
 

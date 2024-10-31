@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/NHAS/wag/internal/router"
 )
 
 func (au *AdminUI) firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +191,7 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 
 	var decision string
 	if len(inputErrors) == 0 {
-		checkerDecision, err := router.CheckRoute(address, targetIP, proto, port)
+		checkerDecision, err := au.firewall.CheckRoute(address, targetIP, proto, port)
 		if err != nil {
 			decision = err.Error()
 		} else {
