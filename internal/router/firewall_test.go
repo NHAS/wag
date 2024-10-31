@@ -851,7 +851,9 @@ func TestPortRestrictions(t *testing.T) {
 
 		packet := packets[i]
 
-		if testFw.Test(packet) != expectedResults[i] {
+		decision := testFw.Test(packet)
+
+		if decision != expectedResults[i] {
 
 			var iphdr ipv4.Header
 			err := iphdr.Parse(packet)
@@ -880,7 +882,7 @@ func TestPortRestrictions(t *testing.T) {
 
 			//m, _ := testFw.GetRules()
 			//t.Logf("%+v", m)
-			t.Fatalf("%s program did not %t packet instead did: %t", info, expectedResults[i], testFw.Test(packet))
+			t.Fatalf("%s program did not %t packet instead did: %t", info, expectedResults[i], decision)
 		}
 	}
 

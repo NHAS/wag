@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/NHAS/wag/internal/routetypes"
@@ -37,29 +38,35 @@ func createPacket(src, dst net.IP, proto, port int) []byte {
 		Protocol: proto,
 	}
 
+	if proto == routetypes.ANY {
+		iphdr.Protocol = routetypes.TCP
+	}
+
 	pkt := pkthdr{
 		src: 3884,
 		dst: uint16(port),
 	}
 
-	content := []byte{}
+	var content []byte
 	switch proto {
 	case routetypes.UDP:
 		content = pkt.Udp()
 	case routetypes.TCP:
 		content = pkt.Tcp()
-
 	case routetypes.ICMP:
 		content = pkt.Icmp()
-
 	default:
 		content = pkt.Any()
 	}
 
 	iphdr.TotalLen = ipv4.HeaderLen + len(content)
 
-	hdrbytes, _ := iphdr.Marshal()
+	hdrbytes, err := iphdr.Marshal()
+	if err != nil {
+		log.Fatal(err)
+	}
 	hdrbytes = append(hdrbytes, content...)
+
 	return hdrbytes
 }
 
@@ -123,9 +130,7 @@ func (p *pkthdr) UnpackAny(b []byte) {
 }
 
 func (p *pkthdr) Any() []byte {
-	r := make([]byte, 9) // 1 byte over as we need to fake some data
-
-	//icmp isnt parsed, other than proto and length
+	r := make([]byte, 21) // 1 byte over as we need to fake some data
 
 	binary.BigEndian.PutUint16(r, p.src)
 	binary.BigEndian.PutUint16(r[2:], p.dst)
