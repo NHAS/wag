@@ -37,6 +37,18 @@ func (f *Firewall) CheckRoute(device string, dst net.IP, proto string, port int)
 }
 
 func createPacket(src, dst net.IP, proto, port int) ([]byte, error) {
+
+	srcIPV4 := src.To4() != nil
+	dstIPV4 := dst.To4() != nil
+
+	if srcIPV4 != dstIPV4 {
+		return nil, fmt.Errorf("cannot send from ipv4 to ipv6: %s -> %s", src, dst)
+	}
+
+	if !srcIPV4 && !dstIPV4 {
+		return nil, fmt.Errorf("not supported yet, sorry")
+	}
+
 	iphdr := ipv4.Header{
 		Version:  4,
 		Dst:      dst,
