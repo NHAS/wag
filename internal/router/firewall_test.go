@@ -1024,6 +1024,45 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 
 }
 
+func BenchmarkFirewallEvaluate(b *testing.B) {
+
+	var packets [][]byte
+
+	for _, user := range devices {
+		acl := data.GetEffectiveAcl(user.Username)
+		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		// Populate expected
+		for _, rule := range rules {
+
+			for _, policy := range rule.Values {
+
+				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
+				successProto := policy.Proto
+				if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
+					successProto = routetypes.UDP
+				}
+
+				// Add matching/passing packet
+				packets = append(packets, createPacket(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			}
+		}
+
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for i := range packets {
+			if !testFw.Test(packets[i]) {
+				b.Fatal("should pass")
+			}
+		}
+	}
+}
+
 func addDevices(fw *Firewall) error {
 
 	for _, device := range devices {
