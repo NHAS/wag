@@ -240,15 +240,15 @@ func (g *start) Run() error {
 	}
 
 	go func() {
-		cancel := make(chan os.Signal, 1)
-		signal.Notify(cancel, syscall.SIGTERM, syscall.SIGINT, os.Interrupt, syscall.SIGQUIT)
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, os.Interrupt, syscall.SIGQUIT)
 
-		s := <-cancel
+		s := <-signalChan
 		go func(chan os.Signal) {
-			<-cancel
+			<-signalChan
 			log.Println("got force quit, killing without exiting nicely")
 			os.Exit(1)
-		}(cancel)
+		}(signalChan)
 
 		errorChan <- errors.New("ignore me I am signal")
 

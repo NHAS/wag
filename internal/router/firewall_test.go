@@ -519,14 +519,14 @@ func TestCompositeRules(t *testing.T) {
 	}
 
 	successPackets := [][]byte{
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
 
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.ICMP, 0),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.TCP, 22),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.ICMP, 0),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("7.7.7.7"), routetypes.TCP, 22),
 	}
 
 	for i := range successPackets {
@@ -563,15 +563,15 @@ func TestCompositeRules(t *testing.T) {
 
 	packets := [][]byte{
 
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 11),
 
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 8080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 8080),
 
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.UDP, 9080),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.TCP, 50),
 
-		createPacket(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.ICMP, 0),
+		createPacketTests(net.ParseIP(devices["tester"].Address), net.ParseIP("8.8.8.8"), routetypes.ICMP, 0),
 	}
 
 	for i := range packets {
@@ -816,7 +816,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Add matching/passing packet
-			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), rule.Keys[0].AsIPv4(), int(successProto), int(policy.LowerPort)))
+			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), rule.Keys[0].AsIPv4(), int(successProto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, true)
 
 			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.Is(routetypes.SINGLE) {
@@ -841,7 +841,7 @@ func TestPortRestrictions(t *testing.T) {
 				flip = !flip
 			}
 
-			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
+			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
 			expectedResults = append(expectedResults, false)
 
 			var bogusDstIp net.IP = net.ParseIP("1.1.1.1").To4()
@@ -853,7 +853,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Route miss packet
-			packets = append(packets, createPacket(net.ParseIP(devices["tester"].Address), bogusDstIp, int(policy.Proto), int(policy.LowerPort)))
+			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), bogusDstIp, int(policy.Proto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, false)
 
 		}
@@ -923,7 +923,7 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 				}
 
 				// Add matching/passing packet
-				packets = append(packets, createPacket(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
 			}
 		}
 
@@ -1047,7 +1047,7 @@ func BenchmarkFirewallEvaluate(b *testing.B) {
 				}
 
 				// Add matching/passing packet
-				packets = append(packets, createPacket(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
 			}
 		}
 

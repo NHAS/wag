@@ -518,6 +518,7 @@ func (f *Firewall) GetRules() (map[string]FirewallRules, error) {
 
 		for _, device := range f.userToDevices[user.Username] {
 			dto := device.toDTO()
+
 			dto.Authorized = f.isAuthed(device.address)
 			r.Devices = append(r.Devices, dto)
 		}
@@ -561,8 +562,8 @@ func (fwd *FirewallDevice) toDTO() fwDevice {
 	return fwDevice{
 		LastPacketTimestamp: fwd.lastPacketTime,
 		Expiry:              fwd.sessionExpiry,
-
-		IP: fwd.address.String(),
+		AssociatedNode:      fwd.associatedNode.String(),
+		IP:                  fwd.address.String(),
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-func (f *Firewall) CheckRoute(device string, ip net.IP, proto string, port int) (decision string, err error) {
+func (f *Firewall) CheckRoute(device string, dst net.IP, proto string, port int) (decision string, err error) {
 
 	deviceIP := net.ParseIP(device)
 
@@ -23,7 +23,12 @@ func (f *Firewall) CheckRoute(device string, ip net.IP, proto string, port int) 
 		port = 0
 	}
 
-	if f.Test(createPacket(deviceIP, ip, pro, port)) {
+	packet, err := createPacket(deviceIP, dst, pro, port)
+	if err != nil {
+		return "error", err
+	}
+
+	if f.Test(packet) {
 		return "passed", nil
 	}
 
@@ -31,7 +36,7 @@ func (f *Firewall) CheckRoute(device string, ip net.IP, proto string, port int) 
 
 }
 
-func createPacket(src, dst net.IP, proto, port int) []byte {
+func createPacket(src, dst net.IP, proto, port int) ([]byte, error) {
 	iphdr := ipv4.Header{
 		Version:  4,
 		Dst:      dst,
@@ -65,11 +70,20 @@ func createPacket(src, dst net.IP, proto, port int) []byte {
 
 	hdrbytes, err := iphdr.Marshal()
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to create packet to test: %s", err)
 	}
 	hdrbytes = append(hdrbytes, content...)
 
-	return hdrbytes
+	return hdrbytes, nil
+}
+
+func createPacketTests(src, dst net.IP, proto, port int) []byte {
+	packet, err := createPacket(src, dst, proto, port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return packet
 }
 
 type pkthdr struct {

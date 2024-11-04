@@ -32,8 +32,15 @@ Wag must be run as root, to manage `iptables` and the `wireguard` device.
    
 Forwarding must be enabled in `sysctl`.  
   
-```
+```sh
 sysctl -w net.ipv4.ip_forward=1
+#Or for ipv6
+
+sysctl -w net.ipv6.conf.all.forwarding=1
+sysctl -w net.ipv6.conf.all.accept_ra=2
+sysctl -w net.ipv6.conf.all.accept_redirects=1
+sysctl -w net.ipv6.conf.all.accept_source_route=1
+
 ```
 
 Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard.  

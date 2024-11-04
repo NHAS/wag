@@ -111,7 +111,12 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	tunnel.GetOrPost("/", mfaPortal.index)
 
-	tunnelListenAddress := config.Values.Wireguard.ServerAddress.String() + ":" + config.Values.Webserver.Tunnel.Port
+	address := config.Values.Wireguard.ServerAddress.String()
+	if config.Values.Wireguard.ServerAddress.To16() != nil {
+		address = "[" + address + "]"
+	}
+
+	tunnelListenAddress := address + ":" + config.Values.Webserver.Tunnel.Port
 	if config.Values.Webserver.Tunnel.SupportsTLS() {
 
 		go func() {
@@ -124,7 +129,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 				TLSConfig:    tlsConfig,
 				Handler:      utils.SetSecurityHeaders(tunnel),
 			}
-			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
 			}
 
@@ -139,7 +144,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 				}
 
 				mfaPortal.tunnelHTTPServ = &http.Server{
-					Addr:         config.Values.Wireguard.ServerAddress.String() + ":80",
+					Addr:         address + ":80",
 					ReadTimeout:  5 * time.Second,
 					WriteTimeout: 10 * time.Second,
 					IdleTimeout:  120 * time.Second,
@@ -159,7 +164,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 				Handler:      utils.SetSecurityHeaders(tunnel),
 			}
 
-			if err := mfaPortal.tunnelHTTPServ.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.tunnelHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("webserver tunnel listener failed: %v", err)
 			}
 

@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 )
 
@@ -136,7 +135,7 @@ func stringToUDPaddr(address string) (r *net.UDPAddr) {
 	}
 
 	r = &net.UDPAddr{
-		IP:   net.ParseIP(utils.GetIP(address)),
+		IP:   net.ParseIP(address),
 		Port: port,
 	}
 

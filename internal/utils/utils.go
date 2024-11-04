@@ -109,18 +109,7 @@ func SetSecurityHeaders(f http.Handler) http.Handler {
 	}
 }
 
-func GetIP(addr string) string {
-	for i := len(addr) - 1; i > 0; i-- {
-		if addr[i] == ':' || addr[i] == '/' {
-			return addr[:i]
-		}
-	}
-
-	return addr
-}
-
 func GetIPFromRequest(r *http.Request) net.IP {
-
 	//Do not respect the X-Forwarded-For header until we are explictly told we are being proxied.
 	if config.Values.NumberProxies > 0 {
 		ips := r.Header.Get("X-Forwarded-For")
@@ -137,7 +126,12 @@ func GetIPFromRequest(r *http.Request) net.IP {
 		}
 	}
 
-	return net.ParseIP(GetIP(r.RemoteAddr))
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return net.ParseIP(r.RemoteAddr)
+	}
+
+	return net.ParseIP(host)
 }
 
 func GenerateRandomHex(n uint32) (string, error) {
