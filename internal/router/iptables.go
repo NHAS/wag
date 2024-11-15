@@ -22,7 +22,7 @@ func (f *Firewall) setupIptables() error {
 		err error
 		ipt *iptables.IPTables
 	)
-	if config.Values.Wireguard.Range.IP.To16() == nil {
+	if config.Values.Wireguard.Range.IP.To4() != nil {
 		ipt, err = iptables.New()
 	} else {
 		ipt, err = iptables.New(iptables.IPFamily(iptables.ProtocolIPv6))
