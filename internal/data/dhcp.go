@@ -38,6 +38,24 @@ func incrementIP(ip net.IP, inc uint) net.IP {
 
 }
 
+func chooseInitalIP(cidr *net.IPNet) (net.IP, error) {
+
+	max := 128
+	if cidr.IP.To4() != nil {
+		max = 32
+	}
+
+	used, _ := cidr.Mask.Size()
+	maxNumberOfAddresses := int(math.Pow(2, float64(max-used))) - 2 // Do not allocate largest address or 0
+	if maxNumberOfAddresses < 1 {
+		return nil, errors.New("subnet is too small to contain a new device")
+	}
+
+	// Choose a random number that cannot be 0
+	addressAttempt := rand.Intn(maxNumberOfAddresses) + 1
+	return incrementIP(cidr.IP, uint(addressAttempt)), nil
+}
+
 func getNextIP(subnet string) (string, error) {
 
 	serverIP, cidr, err := net.ParseCIDR(subnet)
@@ -45,20 +63,10 @@ func getNextIP(subnet string) (string, error) {
 		return "", err
 	}
 
-	max := 32
-	if serverIP.To16() != nil {
-		max = 128
+	addr, err := chooseInitalIP(cidr)
+	if err != nil {
+		return "", err
 	}
-
-	used, _ := cidr.Mask.Size()
-	maxNumberOfAddresses := int(math.Pow(2, float64(max-used))) - 2 // Do not allocate largest address or 0
-	if maxNumberOfAddresses < 1 {
-		return "", errors.New("subnet is too small to contain a new device")
-	}
-
-	// Choose a random number that cannot be 0
-	addressAttempt := rand.Intn(maxNumberOfAddresses) + 1
-	addr := incrementIP(cidr.IP, uint(addressAttempt))
 
 	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 3)
 	if err != nil {

@@ -394,6 +394,7 @@ func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
 				if addr.To16() != nil {
 					addedSomething = true
 					resultAddresses = append(resultAddresses, net.IPNet{IP: addr.To16(), Mask: net.CIDRMask(128, 128)})
+					continue
 				}
 
 			}

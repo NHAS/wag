@@ -112,7 +112,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	tunnel.GetOrPost("/", mfaPortal.index)
 
 	address := config.Values.Wireguard.ServerAddress.String()
-	if config.Values.Wireguard.ServerAddress.To16() != nil {
+	if config.Values.Wireguard.ServerAddress.To4() == nil && config.Values.Wireguard.ServerAddress.To16() != nil {
 		address = "[" + address + "]"
 	}
 
