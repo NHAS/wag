@@ -46,7 +46,7 @@ func (d Device) String() string {
 // this stops a race condition where an attacker uses a wireguard profile, but gets load balanced to another node member
 func UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
 
-	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
+	realKey, err := etcd.Get(context.Background(), deviceRef+address)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func AuthoriseDevice(username, address string) (string, error) {
 
 func DeauthenticateDevice(address string) error {
 
-	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
+	realKey, err := etcd.Get(context.Background(), deviceRef+address)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func AddDevice(username, publickey string) (Device, error) {
 
 func SetDevice(username, address, publickey, preshared_key string) (Device, error) {
 	if net.ParseIP(address) == nil {
-		return Device{}, errors.New("Address '" + address + "' cannot be parsed as IP, invalid")
+		return Device{}, fmt.Errorf("address %q cannot be parsed as IP, invalid", address)
 	}
 
 	d := Device{
@@ -294,7 +294,7 @@ func deviceKey(username, address string) string {
 
 func DeleteDevice(username, id string) error {
 
-	refKey := "deviceref-" + id
+	refKey := deviceRef + id
 
 	realKey, err := etcd.Get(context.Background(), refKey)
 	if err != nil {
@@ -316,9 +316,9 @@ func DeleteDevice(username, id string) error {
 		return err
 	}
 
-	otherReferenceKey := "deviceref-" + d.Publickey
+	otherReferenceKey := deviceRef + d.Publickey
 	if d.Publickey == id {
-		otherReferenceKey = "deviceref-" + d.Address
+		otherReferenceKey = deviceRef + d.Address
 	}
 
 	_, err = etcd.Txn(context.Background()).Then(clientv3.OpDelete(string(realKey.Kvs[0].Value)), clientv3.OpDelete(refKey), clientv3.OpDelete(otherReferenceKey), clientv3.OpDelete("allocated_ips/"+d.Address)).Commit()
@@ -345,7 +345,7 @@ func DeleteDevices(username string) error {
 			return err
 		}
 
-		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete("deviceref-"+d.Address), clientv3.OpDelete("allocated_ips/"+d.Address))
+		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete(deviceRef+d.Address), clientv3.OpDelete("allocated_ips/"+d.Address))
 	}
 
 	_, err = etcd.Txn(context.Background()).Then(ops...).Commit()
@@ -388,7 +388,7 @@ func UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) erro
 
 func GetDeviceByAddress(address string) (device Device, err error) {
 
-	realKey, err := etcd.Get(context.Background(), "deviceref-"+address)
+	realKey, err := etcd.Get(context.Background(), deviceRef+address)
 	if err != nil {
 		return Device{}, err
 	}

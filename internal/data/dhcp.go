@@ -86,7 +86,7 @@ func getNextIP(subnet string) (string, error) {
 
 		txn := etcd.Txn(context.Background())
 		txn.If(
-			clientv3util.KeyMissing("deviceref-"+addr.String()),
+			clientv3util.KeyMissing(deviceRef+addr.String()),
 			clientv3util.KeyMissing("ip-hold-"+addr.String()),
 		)
 		txn.Then(

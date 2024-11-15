@@ -53,6 +53,8 @@ const (
 	dnsKey             = "wag-config-network-dns"
 
 	MembershipKey = "wag-membership"
+
+	deviceRef = "deviceref-"
 )
 
 func getString(key string) (ret string, err error) {

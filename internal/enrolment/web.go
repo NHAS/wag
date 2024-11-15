@@ -120,7 +120,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 
 		err = user.SetDevicePublicKey(publickey.String(), overwrites)
 		if err != nil {
-			log.Println(username, remoteAddr, "could update '", overwrites, "': ", err)
+			log.Printf("%s %s couldnt update %q: %s", username, remoteAddr, overwrites, err)
 			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}

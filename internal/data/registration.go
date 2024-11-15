@@ -14,7 +14,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func restrationKey(token string) string {
+func registrationKey(token string) string {
 	return fmt.Sprintf("tokens-%s", token)
 }
 
@@ -22,7 +22,7 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 
 	minTime := time.After(1 * time.Second)
 
-	response, err := etcd.Get(context.Background(), restrationKey(token))
+	response, err := etcd.Get(context.Background(), registrationKey(token))
 	if err != nil {
 		return
 	}
@@ -66,7 +66,7 @@ func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 }
 
 func DeleteRegistrationToken(identifier string) error {
-	_, err := etcd.Delete(context.Background(), restrationKey(identifier))
+	_, err := etcd.Delete(context.Background(), registrationKey(identifier))
 	if err != nil {
 		return err
 	}
@@ -134,12 +134,20 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 		return errors.New("usernames cannot contain '-' ")
 	}
 
+	if username == "" {
+		return errors.New("usernames cannot be empty")
+	}
+
 	var err error
 	if overwrite != "" {
 
-		response, err := etcd.Get(context.Background(), "device-ref-"+overwrite)
+		response, err := etcd.Get(context.Background(), deviceRef+overwrite)
 		if err != nil {
 			return err
+		}
+
+		if len(response.Kvs) < 1 {
+			return errors.New("no device with that ip")
 		}
 
 		if !bytes.Contains(response.Kvs[0].Value, []byte(username)) {

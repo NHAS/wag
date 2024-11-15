@@ -54,14 +54,14 @@ func (au *AdminUI) manageUsers(w http.ResponseWriter, r *http.Request) {
 		for _, u := range users {
 			devices, err := au.ctrl.ListDevice(u.Username)
 			if err != nil {
-				log.Println("failed to get devices for ", u.Username, "err", err)
+				log.Printf("failed to get devices for %q err: %s", u.Username, err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
 			groups, err := au.ctrl.UserGroups(u.Username)
 			if err != nil {
-				log.Println("unable to get users groups: ", err)
+				log.Printf("unable to get users groups for user %q: %s", u.Username, err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}

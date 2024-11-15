@@ -278,7 +278,7 @@ func GetUserData(username string) (u UserModel, err error) {
 
 func GetUserDataFromAddress(address string) (u UserModel, err error) {
 
-	refResponse, err := etcd.Get(context.Background(), "deviceref-"+address)
+	refResponse, err := etcd.Get(context.Background(), deviceRef+address)
 	if err != nil {
 		return
 	}
