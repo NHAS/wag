@@ -78,7 +78,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `reload`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `gen-config`
+Supported commands: `start`, `cleanup`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `gen-config`
   
 `start`: starts the wag server  
 ```
@@ -91,8 +91,6 @@ Usage of start:
 ```
 
 `cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
-
-`reload`: Reloads ACLs from configuration
 
 `version`: Display the version of wag
 
