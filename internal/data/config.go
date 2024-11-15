@@ -350,9 +350,10 @@ func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op, err error) {
 }
 
 type GeneralSettings struct {
-	HelpMail        string   `validate:"required,email"`
-	ExternalAddress string   `validate:"required,hostname|hostname_port|ip"`
-	DNS             []string `validate:"omitempty,dive,hostname|ip"`
+	HelpMail        string `validate:"required,email"`
+	ExternalAddress string `validate:"required,hostname|hostname_port|ip"`
+	// Allow hostname or ip/4/6 as dns entry for wireguard config
+	DNS []string `validate:"omitempty,dive,hostname|ip"`
 
 	WireguardConfigFilename string `validate:"required"`
 	CheckUpdates            bool
