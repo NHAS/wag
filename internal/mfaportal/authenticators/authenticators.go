@@ -10,7 +10,6 @@ import (
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
-	"github.com/NHAS/wag/pkg/httputils"
 )
 
 var (
@@ -130,7 +129,7 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	return
 }
 
-func AddMFARoutes(mux *httputils.HTTPUtilMux, firewall *router.Firewall) error {
+func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 

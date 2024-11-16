@@ -24,7 +24,6 @@ import (
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/boombuler/barcode"
 	"github.com/boombuler/barcode/qr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -340,10 +339,10 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 		},
 	}
 
-	public := httputils.NewMux()
-	public.Get("/static/", utils.EmbeddedStatic(styling.Static))
-	public.Get("/reachability", es.reachability)
-	public.Get("/register_device", es.registerDevice)
+	public := http.NewServeMux()
+	public.HandleFunc("GET /static/", utils.EmbeddedStatic(styling.Static))
+	public.HandleFunc("GET /reachability", es.reachability)
+	public.HandleFunc("GET /register_device", es.registerDevice)
 
 	if config.Values.Webserver.Public.SupportsTLS() {
 

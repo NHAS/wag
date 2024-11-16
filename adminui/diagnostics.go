@@ -11,12 +11,7 @@ import (
 	"time"
 )
 
-func (au *AdminUI) firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
+func (au *AdminUI) getFirewallState(w http.ResponseWriter, r *http.Request) {
 
 	rules, err := au.ctrl.FirewallRules()
 	if err != nil {
@@ -25,50 +20,15 @@ func (au *AdminUI) firewallDiagnositicsUI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	result, err := json.MarshalIndent(rules, "", "    ")
+	w.Header().Set("content-type", "application/json")
+
+	err = json.NewEncoder(w).Encode(rules)
 	if err != nil {
 		log.Println("error marshalling data", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
-	d := struct {
-		Page
-		State string
-	}{
-		Page: Page{
-
-			Description: "Firewall state page",
-			Title:       "Firewall",
-		},
-		State: string(result),
-	}
-
-	err = au.renderDefaults(w, r, d, "diagnostics/firewall_state.html")
-
-	if err != nil {
-		log.Println("unable to render firewall page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-}
-
-func (au *AdminUI) wgDiagnositicsUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := Page{
-
-		Description: "Wireguard Devices",
-		Title:       "wg",
-	}
-
-	au.renderDefaults(w, r, d, "diagnostics/wireguard_peers.html")
 }
 
 func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
@@ -112,43 +72,26 @@ func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+
+	var req AclsTestRequestDTO
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println("decoding json failed: ", err)
+		http.Error(w, "Failed", http.StatusInternalServerError)
 		return
 	}
+	r.Body.Close()
 
-	var (
-		username string
-		acl      string
-	)
-	if r.Method == http.MethodPost {
+	acls, err := au.ctrl.GetUsersAcls(req.Username)
 
-		username = r.PostFormValue("username")
-		acls, err := au.ctrl.GetUsersAcls(username)
-		if err == nil {
-			b, _ := json.MarshalIndent(acls, "", "    ")
-			acl = string(b)
-		} else {
-			acl = err.Error()
-		}
+	var resp AclsTestResponseDTO
+	if err != nil {
+		resp.Message = fmt.Sprintf("failed to test: %s", err)
+	} else {
+		resp.Acls = &acls
 	}
 
-	d := struct {
-		Page
-		AclString string
-		Username  string
-	}{
-		Page: Page{
-
-			Description: "ACL Checker",
-			Title:       "ACLs",
-		},
-		AclString: acl,
-		Username:  username,
-	}
-
-	au.renderDefaults(w, r, d, "diagnostics/acl_tester.html")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {

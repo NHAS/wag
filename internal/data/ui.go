@@ -38,6 +38,11 @@ type admin struct {
 	Hash string
 }
 
+type LoginDTO struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func IncrementAdminAuthenticationAttempt(username string) error {
 	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 

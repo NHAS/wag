@@ -18,7 +18,6 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/pkg/httputils"
 )
 
 type MfaPortal struct {
@@ -76,19 +75,19 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		},
 	}
 
-	tunnel := httputils.NewMux()
+	tunnel := http.NewServeMux()
 
-	tunnel.Get("/status/", mfaPortal.status)
-	tunnel.Get("/routes/", mfaPortal.routes)
+	tunnel.HandleFunc("GET /status/", mfaPortal.status)
+	tunnel.HandleFunc("GET /routes/", mfaPortal.routes)
 
-	tunnel.Get("/logout/", mfaPortal.logout)
+	tunnel.HandleFunc("GET /logout/", mfaPortal.logout)
 
 	if config.Values.MFATemplatesDirectory != "" {
 		fs := http.FileServer(http.Dir(path.Join(config.Values.MFATemplatesDirectory, "static")))
 		tunnel.Handle("/custom/", http.StripPrefix("/custom/", fs))
 	}
 
-	tunnel.Get("/static/", utils.EmbeddedStatic(resources.Static))
+	tunnel.HandleFunc("GET /static/", utils.EmbeddedStatic(resources.Static))
 
 	// Do inital state setup for our authentication methods
 	err = authenticators.AddMFARoutes(tunnel, mfaPortal.firewall)
@@ -102,14 +101,17 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		return nil, fmt.Errorf("failed ot register listeners: %s", err)
 	}
 
-	tunnel.GetOrPost("/authorise/", mfaPortal.authorise)
-	tunnel.GetOrPost("/register_mfa/", mfaPortal.registerMFA)
+	// TODO split these out to their own post/get endpoints
+	tunnel.HandleFunc("GET /authorise/", mfaPortal.authorise)
+	tunnel.HandleFunc("POST /authorise/", mfaPortal.authorise)
+	tunnel.HandleFunc("GET /register_mfa/", mfaPortal.registerMFA)
+	tunnel.HandleFunc("POST /register_mfa/", mfaPortal.registerMFA)
 
-	tunnel.Get("/public_key/", mfaPortal.publicKey)
+	tunnel.HandleFunc("GET /public_key/", mfaPortal.publicKey)
 
-	tunnel.Get("/challenge/", mfaPortal.firewall.Verifier.WS)
+	tunnel.HandleFunc("GET /challenge/", mfaPortal.firewall.Verifier.WS)
 
-	tunnel.GetOrPost("/", mfaPortal.index)
+	tunnel.HandleFunc("/", mfaPortal.index)
 
 	address := config.Values.Wireguard.ServerAddress.String()
 	if config.Values.Wireguard.ServerAddress.To4() == nil && config.Values.Wireguard.ServerAddress.To16() != nil {
@@ -194,11 +196,11 @@ func (mp *MfaPortal) index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/authorise/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/authorise/", http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/register_mfa/", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/register_mfa/", http.StatusSeeOther)
 }
 
 func (mp *MfaPortal) registerMFA(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +288,7 @@ func (mp *MfaPortal) authorise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
@@ -325,11 +327,11 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 
 	method, ok := authenticators.GetMethod(user.GetMFAType())
 	if !ok {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, method.LogoutPath(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, method.LogoutPath(), http.StatusSeeOther)
 }
 
 func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {

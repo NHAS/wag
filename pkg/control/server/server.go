@@ -10,7 +10,6 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/router"
-	"github.com/NHAS/wag/pkg/httputils"
 )
 
 func (wsg *WagControlSocketServer) firewallRules(w http.ResponseWriter, r *http.Request) {
@@ -93,56 +92,56 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 
 	log.Println("[CONTROL] Started socket: ", config.Values.Socket)
 
-	controlMux := httputils.NewMux()
+	controlMux := http.NewServeMux()
 
-	controlMux.Get("/device/list", srvSock.listDevices)
-	controlMux.Post("/device/lock", srvSock.lockDevice)
-	controlMux.Post("/device/unlock", srvSock.unlockDevice)
-	controlMux.Get("/device/sessions", srvSock.sessions)
-	controlMux.Post("/device/delete", srvSock.deleteDevice)
+	controlMux.HandleFunc("GET /device/list", srvSock.listDevices)
+	controlMux.HandleFunc("POST /device/lock", srvSock.lockDevice)
+	controlMux.HandleFunc("POST /device/unlock", srvSock.unlockDevice)
+	controlMux.HandleFunc("GET /device/sessions", srvSock.sessions)
+	controlMux.HandleFunc("POST /device/delete", srvSock.deleteDevice)
 
-	controlMux.Get("/users/groups", srvSock.getUserGroups)
-	controlMux.Get("/users/list", srvSock.listUsers)
-	controlMux.Post("/users/lock", srvSock.lockUser)
-	controlMux.Post("/users/unlock", srvSock.unlockUser)
-	controlMux.Post("/users/delete", srvSock.deleteUser)
-	controlMux.Post("/users/reset", srvSock.resetMfaUser)
-	controlMux.Get("/users/acls", srvSock.getUserAcl)
+	controlMux.HandleFunc("GET /users/groups", srvSock.getUserGroups)
+	controlMux.HandleFunc("GET /users/list", srvSock.listUsers)
+	controlMux.HandleFunc("POST /users/lock", srvSock.lockUser)
+	controlMux.HandleFunc("POST /users/unlock", srvSock.unlockUser)
+	controlMux.HandleFunc("POST /users/delete", srvSock.deleteUser)
+	controlMux.HandleFunc("POST /users/reset", srvSock.resetMfaUser)
+	controlMux.HandleFunc("GET /users/acls", srvSock.getUserAcl)
 
-	controlMux.Get("/groups/list", srvSock.listGroups)
+	controlMux.HandleFunc("GET /groups/list", srvSock.listGroups)
 
-	controlMux.Get("/webadmin/list", srvSock.listAdminUsers)
-	controlMux.Post("/webadmin/lock", srvSock.lockAdminUser)
-	controlMux.Post("/webadmin/unlock", srvSock.unlockAdminUser)
-	controlMux.Post("/webadmin/delete", srvSock.deleteAdminUser)
-	controlMux.Post("/webadmin/reset", srvSock.resetAdminUser)
-	controlMux.Post("/webadmin/add", srvSock.addAdminUser)
+	controlMux.HandleFunc("GET /webadmin/list", srvSock.listAdminUsers)
+	controlMux.HandleFunc("POST /webadmin/lock", srvSock.lockAdminUser)
+	controlMux.HandleFunc("POST /webadmin/unlock", srvSock.unlockAdminUser)
+	controlMux.HandleFunc("POST /webadmin/delete", srvSock.deleteAdminUser)
+	controlMux.HandleFunc("POST /webadmin/reset", srvSock.resetAdminUser)
+	controlMux.HandleFunc("POST /webadmin/add", srvSock.addAdminUser)
 
-	controlMux.Get("/firewall/list", srvSock.firewallRules)
-	controlMux.Get("/config/policies/list", srvSock.policies)
-	controlMux.Post("/config/policy/edit", srvSock.editPolicy)
-	controlMux.Post("/config/policy/create", srvSock.newPolicy)
-	controlMux.Post("/config/policies/delete", srvSock.deletePolicies)
+	controlMux.HandleFunc("GET /firewall/list", srvSock.firewallRules)
+	controlMux.HandleFunc("GET /config/policies/list", srvSock.policies)
+	controlMux.HandleFunc("POST /config/policy/edit", srvSock.editPolicy)
+	controlMux.HandleFunc("POST /config/policy/create", srvSock.newPolicy)
+	controlMux.HandleFunc("POST /config/policies/delete", srvSock.deletePolicies)
 
-	controlMux.Get("/config/group/list", srvSock.groups)
-	controlMux.Post("/config/group/edit", srvSock.editGroup)
-	controlMux.Post("/config/group/create", srvSock.newGroup)
-	controlMux.Post("/config/group/delete", srvSock.deleteGroup)
+	controlMux.HandleFunc("GET /config/group/list", srvSock.groups)
+	controlMux.HandleFunc("POST /config/group/edit", srvSock.editGroup)
+	controlMux.HandleFunc("POST /config/group/create", srvSock.newGroup)
+	controlMux.HandleFunc("POST /config/group/delete", srvSock.deleteGroup)
 
-	controlMux.Get("/config/settings", srvSock.getAllSettings)
-	controlMux.Get("/config/settings/lockout", srvSock.getLockout)
+	controlMux.HandleFunc("GET /config/settings", srvSock.getAllSettings)
+	controlMux.HandleFunc("GET /config/settings/lockout", srvSock.getLockout)
 
-	controlMux.Get("/version", srvSock.version)
+	controlMux.HandleFunc("GET /version", srvSock.version)
 
-	controlMux.Post("/shutdown", srvSock.shutdown)
+	controlMux.HandleFunc("POST /shutdown", srvSock.shutdown)
 
-	controlMux.Get("/registration/list", srvSock.listRegistrations)
-	controlMux.Post("/registration/create", srvSock.newRegistration)
-	controlMux.Post("/registration/delete", srvSock.deleteRegistration)
+	controlMux.HandleFunc("GET /registration/list", srvSock.listRegistrations)
+	controlMux.HandleFunc("POST /registration/create", srvSock.newRegistration)
+	controlMux.HandleFunc("POST /registration/delete", srvSock.deleteRegistration)
 
-	controlMux.Get("/clustering/errors", srvSock.listErrors)
-	controlMux.Get("/clustering/members", srvSock.listMembers)
-	controlMux.Get("/clustering/ping", srvSock.getLastMemberPing)
+	controlMux.HandleFunc("GET /clustering/errors", srvSock.listErrors)
+	controlMux.HandleFunc("GET /clustering/members", srvSock.listMembers)
+	controlMux.HandleFunc("GET /clustering/ping", srvSock.getLastMemberPing)
 
 	srvSock.httpSrv = &http.Server{
 		Handler: controlMux,

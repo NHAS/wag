@@ -1,5 +1,7 @@
 package adminui
 
+import "github.com/NHAS/wag/internal/acls"
+
 type Page struct {
 	Description string
 	Title       string
@@ -35,8 +37,12 @@ func (l Login) Error(msg string) Login {
 	return l
 }
 
-type ChangePassword struct {
-	Page
+type ChangePasswordRequestDTO struct {
+	CurrentPassword string
+	NewPassword     string
+}
+
+type ChangePasswordResponseDTO struct {
 	Message string
 	Type    int
 }
@@ -75,4 +81,14 @@ type WgDevicesData struct {
 	Address           string `json:"address"`
 	EndpointAddress   string `json:"last_endpoint"`
 	LastHandshakeTime string `json:"last_handshake_time"`
+}
+
+type AclsTestRequestDTO struct {
+	Username string `json:"username"`
+}
+
+type AclsTestResponseDTO struct {
+	Username string    `json:"username"`
+	Message  string    `json:"message"`
+	Acls     *acls.Acl `json:"acls"`
 }

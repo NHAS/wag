@@ -3,6 +3,7 @@ package adminui
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
@@ -22,7 +23,6 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control/wagctl"
-	"github.com/NHAS/wag/pkg/httputils"
 	"github.com/NHAS/wag/pkg/queue"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
@@ -181,32 +181,33 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 		static := http.FileServer(http.FS(staticContent))
 
-		protectedRoutes := httputils.NewMux()
-		allRoutes := httputils.NewMux()
-		allRoutes.GetOrPost("/login", adminUI.doLogin)
+		protectedRoutes := http.NewServeMux()
+		allRoutes := http.NewServeMux()
+
+		allRoutes.HandleFunc("POST /login", adminUI.doLogin)
 		if config.Values.ManagementUI.OIDC.Enabled {
 
-			allRoutes.Get("/login/oidc", func(w http.ResponseWriter, r *http.Request) {
+			allRoutes.HandleFunc("/login/oidc", func(w http.ResponseWriter, r *http.Request) {
 				rp.AuthURLHandler(func() string {
 					r, _ := utils.GenerateRandomHex(32)
 					return r
 				}, adminUI.oidcProvider)(w, r)
 			})
 
-			allRoutes.GetOrPost("/login/oidc/callback", adminUI.oidcCallback)
+			allRoutes.HandleFunc("/login/oidc/callback", adminUI.oidcCallback)
 		}
 
 		if config.Values.ManagementUI.Debug {
 			static := http.FileServer(http.Dir("./ui/src/"))
-			allRoutes.Handle("/js/", static)
+			allRoutes.Handle("GET /js/", static)
 		} else {
-			allRoutes.Handle("/js/", static)
+			allRoutes.Handle("GET /js/", static)
 		}
 
-		allRoutes.Handle("/css/", static)
-		allRoutes.Handle("/img/", static)
-		allRoutes.Handle("/fonts/", static)
-		allRoutes.Handle("/vendor/", static)
+		allRoutes.Handle("GET /css/", static)
+		allRoutes.Handle("GET /img/", static)
+		allRoutes.Handle("GET /fonts/", static)
+		allRoutes.Handle("GET /vendor/", static)
 
 		allRoutes.Handle("/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
 			func(w http.ResponseWriter, r *http.Request) {
@@ -233,44 +234,43 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 				return true
 			}))
 
-		protectedRoutes.Get("/dashboard", adminUI.populateDashboard)
+		protectedRoutes.HandleFunc("GET /dashboard", adminUI.populateDashboard)
 
-		protectedRoutes.Get("/cluster/members/", adminUI.clusterMembersUI)
-		protectedRoutes.PostJSON("/cluster/members/new", adminUI.newNode)
-		protectedRoutes.PostJSON("/cluster/members/control", adminUI.nodeControl)
+		protectedRoutes.HandleFunc("POST /cluster/members/new", adminUI.newNode)
+		protectedRoutes.HandleFunc("POST /cluster/members/control", adminUI.nodeControl)
 
-		protectedRoutes.Get("/cluster/events/", adminUI.clusterEventsUI)
-		protectedRoutes.Post("/cluster/events/acknowledge", adminUI.clusterEventsAcknowledge)
+		protectedRoutes.HandleFunc("PUT /cluster/events/acknowledge", adminUI.clusterEventsAcknowledge)
 
-		protectedRoutes.Get("/diag/wg", adminUI.wgDiagnositicsUI)
-		protectedRoutes.Get("/diag/wg/data", adminUI.wgDiagnositicsData)
+		protectedRoutes.HandleFunc("GET /diag/wg", adminUI.wgDiagnositicsData)
+		protectedRoutes.HandleFunc("GET /diag/firewall", adminUI.getFirewallState)
+		protectedRoutes.HandleFunc("POST /diag/check", adminUI.firewallCheckTest)
+		protectedRoutes.HandleFunc("POST /diag/acls", adminUI.aclsTest)
 
-		protectedRoutes.Get("/diag/firewall", adminUI.firewallDiagnositicsUI)
+		protectedRoutes.HandleFunc("GET /management/users", adminUI.getUsers)
+		protectedRoutes.HandleFunc("PUT /management/users", adminUI.editUser)
+		protectedRoutes.HandleFunc("DELETE /management/users", adminUI.removeUsers)
 
-		protectedRoutes.GetOrPost("/diag/check", adminUI.firewallCheckTest)
+		protectedRoutes.HandleFunc("GET /management/devices", adminUI.getAllDevices)
+		protectedRoutes.HandleFunc("PUT /management/devices", adminUI.editDevice)
+		protectedRoutes.HandleFunc("DELETE /management/devices", adminUI.deleteDevice)
 
-		protectedRoutes.GetOrPost("/diag/acls", adminUI.aclsTest)
+		protectedRoutes.HandleFunc("GET /management/registration_tokens", adminUI.getAllRegistrationTokens)
+		protectedRoutes.HandleFunc("POST /management/registration_tokens", adminUI.createRegistrationToken)
+		protectedRoutes.HandleFunc("DELETE /management/registration_tokens", adminUI.deleteRegistrationTokens)
 
-		protectedRoutes.Get("/management/users/", adminUI.usersUI)
-		protectedRoutes.AllowedMethods("/management/users/data", httputils.JSON, adminUI.manageUsers, http.MethodDelete, http.MethodPut, http.MethodGet)
+		protectedRoutes.HandleFunc("GET /policy/rules", adminUI.getAllPolicies)
+		protectedRoutes.HandleFunc("PUT /policy/rules", adminUI.editPolicy)
+		protectedRoutes.HandleFunc("POST /policy/rules", adminUI.createPolicy)
+		protectedRoutes.HandleFunc("DELETE /policy/rules", adminUI.deletePolices)
 
-		protectedRoutes.Get("/management/devices/", adminUI.devicesMgmtUI)
-		protectedRoutes.AllowedMethods("/management/devices/data", httputils.JSON, adminUI.devicesMgmt, http.MethodDelete, http.MethodPut, http.MethodGet)
+		protectedRoutes.HandleFunc("GET /policy/groups", adminUI.getAllGroups)
+		protectedRoutes.HandleFunc("PUT /policy/groups", adminUI.editGroup)
+		protectedRoutes.HandleFunc("POST /policy/groups", adminUI.createGroup)
+		protectedRoutes.HandleFunc("DELETE /policy/groups", adminUI.deleteGroups)
 
-		protectedRoutes.Get("/management/registration_tokens/", adminUI.registrationUI)
-		protectedRoutes.AllowedMethods("/management/registration_tokens/data", httputils.JSON, adminUI.registrationTokens, http.MethodDelete, http.MethodGet, http.MethodPost)
+		protectedRoutes.HandleFunc("POST /settings/general", adminUI.generalSettings)
 
-		protectedRoutes.Get("/policy/rules/", adminUI.policiesUI)
-		protectedRoutes.AllowedMethods("/policy/rules/data", httputils.JSON, adminUI.policies, http.MethodDelete, http.MethodGet, http.MethodPost, http.MethodPut)
-
-		protectedRoutes.Get("/policy/groups/", adminUI.groupsUI)
-		protectedRoutes.AllowedMethods("/policy/groups/data", httputils.JSON, adminUI.groups, http.MethodDelete, http.MethodGet, http.MethodPost, http.MethodPut)
-
-		protectedRoutes.Get("/settings/general", adminUI.generalSettingsUI)
-		protectedRoutes.PostJSON("/settings/general/data", adminUI.generalSettings)
-
-		protectedRoutes.Get("/settings/management_users", adminUI.adminUsersUI)
-		protectedRoutes.Get("/settings/management_users/data", adminUI.adminUsersData)
+		protectedRoutes.HandleFunc("GET /settings/management_users", adminUI.adminUsersData)
 
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", adminUI.notificationsWS(notifications))
@@ -282,11 +282,11 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			adminUI.startUpdateChecker(notifications)
 		}
 
-		protectedRoutes.GetOrPost("/change_password", adminUI.changePassword)
+		protectedRoutes.HandleFunc("POST /change_password", adminUI.changePassword)
 
 		protectedRoutes.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
 			adminUI.sessionManager.DeleteSession(w, r)
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
 		})
 
 		protectedRoutes.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -436,38 +436,50 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	case "POST":
 		if *config.Values.ManagementUI.Password.Enabled {
-			err := r.ParseForm()
+
+			var loginDetails data.LoginDTO
+
+			if r.Header.Get("content-type") == "application/json" {
+				err := json.NewDecoder(r.Body).Decode(&loginDetails)
+				if err != nil {
+					log.Println("bad json value: ", err)
+					http.Error(w, "Error", http.StatusInternalServerError)
+					return
+				}
+			} else {
+				err := r.ParseForm()
+				if err != nil {
+					log.Println("bad form value: ", err)
+
+					au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
+					return
+				}
+			}
+
+			err := data.IncrementAdminAuthenticationAttempt(loginDetails.Username)
 			if err != nil {
-				log.Println("bad form value: ", err)
+				log.Println("admin login failed for user", loginDetails.Username, ": ", err)
 
 				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
 				return
 			}
 
-			err = data.IncrementAdminAuthenticationAttempt(r.Form.Get("username"))
+			err = data.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
 			if err != nil {
-				log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
+				log.Println("admin login failed for user", loginDetails.Username, ": ", err)
 
 				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
 				return
 			}
 
-			err = data.CompareAdminKeys(r.Form.Get("username"), r.Form.Get("password"))
-			if err != nil {
-				log.Println("admin login failed for user", r.Form.Get("username"), ": ", err)
-
-				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-				return
-			}
-
-			if err := data.SetLastLoginInformation(r.Form.Get("username"), r.RemoteAddr); err != nil {
+			if err := data.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
 				log.Println("unable to login: ", err)
 
 				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
 				return
 			}
 
-			adminDetails, err := data.GetAdminUser(r.Form.Get("username"))
+			adminDetails, err := data.GetAdminUser(loginDetails.Username)
 			if err != nil {
 				log.Println("unable to login: ", err)
 
@@ -477,7 +489,7 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 
 			au.sessionManager.StartSession(w, r, adminDetails, nil)
 
-			log.Println(r.Form.Get("username"), r.RemoteAddr, "admin logged in")
+			log.Println(loginDetails.Username, r.RemoteAddr, "admin logged in")
 
 			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 
@@ -547,77 +559,41 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	d := ChangePassword{
-		Page: Page{
+	var d ChangePasswordResponseDTO
+	d.Type = 0
+	d.Message = "Success!"
 
-			Description: "Change password page",
-			Title:       "Change password",
-		},
-	}
+	defer func() {
+		w.Header().Set("content-type", "application/json")
+		json.NewEncoder(w).Encode(d)
+	}()
 
-	switch r.Method {
-	case "GET":
-
-		err := au.renderDefaults(w, r, d, "change_password.html")
-		if err != nil {
-			log.Println("unable to render change password page: ", err)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			au.renderDefaults(w, r, nil, "error.html")
-			return
-		}
+	var req ChangePasswordRequestDTO
+	err := json.NewDecoder(r.Body).Decode(&r)
+	r.Body.Close()
+	if err != nil {
+		d.Message = "Failed"
+		d.Type = 1
 
 		return
-	case "POST":
+	}
 
-		d.Type = 0
-		d.Message = "Success!"
+	err = data.CompareAdminKeys(u.Username, req.CurrentPassword)
+	if err != nil {
+		log.Println("bad password for admin")
 
-		err := r.ParseForm()
-		if err != nil {
-			log.Println("bad form: ", err)
+		d.Message = "Current password is incorrect"
+		d.Type = 1
+		return
+	}
 
-			d.Message = "Error"
-			d.Type = 1
+	err = data.SetAdminPassword(u.Username, req.NewPassword)
+	if err != nil {
+		log.Println("unable to set new admin password for ", u.Username)
 
-			au.renderDefaults(w, r, d, "change_password.html")
-			return
-		}
-
-		err = data.CompareAdminKeys(u.Username, r.FormValue("current_password"))
-		if err != nil {
-			log.Println("bad password for admin")
-
-			d.Message = "Current password is incorrect"
-			d.Type = 1
-
-			au.renderDefaults(w, r, d, "change_password.html")
-			return
-		}
-
-		if r.FormValue("password1") != r.FormValue("password2") {
-			log.Println("passwords do not match")
-
-			d.Message = "New passwords do not match"
-			d.Type = 1
-
-			au.renderDefaults(w, r, d, "change_password.html")
-			return
-		}
-
-		err = data.SetAdminPassword(u.Username, r.FormValue("password2"))
-		if err != nil {
-			log.Println("unable to set new admin password for ", u.Username)
-
-			d.Message = "Error: " + err.Error()
-			d.Type = 1
-
-			au.renderDefaults(w, r, d, "change_password.html")
-			return
-		}
-
-		au.renderDefaults(w, r, ChangePassword{Message: "Success!", Type: 0}, "change_password.html")
-
+		d.Message = "Error: " + err.Error()
+		d.Type = 1
+		return
 	}
 
 }

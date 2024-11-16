@@ -31,110 +31,108 @@ func (au *AdminUI) devicesMgmtUI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (au *AdminUI) devicesMgmt(w http.ResponseWriter, r *http.Request) {
+func (au *AdminUI) getAllDevices(w http.ResponseWriter, r *http.Request) {
+	allDevices, err := au.ctrl.ListDevice("")
+	if err != nil {
+		log.Println("error getting devices: ", err)
 
-	switch r.Method {
-	case "GET":
-		allDevices, err := au.ctrl.ListDevice("")
-		if err != nil {
-			log.Println("error getting devices: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		au.renderDefaults(w, r, nil, "error.html")
+		return
+	}
 
-			w.WriteHeader(http.StatusInternalServerError)
-			au.renderDefaults(w, r, nil, "error.html")
-			return
-		}
+	lockout, err := au.ctrl.GetLockout()
+	if err != nil {
+		log.Println("error getting lockout: ", err)
 
-		lockout, err := au.ctrl.GetLockout()
-		if err != nil {
-			log.Println("error getting lockout: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		au.renderDefaults(w, r, nil, "error.html")
+		return
+	}
 
-			w.WriteHeader(http.StatusInternalServerError)
-			au.renderDefaults(w, r, nil, "error.html")
-			return
-		}
+	deviceData := []DevicesData{}
 
-		deviceData := []DevicesData{}
+	for _, dev := range allDevices {
+		deviceData = append(deviceData, DevicesData{
+			Owner:        dev.Username,
+			Locked:       dev.Attempts >= lockout,
+			InternalIP:   dev.Address,
+			PublicKey:    dev.Publickey,
+			LastEndpoint: dev.Endpoint.String(),
+			Active:       dev.Active,
+		})
+	}
 
-		for _, dev := range allDevices {
-			deviceData = append(deviceData, DevicesData{
-				Owner:        dev.Username,
-				Locked:       dev.Attempts >= lockout,
-				InternalIP:   dev.Address,
-				PublicKey:    dev.Publickey,
-				LastEndpoint: dev.Endpoint.String(),
-				Active:       dev.Active,
-			})
-		}
+	b, err := json.Marshal(deviceData)
+	if err != nil {
 
-		b, err := json.Marshal(deviceData)
-		if err != nil {
+		log.Println("unable to marshal devices data: ", err)
+		http.Error(w, "Server error", 500)
 
-			log.Println("unable to marshal devices data: ", err)
-			http.Error(w, "Server error", 500)
+		return
+	}
 
-			return
-		}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(b)
-	case "PUT":
-		var action struct {
-			Action    string   `json:"action"`
-			Addresses []string `json:"addresses"`
-		}
+func (au *AdminUI) editDevice(w http.ResponseWriter, r *http.Request) {
 
-		err := json.NewDecoder(r.Body).Decode(&action)
-		if err != nil {
-			http.Error(w, "Bad request", 400)
-			return
-		}
+	var action struct {
+		Action    string   `json:"action"`
+		Addresses []string `json:"addresses"`
+	}
 
-		for _, address := range action.Addresses {
-			switch action.Action {
-			case "lock":
-				err := au.ctrl.LockDevice(address)
-				if err != nil {
-					log.Println("Error locking device: ", address, " err:", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			case "unlock":
-				err := au.ctrl.UnlockDevice(address)
-				if err != nil {
-					log.Println("Error unlocking device: ", address, " err:", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			default:
-				http.Error(w, "invalid action", 400)
-				return
-			}
-		}
+	err := json.NewDecoder(r.Body).Decode(&action)
+	if err != nil {
+		http.Error(w, "Bad request", 400)
+		return
+	}
 
-		w.Write([]byte("OK"))
-
-	case "DELETE":
-		var addresses []string
-
-		err := json.NewDecoder(r.Body).Decode(&addresses)
-		if err != nil {
-			http.Error(w, "Bad request", 400)
-			return
-		}
-
-		for _, address := range addresses {
-			err := au.ctrl.DeleteDevice(address)
+	for _, address := range action.Addresses {
+		switch action.Action {
+		case "lock":
+			err := au.ctrl.LockDevice(address)
 			if err != nil {
-				log.Println("Error Deleting device: ", address, "err:", err)
-
+				log.Println("Error locking device: ", address, " err:", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+		case "unlock":
+			err := au.ctrl.UnlockDevice(address)
+			if err != nil {
+				log.Println("Error unlocking device: ", address, " err:", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		default:
+			http.Error(w, "invalid action", 400)
+			return
 		}
-		w.Write([]byte("OK"))
-
-	default:
-		http.NotFound(w, r)
 	}
 
+	w.Write([]byte("OK"))
+
+}
+
+func (au *AdminUI) deleteDevice(w http.ResponseWriter, r *http.Request) {
+
+	var addresses []string
+
+	err := json.NewDecoder(r.Body).Decode(&addresses)
+	if err != nil {
+		http.Error(w, "Bad request", 400)
+		return
+	}
+
+	for _, address := range addresses {
+		err := au.ctrl.DeleteDevice(address)
+		if err != nil {
+			log.Println("Error Deleting device: ", address, "err:", err)
+
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Write([]byte("OK"))
 }
