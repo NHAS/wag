@@ -22,7 +22,7 @@ const (
 )
 
 // DTO
-type AdminModel struct {
+type AdminUserDTO struct {
 	Type      string `json:"user_type"`
 	Username  string `json:"username"`
 	Attempts  int    `json:"attempts"`
@@ -34,13 +34,8 @@ type AdminModel struct {
 }
 
 type admin struct {
-	AdminModel
+	AdminUserDTO
 	Hash string
-}
-
-type LoginDTO struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
 }
 
 func IncrementAdminAuthenticationAttempt(username string) error {
@@ -85,7 +80,7 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
 	newAdmin := admin{
-		AdminModel: AdminModel{
+		AdminUserDTO: AdminUserDTO{
 			Type:      LocalUser,
 			Username:  username,
 			DateAdded: time.Now().Format(time.RFC3339),
@@ -101,10 +96,10 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 	return err
 }
 
-func CreateOidcAdminUser(username, guid string) (AdminModel, error) {
+func CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
 
 	newAdmin := admin{
-		AdminModel: AdminModel{
+		AdminUserDTO: AdminUserDTO{
 			Type:      OidcUser,
 			OidcGUID:  guid,
 			Username:  username,
@@ -117,7 +112,7 @@ func CreateOidcAdminUser(username, guid string) (AdminModel, error) {
 
 	_, err := etcd.Put(context.Background(), "admin-users-"+guid, string(b))
 
-	return newAdmin.AdminModel, err
+	return newAdmin.AdminUserDTO, err
 }
 
 func CompareAdminKeys(username, password string) error {
@@ -229,7 +224,7 @@ func DeleteAdminUser(username string) error {
 	return err
 }
 
-func GetAdminUser(id string) (a AdminModel, err error) {
+func GetAdminUser(id string) (a AdminUserDTO, err error) {
 
 	response, err := etcd.Get(context.Background(), "admin-users-"+id)
 	if err != nil {
@@ -244,7 +239,7 @@ func GetAdminUser(id string) (a AdminModel, err error) {
 	return
 }
 
-func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
+func GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
 
 	response, err := etcd.Get(context.Background(), "admin-users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -252,7 +247,7 @@ func GetAllAdminUsers() (adminUsers []AdminModel, err error) {
 	}
 
 	for _, res := range response.Kvs {
-		var admin AdminModel
+		var admin AdminUserDTO
 		err := json.Unmarshal(res.Value, &admin)
 		if err != nil {
 			return nil, err

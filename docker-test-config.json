@@ -14,7 +14,7 @@
     "SessionInactivityTimeoutMinutes": 1,
     "DownloadConfigFileName": "wg0.conf",
     "ManagementUI": {
-        "ListenAddress": "container2:4433",
+        "ListenAddress": "127.0.0.1:4433",
         "Enabled": true,
         "Debug": false
     },
@@ -53,9 +53,9 @@
         "ClusterState": "new",
         "ETCDLogLevel": "error",
         "ListenAddresses": [
-            "https://172.20.0.3:2380"
+            "https://127.0.0.1:2380"
         ],
-        "TLSManagerListenURL": "https://container2:3434"
+        "TLSManagerListenURL": "https://127.0.0.1:3434"
     },
     "Acls": {
         "Groups": {

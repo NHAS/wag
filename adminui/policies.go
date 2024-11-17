@@ -25,7 +25,6 @@ func (au *AdminUI) getAllPolicies(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-	return
 }
 func (au *AdminUI) editPolicy(w http.ResponseWriter, r *http.Request) {
 	var group control.PolicyData
@@ -45,7 +44,6 @@ func (au *AdminUI) editPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
 func (au *AdminUI) createPolicy(w http.ResponseWriter, r *http.Request) {
 	var policy control.PolicyData
@@ -65,7 +63,6 @@ func (au *AdminUI) createPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
 
 func (au *AdminUI) deletePolices(w http.ResponseWriter, r *http.Request) {
@@ -85,5 +82,4 @@ func (au *AdminUI) deletePolices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }

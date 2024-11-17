@@ -6,31 +6,6 @@ import (
 	"net/http"
 )
 
-func (au *AdminUI) devicesMgmtUI(w http.ResponseWriter, r *http.Request) {
-
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := Page{
-
-		Description: "Devices Management Page",
-		Title:       "Devices",
-	}
-
-	err := au.renderDefaults(w, r, d, "management/devices.html", "delete_modal.html")
-
-	if err != nil {
-		log.Println("unable to render devices page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-}
-
 func (au *AdminUI) getAllDevices(w http.ResponseWriter, r *http.Request) {
 	allDevices, err := au.ctrl.ListDevice("")
 	if err != nil {

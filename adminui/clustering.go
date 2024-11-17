@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/NHAS/wag/internal/data"
-	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
@@ -19,102 +17,6 @@ type MembershipDTO struct {
 	Version string
 	Ping    string
 	Status  string
-}
-
-func (au *AdminUI) clusterMembersUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := struct {
-		Page
-		Members     []MembershipDTO
-		Leader      types.ID
-		CurrentNode string
-	}{
-		Page: Page{
-
-			Description: "Clustering Management Page",
-			Title:       "Clustering",
-		},
-
-		Leader:      data.GetLeader(),
-		CurrentNode: data.GetServerID().String(),
-	}
-
-	members := data.GetMembers()
-	for i := range data.GetMembers() {
-		drained, err := data.IsDrained(members[i].ID.String())
-		if err != nil {
-			log.Println("unable to get drained state: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		witness, err := data.IsWitness(members[i].ID.String())
-		if err != nil {
-			log.Println("unable to witness state: ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		version, err := data.GetVersion(members[i].ID.String())
-		if err != nil {
-			log.Println("unable to get version: ", err)
-			version = "unknown"
-		}
-
-		status := "healthy" // full liveness
-		if drained {
-			status = "drained"
-		} else if !members[i].IsStarted() {
-			status = "wait for first connection..."
-		} else if members[i].IsLearner {
-			status = "learner"
-		}
-
-		ping := ""
-		if status != "learner" {
-			lastPing, err := data.GetLastPing(members[i].ID.String())
-			if err != nil {
-				log.Println("unable to fetch last ping: ", err)
-				status = "no last ping"
-			} else {
-
-				if lastPing.Before(time.Now().Add(-6 * time.Second)) {
-					status += "(lagging ping)"
-				}
-
-				if lastPing.Before(time.Now().Add(-14 * time.Second)) {
-					status = "dead"
-				}
-
-				ping = lastPing.Format(time.RFC822)
-			}
-		}
-
-		d.Members = append(d.Members, MembershipDTO{
-			Member:    members[i],
-			IsDrained: drained,
-			IsWitness: witness,
-			Status:    status,
-			Ping:      ping,
-			Version:   version,
-		})
-
-	}
-
-	err := au.renderDefaults(w, r, d, "cluster/members.html", "delete_modal.html")
-
-	if err != nil {
-		log.Println("unable to render clustering page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
 }
 
 func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
@@ -202,48 +104,6 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("OK"))
 
-}
-
-func (au *AdminUI) clusterEventsUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := struct {
-		Page
-		EventLog []string
-		Errors   []data.EventError
-	}{
-		Page: Page{
-
-			Description: "Clustering Management Page",
-			Title:       "Clustering",
-		},
-
-		EventLog: data.EventsQueue.ReadAll(),
-	}
-
-	var err error
-	d.Errors, err = data.GetAllErrors()
-	if err != nil {
-		log.Println("unable to render clustering events page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-
-	err = au.renderDefaults(w, r, d, "cluster/events.html", "delete_modal.html")
-
-	if err != nil {
-		log.Println("unable to render clustering events page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
 }
 
 func (au *AdminUI) clusterEventsAcknowledge(w http.ResponseWriter, r *http.Request) {

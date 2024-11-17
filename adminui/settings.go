@@ -6,31 +6,7 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 )
-
-func (au *AdminUI) adminUsersUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := Page{
-		Description: "Wag settings",
-		Title:       "Settings - Admin Users",
-	}
-
-	err := au.renderDefaults(w, r, d, "settings/management_users.html")
-
-	if err != nil {
-		log.Println("unable to render management_users: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-}
 
 func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
 	adminUsers, err := au.ctrl.ListAdminUsers("")
@@ -49,47 +25,6 @@ func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-}
-
-func (au *AdminUI) generalSettingsUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	datastoreSettings, err := data.GetAllSettings()
-	if err != nil {
-		log.Println("could not get settings from datastore: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-
-	d := struct {
-		Page
-		Settings   data.AllSettings
-		MFAMethods []authenticators.Authenticator
-	}{
-		Page: Page{
-
-			Description: "Wag settings",
-			Title:       "Settings - General",
-		},
-
-		Settings:   datastoreSettings,
-		MFAMethods: authenticators.GetAllAvaliableMethods(),
-	}
-
-	err = au.renderDefaults(w, r, d, "settings/general.html")
-	if err != nil {
-		log.Println("unable to render general: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
 }
 
 func (au *AdminUI) generalSettings(w http.ResponseWriter, r *http.Request) {

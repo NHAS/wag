@@ -8,30 +8,6 @@ import (
 	"strings"
 )
 
-func (au *AdminUI) usersUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := Page{
-
-		Description: "Users Management Page",
-		Title:       "Users",
-	}
-
-	err := au.renderDefaults(w, r, d, "management/users.html", "delete_modal.html")
-
-	if err != nil {
-		log.Println("unable to render users page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-}
-
 func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := au.ctrl.ListUsers("")
 	if err != nil {
@@ -75,7 +51,6 @@ func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-	return
 }
 
 func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +96,6 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
 
 func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +125,4 @@ func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
-
 }

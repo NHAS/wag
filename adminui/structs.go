@@ -1,6 +1,9 @@
 package adminui
 
-import "github.com/NHAS/wag/internal/acls"
+import (
+	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/data"
+)
 
 type Page struct {
 	Description string
@@ -24,17 +27,6 @@ type Dashboard struct {
 	ExternalAddress     string
 
 	LogItems []string
-}
-
-type Login struct {
-	ErrorMessage string
-	SSO          bool
-	Password     bool
-}
-
-func (l Login) Error(msg string) Login {
-	l.ErrorMessage = msg
-	return l
 }
 
 type ChangePasswordRequestDTO struct {
@@ -91,4 +83,16 @@ type AclsTestResponseDTO struct {
 	Username string    `json:"username"`
 	Message  string    `json:"message"`
 	Acls     *acls.Acl `json:"acls"`
+}
+
+type LoginRequestDTO struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResponsetDTO struct {
+	Success    bool              `json:"success"`
+	User       data.AdminUserDTO `json:"user"`
+	CsrfToken  string            `json:"csrfToken"`
+	CsrfHeader string            `json:"csrfHeader"`
 }

@@ -106,7 +106,7 @@ func (c *CtrlClient) UnlockDevice(address string) error {
 }
 
 // List Admin users, or if username is supplied get details from single user
-func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminModel, err error) {
+func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/list?username=" + url.QueryEscape(username))
 	if err != nil {

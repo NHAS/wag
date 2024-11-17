@@ -30,7 +30,7 @@ import (
 )
 
 type AdminUI struct {
-	sessionManager *session.SessionStore[data.AdminModel]
+	sessionManager *session.SessionStore[data.AdminUserDTO]
 
 	ctrl     *wagctl.CtrlClient
 	firewall *router.Firewall
@@ -45,9 +45,10 @@ type AdminUI struct {
 		clusterHealth string
 	}
 
-	clusterState string
-	serverID     string
-	wagVersion   string
+	clusterState   string
+	serverID       string
+	wagVersion     string
+	csrfHeaderName string
 }
 
 func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
@@ -141,7 +142,9 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		}
 	}
 
-	adminUI.sessionManager, err = session.NewStore[data.AdminModel]("admin", "WAG-CSRF", 1*time.Hour, 28800, false)
+	adminUI.csrfHeaderName = "WAG-CSRF"
+
+	adminUI.sessionManager, err = session.NewStore[data.AdminUserDTO]("admin", adminUI.csrfHeaderName, 1*time.Hour, 28800, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cookie session store: %s", err)
 	}
@@ -213,7 +216,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 			},
-			func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminModel) bool {
+			func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminUserDTO) bool {
 
 				key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
 				if adminDetails != nil {
@@ -378,7 +381,7 @@ func (au *AdminUI) render(w http.ResponseWriter, r *http.Request, model interfac
 			return au.getNotifications()
 		},
 		"mod": func(i, j int) bool { return i%j == 0 },
-		"User": func() *data.AdminModel {
+		"User": func() *data.AdminUserDTO {
 			_, u := au.sessionManager.GetSessionFromRequest(r)
 			return u
 		},
@@ -418,89 +421,71 @@ func (au *AdminUI) render(w http.ResponseWriter, r *http.Request, model interfac
 
 func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 
-	msg := Login{
-		SSO:      config.Values.ManagementUI.OIDC.Enabled,
-		Password: *config.Values.ManagementUI.Password.Enabled,
-	}
-
-	switch r.Method {
-	case "GET":
-
-		err := au.render(w, r, msg, "templates/login.html")
-
-		if err != nil {
-			log.Println("unable to render login template:", err)
-			au.renderDefaults(w, r, nil, "error.html")
-
-			return
-		}
-	case "POST":
-		if *config.Values.ManagementUI.Password.Enabled {
-
-			var loginDetails data.LoginDTO
-
-			if r.Header.Get("content-type") == "application/json" {
-				err := json.NewDecoder(r.Body).Decode(&loginDetails)
-				if err != nil {
-					log.Println("bad json value: ", err)
-					http.Error(w, "Error", http.StatusInternalServerError)
-					return
-				}
-			} else {
-				err := r.ParseForm()
-				if err != nil {
-					log.Println("bad form value: ", err)
-
-					au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-					return
-				}
-			}
-
-			err := data.IncrementAdminAuthenticationAttempt(loginDetails.Username)
-			if err != nil {
-				log.Println("admin login failed for user", loginDetails.Username, ": ", err)
-
-				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-				return
-			}
-
-			err = data.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
-			if err != nil {
-				log.Println("admin login failed for user", loginDetails.Username, ": ", err)
-
-				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-				return
-			}
-
-			if err := data.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
-				log.Println("unable to login: ", err)
-
-				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-				return
-			}
-
-			adminDetails, err := data.GetAdminUser(loginDetails.Username)
-			if err != nil {
-				log.Println("unable to login: ", err)
-
-				au.render(w, r, msg.Error("Unable to login"), "templates/login.html")
-				return
-			}
-
-			au.sessionManager.StartSession(w, r, adminDetails, nil)
-
-			log.Println(loginDetails.Username, r.RemoteAddr, "admin logged in")
-
-			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-
-		} else {
-			http.NotFound(w, r)
-		}
-
-	default:
+	if !*config.Values.ManagementUI.Password.Enabled {
 		http.NotFound(w, r)
+		return
 	}
 
+	if r.Header.Get("content-type") != "application/json" {
+		http.Error(w, "Error", http.StatusBadRequest)
+		return
+	}
+
+	var (
+		loginDetails  LoginRequestDTO
+		loginResponse LoginResponsetDTO
+	)
+
+	err := json.NewDecoder(r.Body).Decode(&loginDetails)
+	if err != nil {
+		log.Println("bad json value: ", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+	defer func() {
+		loginResponse.Success = err == nil
+		loginResponse.CsrfHeader = au.csrfHeaderName
+		if !loginResponse.Success {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+
+		w.Header().Set("content-type", "application/json")
+		json.NewEncoder(w).Encode(loginResponse)
+	}()
+
+	err = data.IncrementAdminAuthenticationAttempt(loginDetails.Username)
+	if err != nil {
+		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
+		return
+	}
+
+	err = data.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
+	if err != nil {
+		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
+
+		return
+	}
+
+	if err := data.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
+		log.Println("unable to login: ", err)
+
+		return
+	}
+
+	loginResponse.User, err = data.GetAdminUser(loginDetails.Username)
+	if err != nil {
+		log.Println("unable to login: ", err)
+		return
+	}
+
+	sessId := au.sessionManager.StartSession(w, r, loginResponse.User, nil)
+	loginResponse.CsrfToken, err = au.sessionManager.GenerateCSRFFromSession(sessId)
+	if err != nil {
+		log.Println("unable to login: ", err)
+		return
+	}
+
+	log.Println(loginDetails.Username, r.RemoteAddr, "admin logged in")
 }
 
 func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {

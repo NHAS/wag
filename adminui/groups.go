@@ -24,8 +24,8 @@ func (au *AdminUI) getAllGroups(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-	return
 }
+
 func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
 	var group control.GroupData
 	err := json.NewDecoder(r.Body).Decode(&group)
@@ -42,8 +42,8 @@ func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
+
 func (au *AdminUI) createGroup(w http.ResponseWriter, r *http.Request) {
 	var group control.GroupData
 	err := json.NewDecoder(r.Body).Decode(&group)
@@ -62,8 +62,8 @@ func (au *AdminUI) createGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
+
 func (au *AdminUI) deleteGroups(w http.ResponseWriter, r *http.Request) {
 	var groupsToRemove []string
 	err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
@@ -80,5 +80,4 @@ func (au *AdminUI) deleteGroups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("OK"))
-	return
 }

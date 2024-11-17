@@ -8,29 +8,6 @@ import (
 	"strings"
 )
 
-func (au *AdminUI) registrationUI(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-		return
-	}
-
-	d := Page{
-
-		Description: "Registration Tokens Management Page",
-		Title:       "Registration",
-	}
-
-	err := au.renderDefaults(w, r, d, "management/registration_tokens.html", "delete_modal.html")
-	if err != nil {
-		log.Println("unable to render registration_tokens page: ", err)
-
-		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
-		return
-	}
-}
-
 func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Request) {
 	registrations, err := au.ctrl.Registrations()
 	if err != nil {
@@ -61,8 +38,6 @@ func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
-	return
-
 }
 
 func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +84,6 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
 
 func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Request) {
@@ -136,5 +110,4 @@ func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Write([]byte("OK"))
-	return
 }
