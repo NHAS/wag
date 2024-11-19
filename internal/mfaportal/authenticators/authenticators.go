@@ -134,8 +134,11 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 	defer lck.Unlock()
 
 	for method, handler := range allMfa {
-		mux.HandleFunc("/authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
-		mux.HandleFunc("/register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
+		mux.HandleFunc("GET /authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
+		mux.HandleFunc("POST /authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
+		mux.HandleFunc("GET /register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
+		mux.HandleFunc("POST /register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
+
 	}
 
 	enabledMethods, err := data.GetAuthenicationMethods()

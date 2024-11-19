@@ -10,23 +10,17 @@ type Page struct {
 	Title       string
 }
 
-type Dashboard struct {
-	Page
+type ServerInfoDTO struct {
+	Subnet string `json:"subnet"`
 
-	NumUsers           int
-	LockedDevices      int
-	Devices            int
-	RegistrationTokens int
+	Port            int    `json:"port"`
+	PublicKey       string `json:"public_key"`
+	ExternalAddress string `json:"external_address"`
+	Version         string `json:"version"`
+}
 
-	ActiveSessions int
-
-	Subnet string
-
-	Port, UnenforcedMFA int
-	PublicKey           string
-	ExternalAddress     string
-
-	LogItems []string
+type LogLinesDTO struct {
+	LogItems []string `json:"log_lines"`
 }
 
 type ChangePasswordRequestDTO struct {
