@@ -242,9 +242,11 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("GET /api/info", adminUI.serverInfo)
 		protectedRoutes.HandleFunc("GET /api/console_log", adminUI.consoleLog)
 
+		protectedRoutes.HandleFunc("GET /api/cluster/members", adminUI.members)
 		protectedRoutes.HandleFunc("POST /api/cluster/members/new", adminUI.newNode)
 		protectedRoutes.HandleFunc("POST /api/cluster/members/control", adminUI.nodeControl)
 
+		protectedRoutes.HandleFunc("GET /api/cluster/events", adminUI.getClusterEvents)
 		protectedRoutes.HandleFunc("PUT /api/cluster/events/acknowledge", adminUI.clusterEventsAcknowledge)
 
 		protectedRoutes.HandleFunc("GET /api/diag/wg", adminUI.wgDiagnositicsData)

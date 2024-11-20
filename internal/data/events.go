@@ -244,11 +244,11 @@ func notifyHealthy() {
 }
 
 type EventError struct {
-	NodeID          string
-	ErrorID         string
-	FailedEventData string
-	Error           string
-	Time            time.Time
+	NodeID          string    `json:"node_id"`
+	ErrorID         string    `json:"error_id"`
+	FailedEventData string    `json:"failed_event_data"`
+	Error           string    `json:"error"`
+	Time            time.Time `json:"time"`
 }
 
 func RaiseError(raisedError error, value []byte) (err error) {

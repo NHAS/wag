@@ -3,6 +3,7 @@ package adminui
 import (
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 )
 
 type Page struct {
@@ -89,4 +90,30 @@ type LoginResponsetDTO struct {
 	User       data.AdminUserDTO `json:"user"`
 	CsrfToken  string            `json:"csrfToken"`
 	CsrfHeader string            `json:"csrfHeader"`
+}
+
+type EventsResponseDTO struct {
+	EventLog []string          `json:"events"`
+	Errors   []data.EventError `json:"errors"`
+}
+
+type GenericFailureResponseDTO struct {
+	Message string `json:"failure_message"`
+}
+
+type MembershipDTO struct {
+	ID   types.ID `json:"id"`
+	Name string   `json:"name"`
+
+	IsDrained     bool `json:"drained"`
+	IsWitness     bool `json:"witness"`
+	IsLeader      bool `json:"leader"`
+	IsLearner     bool `json:"learner"`
+	IsCurrentNode bool `json:"current_node"`
+
+	Version string `json:"version"`
+	Ping    string `json:"last_ping"`
+	Status  string `json:"status"`
+
+	PeerUrls []string `json:"peer_urls"`
 }
