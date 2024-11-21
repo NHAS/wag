@@ -13,7 +13,8 @@ import { useTextareaInput } from '@/composables/useTextareaInput'
 
 import { Icons } from '@/util/icons'
 
-import { getAllGroups, type GroupDTO, editGroup, createGroup } from '@/api'
+import { getAllGroups, type GroupDTO, editGroup, createGroup, deleteGroups } from '@/api'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -110,6 +111,26 @@ async function updateGroup() {
     catcher(e, 'failed to apply group change: ')
   }
 }
+
+async function tryDeleteGroups(groups: string[]) {
+  try {
+
+
+    const resp = await deleteGroups(groups)
+  
+    refreshGroups()
+
+    if (!resp.success) {
+      toast.error(resp.message ?? 'Failed')
+      return
+    } else {
+      toast.success(groups.join(",") + ' deleted!')
+    }
+  } catch (e) {
+    catcher(e, 'failed delete groups: ')
+  }
+}
+
 </script>
 
 <template>
@@ -171,13 +192,24 @@ async function updateGroup() {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover cursor-pointer" v-for="group in currentGroups" :key="group.group" @click="openEditGroup(group)">
+                <tr class="hover group" v-for="group in currentGroups" :key="group.group">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.group }}</div>
                   </td>
-                  <td class="font-mono">
+                  <td class="font-mono relative">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.members?.join(', ') || '-' }}</div>
+                    <div class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <button class="mr-3" @click="openEditGroup(group)">
+                        <font-awesome-icon :icon="Icons.Edit" class="text-secondary hover:text-secondary-focus" />
+                      </button>
+                    </div>
+                    <ConfirmModal @on-confirm="() => tryDeleteGroups([group.group])">
+                      <button class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
+                      </button>
+                    </ConfirmModal>
                   </td>
+                  
                 </tr>
               </tbody>
             </table>

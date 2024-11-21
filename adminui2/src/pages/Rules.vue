@@ -132,7 +132,6 @@ async function tryDeleteRules(rules: string[] ) {
       return
     } else {
       toast.success('rules ' + rules.join(", ") + ' deleted!')
-      isRuleModalOpen.value = false
     }
   } catch (e) {
     catcher(e, 'failed to delete rule: ')

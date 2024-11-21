@@ -3,12 +3,10 @@ import axios from 'axios'
 export const client = axios.create()
 
 client.interceptors.request.use(config => {
-  console.log('Request Headers:', config.headers)
   return config
 })
 
 export function setCSRFHeader(csrfToken: string, csrfHeaderName: string) {
-  console.log('setting: ', csrfHeaderName, csrfToken)
   client.defaults.headers.common[csrfHeaderName] = csrfToken
 }
 

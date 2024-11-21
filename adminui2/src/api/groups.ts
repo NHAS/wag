@@ -13,3 +13,10 @@ export function editGroup(updatedGroup: GroupDTO): Promise<GenericResponseDTO> {
 export function createGroup(group: GroupDTO): Promise<GenericResponseDTO> {
   return client.post('/api/policy/groups', group).then(res => res.data)
 }
+
+
+export function deleteGroups(groups: string[]): Promise<GenericResponseDTO> {
+  return client.delete('/api/policy/groups', {data: groups}).then(res => res.data)
+}
+
+
