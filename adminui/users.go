@@ -84,7 +84,6 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 	err = errors.Join(errs...)
 
 	if err != nil {
-
 		w.WriteHeader(http.StatusInternalServerError)
 		err = fmt.Errorf("%d/%d failed to %s\n%s", len(errs), len(action.Usernames), action.Action, errors.Join(errs...).Error())
 		return

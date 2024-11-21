@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/NHAS/wag/pkg/control"
 )
 
 func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Request) {
@@ -34,11 +36,13 @@ func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Reque
 
 func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Request) {
 	var (
-		req RegistrationTokenRequestDTO
-		err error
+		req        RegistrationTokenRequestDTO
+		res        control.RegistrationResult
+		err        error
+		successMsg string
 	)
 
-	defer func() { au.respond(err, w) }()
+	defer func() { au.respondSuccess(err, successMsg, w) }()
 	defer r.Body.Close()
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -55,13 +59,14 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.Uses, req.Groups...)
+	res, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.Uses, req.Groups...)
 	if err != nil {
 		log.Println("unable to create new registration token: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	successMsg = res.Token
 }
 
 func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Request) {

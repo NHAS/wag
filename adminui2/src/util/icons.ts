@@ -13,13 +13,14 @@ export const Icons = {
   Add: 'fa-solid fa-plus-circle',
   Info: 'fa-solid fa-circle-info',
   Clipboard: 'fa-solid fa-clipboard',
+  Refresh: 'fa-solid fa-refresh',
 
   // objects
   Agent: 'fa-solid fa-robot',
   User: 'fa-solid fa-user',
   RegistrationKey: 'fa-solid fa-key',
 
-  Open: 'fa-folid fa-bars',
+  Open: 'fa-solid fa-bars',
 
   Listfile: 'fa-solid fa-file-lines',
 
@@ -55,6 +56,8 @@ export const Icons = {
   RandomlyGenerated: 'fa-solid fa-dice',
   Tick: 'fa-solid fa-check',
   Locked: 'fa-solid fa-lock',
+  Unlocked: 'fa-solid fa-unlock',
+
   Awaiting: 'fa-solid fa-hourglass-end',
   Dead: 'fa-solid fa-skull-crossbones',
   Unknown: 'fa-solid fa-question'

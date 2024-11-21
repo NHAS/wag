@@ -65,9 +65,10 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
 </script>
 
 <template>
-  <RegistrationToken v-model:isOpen="isCreateTokenModalOpen" v-on:success="() => {tokensStore.load(true)}"></RegistrationToken>
 
   <main class="w-full p-4">
+    <RegistrationToken v-model:isOpen="isCreateTokenModalOpen" v-on:success="() => {tokensStore.load(true)}"></RegistrationToken>
+
 
     <h1 class="text-4xl font-bold">Registration Tokens</h1>
     <div class="mt-6 flex flex-wrap gap-6">

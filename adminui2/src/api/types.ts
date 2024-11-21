@@ -34,8 +34,22 @@ export interface UserDTO {
   mfa_type: string
   groups: string[]
 }
+
+
 export interface UsersGetAllResponseDTO {
   users: UserDTO[]
+}
+
+export enum UserEditActions {
+  Lock = "lock",
+  Unlock = "unlock",
+  RestMFA = "resetMFA",
+}
+
+
+export interface EditUsersDTO {
+  action: UserEditActions
+  usernames: string[]
 }
 
 export interface GroupDTO {
