@@ -3,6 +3,7 @@ package adminui
 import (
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/go-playground/validator/v10"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 )
 
@@ -27,6 +28,14 @@ type LogLinesDTO struct {
 type ChangePasswordRequestDTO struct {
 	CurrentPassword string
 	NewPassword     string
+}
+
+type RegistrationTokenRequestDTO struct {
+	Username   string
+	Token      string
+	Overwrites string
+	Groups     []string
+	Uses       int
 }
 
 type ChangePasswordResponseDTO struct {
@@ -75,9 +84,30 @@ type AclsTestRequestDTO struct {
 }
 
 type AclsTestResponseDTO struct {
-	Username string    `json:"username"`
-	Message  string    `json:"message"`
-	Acls     *acls.Acl `json:"acls"`
+	Username string   `json:"username"`
+	Message  string   `json:"message"`
+	Success  bool     `json:"success"`
+	Acls     acls.Acl `json:"acls"`
+}
+
+type FirewallTestRequestDTO struct {
+	Address  string `json:"address" validate:"required,ip"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol" validate:"required"`
+	Target   string `json:"target" validate:"required,ip"`
+}
+
+func (fwt *FirewallTestRequestDTO) Validate() error {
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	return validate.Struct(fwt)
+}
+
+type FirewallResponseDTO struct {
+	Username string   `json:"username"`
+	Message  string   `json:"message"`
+	Success  bool     `json:"success"`
+	Acls     acls.Acl `json:"acls"`
 }
 
 type LoginRequestDTO struct {
@@ -117,4 +147,9 @@ type MembershipDTO struct {
 	Status  string `json:"status"`
 
 	PeerUrls []string `json:"peer_urls"`
+}
+
+type EditUsersDTO struct {
+	Action    string   `json:"action"`
+	Usernames []string `json:"usernames"`
 }

@@ -6,15 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/NHAS/session"
@@ -182,8 +179,6 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	go func() {
 
-		static := http.FileServer(http.FS(staticContent))
-
 		protectedRoutes := http.NewServeMux()
 		allRoutes := http.NewServeMux()
 
@@ -201,18 +196,6 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 			allRoutes.HandleFunc("/login/oidc/callback", adminUI.oidcCallback)
 		}
-
-		if config.Values.ManagementUI.Debug {
-			static := http.FileServer(http.Dir("./ui/src/"))
-			allRoutes.Handle("GET /js/", static)
-		} else {
-			allRoutes.Handle("GET /js/", static)
-		}
-
-		allRoutes.Handle("GET /css/", static)
-		allRoutes.Handle("GET /img/", static)
-		allRoutes.Handle("GET /fonts/", static)
-		allRoutes.Handle("GET /vendor/", static)
 
 		allRoutes.Handle("/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
 			func(w http.ResponseWriter, r *http.Request) {
@@ -339,89 +322,6 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.ManagementUI.ListenAddress)
 
 	return &adminUI, nil
-}
-
-func (au *AdminUI) renderDefaults(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
-
-	contentPath := []string{"templates/menus.html"}
-	for _, path := range content {
-		contentPath = append(contentPath, "templates/"+path)
-	}
-
-	return au.render(w, r, model, contentPath...)
-
-}
-
-func (au *AdminUI) render(w http.ResponseWriter, r *http.Request, model interface{}, content ...string) error {
-
-	name := ""
-	if len(content) > 0 {
-		name = filepath.Base(content[0])
-	}
-
-	var (
-		parsed *template.Template
-		err    error
-	)
-
-	funcsMap := template.FuncMap{
-		"csrfToken": func() template.HTML {
-			t, _ := au.sessionManager.GenerateCSRFTokenTemplateHTML(r)
-
-			return t
-		},
-		"staticContent": func(functionalityName string) template.HTML {
-
-			functionalityName = html.EscapeString(functionalityName)
-
-			if config.Values.ManagementUI.Debug {
-				functionalityName += ".js"
-			} else {
-				functionalityName += ".min.js"
-			}
-
-			return template.HTML(fmt.Sprintf("<script src=\"/js/%s\"></script>", functionalityName))
-		},
-		"notifications": func() []Notification {
-			return au.getNotifications()
-		},
-		"mod": func(i, j int) bool { return i%j == 0 },
-		"User": func() *data.AdminUserDTO {
-			_, u := au.sessionManager.GetSessionFromRequest(r)
-			return u
-		},
-		"WagVersion": func() string {
-			return au.wagVersion
-		},
-		"ClusterState": func() string {
-			return au.clusterState
-		},
-		"ServerID": func() string {
-			return au.serverID
-		},
-	}
-
-	if !config.Values.ManagementUI.Debug {
-		parsed, err = template.New(name).Funcs(funcsMap).ParseFS(templatesContent, content...)
-	} else {
-
-		var realFiles []string
-		for _, c := range content {
-			realFiles = append(realFiles, filepath.Join("ui/", c))
-		}
-
-		parsed, err = template.New(name).Funcs(funcsMap).ParseFiles(realFiles...)
-	}
-
-	if err != nil {
-		return fmt.Errorf("parse %s: %v", content, err)
-	}
-
-	if err := parsed.Execute(w, model); err != nil {
-		return fmt.Errorf("execute %s: %v", content, err)
-	}
-
-	return nil
 }
 
 func (au *AdminUI) doAuthRefresh(w http.ResponseWriter, r *http.Request) {

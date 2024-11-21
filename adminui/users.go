@@ -2,19 +2,17 @@ package adminui
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 )
 
 func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := au.ctrl.ListUsers("")
 	if err != nil {
 		log.Println("error getting users: ", err)
-
 		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -23,14 +21,14 @@ func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 		devices, err := au.ctrl.ListDevice(u.Username)
 		if err != nil {
 			log.Printf("failed to get devices for %q err: %s", u.Username, err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		groups, err := au.ctrl.UserGroups(u.Username)
 		if err != nil {
 			log.Printf("unable to get users groups for user %q: %s", u.Username, err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -43,29 +41,24 @@ func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	b, err := json.Marshal(usersData)
-	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	json.NewEncoder(w).Encode(usersData)
 }
 
 func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
-	var action struct {
-		Action    string   `json:"action"`
-		Usernames []string `json:"usernames"`
-	}
+	var (
+		action EditUsersDTO
+		err    error
+	)
+	defer func() { au.respond(err, w) }()
 
-	err := json.NewDecoder(r.Body).Decode(&action)
+	err = json.NewDecoder(r.Body).Decode(&action)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	var errs []string
+	var errs []error
 	for _, username := range action.Usernames {
 		var err error
 		switch action.Action {
@@ -84,45 +77,48 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err != nil {
-			log.Println("failed to", action.Action, "on user: ", username, "err:", err)
-			errs = append(errs, err.Error())
+			errs = append(errs, err)
 		}
 	}
 
-	if len(errs) > 0 {
+	err = errors.Join(errs...)
 
-		http.Error(w, fmt.Sprintf("%d/%d failed with errors:\n%s", len(errs), len(action.Usernames), strings.Join(errs, "\n")), http.StatusInternalServerError)
+	if err != nil {
+
+		w.WriteHeader(http.StatusInternalServerError)
+		err = fmt.Errorf("%d/%d failed to %s\n%s", len(errs), len(action.Usernames), action.Action, errors.Join(errs...).Error())
 		return
 	}
-
-	w.Write([]byte("OK"))
 }
 
 func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
 
-	var usernames []string
+	var (
+		usernames []string
+		err       error
+	)
 
-	err := json.NewDecoder(r.Body).Decode(&usernames)
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&usernames)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	errs := ""
+	var errs []error
 
 	for _, user := range usernames {
 		err := au.ctrl.DeleteUser(user)
 		if err != nil {
-			log.Println("Error deleting user: ", user, "err: ", err)
-			errs = errs + "\n" + err.Error()
+			errs = append(errs, err)
 		}
 	}
 
-	if len(errs) > 0 {
+	err = errors.Join(errs...)
+	if err != nil {
 		log.Println("failed to delete users: ", errs)
-		http.Error(w, errs, http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write([]byte("OK"))
 }

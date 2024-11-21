@@ -2,9 +2,9 @@ package adminui
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -12,9 +12,7 @@ func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Reque
 	registrations, err := au.ctrl.Registrations()
 	if err != nil {
 		log.Println("error getting registrations: ", err)
-
 		w.WriteHeader(http.StatusInternalServerError)
-		au.renderDefaults(w, r, nil, "error.html")
 		return
 	}
 
@@ -30,84 +28,66 @@ func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Reque
 		})
 	}
 
-	b, err := json.Marshal(tokens)
-	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	json.NewEncoder(w).Encode(tokens)
 }
 
 func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Request) {
-	var b struct {
-		Username   string
-		Token      string
-		Overwrites string
-		Groups     string
-		Uses       string
-	}
+	var (
+		req RegistrationTokenRequestDTO
+		err error
+	)
 
+	defer func() { au.respond(err, w) }()
 	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&b)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	b.Username = strings.TrimSpace(b.Username)
-	b.Overwrites = strings.TrimSpace(b.Overwrites)
+	req.Username = strings.TrimSpace(req.Username)
+	req.Overwrites = strings.TrimSpace(req.Overwrites)
 
-	uses, err := strconv.Atoi(b.Uses)
-	if err != nil {
-		log.Println("client sent invalid number for token number of usees")
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+	if req.Uses <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		err = errors.New("cannot create token with <= 0 uses")
 		return
 	}
 
-	if uses <= 0 {
-		http.Error(w, "cannot create token with <= 0 uses", http.StatusBadRequest)
-		return
-	}
-
-	var groups []string
-	if len(b.Groups) > 0 {
-		groups = strings.Split(b.Groups, ",")
-	}
-
-	_, err = au.ctrl.NewRegistration(b.Token, b.Username, b.Overwrites, uses, groups...)
+	_, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.Uses, req.Groups...)
 	if err != nil {
 		log.Println("unable to create new registration token: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.Write([]byte("OK"))
 }
 
 func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Request) {
-	var tokens []string
+	var (
+		err    error
+		tokens []string
+	)
+	defer func() { au.respond(err, w) }()
 
-	err := json.NewDecoder(r.Body).Decode(&tokens)
+	err = json.NewDecoder(r.Body).Decode(&tokens)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	errs := ""
+	var errs []error
 	for _, token := range tokens {
 		err := au.ctrl.DeleteRegistration(token)
 		if err != nil {
-			log.Println("Error deleting registration token: ", token, "err:", err)
-			errs = errs + "\n" + err.Error()
+			errs = append(errs, err)
 		}
 	}
+	err = errors.Join(errs...)
 
-	if len(errs) > 0 {
-		http.Error(w, errs, http.StatusInternalServerError)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write([]byte("OK"))
 }
