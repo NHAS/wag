@@ -47,12 +47,12 @@ async function logout() {
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open h-max bg-slate-100">
-    <input id="my-drawer" type="checkbox" class="drawer-toggle" />
+  <div class="drawer lg:drawer-open h-screen bg-slate-100">
+    <input id="my-drawer" name="my-drawer" type="checkbox" class="drawer-toggle" />
     <div class="drawer-content">
       <router-view />
 
-      <label for="my-drawer-2" class="fixed btn text-neutral-content bg-neutral lg:hidden">
+      <label for="my-drawer" class="fixed btn text-neutral-content bg-neutral lg:hidden">
         <span class="w-6 text-center"><font-awesome-icon :icon="Icons.Open" /></span>
       </label>
     </div>
