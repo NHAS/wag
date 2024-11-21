@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
+
+import Modal from '@/components/Modal.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
+import PageLoading from '@/components/PageLoading.vue'
+
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 import { useTextareaInput } from '@/composables/useTextareaInput'
-import { getAllGroups, type GroupDTO,  editGroup, createGroup} from '@/api'
+
 import { Icons } from '@/util/icons'
-import Modal from '@/components/Modal.vue'
-import PaginationControls from '@/components/PaginationControls.vue'
-import PageLoading from '@/components/PageLoading.vue'
+
+import { getAllGroups, type GroupDTO, editGroup, createGroup } from '@/api'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -30,10 +34,7 @@ const filteredGroups = computed(() => {
 
   const searchTerm = filterText.value.trim().toLowerCase()
 
-  return arr.filter(
-    x =>
-      x.group.toLowerCase().includes(searchTerm) ||
-      x.members?.includes(searchTerm))
+  return arr.filter(x => x.group.toLowerCase().includes(searchTerm) || x.members?.includes(searchTerm))
 })
 
 const { next: nextPage, prev: prevPage, totalPages, currentItems: currentGroups, activePage } = usePagination(filteredGroups, 20)
@@ -53,25 +54,23 @@ type GroupType = {
 
 const Effects = ref<GroupType>({
   is_edit: false,
-  group: ""
+  group: ''
 })
 
-
 function openAddGroup() {
-  groupModalTitle.value = "Add Rule"
+  groupModalTitle.value = 'Add Rule'
 
-  GroupMembers.value = ""
-  Effects.value.group = ""
+  GroupMembers.value = ''
+  Effects.value.group = ''
   Effects.value.is_edit = false
-
 
   isGroupModalOpen.value = true
 }
 
 function openEditGroup(group: GroupDTO) {
-  groupModalTitle.value = "Edit Rule"
+  groupModalTitle.value = 'Edit Rule'
 
-  GroupMembers.value = group.members?.join("\n") ?? ""
+  GroupMembers.value = group.members?.join('\n') ?? ''
 
   Effects.value.group = group.group
   Effects.value.is_edit = true
@@ -80,17 +79,15 @@ function openEditGroup(group: GroupDTO) {
 }
 
 async function updateGroup() {
- 
-  if(Effects.value.group == "") {
-    toast.error("Empty group names are not allowed")
+  if (Effects.value.group == '') {
+    toast.error('Empty group names are not allowed')
     return
   }
 
   try {
-
     let data: GroupDTO = {
-      group: Effects.value.group.lastIndexOf('group:',0) !== 0 ? 'group:'+Effects.value?.group : Effects.value?.group,
-      members: GroupMembersArr.value ?? [],
+      group: Effects.value.group.lastIndexOf('group:', 0) !== 0 ? 'group:' + Effects.value?.group : Effects.value?.group,
+      members: GroupMembersArr.value ?? []
     }
 
     let resp = null
@@ -103,48 +100,46 @@ async function updateGroup() {
     refreshGroups()
 
     if (!resp.success) {
-      toast.error(resp.message ?? "Failed")
+      toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success(Effects.value.group + " edited!")
+      toast.success(Effects.value.group + ' edited!')
       isGroupModalOpen.value = false
     }
   } catch (e) {
-    catcher(e, "failed to apply group change: ")
-  } 
+    catcher(e, 'failed to apply group change: ')
+  }
 }
-
 </script>
-
-
 
 <template>
   <Modal v-model:isOpen="isGroupModalOpen">
     <div class="w-screen max-w-[600px]">
       <h3 class="text-lg font-bold">{{ groupModalTitle }}</h3>
       <div class="mt-8">
-
-        <p>
-          Make changes to your group.
-        </p>
+        <p>Make changes to your group.</p>
 
         <div class="form-group">
           <label for="group" class="block font-medium text-gray-900 pt-6">Group:</label>
-          <input type="text" id="group" class="input input-bordered input-sm w-full" required
-            v-model="Effects.group" :disabled="Effects.is_edit" />
+          <input
+            type="text"
+            id="group"
+            class="input input-bordered input-sm w-full"
+            required
+            v-model="Effects.group"
+            :disabled="Effects.is_edit"
+          />
         </div>
 
         <label for="members" class="block font-medium text-gray-900 pt-6">Members:</label>
-        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
-          v-model="GroupMembers"></textarea>
+        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="GroupMembers"></textarea>
 
         <span class="mt-4 flex">
           <button class="btn btn-primary" @click="() => updateGroup()">Apply</button>
 
           <div class="flex flex-grow"></div>
 
-          <button class="btn btn-secondary" @click="() => isGroupModalOpen = false">Cancel</button>
-
+          <button class="btn btn-secondary" @click="() => (isGroupModalOpen = false)">Cancel</button>
         </span>
       </div>
     </div>
@@ -157,22 +152,18 @@ async function updateGroup() {
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
-
             <div class="flex flex-row justify-between">
               <div class="tooltip" data-tip="Add rule">
-                <button class="btn btn-ghost btn-primary" @click="openAddGroup">
-                  Add Group <font-awesome-icon :icon="Icons.Add" />
-                </button>
+                <button class="btn btn-ghost btn-primary" @click="openAddGroup">Add Group <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
               <div class="form-control">
                 <label class="label">
-                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..."
-                    v-model="filterText" />
+                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
                 </label>
               </div>
             </div>
 
-            <table class="table table-fixed w-full ">
+            <table class="table table-fixed w-full">
               <thead>
                 <tr>
                   <th>Group</th>
@@ -180,22 +171,19 @@ async function updateGroup() {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover cursor-pointer" v-for="group in currentGroups" :key="group.group"
-                  @click="openEditGroup(group)">
+                <tr class="hover cursor-pointer" v-for="group in currentGroups" :key="group.group" @click="openEditGroup(group)">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.group }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.members?.join(", ") ||
-                      '-' }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.members?.join(', ') || '-' }}</div>
                   </td>
                 </tr>
               </tbody>
             </table>
 
             <div class="mt-2 w-full text-center">
-              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
-                :total-pages="totalPages" />
+              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
             </div>
           </div>
         </div>

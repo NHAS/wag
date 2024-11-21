@@ -40,7 +40,6 @@ const adminPageLinks = [
   { name: 'Manage Users', icon: Icons.User, to: '/admin/users' }
 ]
 
-
 async function logout() {
   await authStore.logout()
   router.push('/login')
@@ -51,13 +50,11 @@ async function logout() {
   <div class="drawer lg:drawer-open h-max bg-slate-100">
     <input id="my-drawer" type="checkbox" class="drawer-toggle" />
     <div class="drawer-content">
-    
       <router-view />
 
       <label for="my-drawer-2" class="fixed btn text-neutral-content bg-neutral lg:hidden">
-        <span class="w-6 text-center"><font-awesome-icon :icon=Icons.Open /></span>
+        <span class="w-6 text-center"><font-awesome-icon :icon="Icons.Open" /></span>
       </label>
-
     </div>
     <div class="drawer-side">
       <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
@@ -117,7 +114,6 @@ async function logout() {
 
         <div class="flex flex-grow"></div>
 
-        
         <ul class="menu justify-self-end">
           <li class="hover-bordered" :class="route.path.startsWith('/admin') ? 'bordered' : 'hover-bordered'">
             <div class="text-content-neutral dropdown dropdown-top">
@@ -141,7 +137,7 @@ async function logout() {
             <div class="text-content-neutral dropdown dropdown-top">
               <label tabindex="0" class="col-span-2 w-full cursor-pointer">
                 <span class="w-6 text-center"><font-awesome-icon :icon="Icons.User" /></span>
-                <span 
+                <span
                   >Welcome, <strong>{{ loggedInUser?.username }}</strong></span
                 >
               </label>

@@ -1,4 +1,4 @@
-import type { GroupDTO,GenericResponseDTO } from './types'
+import type { GroupDTO, GenericResponseDTO } from './types'
 
 import { client } from '.'
 

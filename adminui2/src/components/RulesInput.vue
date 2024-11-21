@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:modelValue'])
 
-const rows = props.rows ?? "3"
+const rows = props.rows ?? '3'
 
 const rules = computed({
   get: () => props.modelValue,
@@ -17,11 +17,7 @@ const rules = computed({
 </script>
 
 <template>
-  <textarea
-    class="rules-input textarea textarea-bordered w-full font-mono"
-    :rows="rows"
-    v-model="rules"
-  ></textarea>
+  <textarea class="rules-input textarea textarea-bordered w-full font-mono" :rows="rows" v-model="rules"></textarea>
 </template>
 
 <style scoped>

@@ -32,7 +32,7 @@ const toast = useToast()
     <h1 class="text-4xl font-bold">Dashboard</h1>
     <div class="mt-6 flex flex-wrap gap-6">
       <div class="flex w-full gap-4">
-        <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]" >
+        <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]">
           <router-link to="/users" class="card-compact bg-base-100 shadow-xl">
             <div class="card-body">
               <h5 class="card-title">Manage MFA</h5>

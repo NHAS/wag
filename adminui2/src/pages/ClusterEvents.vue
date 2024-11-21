@@ -67,8 +67,12 @@ const {
             <EmptyTable v-if="allEvents.length == 0" text="No events yet" />
           </div>
           <div class="mt-2 w-full text-center mb-3">
-            <PaginationControls @next="() => nextEventsPage()" @prev="() => prevEventsPage()"
-              :current-page="activeEventsPage" :total-pages="totalEventsPages" />
+            <PaginationControls
+              @next="() => nextEventsPage()"
+              @prev="() => prevEventsPage()"
+              :current-page="activeEventsPage"
+              :total-pages="totalEventsPages"
+            />
           </div>
         </div>
         <div class="card w-1/2 bg-base-100 shadow-xl">
@@ -86,8 +90,12 @@ const {
             <EmptyTable v-if="errors.length == 0" text="No errors!" />
           </div>
           <div class="mt-2 w-full text-center mb-3">
-            <PaginationControls @next="() => nextErrorsPage()" @prev="() => prevErrorsPage()"
-              :current-page="activeErrorsPage" :total-pages="totalErrorsPages" />
+            <PaginationControls
+              @next="() => nextErrorsPage()"
+              @prev="() => prevErrorsPage()"
+              :current-page="activeErrorsPage"
+              :total-pages="totalErrorsPages"
+            />
           </div>
         </div>
       </div>
@@ -96,11 +104,11 @@ const {
 </template>
 
 <style scoped>
-thead>tr>th {
+thead > tr > th {
   background: none !important;
 }
 
-.first-col-bold>tr td:first-of-type {
+.first-col-bold > tr td:first-of-type {
   font-weight: bold;
 }
 </style>

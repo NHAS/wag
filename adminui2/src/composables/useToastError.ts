@@ -12,7 +12,7 @@ export function useToastError() {
       errorString = e.message
     }
 
-    console.log(e, typeof(e))
+    console.log(e, typeof e)
 
     const paddedPrefixString = prefixString.endsWith(' ') ? prefixString : prefixString + ' '
 

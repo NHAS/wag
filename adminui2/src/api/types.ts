@@ -102,9 +102,6 @@ export interface ClusterMember {
   peer_urls: string[]
 }
 
-
-
-
 export interface GenericResponseDTO {
   message: string
   success: boolean
