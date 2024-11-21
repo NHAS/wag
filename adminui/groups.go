@@ -9,75 +9,81 @@ import (
 )
 
 func (au *AdminUI) getAllGroups(w http.ResponseWriter, r *http.Request) {
+
 	data, err := au.ctrl.GetGroups()
 	if err != nil {
 		log.Println("unable to get group data from server: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	b, err := json.Marshal(data)
-	if err != nil {
-		log.Println("unable to marshal groups data: ", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	json.NewEncoder(w).Encode(data)
 }
 
 func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
-	var group control.GroupData
-	err := json.NewDecoder(r.Body).Decode(&group)
+	var (
+		group control.GroupData
+		err   error
+	)
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&group)
 	if err != nil {
 		log.Println("error decoding group data to edit new group/s: ", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := au.ctrl.EditGroup(group); err != nil {
+	err = au.ctrl.EditGroup(group)
+	if err != nil {
 		log.Println("error editing group: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write([]byte("OK"))
 }
 
 func (au *AdminUI) createGroup(w http.ResponseWriter, r *http.Request) {
-	var group control.GroupData
-	err := json.NewDecoder(r.Body).Decode(&group)
+	var (
+		group control.GroupData
+		err   error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&group)
 	if err != nil {
 		log.Println("error decoding group data to add new group: ", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := au.ctrl.AddGroup(group); err != nil {
+	err = au.ctrl.AddGroup(group)
+	if err != nil {
 		log.Println("error adding group: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write([]byte("OK"))
 }
 
 func (au *AdminUI) deleteGroups(w http.ResponseWriter, r *http.Request) {
-	var groupsToRemove []string
-	err := json.NewDecoder(r.Body).Decode(&groupsToRemove)
+	var (
+		groupsToRemove []string
+		err            error
+	)
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&groupsToRemove)
 	if err != nil {
 		log.Println("error decoding group names to remove: ", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := au.ctrl.RemoveGroup(groupsToRemove); err != nil {
+	err = au.ctrl.RemoveGroup(groupsToRemove)
+	if err != nil {
 		log.Println("error removing groups: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write([]byte("OK"))
 }

@@ -119,7 +119,8 @@ func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
 	es.EventLog = events
 	es.Errors, err = data.GetAllErrors()
 	if err != nil {
-		var e GenericFailureResponseDTO
+		var e GenericResponseDTO
+
 		e.Message = err.Error()
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(e)

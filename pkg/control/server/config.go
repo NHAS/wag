@@ -34,7 +34,6 @@ func (wsg *WagControlSocketServer) newPolicy(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := data.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes, Deny: acl.DenyRoutes}, false); err != nil {
-		log.Println("Unable to set acls: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -54,7 +53,6 @@ func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes, Deny: polciyData.DenyRoutes}, true); err != nil {
-		log.Println("Unable to set acls: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

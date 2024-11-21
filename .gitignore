@@ -9,3 +9,4 @@ adminui/src/vendor
 wag-ui
 *.min.*
 adminui/fonts/nunito*
+adminui/node_modules*

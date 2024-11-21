@@ -367,6 +367,7 @@ func Load(path string) error {
 
 func parseAddress(address string) ([]string, error) {
 
+	address = strings.TrimSpace(address)
 	addr, err := netip.ParseAddr(address)
 	if err != nil {
 		_, cidr, err := net.ParseCIDR(address)

@@ -97,8 +97,9 @@ type EventsResponseDTO struct {
 	Errors   []data.EventError `json:"errors"`
 }
 
-type GenericFailureResponseDTO struct {
-	Message string `json:"failure_message"`
+type GenericResponseDTO struct {
+	Message string `json:"message"`
+	Success bool   `json:"success"`
 }
 
 type MembershipDTO struct {

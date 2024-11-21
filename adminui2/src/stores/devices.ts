@@ -1,0 +1,43 @@
+import { defineStore } from 'pinia'
+
+import { getAllDevices } from '@/api/devices'
+import type { DeviceDTO } from '@/api/types'
+
+export type DevicesStore = {
+  devices: DeviceDTO[]
+  loading: boolean
+}
+
+export const useDevicesStore = defineStore({
+  id: 'devices-store',
+
+  state: () =>
+    ({
+      devices: [],
+      loading: false
+    }) as DevicesStore,
+
+  actions: {
+    async load(forceRefetch = false) {
+      if (this.loading) {
+        return
+      }
+
+      if (forceRefetch || this.devices.length === 0) {
+        this.loading = true
+        try {
+          const { devices } = await getAllDevices()
+          this.devices = devices
+        } finally {
+          this.loading = false
+        }
+      }
+    }
+  },
+
+  getters: {
+    byAddress: state => (address: string) => state.devices.find(x => x.internal_ip == address),
+    byOwner: state => (owner: string) => state.devices.find(x => x.owner == owner),
+    numDevices: state => () => state.devices?.length ?? 0
+  }
+})
