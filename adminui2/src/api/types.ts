@@ -22,9 +22,16 @@ export interface DeviceDTO {
   last_endpoint: string
 }
 
-export interface GetAllDevicesDTO {
-  devices: DeviceDTO[]
+export interface EditDevicesDTO {
+  action: DeviceEditActions
+  addresses: string[]
 }
+
+export enum DeviceEditActions {
+  Lock = "lock",
+  Unlock = "unlock",
+}
+
 
 export interface UserDTO {
   devices: string

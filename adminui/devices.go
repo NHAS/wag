@@ -42,12 +42,8 @@ func (au *AdminUI) getAllDevices(w http.ResponseWriter, r *http.Request) {
 func (au *AdminUI) editDevice(w http.ResponseWriter, r *http.Request) {
 
 	var (
-		action struct {
-			Action    string   `json:"action"`
-			Addresses []string `json:"addresses"`
-		}
-
-		err error
+		action EditDevicesDTO
+		err    error
 	)
 
 	defer func() { au.respond(err, w) }()

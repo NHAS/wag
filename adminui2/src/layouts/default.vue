@@ -32,7 +32,7 @@ const policyLinks = [
 const managementLinks = [
   { name: 'Registration Tokens', icon: Icons.RegistrationKey, to: '/management/registration_tokens' },
   { name: 'Users', icon: Icons.Groups, to: '/management/users' },
-  { name: 'Devices', icon: Icons.Device, to: '/admin/users' }
+  { name: 'Devices', icon: Icons.Device, to: '/management/devices' }
 ]
 
 const adminPageLinks = [
@@ -47,7 +47,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open h-screen bg-slate-100">
+  <div class="drawer lg:drawer-open h-max bg-slate-100">
     <input id="my-drawer" name="my-drawer" type="checkbox" class="drawer-toggle" />
     <div class="drawer-content">
       <router-view />

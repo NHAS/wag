@@ -13,7 +13,7 @@ export const useDevicesStore = defineStore({
 
   state: () =>
     ({
-      devices: [],
+      devices: [] as DeviceDTO[],
       loading: false
     }) as DevicesStore,
 
@@ -26,8 +26,7 @@ export const useDevicesStore = defineStore({
       if (forceRefetch || this.devices.length === 0) {
         this.loading = true
         try {
-          const { devices } = await getAllDevices()
-          this.devices = devices
+          this.devices = await getAllDevices()
         } finally {
           this.loading = false
         }

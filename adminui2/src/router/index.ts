@@ -50,7 +50,7 @@ const router = createRouter({
     // route('/diagnostics/acls', 'ACLs', () => import('@/pages/projects/project.vue')),
 
     route('/management/users', 'User Management', () => import('@/pages/Users.vue')),
-    // route('/management/devices', 'Device Management', () => import('@/pages/Hashlist.vue')),
+    route('/management/devices', 'Device Management', () => import('@/pages/Devices.vue')),
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
     // route('/settings/general', 'Settings', () => import('@/pages/Listfiles.vue')),

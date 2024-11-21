@@ -153,3 +153,8 @@ type EditUsersDTO struct {
 	Action    string   `json:"action"`
 	Usernames []string `json:"usernames"`
 }
+
+type EditDevicesDTO struct {
+	Action    string   `json:"action"`
+	Addresses []string `json:"addresses"`
+}
