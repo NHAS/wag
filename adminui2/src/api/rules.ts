@@ -13,3 +13,7 @@ export function editRule(updatedRule: RuleDTO): Promise<GenericResponseDTO> {
 export function createRule(rule: RuleDTO): Promise<GenericResponseDTO> {
   return client.post('/api/policy/rules', rule).then(res => res.data)
 }
+
+export function deleteRules(rules: string[]): Promise<GenericResponseDTO> {
+  return client.delete('/api/policy/rules', {data: rules}).then(res => res.data)
+}
