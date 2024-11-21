@@ -2,20 +2,16 @@
 import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 
-import Modal from '@/components/Modal.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
-import PageLoading from '@/components/PageLoading.vue'
-
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
-import { useTextareaInput } from '@/composables/useTextareaInput'
-
 import { useTokensStore } from '@/stores/registration_tokens'
 
 import { Icons } from '@/util/icons'
 import type { RegistrationTokenRequestDTO } from '@/api'
-import { createRegistrationToken, deleteRegistrationTokens } from '@/api/registration_tokens'
+import { deleteRegistrationTokens } from '@/api/registration_tokens'
 import ConfirmModal from '@/components/ConfirmModal.vue'
+import RegistrationToken from '@/components/RegistrationToken.vue'
 
 
 const tokensStore = useTokensStore()
@@ -47,39 +43,6 @@ const isCreateTokenModalOpen = ref(false)
 const toast = useToast()
 const { catcher } = useToastError()
 
-const { Input: InitialGroups, Arr: InitialGroupsArr } = useTextareaInput()
-
-const newToken = ref<RegistrationTokenRequestDTO>({} as RegistrationTokenRequestDTO)
-
-function openCreateToken() {
-
-  newToken.value = {
-    uses: 1
-  } as RegistrationTokenRequestDTO
-
-  isCreateTokenModalOpen.value = true
-}
-
-async function createToken() {
-  if (newToken.value.username == '') {
-    toast.error('Empty usernames are not allowed')
-    return
-  }
-
-  try {
-    const resp = await createRegistrationToken(newToken.value)
-    tokensStore.load(true)
-    if (!resp.success) {
-      toast.error(resp.message ?? 'Failed')
-      return
-    } else {
-      toast.success("token for " + newToken.value.username + ' created!')
-      isCreateTokenModalOpen.value = false
-    }
-  } catch (e) {
-    catcher(e, 'failed to create token: ')
-  }
-}
 
 async function deleteToken(token: RegistrationTokenRequestDTO) {
   //TODO handle multiple
@@ -92,7 +55,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success("token " + newToken.value.username + ' deleted!')
+      toast.success("token " + tokensToDelete.join(", ") + ' deleted!')
     }
   } catch (e) {
     catcher(e, 'failed to delete token: ')
@@ -102,50 +65,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
 </script>
 
 <template>
-  <Modal v-model:isOpen="isCreateTokenModalOpen">
-    <div class="w-screen max-w-[600px]">
-      <h3 class="text-lg font-bold">Create Token</h3>
-      <div class="mt-8">
-        <div class="form-group">
-          <label for="username" class="block font-medium text-gray-900">Username</label>
-          <input type="text" id="username" class="input input-bordered input-sm w-full" required
-            v-model="newToken.username" />
-        </div>
-
-        <div class="form-group">
-          <label for="token" class="block font-medium text-gray-900 pt-6">Token</label>
-          <input type="text" id="token" class="input input-bordered input-sm w-full" v-model="newToken.token"
-            placeholder="(Optional)" />
-        </div>
-
-        <div class="form-group">
-          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Overwrites</label>
-          <input type="text" id="overwrites" class="input input-bordered input-sm w-full" v-model="newToken.overwrites"
-            placeholder="(Optional)" />
-        </div>
-
-        <div class="form-group">
-          <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
-          <input type="text" id="groups" class="input input-bordered input-sm w-full" v-model="newToken.groups"
-            placeholder="(Optional)" />
-        </div>
-
-        <div class="form-group">
-          <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
-          <input type="text" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses"
-            placeholder="1" />
-        </div>
-
-        <span class="mt-4 flex">
-          <button class="btn btn-primary" @click="() => createToken()">Create</button>
-
-          <div class="flex flex-grow"></div>
-
-          <button class="btn btn-secondary" @click="() => (isCreateTokenModalOpen = false)">Cancel</button>
-        </span>
-      </div>
-    </div>
-  </Modal>
+  <RegistrationToken v-model:isOpen="isCreateTokenModalOpen" v-on:success="() => {tokensStore.load(true)}"></RegistrationToken>
 
   <main class="w-full p-4">
 
@@ -155,7 +75,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
         <div class="card-body">
           <div class="flex flex-row justify-between">
             <div class="tooltip" data-tip="Add rule">
-              <button class="btn btn-ghost btn-primary" @click="openCreateToken">Add Token <font-awesome-icon
+              <button class="btn btn-ghost btn-primary" @click="() => isCreateTokenModalOpen = true">Add Token <font-awesome-icon
                   :icon="Icons.Add" /></button>
             </div>
             <div class="form-control">
