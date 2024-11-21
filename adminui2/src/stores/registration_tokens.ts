@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 
 import { getAllRegistrationTokens } from '@/api/registration_tokens'
-import type { RegistrationToken } from '@/api/types'
+import type { RegistrationTokenRequestDTO } from '@/api/types'
 
 export type RegistrationTokensStore = {
-  tokens: RegistrationToken[]
+  tokens: RegistrationTokenRequestDTO[]
   loading: boolean
 }
 

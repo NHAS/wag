@@ -22,8 +22,8 @@ function confirm() {
   <div :class="isOpen ? 'modal modal-open' : 'modal'">
     <form method="dialog" class="remove-card-backgrounds modal-box text-left">
       <button @click="() => (isOpen = false)" class="btn btn-circle btn-ghost btn-sm absolute right-2 top-2">✕</button>
-      <h2 class="my-4 text-xl font-bold">{{ title }}</h2>
-      <p>{{ body }}</p>
+      <h2 class="my-4 font-mono text-xl font-bold">{{ title }}</h2>
+      <p class="font-mono">{{ body }}</p>
 
       <div class="modal-action">
         <button class="btn m-1" @click="() => (isOpen = false)">Cancel</button>
@@ -44,10 +44,6 @@ function confirm() {
   max-width: 90vw;
   width: auto;
 }
-/* .modal::backdrop { */
-/* background-color: rgba(0, 0, 0, 0.3); */
-/* animation: modal-pop 0.2s ease-out; */
-/* } */
 </style>
 
 <style>

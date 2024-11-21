@@ -5,7 +5,7 @@ export interface RuleDTO {
   deny_routes: string[]
 }
 
-export interface RegistrationToken {
+export interface RegistrationTokenRequestDTO {
   token: string
   username: string
   groups: string[]

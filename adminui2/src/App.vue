@@ -13,7 +13,7 @@ const authStore = useAuthStore()
 const devicesStore = useDevicesStore()
 const usersStore = useUsersStore()
 
-const { hasCompletedAuth, hasTriedAuth, loggedInUser, isLoggedIn } = storeToRefs(authStore)
+const { hasCompletedAuth, hasTriedAuth, isLoggedIn } = storeToRefs(authStore)
 
 const toast = useToast()
 
@@ -29,7 +29,6 @@ onMounted(async () => {
 
 watch(hasCompletedAuth, (newHasCompletedAuth, prevHasCompletedAuth) => {
   if (newHasCompletedAuth && !prevHasCompletedAuth) {
-    toast.success(`Welcome ${loggedInUser.value?.username}`)
     devicesStore.load(true)
     usersStore.load(true)
   }

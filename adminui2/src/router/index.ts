@@ -42,7 +42,7 @@ const router = createRouter({
     route('/cluster/members', 'Cluster Members', () => import('@/pages/ClusterMembers.vue')),
 
     route('/policy/rules', 'Firewall Rules', () => import('@/pages/Rules.vue')),
-    route('/policy/groups', 'Groups', () => import('@/pages/Groups.vue'))
+    route('/policy/groups', 'Groups', () => import('@/pages/Groups.vue')),
 
     // route('/diagnostics/wg', 'Wireguard Diagnostics', () => import('@/pages/projects/project.vue')),
     // route('/diagnostics/firewall', 'Firewall Diagnostics', () => import('@/pages/projects/project.vue')),
@@ -51,7 +51,7 @@ const router = createRouter({
 
     // route('/management/users', 'User Management', () => import('@/pages/Hashlist.vue')),
     // route('/management/devices', 'Device Management', () => import('@/pages/Hashlist.vue')),
-    // route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/Hashlist.vue')),
+    route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
     // route('/settings/general', 'Settings', () => import('@/pages/Listfiles.vue')),
     // route('/settings/management_users', 'Settings', () => import('@/pages/Listfiles.vue')),

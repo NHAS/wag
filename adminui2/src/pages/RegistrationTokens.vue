@@ -1,0 +1,221 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useToast } from 'vue-toastification'
+
+import Modal from '@/components/Modal.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
+import PageLoading from '@/components/PageLoading.vue'
+
+import { usePagination } from '@/composables/usePagination'
+import { useToastError } from '@/composables/useToastError'
+import { useTextareaInput } from '@/composables/useTextareaInput'
+
+import { useTokensStore } from '@/stores/registration_tokens'
+
+import { Icons } from '@/util/icons'
+import type { RegistrationTokenRequestDTO } from '@/api'
+import { createRegistrationToken, deleteRegistrationTokens } from '@/api/registration_tokens'
+import ConfirmModal from '@/components/ConfirmModal.vue'
+
+
+const tokensStore = useTokensStore()
+tokensStore.load(true)
+
+const tokens = computed(() => {
+  return tokensStore.tokens ?? []
+})
+
+
+const filterText = ref('')
+
+const filteredTokens = computed(() => {
+  const arr = tokens.value
+
+  if (filterText.value == '') {
+    return arr
+  }
+
+  const searchTerm = filterText.value.trim().toLowerCase()
+
+  return arr.filter(x => x.username.toLowerCase().includes(searchTerm))
+})
+
+const { next: nextPage, prev: prevPage, totalPages, currentItems: currentTokens, activePage } = usePagination(filteredTokens, 20)
+
+const isCreateTokenModalOpen = ref(false)
+
+const toast = useToast()
+const { catcher } = useToastError()
+
+const { Input: InitialGroups, Arr: InitialGroupsArr } = useTextareaInput()
+
+const newToken = ref<RegistrationTokenRequestDTO>({} as RegistrationTokenRequestDTO)
+
+function openCreateToken() {
+
+  newToken.value = {
+    uses: 1
+  } as RegistrationTokenRequestDTO
+
+  isCreateTokenModalOpen.value = true
+}
+
+async function createToken() {
+  if (newToken.value.username == '') {
+    toast.error('Empty usernames are not allowed')
+    return
+  }
+
+  try {
+    const resp = await createRegistrationToken(newToken.value)
+    tokensStore.load(true)
+    if (!resp.success) {
+      toast.error(resp.message ?? 'Failed')
+      return
+    } else {
+      toast.success("token for " + newToken.value.username + ' created!')
+      isCreateTokenModalOpen.value = false
+    }
+  } catch (e) {
+    catcher(e, 'failed to create token: ')
+  }
+}
+
+async function deleteToken(token: RegistrationTokenRequestDTO) {
+  //TODO handle multiple
+  const tokensToDelete = [token.token]
+  try {
+    const resp = await deleteRegistrationTokens(tokensToDelete)
+
+    tokensStore.load(true)
+    if (!resp.success) {
+      toast.error(resp.message ?? 'Failed')
+      return
+    } else {
+      toast.success("token " + newToken.value.username + ' deleted!')
+    }
+  } catch (e) {
+    catcher(e, 'failed to delete token: ')
+  }
+}
+
+</script>
+
+<template>
+  <Modal v-model:isOpen="isCreateTokenModalOpen">
+    <div class="w-screen max-w-[600px]">
+      <h3 class="text-lg font-bold">Create Token</h3>
+      <div class="mt-8">
+        <div class="form-group">
+          <label for="username" class="block font-medium text-gray-900">Username</label>
+          <input type="text" id="username" class="input input-bordered input-sm w-full" required
+            v-model="newToken.username" />
+        </div>
+
+        <div class="form-group">
+          <label for="token" class="block font-medium text-gray-900 pt-6">Token</label>
+          <input type="text" id="token" class="input input-bordered input-sm w-full" v-model="newToken.token"
+            placeholder="(Optional)" />
+        </div>
+
+        <div class="form-group">
+          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Overwrites</label>
+          <input type="text" id="overwrites" class="input input-bordered input-sm w-full" v-model="newToken.overwrites"
+            placeholder="(Optional)" />
+        </div>
+
+        <div class="form-group">
+          <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
+          <input type="text" id="groups" class="input input-bordered input-sm w-full" v-model="newToken.groups"
+            placeholder="(Optional)" />
+        </div>
+
+        <div class="form-group">
+          <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
+          <input type="text" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses"
+            placeholder="1" />
+        </div>
+
+        <span class="mt-4 flex">
+          <button class="btn btn-primary" @click="() => createToken()">Create</button>
+
+          <div class="flex flex-grow"></div>
+
+          <button class="btn btn-secondary" @click="() => (isCreateTokenModalOpen = false)">Cancel</button>
+        </span>
+      </div>
+    </div>
+  </Modal>
+
+  <main class="w-full p-4">
+
+    <h1 class="text-4xl font-bold">Registration Tokens</h1>
+    <div class="mt-6 flex flex-wrap gap-6">
+      <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
+        <div class="card-body">
+          <div class="flex flex-row justify-between">
+            <div class="tooltip" data-tip="Add rule">
+              <button class="btn btn-ghost btn-primary" @click="openCreateToken">Add Token <font-awesome-icon
+                  :icon="Icons.Add" /></button>
+            </div>
+            <div class="form-control">
+              <label class="label">
+                <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
+              </label>
+            </div>
+          </div>
+
+          <table class="table table-fixed w-full">
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>Username</th>
+                <th>Groups</th>
+                <th>Overwrites</th>
+                <th>Uses</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="hover group" v-for="token in currentTokens">
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.token }}</div>
+                </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.username }}</div>
+                </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}
+                  </div>
+                </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.overwrites }}</div>
+                </td>
+                <td class="font-mono relative">
+                  <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
+                  <ConfirmModal @on-confirm="() => deleteToken(token)">
+                  <button
+                    class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
+                  </button>
+                  </ConfirmModal>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="mt-2 w-full text-center">
+            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
+              :total-pages="totalPages" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.hashlist-table.table-sm :where(th, td) {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+</style>
