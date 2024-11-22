@@ -26,8 +26,8 @@ type LogLinesDTO struct {
 }
 
 type ChangePasswordRequestDTO struct {
-	CurrentPassword string
-	NewPassword     string
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }
 
 type RegistrationTokenRequestDTO struct {
@@ -36,11 +36,6 @@ type RegistrationTokenRequestDTO struct {
 	Overwrites string
 	Groups     []string
 	Uses       int
-}
-
-type ChangePasswordResponseDTO struct {
-	Message string
-	Type    int
 }
 
 type UsersData struct {

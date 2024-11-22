@@ -22,14 +22,19 @@ export const Icons = {
 
   Open: 'fa-solid fa-bars',
 
-  Listfile: 'fa-solid fa-file-lines',
-
   Rulefile: 'fa-solid fa-shuffle',
   Wordlist: 'fa-solid fa-book-open',
   Charset: 'fa-solid fa-arrow-down-a-z',
 
   AttackTemplate: 'fa-solid fa-sliders',
   AttackTemplateSet: 'fa-solid fa-layer-group',
+
+  Advanced: 'fa-solid circle-nodes',
+
+  FirewallState: "fa-solid fa-shield-heart",
+
+  Test: "fa-solid fa-vial-circle-check",
+
 
   // pages
   Dashboard: 'fa-solid fa-gauge',
@@ -39,7 +44,7 @@ export const Icons = {
   Groups: 'fa-solid fa-users',
   Device: 'fa-solid fa-display',
 
-  Listfiles: 'fa-solid fa-file-lines',
+  List: 'fa-solid fa-list',
   HashSearch: 'fa-solid fa-magnifying-glass',
   Utilisation: 'fa-solid fa-gauge',
 
@@ -51,6 +56,7 @@ export const Icons = {
   Warning: 'fa-solid fa-circle-exclamation',
   Admin: 'fa-solid fa-lock',
   Config: 'fa-solid fa-gear',
+  Peers: 'fa-solid fa-hexagon-nodes',
   Auth: 'fa-solid fa-passport',
   Share: 'fa-solid fa-link',
   RandomlyGenerated: 'fa-solid fa-dice',

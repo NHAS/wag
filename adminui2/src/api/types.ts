@@ -123,6 +123,12 @@ export interface ClusterMember {
   peer_urls: string[]
 }
 
+export interface ChangePasswordRequestDTO {
+  current_password: string
+  new_password: string
+}
+
+
 export interface GenericResponseDTO {
   message: string
   success: boolean

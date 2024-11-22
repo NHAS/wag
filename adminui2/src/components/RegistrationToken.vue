@@ -40,7 +40,7 @@ async function createToken() {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success("token for " + newToken.value.username + ' created!')
+      toast.success("token " + resp.message + " for " + newToken.value.username + ' created!')
       isOpen.value = false
     }
   } catch (e) {
@@ -55,7 +55,7 @@ async function createToken() {
 <template>
   <Modal v-model:isOpen="isOpen">
     <div class="w-screen max-w-[600px]">
-      <h3 class="text-lg font-bold">Create Token</h3>
+      <h3 class="text-lg font-bold">Create Registration Token</h3>
       <div class="mt-8">
         <div class="form-group">
           <label for="username" class="block font-medium text-gray-900">Username</label>

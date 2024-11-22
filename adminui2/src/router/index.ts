@@ -36,7 +36,7 @@ const router = createRouter({
     //   component: () => import('@/pages/LoginOIDCCallback.vue')
     // },
     route('/dashboard', 'Dashboard', () => import('@/pages/Dashboard.vue')),
-    // route('/change_password', 'Change Password', () => import('@/pages/projects/index.vue')),
+    route('/account', 'My Account', () => import('@/pages/Account.vue')),
 
     route('/cluster/events', 'Cluster Events', () => import('@/pages/ClusterEvents.vue')),
     route('/cluster/members', 'Cluster Members', () => import('@/pages/ClusterMembers.vue')),

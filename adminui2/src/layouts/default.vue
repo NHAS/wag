@@ -36,8 +36,15 @@ const managementLinks = [
 ]
 
 const adminPageLinks = [
-  { name: 'Configuration', icon: Icons.Config, to: '/admin/general' },
-  { name: 'Manage Users', icon: Icons.User, to: '/admin/users' }
+  { name: 'Settings', icon: Icons.Config, to: '/settings/general' },
+  { name: 'Admin Users', icon: Icons.User, to: '/settings/management_users' }
+]
+
+const debugPageLinks = [
+  { name: 'Wireguard Peers', icon: Icons.Peers, to: '/settings/general' },
+  { name: 'Firewall State', icon: Icons.FirewallState, to: '/settings/management_users' },
+  { name: 'Test Rule', icon: Icons.Test, to: '/settings/management_users' },
+  { name: 'User ACLs', icon: Icons.List, to: '/settings/management_users' },
 ]
 
 async function logout() {
@@ -79,7 +86,8 @@ async function logout() {
 
         <hr class="mt-4 h-px border-0 bg-gray-700" />
         <ul class="menu">
-          <li v-for="link in clusterLinks" :key="link.name" :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
+          <li v-for="link in clusterLinks" :key="link.name"
+            :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
             <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
               <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
 
@@ -91,7 +99,8 @@ async function logout() {
         <hr class="mt-4 h-px border-0 bg-gray-700" />
 
         <ul class="menu">
-          <li v-for="link in policyLinks" :key="link.name" :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
+          <li v-for="link in policyLinks" :key="link.name"
+            :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
             <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
               <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
 
@@ -103,7 +112,8 @@ async function logout() {
         <hr class="mt-4 h-px border-0 bg-gray-700" />
 
         <ul class="menu">
-          <li v-for="link in managementLinks" :key="link.name" :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
+          <li v-for="link in managementLinks" :key="link.name"
+            :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
             <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
               <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
 
@@ -112,34 +122,52 @@ async function logout() {
           </li>
         </ul>
 
-        <div class="flex flex-grow"></div>
+        <hr class="mt-4 h-px border-0 bg-gray-700" />
+
+
+        <ul class="menu">
+          <li v-for="link in adminPageLinks" :key="link.name"
+            :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
+            <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
+              <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
+              {{ link.name }}
+            </RouterLink>
+          </li>
+        </ul>
+
+        <hr class="mt-4 h-px border-0 bg-gray-700" />
 
         <ul class="menu justify-self-end">
-          <li class="hover-bordered" :class="route.path.startsWith('/admin') ? 'bordered' : 'hover-bordered'">
+          <li class="hover-bordered" :class="route.path == '/diag' ? 'bordered' : 'hover-bordered'">
             <div class="text-content-neutral dropdown dropdown-top">
               <label tabindex="0" class="col-span-2 w-full cursor-pointer">
-                <span class="w-6 text-center"><font-awesome-icon :icon="Icons.Admin" /></span>
-                <span>Admin Tools</span>
+                <span class="w-6 text-center"><font-awesome-icon :icon="['fa-solid', 'circle-nodes']" /></span>
+                <span>Advanced</span>
               </label>
 
-              <ul tabindex="0" class="menu dropdown-content rounded-box mb-2 w-52 bg-base-100 p-2 pb-4 text-black shadow">
-                <li v-for="link in adminPageLinks" :key="link.name">
-                  <RouterLink :to="link.to">
-                    <span class="min-w-[20px] text-center"><font-awesome-icon :icon="link.icon" /></span>
-                    <span>{{ link.name }}</span>
+              <ul tabindex="0" class="menu dropdown-content rounded-box w-52 bg-base-100 p-2 pb-4 text-black shadow">
+                <li v-for="link in debugPageLinks" :key="link.name"
+                  :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
+                  <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
+                    <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
+
+                    {{ link.name }}
                   </RouterLink>
                 </li>
               </ul>
             </div>
           </li>
+        </ul>
 
+
+        <div class="flex flex-grow"></div>
+
+        <ul class="menu justify-self-end">
           <li class="hover-bordered" :class="route.path == '/account' ? 'bordered' : 'hover-bordered'">
             <div class="text-content-neutral dropdown dropdown-top">
               <label tabindex="0" class="col-span-2 w-full cursor-pointer">
                 <span class="w-6 text-center"><font-awesome-icon :icon="Icons.User" /></span>
-                <span
-                  >Welcome, <strong>{{ loggedInUser?.username }}</strong></span
-                >
+                <span>Welcome, <strong>{{ loggedInUser?.username }}</strong></span>
               </label>
 
               <ul tabindex="0" class="menu dropdown-content rounded-box w-52 bg-base-100 p-2 pb-4 text-black shadow">

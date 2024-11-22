@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia'
 import { ref, computed } from 'vue'
 import { useToast } from 'vue-toastification'
 
-import { accountChangePassword } from '@/api/account'
+import { changePassword } from '@/api'
 
 import { useToastError } from '@/composables/useToastError'
 
@@ -41,7 +41,7 @@ async function onChangePassword() {
   isChangePasswordLoading.value = true
 
   try {
-    await accountChangePassword({
+    await changePassword({
       new_password: changePasswordNewPassword.value,
       current_password: changePasswordCurrentPassword.value
     })
@@ -58,7 +58,7 @@ async function onChangePassword() {
   <main class="w-full p-4">
     <h1 class="text-4xl font-bold">Welcome {{ loggedInUser?.username }}</h1>
     <div class="mt-6 flex flex-wrap gap-6">
-      <div class="card bg-base-100 shadow-xl" v-if="!loggedInUser?.is_password_locked">
+      <div class="card bg-base-100 shadow-xl" v-if="!loggedInUser?.oidc_guid">
         <div class="card-body">
           <h2 class="card-title">Change Password</h2>
 

@@ -477,31 +477,24 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var d ChangePasswordResponseDTO
-	d.Type = 0
-	d.Message = "Success!"
-
-	defer func() {
-		w.Header().Set("content-type", "application/json")
-		json.NewEncoder(w).Encode(d)
-	}()
+	var (
+		err error
+	)
+	defer func() { au.respond(err, w) }()
 
 	var req ChangePasswordRequestDTO
-	err := json.NewDecoder(r.Body).Decode(&r)
+	err = json.NewDecoder(r.Body).Decode(&r)
 	r.Body.Close()
 	if err != nil {
-		d.Message = "Failed"
-		d.Type = 1
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = data.CompareAdminKeys(u.Username, req.CurrentPassword)
 	if err != nil {
 		log.Println("bad password for admin")
-
-		d.Message = "Current password is incorrect"
-		d.Type = 1
+		err = errors.New("current password is incorrect")
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
@@ -509,8 +502,8 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("unable to set new admin password for ", u.Username)
 
-		d.Message = "Error: " + err.Error()
-		d.Type = 1
+		err = fmt.Errorf("error setting password: %w", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
