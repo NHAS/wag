@@ -523,9 +523,33 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 	return nil
 }
 
-func (c *CtrlClient) GetAllSettings() (allSettings data.AllSettings, err error) {
+func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err error) {
 
-	response, err := c.httpClient.Get("http://unix/config/settings")
+	response, err := c.httpClient.Get("http://unix/config/settings/general")
+	if err != nil {
+		return allSettings, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return allSettings, err
+		}
+		return allSettings, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&allSettings)
+	if err != nil {
+		return allSettings, err
+	}
+
+	return allSettings, nil
+}
+
+func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/login")
 	if err != nil {
 		return allSettings, err
 	}

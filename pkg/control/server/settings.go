@@ -7,8 +7,25 @@ import (
 	"github.com/NHAS/wag/internal/data"
 )
 
-func (wsg *WagControlSocketServer) getAllSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := data.GetAllSettings()
+func (wsg *WagControlSocketServer) getGeneralSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := data.GetGeneralSettings()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b, err := json.Marshal(settings)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+}
+
+func (wsg *WagControlSocketServer) getLoginSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := data.GetLoginSettings()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -53,8 +53,8 @@ const router = createRouter({
     route('/management/devices', 'Device Management', () => import('@/pages/Devices.vue')),
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
-    // route('/settings/general', 'Settings', () => import('@/pages/Listfiles.vue')),
-    // route('/settings/management_users', 'Settings', () => import('@/pages/Listfiles.vue')),
+    route('/settings', 'Settings', () => import('@/pages/Settings.vue')),
+    // route('/admin_users', 'Settings', () => import('@/pages/Listfiles.vue')),
   ]
 })
 

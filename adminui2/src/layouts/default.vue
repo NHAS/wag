@@ -36,8 +36,8 @@ const managementLinks = [
 ]
 
 const adminPageLinks = [
-  { name: 'Settings', icon: Icons.Config, to: '/settings/general' },
-  { name: 'Admin Users', icon: Icons.User, to: '/settings/management_users' }
+  { name: 'Settings', icon: Icons.Config, to: '/settings' },
+  { name: 'Admin Users', icon: Icons.User, to: '/admin_users' }
 ]
 
 const debugPageLinks = [
@@ -54,9 +54,9 @@ async function logout() {
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open h-max bg-slate-100">
+  <div class="drawer lg:drawer-open bg-slate-100">
     <input id="my-drawer" name="my-drawer" type="checkbox" class="drawer-toggle" />
-    <div class="drawer-content h-screen">
+    <div class="drawer-content h-max">
       <router-view />
 
       <label for="my-drawer" class="fixed btn text-neutral-content bg-neutral lg:hidden">

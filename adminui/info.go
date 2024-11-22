@@ -17,7 +17,7 @@ func (au *AdminUI) serverInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s, err := au.ctrl.GetAllSettings()
+	s, err := au.ctrl.GetGeneralSettings()
 	if err != nil {
 		log.Println("error getting server settings: ", err)
 

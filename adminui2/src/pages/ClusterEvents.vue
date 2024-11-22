@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useToast } from 'vue-toastification'
 import { computed, ref } from 'vue'
 
 import EmptyTable from '@/components/EmptyTable.vue'
@@ -13,17 +12,13 @@ import { useApi } from '@/composables/useApi'
 
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
 
-import { Icons } from '@/util/icons'
-
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(false)
 
-const toast = useToast()
-
-const { data: events, isLoading: isLoadingHashlist, silentlyRefresh: refreshEvents } = useApi(() => getClusterEvents())
+const { data: events, isLoading: isLoadingEvents, silentlyRefresh: refreshEvents } = useApi(() => getClusterEvents())
 
 const isLoading = computed(() => {
-  return isLoadingHashlist.value
+  return isLoadingEvents.value
 })
 
 const allEvents = computed(() => events.value?.events ?? [])
@@ -55,10 +50,10 @@ const {
         <div class="card w-1/2 bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title">General</h2>
-            <table class="table w-full">
+            <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="line in allEvents">
-                  <td>
+                <tr class="hover" v-for="line in currentEvents">
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap">
                     {{ line }}
                   </td>
                 </tr>
@@ -78,10 +73,10 @@ const {
         <div class="card w-1/2 bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title">Errors</h2>
-            <table class="table w-full">
+            <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="line in errors">
-                  <td>
+                <tr class="hover" v-for="line in currentErrors">
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap">
                     {{ line }}
                   </td>
                 </tr>

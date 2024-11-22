@@ -13,15 +13,15 @@ import (
 )
 
 type OIDC struct {
-	IssuerURL           string
-	ClientSecret        string
-	ClientID            string
-	GroupsClaimName     string
-	DeviceUsernameClaim string
+	IssuerURL           string `json:"issuer"`
+	ClientSecret        string `json:"client_secret"`
+	ClientID            string `json:"client_id"`
+	GroupsClaimName     string `json:"group_claim_name"`
+	DeviceUsernameClaim string `json:"device_username_claim"`
 }
 
 type PAM struct {
-	ServiceName string
+	ServiceName string `json:"service_name"`
 }
 
 type Webauthn struct {
@@ -286,24 +286,19 @@ func GetDNS() ([]string, error) {
 	return servers, nil
 }
 
-type AllSettings struct {
-	LoginSettings
-	GeneralSettings
-}
-
 type LoginSettings struct {
-	SessionInactivityTimeoutMinutes int `validate:"required,number"`
-	MaxSessionLifetimeMinutes       int `validate:"required,number"`
-	Lockout                         int `validate:"required,number"`
+	SessionInactivityTimeoutMinutes int `validate:"required,number" json:"session_inactivity_timeout_minutes"`
+	MaxSessionLifetimeMinutes       int `validate:"required,number" json:"max_session_lifetime_minutes"`
+	Lockout                         int `validate:"required,number" json:"lockout" `
 
-	DefaultMFAMethod  string   `validate:"required"`
-	EnabledMFAMethods []string `validate:"required,lt=10,dive,required"`
+	DefaultMFAMethod  string   `validate:"required" json:"default_mfa_method"`
+	EnabledMFAMethods []string `validate:"required,lt=10,dive,required" json:"enabled_mfa_methods"`
 
-	Domain string `validate:"required"`
-	Issuer string `validate:"required"`
+	Domain string `validate:"required" json:"domain"`
+	Issuer string `validate:"required" json:"issuer"`
 
-	OidcDetails OIDC
-	PamDetails  PAM
+	OidcDetails OIDC `json:"oidc"`
+	PamDetails  PAM  `json:"pam"`
 }
 
 func (lg *LoginSettings) Validate() error {
@@ -352,13 +347,13 @@ func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op, err error) {
 }
 
 type GeneralSettings struct {
-	HelpMail        string `validate:"required,email"`
-	ExternalAddress string `validate:"required,hostname|hostname_port|ip"`
+	HelpMail        string `validate:"required,email" json:"help_mail"`
+	ExternalAddress string `validate:"required,hostname|hostname_port|ip" json:"external_address"`
 	// Allow hostname or ip/4/6 as dns entry for wireguard config
-	DNS []string `validate:"omitempty,dive,hostname|ip"`
+	DNS []string `validate:"omitempty,dive,hostname|ip" json:"dns"`
 
-	WireguardConfigFilename string `validate:"required"`
-	CheckUpdates            bool
+	WireguardConfigFilename string `validate:"required" json:"wireguard_config_filename"`
+	CheckUpdates            bool   `json:"check_updates"`
 }
 
 func (gs *GeneralSettings) Validate() error {
@@ -399,23 +394,96 @@ func (gs *GeneralSettings) ToWriteOps() (ret []clientv3.Op, err error) {
 	return
 }
 
-func GetAllSettings() (s AllSettings, err error) {
-
+func GetLoginSettings() (s LoginSettings, err error) {
 	txn := etcd.Txn(context.Background())
-	response, err := txn.Then(clientv3.OpGet(helpMailKey),
-		clientv3.OpGet(externalAddressKey),
+	response, err := txn.Then(
 		clientv3.OpGet(InactivityTimeoutKey),
 		clientv3.OpGet(SessionLifetimeKey),
 		clientv3.OpGet(LockoutKey),
-		clientv3.OpGet(dnsKey),
-		clientv3.OpGet(IssuerKey),
-		clientv3.OpGet(DomainKey),
 		clientv3.OpGet(DefaultMFAMethodKey),
 		clientv3.OpGet(MFAMethodsEnabledKey),
-		clientv3.OpGet(checkUpdatesKey),
+		clientv3.OpGet(DomainKey),
+		clientv3.OpGet(IssuerKey),
 		clientv3.OpGet(OidcDetailsKey),
-		clientv3.OpGet(PamDetailsKey),
-		clientv3.OpGet(defaultWGFileNameKey)).Commit()
+		clientv3.OpGet(PamDetailsKey)).Commit()
+	if err != nil {
+		return s, err
+	}
+
+	if response.Responses[0].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[0].GetResponseRange().Kvs[0].Value, &s.SessionInactivityTimeoutMinutes)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[1].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &s.MaxSessionLifetimeMinutes)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[2].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[2].GetResponseRange().Kvs[0].Value, &s.Lockout)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[3].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[3].GetResponseRange().Kvs[0].Value, &s.DefaultMFAMethod)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[4].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[4].GetResponseRange().Kvs[0].Value, &s.EnabledMFAMethods)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[5].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.Issuer)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[6].GetResponseRange().Count == 1 {
+		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Domain)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[7].GetResponseRange().Count == 1 {
+		s.OidcDetails.GroupsClaimName = "groups"
+		err := json.Unmarshal(response.Responses[7].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	if response.Responses[8].GetResponseRange().Count == 1 {
+		err := json.Unmarshal(response.Responses[8].GetResponseRange().Kvs[0].Value, &s.PamDetails)
+		if err != nil {
+			return s, err
+		}
+	}
+
+	return
+}
+
+func GetGeneralSettings() (s GeneralSettings, err error) {
+	txn := etcd.Txn(context.Background())
+	response, err := txn.Then(clientv3.OpGet(helpMailKey),
+		clientv3.OpGet(externalAddressKey),
+		clientv3.OpGet(dnsKey),
+		clientv3.OpGet(defaultWGFileNameKey),
+		clientv3.OpGet(checkUpdatesKey)).Commit()
 	if err != nil {
 		return s, err
 	}
@@ -435,85 +503,21 @@ func GetAllSettings() (s AllSettings, err error) {
 	}
 
 	if response.Responses[2].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[2].GetResponseRange().Kvs[0].Value, &s.SessionInactivityTimeoutMinutes)
+		err = json.Unmarshal(response.Responses[2].GetResponseRange().Kvs[0].Value, &s.DNS)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[3].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[3].GetResponseRange().Kvs[0].Value, &s.MaxSessionLifetimeMinutes)
+		err := json.Unmarshal(response.Responses[3].GetResponseRange().Kvs[0].Value, &s.WireguardConfigFilename)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[4].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[4].GetResponseRange().Kvs[0].Value, &s.Lockout)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[5].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.DNS)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[6].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Issuer)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[7].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[7].GetResponseRange().Kvs[0].Value, &s.Domain)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[8].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[8].GetResponseRange().Kvs[0].Value, &s.DefaultMFAMethod)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[9].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[9].GetResponseRange().Kvs[0].Value, &s.EnabledMFAMethods)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[10].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[10].GetResponseRange().Kvs[0].Value, &s.CheckUpdates)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[11].GetResponseRange().Count == 1 {
-		s.OidcDetails.GroupsClaimName = "groups"
-		err := json.Unmarshal(response.Responses[11].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[12].GetResponseRange().Count == 1 {
-		err := json.Unmarshal(response.Responses[12].GetResponseRange().Kvs[0].Value, &s.PamDetails)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[13].GetResponseRange().Count == 1 {
-		err := json.Unmarshal(response.Responses[13].GetResponseRange().Kvs[0].Value, &s.WireguardConfigFilename)
+		err = json.Unmarshal(response.Responses[4].GetResponseRange().Kvs[0].Value, &s.CheckUpdates)
 		if err != nil {
 			return s, err
 		}

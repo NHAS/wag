@@ -133,3 +133,42 @@ export interface GenericResponseDTO {
   message: string
   success: boolean
 }
+
+
+
+export interface GeneralSettingsResponseDTO {
+  help_mail: string
+  external_address: string
+  dns: string[]
+  wireguard_config_filename: string
+  check_updates: boolean
+}
+
+
+export interface OidcResponseDTO {
+  issuer: string
+  client_secret: string
+  client_id: string
+  group_claim_name: string
+  DeviceUsernameClaim: string
+}
+
+
+export interface PamResponseDTO {
+  service_name: string
+}
+
+export interface LoginSettingsResponseDTO {
+  session_inactivity_timeout_minutes: number
+  max_session_lifetime_minutes: number
+  lockout: number
+
+  default_mfa_method: string
+  enabled_mfa_methods: string[]
+
+  domain: string
+  issuer: string
+
+  oidc: OidcResponseDTO
+  pam: PamResponseDTO
+}

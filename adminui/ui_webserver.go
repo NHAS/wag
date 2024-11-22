@@ -259,7 +259,10 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("POST /api/policy/groups", adminUI.createGroup)
 		protectedRoutes.HandleFunc("DELETE /api/policy/groups", adminUI.deleteGroups)
 
-		protectedRoutes.HandleFunc("POST /api/settings/general", adminUI.generalSettings)
+		protectedRoutes.HandleFunc("PUT /api/settings/general", adminUI.updateGeneralSettings)
+		protectedRoutes.HandleFunc("PUT /api/settings/login", adminUI.updateLoginSettings)
+		protectedRoutes.HandleFunc("GET /api/settings/general", adminUI.getGeneralSettings)
+		protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
 
 		protectedRoutes.HandleFunc("GET /api/settings/management_users", adminUI.adminUsersData)
 

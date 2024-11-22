@@ -12,64 +12,80 @@ func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
 	adminUsers, err := au.ctrl.ListAdminUsers("")
 	if err != nil {
 		log.Println("failed to get list of admin users: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		w.WriteHeader(http.StatusInternalServerError)
 
-	b, err := json.Marshal(adminUsers)
-	if err != nil {
-		log.Println("unable to marshal management users data: ", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	json.NewEncoder(w).Encode(adminUsers)
 }
 
-func (au *AdminUI) generalSettings(w http.ResponseWriter, r *http.Request) {
-	_, u := au.sessionManager.GetSessionFromRequest(r)
-	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+func (au *AdminUI) getGeneralSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := au.ctrl.GetGeneralSettings()
+	if err != nil {
+		log.Println("failed to get list of admin users: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+
 		return
 	}
 
-	switch r.URL.Query().Get("type") {
-	case "general":
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
 
-		var generalSettings data.GeneralSettings
-		if err := json.NewDecoder(r.Body).Decode(&generalSettings); err != nil {
-			http.Error(w, "Bad Request", http.StatusBadRequest)
-			return
-		}
+func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request) {
+	var (
+		generalSettings data.GeneralSettings
+		err             error
+	)
+	defer func() { au.respond(err, w) }()
 
-		if err := data.SetGeneralSettings(generalSettings); err != nil {
-			log.Println("failed to set general settings: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Write([]byte("OK"))
-		return
-	case "login":
-
-		var loginSettings data.LoginSettings
-		if err := json.NewDecoder(r.Body).Decode(&loginSettings); err != nil {
-			http.Error(w, "Bad Request", http.StatusBadRequest)
-			return
-		}
-
-		if err := data.SetLoginSettings(loginSettings); err != nil {
-			log.Println("failed to set login settings: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Write([]byte("OK"))
-		return
-	default:
-		http.NotFound(w, r)
+	err = json.NewDecoder(r.Body).Decode(&generalSettings)
+	r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	err = data.SetGeneralSettings(generalSettings)
+	if err != nil {
+		log.Println("failed to get general settings: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (au *AdminUI) getLoginSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := au.ctrl.GetLoginSettings()
+	if err != nil {
+		log.Println("failed to get login settings: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
+	var (
+		loginSettings data.LoginSettings
+		err           error
+	)
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&loginSettings)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = data.SetLoginSettings(loginSettings)
+	if err != nil {
+		log.Println("failed to set login settings: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
