@@ -56,7 +56,7 @@ async function logout() {
 <template>
   <div class="drawer lg:drawer-open h-max bg-slate-100">
     <input id="my-drawer" name="my-drawer" type="checkbox" class="drawer-toggle" />
-    <div class="drawer-content">
+    <div class="drawer-content h-screen">
       <router-view />
 
       <label for="my-drawer" class="fixed btn text-neutral-content bg-neutral lg:hidden">
