@@ -15,6 +15,7 @@ import { Icons } from '@/util/icons'
 
 import { deleteUsers, editUser, UserEditActions, type EditUsersDTO, type UserDTO } from '@/api'
 import { useRoute } from 'vue-router'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 const usersStore = useUsersStore()
 usersStore.load(false)
@@ -193,6 +194,7 @@ function sortUsers(by: keyof UserDTO) {
               </tr>
             </tbody>
           </table>
+          <EmptyTable v-if="currentUsers.length == 0" text="No matching users" />
 
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />

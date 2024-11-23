@@ -16,6 +16,7 @@ import { useTokensStore } from '@/stores/registration_tokens'
 import { Icons } from '@/util/icons'
 
 import type { RegistrationTokenRequestDTO } from '@/api'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 const tokensStore = useTokensStore()
 tokensStore.load(true)
@@ -130,6 +131,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
               </tr>
             </tbody>
           </table>
+          <EmptyTable v-if="currentTokens.length == 0" text="No registration tokens" />
 
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />

@@ -14,6 +14,7 @@ import { useDevicesStore } from '@/stores/devices'
 import { Icons } from '@/util/icons'
 
 import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -190,6 +191,7 @@ function sortDevices(by: keyof DeviceDTO) {
               </tr>
             </tbody>
           </table>
+          <EmptyTable v-if="currentDevices.length == 0" text="No matching devices" />
 
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"

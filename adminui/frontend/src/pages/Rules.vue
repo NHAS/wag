@@ -15,6 +15,7 @@ import { useTextareaInput } from '@/composables/useTextareaInput'
 import { Icons } from '@/util/icons'
 
 import { getAllRules, type RuleDTO, editRule, createRule, deleteRules } from '@/api'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 const { data: rulesData, isLoading: isLoadingRules, silentlyRefresh: refreshRules } = useApi(() => getAllRules())
 
@@ -235,6 +236,7 @@ async function tryDeleteRules(rules: string[]) {
                 </tr>
               </tbody>
             </table>
+            <EmptyTable v-if="currentRules.length == 0" text="No rules" />
 
             <div class="mt-2 w-full text-center">
               <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
