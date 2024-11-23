@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useToast } from 'vue-toastification'
 
-import { useApi } from '@/composables/useApi'
 import { useToastError } from '@/composables/useToastError'
 
-import { checkFirewallRule, getFirewallState, type FirewallTestRequestDTO } from '@/api'
+import { checkFirewallRule, type FirewallTestRequestDTO } from '@/api'
 
 const toast = useToast()
 const { catcher } = useToastError()
 
 const result = ref('')
 const inputMode = ref({} as FirewallTestRequestDTO)
-
 
 const isLoadingTest = ref(false)
 
@@ -47,16 +45,30 @@ async function checkRule() {
             <div class="row">
               <div class="flex flex-wrap -mx-3 mb-6">
                 <div class="px-3">
-                  <input v-model=inputMode.address class="input input-bordered w-full" id="device" type="text" placeholder="Device internal IP Address" required />
+                  <input
+                    v-model="inputMode.address"
+                    class="input input-bordered w-full"
+                    id="device"
+                    type="text"
+                    placeholder="Device internal IP Address"
+                    required
+                  />
                 </div>
                 <div class="px-3">
-                  <input v-model=inputMode.target class="input input-bordered w-full" id="target" type="text" placeholder="Target ip address" required />
+                  <input
+                    v-model="inputMode.target"
+                    class="input input-bordered w-full"
+                    id="target"
+                    type="text"
+                    placeholder="Target ip address"
+                    required
+                  />
                 </div>
                 <div class="px-3">
-                  <input v-model=inputMode.port class="input input-bordered w-full" id="port" type="number" placeholder="Port" required />
+                  <input v-model="inputMode.port" class="input input-bordered w-full" id="port" type="number" placeholder="Port" required />
                 </div>
                 <div class="px-3">
-                  <select v-model=inputMode.protocol class="select select-bordered" name="protocol" required>
+                  <select v-model="inputMode.protocol" class="select select-bordered" name="protocol" required>
                     <option value="udp">UDP</option>
                     <option value="tcp">TCP</option>
                     <option value="icmp">ICMP</option>
