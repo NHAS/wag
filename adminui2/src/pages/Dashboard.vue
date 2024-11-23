@@ -9,19 +9,17 @@ import { useTokensStore } from '@/stores/registration_tokens'
 import { useAuthStore } from '@/stores/auth'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
 
-import { Icons } from '@/util/icons'
-
 const devicesStore = useDevicesStore()
-devicesStore.load(true)
+devicesStore.load(false)
 
 const registrationTokensStore = useTokensStore()
-registrationTokensStore.load(true)
+registrationTokensStore.load(false)
 
 const instanceDetails = useInstanceDetailsStore()
-instanceDetails.load(false)
+instanceDetails.load(true)
 
 const usersStore = useUsersStore()
-usersStore.load(true)
+usersStore.load(false)
 
 const authStore = useAuthStore()
 const toast = useToast()

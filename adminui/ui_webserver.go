@@ -263,6 +263,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("PUT /api/settings/login", adminUI.updateLoginSettings)
 		protectedRoutes.HandleFunc("GET /api/settings/general", adminUI.getGeneralSettings)
 		protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
+		protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
 
 		protectedRoutes.HandleFunc("GET /api/settings/management_users", adminUI.adminUsersData)
 

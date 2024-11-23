@@ -153,3 +153,8 @@ type EditDevicesDTO struct {
 	Action    string   `json:"action"`
 	Addresses []string `json:"addresses"`
 }
+
+type MFAMethodDTO struct {
+	FriendlyName string `json:"friendly_name"`
+	Method       string `json:"method"`
+}

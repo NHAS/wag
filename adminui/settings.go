@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 )
 
 func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
@@ -88,4 +89,17 @@ func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func (au *AdminUI) getAllMfaMethods(w http.ResponseWriter, r *http.Request) {
+
+	resp := []MFAMethodDTO{}
+
+	authenticators := authenticators.GetAllAvaliableMethods()
+	for _, a := range authenticators {
+		resp = append(resp, MFAMethodDTO{FriendlyName: a.FriendlyName(), Method: a.Type()})
+	}
+
+	w.Header().Set("content-type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

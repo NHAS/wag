@@ -150,7 +150,7 @@ export interface OidcResponseDTO {
   client_secret: string
   client_id: string
   group_claim_name: string
-  DeviceUsernameClaim: string
+  device_username_claim: string
 }
 
 
@@ -171,4 +171,10 @@ export interface LoginSettingsResponseDTO {
 
   oidc: OidcResponseDTO
   pam: PamResponseDTO
+}
+
+
+export interface MFAMethodDTO {
+	friendly_name: string
+	method: string
 }

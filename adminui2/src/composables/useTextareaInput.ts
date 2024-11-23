@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 
 export function useTextareaInput() {
   const Input = ref('')

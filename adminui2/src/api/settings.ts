@@ -1,4 +1,4 @@
-import type { GenericResponseDTO, ChangePasswordRequestDTO, LoginSettingsResponseDTO, GeneralSettingsResponseDTO } from './types'
+import type { GenericResponseDTO, MFAMethodDTO, LoginSettingsResponseDTO, GeneralSettingsResponseDTO } from './types'
 
 import { client } from '.'
 
@@ -16,4 +16,8 @@ export function getLoginSettings(): Promise<LoginSettingsResponseDTO> {
 
 export function updateLoginSettings(settings: LoginSettingsResponseDTO): Promise<GenericResponseDTO> {
     return client.put('/api/settings/login', settings).then(res => res.data)
+}
+
+export function getMFAMethods(): Promise<MFAMethodDTO[]> {
+    return client.get('/api/settings/all_mfa_methods').then(res => res.data)
 }

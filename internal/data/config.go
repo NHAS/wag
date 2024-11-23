@@ -142,7 +142,10 @@ func GetWebauthn() (wba Webauthn, err error) {
 	}
 
 	var urlData string
+	// Issuer
 	json.Unmarshal(response.Responses[0].GetResponseRange().Kvs[0].Value, &wba.DisplayName)
+
+	//Domain
 	json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &urlData)
 
 	tunnelURL, err := url.Parse(urlData)
@@ -187,7 +190,7 @@ func SetAuthenticationMethods(methods []string) error {
 	return err
 }
 
-func GetAuthenicationMethods() (result []string, err error) {
+func GetEnabledAuthenicationMethods() (result []string, err error) {
 
 	resp, err := etcd.Get(context.Background(), MFAMethodsEnabledKey)
 	if err != nil {

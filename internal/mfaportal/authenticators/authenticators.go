@@ -141,7 +141,7 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 
 	}
 
-	enabledMethods, err := data.GetAuthenicationMethods()
+	enabledMethods, err := data.GetEnabledAuthenicationMethods()
 	if err != nil {
 		return err
 	}
