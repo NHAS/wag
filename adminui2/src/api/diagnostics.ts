@@ -21,6 +21,6 @@ export function checkFirewallRule(test: FirewallTestRequestDTO): Promise<Generic
   return client.post('/api/diag/check', test).then(res => res.data)
 }
 
-export function aclsTest(user: AclsTestRequestDTO): Promise<AclsTestResponseDTO> {
+export function getUserAcls(user: AclsTestRequestDTO): Promise<AclsTestResponseDTO> {
   return client.post('/api/diag/acls', user).then(res => res.data)
 }

@@ -44,7 +44,7 @@ const debugPageLinks = [
   { name: 'Wireguard Peers', icon: Icons.Peers, to: '/diagnostics/wg' },
   { name: 'Firewall State', icon: Icons.FirewallState, to: '/diagnostics/firewall' },
   { name: 'Test Rule', icon: Icons.Test, to: '/diagnostics/check' },
-  { name: 'User ACLs', icon: Icons.List, to: '/settings/management_users' }
+  { name: 'User ACLs', icon: Icons.List, to: '/diagnostics/acls' }
 ]
 
 async function logout() {

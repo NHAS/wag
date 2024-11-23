@@ -75,7 +75,11 @@ func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
 
 		err error
 	)
-	defer func() { au.respond(err, w) }()
+	defer func() {
+		if err != nil {
+			au.respond(err, w)
+		}
+	}()
 
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -87,11 +91,12 @@ func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
 
 	resp.Acls, err = au.ctrl.GetUsersAcls(req.Username)
 	if err != nil {
-		resp.Message = fmt.Sprintf("failed to test: %s", err)
+		resp.Message = fmt.Sprintf("failed fetch user acls: %s", err)
 	} else {
 		resp.Success = true
 	}
 
+	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
