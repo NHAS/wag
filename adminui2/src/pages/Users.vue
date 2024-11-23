@@ -13,7 +13,7 @@ import { useUsersStore } from '@/stores/users'
 
 import { Icons } from '@/util/icons'
 
-import { deleteUsers, editUser, UserEditActions, type EditUsersDTO } from '@/api'
+import { deleteUsers, editUser, UserEditActions, type EditUsersDTO, type UserDTO } from '@/api'
 
 const usersStore = useUsersStore()
 usersStore.load(false)
@@ -80,6 +80,30 @@ async function tryDeleteUsers(rules: string[]) {
 }
 
 const isCreateTokenModalOpen = ref(false)
+
+
+const lastSort = ref<keyof UserDTO | null>(null)
+const ascending = ref(true)
+
+function sortUsers(by: keyof UserDTO) {
+
+  if(lastSort.value == null || lastSort.value == by) {
+    ascending.value = !ascending.value
+  } else {
+    ascending.value = true
+    lastSort.value = by
+  }
+
+  if(usersStore.users) {
+    usersStore.users.sort((a,b) => {
+      const valueA = a[by];
+      const valueB = b[by];
+      const compair = valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
+      return ascending.value ? compair : -compair;
+    })
+  }
+}
+
 </script>
 
 <template>
@@ -107,11 +131,11 @@ const isCreateTokenModalOpen = ref(false)
           <table class="table table-fixed w-full">
             <thead>
               <tr>
-                <th>Username</th>
-                <th>Groups</th>
-                <th>Devices</th>
-                <th>MFA Method</th>
-                <th>Locked</th>
+                <th class="cursor-pointer" @click="sortUsers('username')">Username</th>
+                <th class="cursor-pointer" @click="sortUsers('groups')">Groups</th>
+                <th class="cursor-pointer" @click="sortUsers('devices')">Devices</th>
+                <th class="cursor-pointer" @click="sortUsers('mfa_type')">MFA Method</th>
+                <th class="cursor-pointer" @click="sortUsers('locked')">Locked</th>
               </tr>
             </thead>
             <tbody>

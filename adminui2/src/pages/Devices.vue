@@ -14,9 +14,7 @@ import { useDevicesStore } from '@/stores/devices'
 import { Icons } from '@/util/icons'
 
 
-import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO } from '@/api'
-
-
+import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -88,6 +86,28 @@ async function tryDeleteDevices(rules: string[]) {
 
 const isCreateTokenModalOpen = ref(false)
 
+const lastSort = ref<keyof DeviceDTO | null>(null)
+const ascending = ref(true)
+
+function sortDevices(by: keyof DeviceDTO) {
+
+  if(lastSort.value == null || lastSort.value == by) {
+    ascending.value = !ascending.value
+  } else {
+    ascending.value = true
+    lastSort.value = by
+  }
+
+  if(devicesStore.devices) {
+    devicesStore.devices.sort((a,b) => {
+      const valueA = a[by];
+      const valueB = b[by];
+      const compair = valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
+      return ascending.value ? compair : -compair;
+    })
+  }
+}
+
 </script>
 
 <template>
@@ -107,22 +127,24 @@ const isCreateTokenModalOpen = ref(false)
               <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
                 <font-awesome-icon :icon="Icons.Add" /></button>
             </div>
-            <div class="form-control">
+
               <label class="label">
                 <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
               </label>
-            </div>
+        
+
+     
           </div>
 
           <table class="table table-fixed w-full">
             <thead>
               <tr>
-                <th>Owner</th>
-                <th>Active</th>
-                <th>Address</th>
-                <th>Public Key</th>
-                <th>Last Endpoint</th>
-                <th>Locked</th>
+                <th class="cursor-pointer" @click="sortDevices('owner')">Owner</th>
+                <th class="cursor-pointer" @click="sortDevices('active')">Active</th>
+                <th class="cursor-pointer" @click="sortDevices('internal_ip')">Address</th>
+                <th class="cursor-pointer" @click="sortDevices('public_key')">Public Key</th>
+                <th class="cursor-pointer" @click="sortDevices('last_endpoint')">Last Endpoint</th>
+                <th class="cursor-pointer" @click="sortDevices('is_locked')">Locked</th>
               </tr>
             </thead>
             <tbody>
