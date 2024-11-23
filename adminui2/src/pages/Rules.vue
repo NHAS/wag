@@ -5,6 +5,7 @@ import { useToast } from 'vue-toastification'
 import Modal from '@/components/Modal.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import PageLoading from '@/components/PageLoading.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
@@ -12,8 +13,6 @@ import { useToastError } from '@/composables/useToastError'
 import { useTextareaInput } from '@/composables/useTextareaInput'
 
 import { Icons } from '@/util/icons'
-
-import ConfirmModal from '@/components/ConfirmModal.vue'
 
 import { getAllRules, type RuleDTO, editRule, createRule, deleteRules } from '@/api'
 
@@ -122,22 +121,20 @@ async function updateRule() {
   }
 }
 
-async function tryDeleteRules(rules: string[] ) {
+async function tryDeleteRules(rules: string[]) {
   try {
-
     const resp = await deleteRules(rules)
     refreshRules()
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success('rules ' + rules.join(", ") + ' deleted!')
+      toast.success('rules ' + rules.join(', ') + ' deleted!')
     }
   } catch (e) {
     catcher(e, 'failed to delete rule: ')
   }
 }
-
 </script>
 
 <template>
@@ -149,21 +146,24 @@ async function tryDeleteRules(rules: string[] ) {
 
         <div class="form-group">
           <label for="effects" class="block font-medium text-gray-900 pt-6">Effects:</label>
-          <input type="text" id="effects" class="input input-bordered input-sm w-full" required
-            v-model="Effects.effects" :disabled="Effects.is_edit" />
+          <input
+            type="text"
+            id="effects"
+            class="input input-bordered input-sm w-full"
+            required
+            v-model="Effects.effects"
+            :disabled="Effects.is_edit"
+          />
         </div>
 
         <label for="publicRoutes" class="block font-medium text-gray-900 pt-6">Public Routes:</label>
-        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
-          v-model="PublicRules"></textarea>
+        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="PublicRules"></textarea>
 
         <label for="mfaRoutes" class="block font-medium text-gray-900 pt-6">MFA Routes:</label>
-        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
-          v-model="MFARules"></textarea>
+        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="MFARules"></textarea>
 
         <label for="denyRoutes" class="block font-medium text-gray-900 pt-6">Deny Routes:</label>
-        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
-          v-model="DenyRules"></textarea>
+        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="DenyRules"></textarea>
 
         <span class="mt-4 flex">
           <button class="btn btn-primary" @click="() => updateRule()">Apply</button>
@@ -179,19 +179,18 @@ async function tryDeleteRules(rules: string[] ) {
   <main class="w-full p-4">
     <PageLoading v-if="isLoading" />
     <div v-else>
-      <h1 class="text-4xl font-bold">Rules</h1>
+      <h1 class="text-4xl font-bold mb-4">Rules</h1>
+      <p>View, create and delete firewall policy rules. If a route is not explicitly allowed, it is blocked.</p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
             <div class="flex flex-row justify-between">
               <div class="tooltip" data-tip="Add rule">
-                <button class="btn btn-ghost btn-primary" @click="openAddRule">Add Rule <font-awesome-icon
-                    :icon="Icons.Add" /></button>
+                <button class="btn btn-ghost btn-primary" @click="openAddRule">Add Rule <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
               <div class="form-control">
                 <label class="label">
-                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..."
-                    v-model="filterText" />
+                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
                 </label>
               </div>
             </div>
@@ -211,22 +210,24 @@ async function tryDeleteRules(rules: string[] ) {
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.effects }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.public_routes?.join(', ') ||
-                      '-' }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.public_routes?.join(', ') || '-' }}</div>
                   </td>
                   <td class="font-mono">
-                    <p class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.mfa_routes?.join(', ') || '-' }}
-                    </p>
+                    <p class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.mfa_routes?.join(', ') || '-' }}</p>
                   </td>
                   <td class="font-mono relative">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.deny_routes?.join(', ') || '-' }}</div>
-                    <div class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div
+                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
                       <button class="mr-3" @click="openEditRule(rule)">
                         <font-awesome-icon :icon="Icons.Edit" class="text-secondary hover:text-secondary-focus" />
                       </button>
                     </div>
                     <ConfirmModal @on-confirm="() => tryDeleteRules([rule.effects])">
-                      <button class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <button
+                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      >
                         <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
                       </button>
                     </ConfirmModal>
@@ -236,8 +237,7 @@ async function tryDeleteRules(rules: string[] ) {
             </table>
 
             <div class="mt-2 w-full text-center">
-              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
-                :total-pages="totalPages" />
+              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
             </div>
           </div>
         </div>

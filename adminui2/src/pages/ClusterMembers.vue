@@ -1,21 +1,11 @@
 <script setup lang="ts">
-import { useToast } from 'vue-toastification'
-
 import { getClusterMembers } from '@/api/cluster'
 
 import { useApi } from '@/composables/useApi'
 
-
-import { useAuthStore } from '@/stores/auth'
-
-import { Icons } from '@/util/icons'
-
 import type { ClusterMember } from '@/api'
 
 const { data: members } = useApi(() => getClusterMembers())
-
-const authStore = useAuthStore()
-const toast = useToast()
 
 function nodeName(member: ClusterMember): string {
   let result = member.name
@@ -36,7 +26,7 @@ function nodeName(member: ClusterMember): string {
     <h1 class="text-4xl font-bold">Cluster Members</h1>
     <div class="mt-6 flex flex-wrap gap-6">
       <div class="grid w-full grid-cols-4 gap-4">
-        <div v-for="member in members" class="card-compact bg-base-100 shadow-xl min-w-96 max-w-96">
+        <div v-for="member in members" class="card-compact bg-base-100 shadow-xl min-w-96 max-w-96" :key="member.id">
           <div class="card-body">
             <h5 class="card-title overflow-hidden text-ellipsis whitespace-nowrap">{{ nodeName(member) }}</h5>
 
@@ -60,7 +50,9 @@ function nodeName(member: ClusterMember): string {
 
               <div>{{ member.peer_urls?.length > 1 ? 'Addresses' : 'Address' }}:</div>
               <div class="grid grid-rows-subgrid grid-cols-1">
-                <div class="overflow-hidden text-ellipsis whitespace-nowrap" v-for="address in member.peer_urls">{{ address }}</div>
+                <div class="overflow-hidden text-ellipsis whitespace-nowrap" v-for="address in member.peer_urls" :key="address">
+                  {{ address }}
+                </div>
               </div>
             </div>
           </div>

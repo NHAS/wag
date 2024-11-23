@@ -44,7 +44,7 @@ const router = createRouter({
     route('/policy/rules', 'Firewall Rules', () => import('@/pages/Rules.vue')),
     route('/policy/groups', 'Groups', () => import('@/pages/Groups.vue')),
 
-    // route('/diagnostics/wg', 'Wireguard Diagnostics', () => import('@/pages/projects/project.vue')),
+    route('/diagnostics/wg', 'Wireguard Diagnostics', () => import('@/pages/Diagnostics/WireguardPeers.vue')),
     // route('/diagnostics/firewall', 'Firewall Diagnostics', () => import('@/pages/projects/project.vue')),
     // route('/diagnostics/check', 'Check Firewall', () => import('@/pages/projects/project.vue')),
     // route('/diagnostics/acls', 'ACLs', () => import('@/pages/projects/project.vue')),
@@ -54,7 +54,7 @@ const router = createRouter({
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
     route('/settings', 'Settings', () => import('@/pages/Settings.vue')),
-    route('/admin_users', 'Admin Users', () => import('@/pages/AdminUsers.vue')),
+    route('/admin_users', 'Admin Users', () => import('@/pages/AdminUsers.vue'))
   ]
 })
 

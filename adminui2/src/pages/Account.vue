@@ -3,11 +3,11 @@ import { storeToRefs } from 'pinia'
 import { ref, computed } from 'vue'
 import { useToast } from 'vue-toastification'
 
-import { changePassword } from '@/api'
-
 import { useToastError } from '@/composables/useToastError'
 
 import { useAuthStore } from '@/stores/auth'
+
+import { changePassword } from '@/api'
 
 const authStore = useAuthStore()
 const { loggedInUser } = storeToRefs(authStore)

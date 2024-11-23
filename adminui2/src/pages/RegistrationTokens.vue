@@ -3,16 +3,19 @@ import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 
 import PaginationControls from '@/components/PaginationControls.vue'
-import { usePagination } from '@/composables/usePagination'
-import { useToastError } from '@/composables/useToastError'
-import { useTokensStore } from '@/stores/registration_tokens'
-
-import { Icons } from '@/util/icons'
-import type { RegistrationTokenRequestDTO } from '@/api'
-import { deleteRegistrationTokens } from '@/api/registration_tokens'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import RegistrationToken from '@/components/RegistrationToken.vue'
 
+import { deleteRegistrationTokens } from '@/api/registration_tokens'
+
+import { usePagination } from '@/composables/usePagination'
+import { useToastError } from '@/composables/useToastError'
+
+import { useTokensStore } from '@/stores/registration_tokens'
+
+import { Icons } from '@/util/icons'
+
+import type { RegistrationTokenRequestDTO } from '@/api'
 
 const tokensStore = useTokensStore()
 tokensStore.load(true)
@@ -20,7 +23,6 @@ tokensStore.load(true)
 const tokens = computed(() => {
   return tokensStore.tokens ?? []
 })
-
 
 const filterText = ref('')
 
@@ -43,7 +45,6 @@ const isCreateTokenModalOpen = ref(false)
 const toast = useToast()
 const { catcher } = useToastError()
 
-
 async function deleteToken(token: RegistrationTokenRequestDTO) {
   //TODO handle multiple
   const tokensToDelete = [token.token]
@@ -55,29 +56,35 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success("token " + tokensToDelete.join(", ") + ' deleted!')
+      toast.success('token ' + tokensToDelete.join(', ') + ' deleted!')
     }
   } catch (e) {
     catcher(e, 'failed to delete token: ')
   }
 }
-
 </script>
 
 <template>
-
   <main class="w-full p-4">
-    <RegistrationToken v-model:isOpen="isCreateTokenModalOpen" v-on:success="() => {tokensStore.load(true)}"></RegistrationToken>
+    <RegistrationToken
+      v-model:isOpen="isCreateTokenModalOpen"
+      v-on:success="
+        () => {
+          tokensStore.load(true)
+        }
+      "
+    ></RegistrationToken>
 
-
-    <h1 class="text-4xl font-bold">Registration Tokens</h1>
+    <h1 class="text-4xl font-bold mb-4">Registration Tokens</h1>
+    <p>Create or delete new registration tokens</p>
     <div class="mt-6 flex flex-wrap gap-6">
       <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
         <div class="card-body">
           <div class="flex flex-row justify-between">
             <div class="tooltip" data-tip="Add rule">
-              <button class="btn btn-ghost btn-primary" @click="() => isCreateTokenModalOpen = true">Add Token <font-awesome-icon
-                  :icon="Icons.Add" /></button>
+              <button class="btn btn-ghost btn-primary" @click="() => (isCreateTokenModalOpen = true)">
+                Add Token <font-awesome-icon :icon="Icons.Add" />
+              </button>
             </div>
             <div class="form-control">
               <label class="label">
@@ -97,7 +104,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
               </tr>
             </thead>
             <tbody>
-              <tr class="hover group" v-for="token in currentTokens">
+              <tr class="hover group" v-for="token in currentTokens" :key="token.token">
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.token }}</div>
                 </td>
@@ -105,8 +112,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.username }}</div>
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}
-                  </div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.overwrites }}</div>
@@ -114,10 +120,11 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
                 <td class="font-mono relative">
                   <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
                   <ConfirmModal @on-confirm="() => deleteToken(token)">
-                  <button
-                    class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
-                  </button>
+                    <button
+                      class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
+                    </button>
                   </ConfirmModal>
                 </td>
               </tr>
@@ -125,8 +132,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
           </table>
 
           <div class="mt-2 w-full text-center">
-            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
-              :total-pages="totalPages" />
+            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
           </div>
         </div>
       </div>

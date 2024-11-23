@@ -489,17 +489,17 @@ func (f *Firewall) SetLockAccount(username string, locked bool) error {
 }
 
 type fwDevice struct {
-	LastPacketTimestamp time.Time
-	Expiry              time.Time
-	IP                  string
-	Authorized          bool
-	AssociatedNode      string
+	LastPacketTimestamp time.Time `json:"last_packet_timestamp"`
+	Expiry              time.Time `json:"expiry"`
+	IP                  string    `json:"policies"`
+	Authorized          bool      `json:"authorized"`
+	AssociatedNode      string    `json:"associated_node"`
 }
 
 type FirewallRules struct {
-	Policies      []string
-	Devices       []fwDevice
-	AccountLocked bool
+	Policies      []string   `json:"policies"`
+	Devices       []fwDevice `json:"devices"`
+	AccountLocked bool       `json:"account_locked"`
 }
 
 func (f *Firewall) GetRules() (map[string]FirewallRules, error) {

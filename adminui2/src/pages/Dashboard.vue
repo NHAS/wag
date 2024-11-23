@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue"
-import { useToast } from 'vue-toastification'
-
 import EmptyTable from '@/components/EmptyTable.vue'
 
 import { useUsersStore } from '@/stores/users'
 import { useDevicesStore } from '@/stores/devices'
 import { useTokensStore } from '@/stores/registration_tokens'
-import { useAuthStore } from '@/stores/auth'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
-import { usePagination } from "@/composables/usePagination"
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -20,10 +15,8 @@ registrationTokensStore.load(false)
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(true)
 
-
 const usersStore = useUsersStore()
 usersStore.load(false)
-
 </script>
 
 <template>
@@ -72,7 +65,7 @@ usersStore.load(false)
             <h2 class="card-title">Instance Details</h2>
             <table class="table w-full table-fixed">
               <tbody>
-                <tr v-for="(value, name) in instanceDetails.serverInfo">
+                <tr v-for="(value, name) in instanceDetails.serverInfo" :key="name">
                   <td>
                     {{
                       name
@@ -95,7 +88,7 @@ usersStore.load(false)
           <h2 class="card-title">Recent Log Messages</h2>
           <table class="table w-full">
             <tbody>
-              <tr class="hover" v-for="line in instanceDetails.log">
+              <tr class="hover" v-for="(line, index) in instanceDetails.log" :key="'log-line-' + index">
                 <td>
                   {{ line }}
                 </td>

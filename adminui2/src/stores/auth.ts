@@ -88,6 +88,7 @@ export const useAuthStore = defineStore({
             this.loginError = 'Session timeout'
           }
         } else if (err?.response?.status == 401) {
+          this.loginError = 'Logged out'
         } else {
           this.loginError = 'Unknown Error'
         }

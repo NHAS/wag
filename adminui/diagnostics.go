@@ -21,14 +21,7 @@ func (au *AdminUI) getFirewallState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("content-type", "application/json")
-
-	err = json.NewEncoder(w).Encode(rules)
-	if err != nil {
-		log.Println("error marshalling data", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
+	json.NewEncoder(w).Encode(rules)
 }
 
 func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +30,11 @@ func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 		peers []wgtypes.Peer
 		err   error
 	)
-	defer func() { au.respond(err, w) }()
+	defer func() {
+		if err != nil {
+			au.respond(err, w)
+		}
+	}()
 
 	peers, err = au.firewall.ListPeers()
 	if err != nil {
@@ -101,14 +98,12 @@ func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
 func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 
 	var (
-		err error
-		t   FirewallTestRequestDTO
+		err      error
+		t        FirewallTestRequestDTO
+		decision string
 	)
-	defer func() {
-		if err != nil {
-			au.respond(err, w)
-		}
-	}()
+
+	defer func() { au.respondSuccess(err, decision, w) }()
 
 	err = json.NewDecoder(r.Body).Decode(&t)
 	if err != nil {
@@ -122,7 +117,6 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var decision string
 	checkerDecision, err := au.firewall.CheckRoute(t.Address, net.ParseIP(t.Target), t.Protocol, t.Port)
 	if err != nil {
 		decision = err.Error()
@@ -139,6 +133,4 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 		}
 		decision = fmt.Sprintf("%s -%s-> %s, decided: %s %s", t.Address, displayProto, t.Target, checkerDecision, isAuthed)
 	}
-
-	au.respondSuccess(nil, decision, w)
 }

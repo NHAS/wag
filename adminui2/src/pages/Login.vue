@@ -3,12 +3,15 @@ import { ref, watch, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
-import { useToastError } from '@/composables/useToastError'
+
 import HrOr from '@/components/HrOr.vue'
+
+import { useToastError } from '@/composables/useToastError'
 
 import { useAuthStore } from '@/stores/auth'
 
 import { Icons } from '@/util/icons'
+
 import { changePassword } from '@/api'
 
 const authStore = useAuthStore()
@@ -28,7 +31,7 @@ const activeScreen = computed(() => {
     return ActiveScreens.FirstStep
   }
 
-  if(loggedInUser.value.change) {
+  if (loggedInUser.value.change) {
     return ActiveScreens.PasswordChange
   }
 
@@ -103,8 +106,6 @@ async function doPasswordChange(event: Event) {
     isPasswordChangeLoading.value = false
   }
 }
-
-
 </script>
 
 <template>

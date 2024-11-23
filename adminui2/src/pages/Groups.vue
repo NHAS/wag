@@ -5,6 +5,7 @@ import { useToast } from 'vue-toastification'
 import Modal from '@/components/Modal.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import PageLoading from '@/components/PageLoading.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
@@ -14,7 +15,6 @@ import { useTextareaInput } from '@/composables/useTextareaInput'
 import { Icons } from '@/util/icons'
 
 import { getAllGroups, type GroupDTO, editGroup, createGroup, deleteGroups } from '@/api'
-import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -114,23 +114,20 @@ async function updateGroup() {
 
 async function tryDeleteGroups(groups: string[]) {
   try {
-
-
     const resp = await deleteGroups(groups)
-  
+
     refreshGroups()
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success(groups.join(",") + ' deleted!')
+      toast.success(groups.join(',') + ' deleted!')
     }
   } catch (e) {
     catcher(e, 'failed delete groups: ')
   }
 }
-
 </script>
 
 <template>
@@ -169,7 +166,8 @@ async function tryDeleteGroups(groups: string[]) {
   <main class="w-full p-4">
     <PageLoading v-if="isLoading" />
     <div v-else>
-      <h1 class="text-4xl font-bold">Rules</h1>
+      <h1 class="text-4xl font-bold mb-4">Rules</h1>
+      <p>View, create and delete groups.</p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
@@ -198,18 +196,21 @@ async function tryDeleteGroups(groups: string[]) {
                   </td>
                   <td class="font-mono relative">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.members?.join(', ') || '-' }}</div>
-                    <div class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div
+                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
                       <button class="mr-3" @click="openEditGroup(group)">
                         <font-awesome-icon :icon="Icons.Edit" class="text-secondary hover:text-secondary-focus" />
                       </button>
                     </div>
                     <ConfirmModal @on-confirm="() => tryDeleteGroups([group.group])">
-                      <button class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <button
+                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      >
                         <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
                       </button>
                     </ConfirmModal>
                   </td>
-                  
                 </tr>
               </tbody>
             </table>

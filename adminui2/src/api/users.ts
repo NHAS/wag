@@ -7,7 +7,7 @@ export function getAllUsers(): Promise<UserDTO[]> {
 }
 
 export function deleteUsers(users: string[]): Promise<GenericResponseDTO> {
-  return client.delete('/api/management/users', {data: users}).then(res => res.data)
+  return client.delete('/api/management/users', { data: users }).then(res => res.data)
 }
 
 export function editUser(edit: EditUsersDTO): Promise<GenericResponseDTO> {

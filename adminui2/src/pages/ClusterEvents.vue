@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import EmptyTable from '@/components/EmptyTable.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
@@ -15,7 +15,7 @@ import { useInstanceDetailsStore } from '@/stores/serverInfo'
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(false)
 
-const { data: events, isLoading: isLoadingEvents, silentlyRefresh: refreshEvents } = useApi(() => getClusterEvents())
+const { data: events, isLoading: isLoadingEvents } = useApi(() => getClusterEvents())
 
 const isLoading = computed(() => {
   return isLoadingEvents.value
@@ -52,7 +52,7 @@ const {
             <h2 class="card-title">General</h2>
             <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="line in currentEvents">
+                <tr class="hover" v-for="(line, index) in currentEvents" :key="'cluster-events-' + index">
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap">
                     {{ line }}
                   </td>
@@ -75,7 +75,7 @@ const {
             <h2 class="card-title">Errors</h2>
             <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="line in currentErrors">
+                <tr class="hover" v-for="line in currentErrors" :key="line.error_id">
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap">
                     {{ line }}
                   </td>

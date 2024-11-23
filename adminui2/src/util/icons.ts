@@ -31,10 +31,9 @@ export const Icons = {
 
   Advanced: 'fa-solid circle-nodes',
 
-  FirewallState: "fa-solid fa-shield-heart",
+  FirewallState: 'fa-solid fa-shield-heart',
 
-  Test: "fa-solid fa-vial-circle-check",
-
+  Test: 'fa-solid fa-vial-circle-check',
 
   // pages
   Dashboard: 'fa-solid fa-gauge',

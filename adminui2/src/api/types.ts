@@ -28,10 +28,9 @@ export interface EditDevicesDTO {
 }
 
 export enum DeviceEditActions {
-  Lock = "lock",
-  Unlock = "unlock",
+  Lock = 'lock',
+  Unlock = 'unlock'
 }
-
 
 export interface UserDTO {
   devices: string
@@ -42,18 +41,15 @@ export interface UserDTO {
   groups: string[]
 }
 
-
 export interface UsersGetAllResponseDTO {
   users: UserDTO[]
 }
 
 export enum UserEditActions {
-  Lock = "lock",
-  Unlock = "unlock",
-  RestMFA = "resetMFA",
+  Lock = 'lock',
+  Unlock = 'unlock',
+  RestMFA = 'resetMFA'
 }
-
-
 
 export interface EditUsersDTO {
   action: UserEditActions
@@ -129,13 +125,10 @@ export interface ChangePasswordRequestDTO {
   new_password: string
 }
 
-
 export interface GenericResponseDTO {
   message: string
   success: boolean
 }
-
-
 
 export interface GeneralSettingsResponseDTO {
   help_mail: string
@@ -145,7 +138,6 @@ export interface GeneralSettingsResponseDTO {
   check_updates: boolean
 }
 
-
 export interface OidcResponseDTO {
   issuer: string
   client_secret: string
@@ -153,7 +145,6 @@ export interface OidcResponseDTO {
   group_claim_name: string
   device_username_claim: string
 }
-
 
 export interface PamResponseDTO {
   service_name: string
@@ -174,20 +165,65 @@ export interface LoginSettingsResponseDTO {
   pam: PamResponseDTO
 }
 
-
 export interface MFAMethodDTO {
-	friendly_name: string
-	method: string
+  friendly_name: string
+  method: string
 }
-
 
 export interface AdminUsersDTO {
   user_type: string
-	username: string
-	attempts: number
-	date_added: string
-	last_login: string
-	ip: string
-	change: boolean
-	oidc_guid: string
+  username: string
+  attempts: number
+  date_added: string
+  last_login: string
+  ip: string
+  change: boolean
+  oidc_guid: string
+}
+
+export interface WgDeviceDTO {
+  rx: number
+  tx: number
+  public_key: string
+  address: string
+  last_endpoint: string
+  last_handshake_time: string
+}
+
+export interface FwDevice {
+  last_packet_timestamp: string
+  expiry: string
+  ip: string
+  authorized: boolean
+  associated_node: string
+}
+
+export interface FirewallRulesDTO {
+  policies: string[]
+  devices: FwDevice[]
+  account_locked: boolean
+}
+
+export interface FirewallTestRequestDTO {
+  address: string
+  protocol: string
+  target: string
+  port: number
+}
+
+export interface AclsTestRequestDTO {
+  username: string
+}
+
+export interface Acl {
+  mfa?: string[]
+  allow?: string[]
+  deny?: string[]
+}
+
+export interface AclsTestResponseDTO {
+  username: string
+  message: string
+  success: boolean
+  acls: Acl
 }

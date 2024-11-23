@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { useToast } from 'vue-toastification'
 import { onMounted, watch } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 
@@ -14,8 +13,6 @@ const devicesStore = useDevicesStore()
 const usersStore = useUsersStore()
 
 const { hasCompletedAuth, hasTriedAuth, isLoggedIn } = storeToRefs(authStore)
-
-const toast = useToast()
 
 onMounted(async () => {
   await router.isReady()

@@ -15,5 +15,5 @@ export function createRule(rule: RuleDTO): Promise<GenericResponseDTO> {
 }
 
 export function deleteRules(rules: string[]): Promise<GenericResponseDTO> {
-  return client.delete('/api/policy/rules', {data: rules}).then(res => res.data)
+  return client.delete('/api/policy/rules', { data: rules }).then(res => res.data)
 }

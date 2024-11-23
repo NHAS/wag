@@ -7,20 +7,20 @@ import PageLoading from '@/components/PageLoading.vue'
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
 
-import { getAdminUsers } from '@/api'
+import { getWireguardPeers } from '@/api'
 
-const { data: adminUsersData, isLoading: isLoadingAdmins } = useApi(() => getAdminUsers())
+const { data: wgData, isLoading: isLoadingPeers } = useApi(() => getWireguardPeers())
 
 const isLoading = computed(() => {
-  return isLoadingAdmins.value
+  return isLoadingPeers.value
 })
 
 const filterText = ref('')
 
-const allAdmins = computed(() => adminUsersData.value ?? [])
+const allPeers = computed(() => wgData.value ?? [])
 
-const filteredAdmins = computed(() => {
-  const arr = allAdmins.value
+const filteredPeers = computed(() => {
+  const arr = allPeers.value
 
   if (filterText.value == '') {
     return arr
@@ -28,18 +28,23 @@ const filteredAdmins = computed(() => {
 
   const searchTerm = filterText.value.trim().toLowerCase()
 
-  return arr.filter(x => x.username.toLowerCase().includes(searchTerm) || x.user_type?.includes(searchTerm) || x.ip?.includes(searchTerm))
+  return arr.filter(
+    x => x.address.toLowerCase().includes(searchTerm) || x.last_endpoint.includes(searchTerm) || x.public_key.includes(searchTerm)
+  )
 })
 
-const { next: nextPage, prev: prevPage, totalPages, currentItems: currentAdmins, activePage } = usePagination(filteredAdmins, 20)
+const { next: nextPage, prev: prevPage, totalPages, currentItems: currentPeers, activePage } = usePagination(filteredPeers, 20)
 </script>
 
 <template>
   <main class="w-full p-4">
     <PageLoading v-if="isLoading" />
     <div v-else>
-      <h1 class="text-4xl font-bold mb-4">Administrative Users</h1>
-      <p>View admin user details. To add, lock, or delete an administrative user use the command line <strong>wag webadmin</strong> subcommand.</p>
+      <h1 class="text-4xl font-bold mb-4">Wireguard peers</h1>
+      <p>
+        Wireguard devices attached to current node (similiar to wg).<br />
+        While this page will show all wireguard devices registered to the cluster, it will only show liveness stats for the current node.
+      </p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
@@ -55,33 +60,33 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentAdmins,
             <table class="table table-fixed w-full">
               <thead>
                 <tr>
-                  <th>Username</th>
-                  <th>Date Added</th>
-                  <th>Last Login</th>
-                  <th>IP</th>
-                  <th>Login Attempts (>5 locked)</th>
-                  <th>Temp Password</th>
+                  <th>Address</th>
+                  <th>Public Key</th>
+                  <th>Endpoint Address</th>
+                  <th>Recieved Bytes</th>
+                  <th>Sent Bytes</th>
+                  <th>Last Handshake Time</th>
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover group" v-for="admin in currentAdmins" :key="admin.username">
+                <tr class="hover group" v-for="peer in currentPeers" :key="peer.address">
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.username }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.address }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.date_added }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.public_key }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.last_login }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.last_endpoint }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.ip }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.rx }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.attempts }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.tx }}</div>
                   </td>
                   <td class="font-mono">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ admin.change }}</div>
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ peer.last_handshake_time }}</div>
                   </td>
                 </tr>
               </tbody>
