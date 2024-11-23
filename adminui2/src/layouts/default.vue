@@ -43,7 +43,7 @@ const adminPageLinks = [
 const debugPageLinks = [
   { name: 'Wireguard Peers', icon: Icons.Peers, to: '/diagnostics/wg' },
   { name: 'Firewall State', icon: Icons.FirewallState, to: '/diagnostics/firewall' },
-  { name: 'Test Rule', icon: Icons.Test, to: '/settings/management_users' },
+  { name: 'Test Rule', icon: Icons.Test, to: '/diagnostics/check' },
   { name: 'User ACLs', icon: Icons.List, to: '/settings/management_users' }
 ]
 
