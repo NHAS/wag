@@ -42,7 +42,7 @@ const adminPageLinks = [
 
 const debugPageLinks = [
   { name: 'Wireguard Peers', icon: Icons.Peers, to: '/diagnostics/wg' },
-  { name: 'Firewall State', icon: Icons.FirewallState, to: '/settings/management_users' },
+  { name: 'Firewall State', icon: Icons.FirewallState, to: '/diagnostics/firewall' },
   { name: 'Test Rule', icon: Icons.Test, to: '/settings/management_users' },
   { name: 'User ACLs', icon: Icons.List, to: '/settings/management_users' }
 ]
@@ -140,7 +140,7 @@ async function logout() {
                 <span>Advanced</span>
               </label>
 
-              <ul tabindex="0" class="menu dropdown-content rounded-box w-52 bg-base-100 p-2 pb-4 text-black shadow">
+              <ul tabindex="0" class="menu-dropup dropdown-content rounded-box w-52 bg-base-100 p-2 pb-4 text-black shadow">
                 <li v-for="link in debugPageLinks" :key="link.name" :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
                   <RouterLink :to="link.to" :class="route.path == link.to ? 'active' : ''">
                     <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>

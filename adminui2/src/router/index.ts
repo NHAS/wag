@@ -45,7 +45,7 @@ const router = createRouter({
     route('/policy/groups', 'Groups', () => import('@/pages/Groups.vue')),
 
     route('/diagnostics/wg', 'Wireguard Diagnostics', () => import('@/pages/Diagnostics/WireguardPeers.vue')),
-    // route('/diagnostics/firewall', 'Firewall Diagnostics', () => import('@/pages/projects/project.vue')),
+    route('/diagnostics/firewall', 'Firewall Diagnostics', () => import('@/pages/Diagnostics/FirewallState.vue')),
     // route('/diagnostics/check', 'Check Firewall', () => import('@/pages/projects/project.vue')),
     // route('/diagnostics/acls', 'ACLs', () => import('@/pages/projects/project.vue')),
 
