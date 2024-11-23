@@ -54,6 +54,7 @@ export enum UserEditActions {
 }
 
 
+
 export interface EditUsersDTO {
   action: UserEditActions
   usernames: string[]
@@ -177,4 +178,16 @@ export interface LoginSettingsResponseDTO {
 export interface MFAMethodDTO {
 	friendly_name: string
 	method: string
+}
+
+
+export interface AdminUsersDTO {
+  user_type: string
+	username: string
+	attempts: number
+	date_added: string
+	last_login: string
+	ip: string
+	change: boolean
+	oidc_guid: string
 }

@@ -54,7 +54,7 @@ const router = createRouter({
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
     route('/settings', 'Settings', () => import('@/pages/Settings.vue')),
-    // route('/admin_users', 'Settings', () => import('@/pages/Listfiles.vue')),
+    route('/admin_users', 'Admin Users', () => import('@/pages/AdminUsers.vue')),
   ]
 })
 

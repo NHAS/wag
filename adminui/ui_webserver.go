@@ -240,6 +240,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("GET /api/management/users", adminUI.getUsers)
 		protectedRoutes.HandleFunc("PUT /api/management/users", adminUI.editUser)
 		protectedRoutes.HandleFunc("DELETE /api/management/users", adminUI.removeUsers)
+		protectedRoutes.HandleFunc("GET /api/management/admin_users", adminUI.adminUsersData)
 
 		protectedRoutes.HandleFunc("GET /api/management/devices", adminUI.getAllDevices)
 		protectedRoutes.HandleFunc("PUT /api/management/devices", adminUI.editDevice)
@@ -264,8 +265,6 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("GET /api/settings/general", adminUI.getGeneralSettings)
 		protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
 		protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
-
-		protectedRoutes.HandleFunc("GET /api/settings/management_users", adminUI.adminUsersData)
 
 		notifications := make(chan Notification, 1)
 		protectedRoutes.HandleFunc("/notifications", adminUI.notificationsWS(notifications))
