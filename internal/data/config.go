@@ -449,14 +449,14 @@ func GetLoginSettings() (s LoginSettings, err error) {
 	}
 
 	if response.Responses[5].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.Issuer)
+		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.Domain)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[6].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Domain)
+		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Issuer)
 		if err != nil {
 			return s, err
 		}

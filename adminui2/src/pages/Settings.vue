@@ -6,9 +6,10 @@ import { useToast } from 'vue-toastification'
 import { useToastError } from '@/composables/useToastError'
 
 import { useAuthStore } from '@/stores/auth'
-import { getMFAMethods, getGeneralSettings, getLoginSettings, updateGeneralSettings, updateLoginSettings, type GeneralSettingsResponseDTO as GeneralSettingsDTO, type LoginSettingsResponseDTO as LoginSettingsDTO } from '@/api'
+import {  getMFAMethods, getGeneralSettings, getLoginSettings, updateGeneralSettings, updateLoginSettings, type GeneralSettingsResponseDTO as GeneralSettingsDTO, type LoginSettingsResponseDTO as LoginSettingsDTO } from '@/api'
 import { useApi } from '@/composables/useApi'
 import PageLoading from '@/components/PageLoading.vue'
+import { type MFAMethodDTO } from '@/api'
 
 const authStore = useAuthStore()
 const { loggedInUser } = storeToRefs(authStore)
@@ -64,11 +65,15 @@ async function saveLoginSettings() {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success('Saved general settings')
+      toast.success('Saved login settings')
     }
   } catch (e) {
-    catcher(e, 'failed to save general settings: ')
+    catcher(e, 'failed to save login settings: ')
   }
+}
+
+function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]): MFAMethodDTO[] {
+  return allMethods.filter((x) => enabledMethods.indexOf(x.method) != -1)
 }
 
 
@@ -153,8 +158,8 @@ async function saveLoginSettings() {
                 <label for="default_method" class="label font-bold">Default MFA Method</label>
                 <select class="select select-bordered " name="default_method"
                   v-model="loginSettingsData.default_mfa_method">
-                  <option v-for="method in loginSettingsData.enabled_mfa_methods"
-                    :selected="method == loginSettingsData.default_mfa_method" :value="method">{{ method }}</option>
+                  <option v-for="method in filterMfaMethods(loginSettingsData.enabled_mfa_methods, mfaTypes ?? [])"
+                    :selected="method.method == loginSettingsData.default_mfa_method" :value="method.method">{{ method.friendly_name }}</option>
                 </select>
               </div>
 
@@ -162,6 +167,8 @@ async function saveLoginSettings() {
                 <div v-for="method in mfaTypes" class="form-control w-full">
                   <label :for=method.method class="label cursor-pointer">
                     <span class="label-text">{{ method.friendly_name }}</span>
+                    <span class="flex flex-grow"></span>
+                    <span v-if="method.method == loginSettingsData.default_mfa_method" class="text-gray-400 mr-4">DEFAULT</span>
                     <input :name=method.method type="checkbox" class="toggle toggle-primary" :value="method.method"
                       v-model="loginSettingsData.enabled_mfa_methods"
                       :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1" />
