@@ -14,18 +14,22 @@ import { useUsersStore } from '@/stores/users'
 import { Icons } from '@/util/icons'
 
 import { deleteUsers, editUser, UserEditActions, type EditUsersDTO, type UserDTO } from '@/api'
+import { useRoute } from 'vue-router'
 
 const usersStore = useUsersStore()
 usersStore.load(false)
+
+const route = useRoute()
 
 const filterText = ref('')
 
 const allUsers = computed(() => usersStore.users ?? [])
 
-const filterLocked = ref(false)
+const filterLocked = ref(route.params.filter == 'locked')
+const filterUnsetMfa = ref(route.params.filter == 'unset')
 
 const filteredUsers = computed(() => {
-  const arr = allUsers.value.filter(a => a.locked || !filterLocked.value)
+  const arr = allUsers.value.filter(a => a.locked || !filterLocked.value).filter(a => (a.mfa_type == '' || a.mfa_type == 'unset') || !filterUnsetMfa.value)
 
   if (filterText.value == '') {
     return arr
@@ -121,6 +125,10 @@ function sortUsers(by: keyof UserDTO) {
               </button>
             </div>
             <span class="flex">
+              <label class="label cursor-pointer mr-4">
+                <span class="label-text mr-2">Unset MFA</span>
+                <input v-model="filterUnsetMfa" type="checkbox" class="toggle toggle-primary" />
+              </label>
               <label class="label cursor-pointer mr-4">
                 <span class="label-text mr-2">Locked</span>
                 <input v-model="filterLocked" type="checkbox" class="toggle toggle-primary" />

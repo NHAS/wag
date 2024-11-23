@@ -49,8 +49,8 @@ const router = createRouter({
     route('/diagnostics/check', 'Check Firewall', () => import('@/pages/Diagnostics/TestRule.vue')),
     route('/diagnostics/acls', 'ACLs', () => import('@/pages/Diagnostics/Acls.vue')),
 
-    route('/management/users', 'User Management', () => import('@/pages/Users.vue')),
-    route('/management/devices', 'Device Management', () => import('@/pages/Devices.vue')),
+    route('/management/users/:filter?', 'User Management', () => import('@/pages/Users.vue')),
+    route('/management/devices/:filter?', 'Device Management', () => import('@/pages/Devices.vue')),
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
 
     route('/settings', 'Settings', () => import('@/pages/Settings.vue')),

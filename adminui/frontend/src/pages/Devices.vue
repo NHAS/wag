@@ -9,25 +9,24 @@ import RegistrationToken from '@/components/RegistrationToken.vue'
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 
+import { useRoute } from 'vue-router'
 import { useDevicesStore } from '@/stores/devices'
-
 import { Icons } from '@/util/icons'
-
 
 import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
 
+const route = useRoute()
 
 const filterText = ref('')
 
 const allDevices = computed(() => devicesStore.devices ?? [])
 
 
-const filterActive = ref(false)
-const filterLocked = ref(false)
-
+const filterActive = ref(route.params.filter == 'active')
+const filterLocked = ref(route.params.filter == 'locked')
 
 const filteredDevices = computed(() => {
   const arr = allDevices.value.filter(a => (a.active || !filterActive.value)).filter(a => a.is_locked || !filterLocked.value)

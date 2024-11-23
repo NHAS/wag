@@ -34,7 +34,7 @@ const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
       <div class="flex w-full gap-4">
         <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]">
           <router-link
-            to="/management/users"
+            :to="'/management/users' + (usersLackingMfa.length == 0 ? '' : '/unset') "
             class="card-compact bg-base-100 shadow-xl border-l-4"
             :class="usersLackingMfa.length == 0 ? 'border-primary' : 'border-error'"
           >
@@ -48,7 +48,7 @@ const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
             </div>
           </router-link>
           <router-link
-            to="/management/devices"
+             :to="'/management/devices' + (lockedDevices.length == 0 ? '/' : '/locked') "
             class="card-compact bg-base-100 shadow-xl border-l-4"
             :class="lockedDevices.length == 0 ? 'border-primary' : 'border-error'"
           >
