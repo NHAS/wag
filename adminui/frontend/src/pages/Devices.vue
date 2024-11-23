@@ -24,8 +24,13 @@ const filterText = ref('')
 
 const allDevices = computed(() => devicesStore.devices ?? [])
 
+
+const filterActive = ref(false)
+const filterLocked = ref(false)
+
+
 const filteredDevices = computed(() => {
-  const arr = allDevices.value
+  const arr = allDevices.value.filter(a => (a.active || !filterActive.value)).filter(a => a.is_locked || !filterLocked.value)
 
   if (filterText.value == '') {
     return arr
@@ -124,13 +129,21 @@ function sortDevices(by: keyof DeviceDTO) {
         <div class="card-body">
           <div class="flex flex-row justify-between">
             <div class="tooltip" data-tip="Create Registration Token">
-              <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
-                <font-awesome-icon :icon="Icons.Add" /></button>
+              <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device <font-awesome-icon :icon="Icons.Add" /></button>
             </div>
-
-              <label class="label">
-                <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
-              </label>
+            <span class="flex">
+            <label class="label cursor-pointer mr-4">
+              <span class="label-text mr-2">Locked</span>
+              <input v-model=filterLocked type="checkbox" class="toggle toggle-primary"/>
+            </label>
+            <label class="label cursor-pointer mr-4">
+              <span class="label-text mr-2">Active</span>
+              <input v-model=filterActive type="checkbox" class="toggle toggle-primary"/>
+            </label>
+            <label class="label">
+              <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
+            </label>
+          </span>
           </div>
 
           <table class="table table-fixed w-full">

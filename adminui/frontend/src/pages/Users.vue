@@ -22,8 +22,10 @@ const filterText = ref('')
 
 const allUsers = computed(() => usersStore.users ?? [])
 
+const filterLocked = ref(false)
+
 const filteredUsers = computed(() => {
-  const arr = allUsers.value
+  const arr = allUsers.value.filter(a => a.locked || !filterLocked.value)
 
   if (filterText.value == '') {
     return arr
@@ -118,11 +120,15 @@ function sortUsers(by: keyof UserDTO) {
                 Add User <font-awesome-icon :icon="Icons.Add" />
               </button>
             </div>
-            <div class="form-control">
+            <span class="flex">
+              <label class="label cursor-pointer mr-4">
+                <span class="label-text mr-2">Locked</span>
+                <input v-model="filterLocked" type="checkbox" class="toggle toggle-primary" />
+              </label>
               <label class="label">
                 <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
               </label>
-            </div>
+            </span>
           </div>
 
           <table class="table table-fixed w-full">
