@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/NHAS/session"
+	"github.com/NHAS/wag/adminui/frontend"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
@@ -182,6 +183,12 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes := http.NewServeMux()
 		allRoutes := http.NewServeMux()
 
+		allRoutes.HandleFunc("/", frontend.Index)
+		allRoutes.HandleFunc("GET /index.html", frontend.Index)
+
+		allRoutes.HandleFunc("GET /favicon.ico", frontend.Favicon)
+		allRoutes.HandleFunc("GET /assets/", frontend.Assets)
+
 		allRoutes.HandleFunc("POST /api/login", adminUI.doLogin)
 		allRoutes.HandleFunc("POST /api/refresh", adminUI.doAuthRefresh)
 
@@ -197,7 +204,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			allRoutes.HandleFunc("/login/oidc/callback", adminUI.oidcCallback)
 		}
 
-		allRoutes.Handle("/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
+		allRoutes.Handle("/api/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
 			func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			},
