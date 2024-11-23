@@ -24,10 +24,10 @@ const isLoading = computed(() => {
 
 const filterText = ref('')
 
-const allRules = computed(() => groupsData.value ?? [])
+const allGroups = computed(() => groupsData.value ?? [])
 
 const filteredGroups = computed(() => {
-  const arr = allRules.value
+  const arr = allGroups.value
 
   if (filterText.value == '') {
     return arr

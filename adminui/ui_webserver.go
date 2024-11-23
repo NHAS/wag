@@ -276,7 +276,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			adminUI.startUpdateChecker(notifications)
 		}
 
-		protectedRoutes.HandleFunc("POST /api/change_password", adminUI.changePassword)
+		protectedRoutes.HandleFunc("PUT /api/change_password", adminUI.changePassword)
 
 		protectedRoutes.HandleFunc("GET /api/logout", func(w http.ResponseWriter, r *http.Request) {
 			adminUI.sessionManager.DeleteSession(w, r)
@@ -469,7 +469,7 @@ func (au *AdminUI) Close() {
 
 func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
-	_, u := au.sessionManager.GetSessionFromRequest(r)
+	sessKey, u := au.sessionManager.GetSessionFromRequest(r)
 	if u == nil {
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
@@ -486,7 +486,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 	defer func() { au.respond(err, w) }()
 
 	var req ChangePasswordRequestDTO
-	err = json.NewDecoder(r.Body).Decode(&r)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -495,7 +495,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = data.CompareAdminKeys(u.Username, req.CurrentPassword)
 	if err != nil {
-		log.Println("bad password for admin")
+		log.Println("bad password for admin (password change)")
 		err = errors.New("current password is incorrect")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -509,5 +509,11 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	u.Change = false
+
+	au.sessionManager.UpdateSession(sessKey, *u)
+
+	log.Printf("admin %q changed their password", u.Username)
 
 }

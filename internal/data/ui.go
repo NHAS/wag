@@ -16,9 +16,11 @@ import (
 
 const (
 	minPasswordLength = 14
+	saltLength        = 32
+	LocalUser         = "local"
+	OidcUser          = "oidc"
 
-	LocalUser = "local"
-	OidcUser  = "oidc"
+	AdminUsersKey = "admin-users-"
 )
 
 // DTO
@@ -39,7 +41,7 @@ type admin struct {
 }
 
 func IncrementAdminAuthenticationAttempt(username string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin keys")
@@ -72,7 +74,7 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := utils.GenerateRandomHex(8)
+	salt, err := utils.GenerateRandomHex(saltLength)
 	if err != nil {
 		return err
 	}
@@ -91,7 +93,7 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 
 	b, _ := json.Marshal(newAdmin)
 
-	_, err = etcd.Put(context.Background(), "admin-users-"+username, string(b))
+	_, err = etcd.Put(context.Background(), AdminUsersKey+username, string(b))
 
 	return err
 }
@@ -110,7 +112,7 @@ func CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
 
 	b, _ := json.Marshal(newAdmin)
 
-	_, err := etcd.Put(context.Background(), "admin-users-"+guid, string(b))
+	_, err := etcd.Put(context.Background(), AdminUsersKey+guid, string(b))
 
 	return newAdmin.AdminUserDTO, err
 }
@@ -120,14 +122,14 @@ func CompareAdminKeys(username, password string) error {
 	wasteTime := func() {
 		// Null op to stop timing discovery attacks
 
-		salt, _ := utils.GenerateRandomHex(32)
+		salt, _ := utils.GenerateRandomHex(saltLength)
 
 		hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	err := doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	err := doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -157,8 +159,12 @@ func CompareAdminKeys(username, password string) error {
 			return "", err
 		}
 
-		salt := rawHashSalt[len(rawHashSalt)-16:]
-		expectedHash := rawHashSalt[:len(rawHashSalt)-16]
+		if len(rawHashSalt) < saltLength*2 {
+			return "", errors.New("user has was not large enough to contain salt")
+		}
+
+		salt := rawHashSalt[len(rawHashSalt)-saltLength*2:]
+		expectedHash := rawHashSalt[:len(rawHashSalt)-saltLength*2]
 
 		thisHash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
@@ -178,7 +184,7 @@ func CompareAdminKeys(username, password string) error {
 // Lock admin account and make them unable to login
 func SetAdminUserLock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -199,7 +205,7 @@ func SetAdminUserLock(username string) error {
 // Unlock admin account
 func SetAdminUserUnlock(username string) error {
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -216,7 +222,7 @@ func SetAdminUserUnlock(username string) error {
 
 func DeleteAdminUser(username string) error {
 
-	_, err := etcd.Delete(context.Background(), "admin-users-"+username, clientv3.WithPrefix())
+	_, err := etcd.Delete(context.Background(), AdminUsersKey+username, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -226,7 +232,7 @@ func DeleteAdminUser(username string) error {
 
 func GetAdminUser(id string) (a AdminUserDTO, err error) {
 
-	response, err := etcd.Get(context.Background(), "admin-users-"+id)
+	response, err := etcd.Get(context.Background(), AdminUsersKey+id)
 	if err != nil {
 		return a, err
 	}
@@ -241,7 +247,7 @@ func GetAdminUser(id string) (a AdminUserDTO, err error) {
 
 func GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
 
-	response, err := etcd.Get(context.Background(), "admin-users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), AdminUsersKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -264,14 +270,14 @@ func SetAdminPassword(username, password string) error {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
 
-	salt, err := utils.GenerateRandomHex(32)
+	salt, err := utils.GenerateRandomHex(saltLength)
 	if err != nil {
 		return err
 	}
 
 	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin users")
@@ -295,7 +301,7 @@ func SetAdminPassword(username, password string) error {
 }
 
 func setAdminHash(username, hash string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin users")
@@ -318,7 +324,7 @@ func setAdminHash(username, hash string) error {
 }
 
 func SetLastLoginInformation(username, ip string) error {
-	return doSafeUpdate(context.Background(), "admin-users-"+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin users")

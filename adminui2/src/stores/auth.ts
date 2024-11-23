@@ -104,7 +104,7 @@ export const useAuthStore = defineStore({
     isLoggedIn: state => state.whoamiDetails?.user != null,
     loggedInUser: state => state.whoamiDetails?.user,
 
-    hasCompletedAuth: state => state.whoamiDetails?.user != null,
+    hasCompletedAuth: state => state.whoamiDetails?.user != null && !state.whoamiDetails.user.change,
 
     username: state => state.whoamiDetails?.user.username,
 

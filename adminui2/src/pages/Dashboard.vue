@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue"
 import { useToast } from 'vue-toastification'
 
 import EmptyTable from '@/components/EmptyTable.vue'
@@ -8,6 +9,7 @@ import { useDevicesStore } from '@/stores/devices'
 import { useTokensStore } from '@/stores/registration_tokens'
 import { useAuthStore } from '@/stores/auth'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
+import { usePagination } from "@/composables/usePagination"
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -18,11 +20,10 @@ registrationTokensStore.load(false)
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(true)
 
+
 const usersStore = useUsersStore()
 usersStore.load(false)
 
-const authStore = useAuthStore()
-const toast = useToast()
 </script>
 
 <template>
@@ -31,20 +32,20 @@ const toast = useToast()
     <div class="mt-6 flex flex-wrap gap-6">
       <div class="flex w-full gap-4">
         <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]">
-          <router-link to="/users" class="card-compact bg-base-100 shadow-xl">
+          <router-link to="/management/users" class="card-compact bg-base-100 shadow-xl">
             <div class="card-body">
               <h5 class="card-title">Manage MFA</h5>
 
               <div>{{ usersStore.users?.length == 0 ? 'No users' : usersStore.users?.length + ' users' }}</div>
             </div>
           </router-link>
-          <router-link to="/devices" class="card-compact bg-base-100 shadow-xl">
+          <router-link to="/management/devices" class="card-compact bg-base-100 shadow-xl">
             <div class="card-body">
               <h5 class="card-title">Manage Devices</h5>
               <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() }}</div>
             </div>
           </router-link>
-          <router-link to="/devices" class="card-compact bg-base-100 shadow-xl">
+          <router-link to="/management/devices" class="card-compact bg-base-100 shadow-xl">
             <div class="card-body">
               <h5 class="card-title">View Active Sessions</h5>
               <div>
@@ -56,7 +57,7 @@ const toast = useToast()
               </div>
             </div>
           </router-link>
-          <router-link to="/registration" class="card-compact bg-base-100 shadow-xl">
+          <router-link to="/management/registration_tokens" class="card-compact bg-base-100 shadow-xl">
             <div class="card-body">
               <h5 class="card-title">Registration Tokens</h5>
               <div>
