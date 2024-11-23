@@ -119,11 +119,10 @@ const isCreateTokenModalOpen = ref(false)
               <tr>
                 <th>Owner</th>
                 <th>Active</th>
-                <th>Locked</th>
                 <th>Address</th>
                 <th>Public Key</th>
                 <th>Last Endpoint</th>
-
+                <th>Locked</th>
               </tr>
             </thead>
             <tbody>
@@ -135,21 +134,22 @@ const isCreateTokenModalOpen = ref(false)
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.active }}</div>
                 </td>
                 <td class="font-mono">
-                  <div><font-awesome-icon class="cursor-pointer"
-                      @click="updateDevice([device.internal_ip], (device.is_locked) ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
-                      :icon="device.is_locked ? Icons.Locked : Icons.Unlocked"
-                      :class="device.is_locked ? 'text-error' : 'text-secondary'" /></div>
-                </td>
-                <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.internal_ip }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.public_key }}</div>
                 </td>
-                <td class="font-mono relative">
+                <td class="font-mono ">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.last_endpoint == '<nil>' ? '-'
                     : device.last_endpoint}}</div>
-                  <ConfirmModal @on-confirm="() => tryDeleteDevices([device.internal_ip])">
+
+                </td>
+                <td class="font-mono relative">
+                  <div><font-awesome-icon class="cursor-pointer"
+                      @click="updateDevice([device.internal_ip], (device.is_locked) ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
+                      :icon="device.is_locked ? Icons.Locked : Icons.Unlocked"
+                      :class="device.is_locked ? 'text-error' : 'text-secondary'" /></div>
+                      <ConfirmModal @on-confirm="() => tryDeleteDevices([device.internal_ip])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
