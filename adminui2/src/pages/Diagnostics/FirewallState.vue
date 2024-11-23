@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
+
 import { useApi } from '@/composables/useApi'
+
 import { getFirewallState } from '@/api'
 
 const { data: fwState, isLoading: isLoadingState } = useApi(() => getFirewallState())
@@ -8,7 +10,6 @@ const { data: fwState, isLoading: isLoadingState } = useApi(() => getFirewallSta
 const isLoading = computed(() => {
   return isLoadingState.value
 })
-
 
 const state = computed(() => fwState.value ?? {})
 </script>
@@ -18,9 +19,7 @@ const state = computed(() => fwState.value ?? {})
     <PageLoading v-if="isLoading" />
     <div v-else>
       <h1 class="text-4xl font-bold mb-4">Wireguard peers</h1>
-      <p>
-        Firewall State, all rules and devices directly deserialised.
-      </p>
+      <p>Firewall State, all rules and devices directly deserialised.</p>
       <div class="mt-6 flex flex-wrap w-full">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">

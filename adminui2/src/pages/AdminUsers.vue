@@ -39,7 +39,10 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentAdmins,
     <PageLoading v-if="isLoading" />
     <div v-else>
       <h1 class="text-4xl font-bold mb-4">Administrative Users</h1>
-      <p>View admin user details. To add, lock, or delete an administrative user use the command line <strong>wag webadmin</strong> subcommand.</p>
+      <p>
+        View admin user details. To add, lock, or delete an administrative user use the command line
+        <strong>wag webadmin</strong> subcommand.
+      </p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
