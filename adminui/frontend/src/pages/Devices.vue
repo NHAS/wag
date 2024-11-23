@@ -131,9 +131,6 @@ function sortDevices(by: keyof DeviceDTO) {
               <label class="label">
                 <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
               </label>
-        
-
-     
           </div>
 
           <table class="table table-fixed w-full">

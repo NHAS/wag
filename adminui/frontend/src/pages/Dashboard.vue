@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+
 import EmptyTable from '@/components/EmptyTable.vue'
 
 import { useUsersStore } from '@/stores/users'
@@ -20,11 +21,10 @@ const usersStore = useUsersStore()
 usersStore.load(false)
 
 const allUsers = computed(() => usersStore.users ?? [])
-const usersLackingMfa = computed(() => allUsers.value.filter((x) => (x.mfa_type == '' || x.mfa_type == 'unset') ))
+const usersLackingMfa = computed(() => allUsers.value.filter(x => x.mfa_type == '' || x.mfa_type == 'unset'))
 
 const allDevices = computed(() => devicesStore.devices ?? [])
-const lockedDevices = computed(() => allDevices.value.filter((x) => x.is_locked ))
-
+const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
 </script>
 
 <template>
@@ -33,24 +33,32 @@ const lockedDevices = computed(() => allDevices.value.filter((x) => x.is_locked 
     <div class="mt-6 flex flex-wrap gap-6">
       <div class="flex w-full gap-4">
         <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]">
-          <router-link to="/management/users" class="card-compact bg-base-100 shadow-xl border-l-4" :class="usersLackingMfa.length == 0? 'border-primary' : 'border-error'">
+          <router-link
+            to="/management/users"
+            class="card-compact bg-base-100 shadow-xl border-l-4"
+            :class="usersLackingMfa.length == 0 ? 'border-primary' : 'border-error'"
+          >
             <div class="card-body" v-if="usersLackingMfa.length == 0">
               <h5 class="card-title">Manage Users</h5>
               <div>{{ allUsers.length == 0 ? 'No users' : allUsers.length + ' users' }}</div>
             </div>
             <div class="card-body" v-else>
               <h5 class="card-title">Manage MFA</h5>
-              <div>{{ usersLackingMfa.length + " user have not completed MFA registration" }}</div>
+              <div>{{ usersLackingMfa.length + ' user have not completed MFA registration' }}</div>
             </div>
           </router-link>
-          <router-link to="/management/devices" class="card-compact bg-base-100 shadow-xl border-l-4" :class="lockedDevices.length == 0? 'border-primary' : 'border-error'">
+          <router-link
+            to="/management/devices"
+            class="card-compact bg-base-100 shadow-xl border-l-4"
+            :class="lockedDevices.length == 0 ? 'border-primary' : 'border-error'"
+          >
             <div class="card-body" v-if="lockedDevices.length == 0">
               <h5 class="card-title">Manage Devices</h5>
               <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() }}</div>
             </div>
             <div class="card-body" v-else>
-              <h5 class="card-title">Unlock Device{{ lockedDevices.length > 1? "s" : "" }}</h5>
-              <div>{{ lockedDevices.length + " locked device" + (lockedDevices.length > 1? "s" : "")}}</div>
+              <h5 class="card-title">Unlock Device{{ lockedDevices.length > 1 ? 's' : '' }}</h5>
+              <div>{{ lockedDevices.length + ' locked device' + (lockedDevices.length > 1 ? 's' : '') }}</div>
             </div>
           </router-link>
           <router-link to="/management/devices" class="card-compact bg-base-100 shadow-xl border-l-4 border-primary">
@@ -65,7 +73,11 @@ const lockedDevices = computed(() => allDevices.value.filter((x) => x.is_locked 
               </div>
             </div>
           </router-link>
-          <router-link to="/management/registration_tokens" class="card-compact bg-base-100 shadow-xl border-l-4" :class="registrationTokensStore.tokens?.length == 0 ? 'border-primary': 'border-warning'">
+          <router-link
+            to="/management/registration_tokens"
+            class="card-compact bg-base-100 shadow-xl border-l-4"
+            :class="registrationTokensStore.tokens?.length == 0 ? 'border-primary' : 'border-warning'"
+          >
             <div class="card-body">
               <h5 class="card-title">Registration Tokens</h5>
               <div>

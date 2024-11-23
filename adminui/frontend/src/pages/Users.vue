@@ -81,29 +81,26 @@ async function tryDeleteUsers(rules: string[]) {
 
 const isCreateTokenModalOpen = ref(false)
 
-
 const lastSort = ref<keyof UserDTO | null>(null)
 const ascending = ref(true)
 
 function sortUsers(by: keyof UserDTO) {
-
-  if(lastSort.value == null || lastSort.value == by) {
+  if (lastSort.value == null || lastSort.value == by) {
     ascending.value = !ascending.value
   } else {
     ascending.value = true
     lastSort.value = by
   }
 
-  if(usersStore.users) {
-    usersStore.users.sort((a,b) => {
-      const valueA = a[by];
-      const valueB = b[by];
-      const compair = valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
-      return ascending.value ? compair : -compair;
+  if (usersStore.users) {
+    usersStore.users.sort((a, b) => {
+      const valueA = a[by]
+      const valueB = b[by]
+      const compair = valueA < valueB ? -1 : valueA > valueB ? 1 : 0
+      return ascending.value ? compair : -compair
     })
   }
 }
-
 </script>
 
 <template>

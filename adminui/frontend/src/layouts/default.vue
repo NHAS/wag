@@ -144,7 +144,6 @@ async function logout() {
                 <li v-for="link in debugPageLinks" :key="link.name" :class="route.path == link.to ? 'bordered' : 'hover-bordered'">
                   <RouterLink :to="link.to">
                     <span class="w-6 text-center"><font-awesome-icon :icon="link.icon" /></span>
-
                     {{ link.name }}
                   </RouterLink>
                 </li>
@@ -167,7 +166,7 @@ async function logout() {
 
               <ul tabindex="0" class="menu dropdown-content rounded-box w-52 bg-base-100 p-2 pb-4 text-black shadow">
                 <li :class="route.path == '/account' ? 'bordered' : 'hover-bordered'">
-                  <RouterLink to="/account" >
+                  <RouterLink to="/account">
                     <span><font-awesome-icon :icon="Icons.User" /></span>
                     <span>My account</span>
                   </RouterLink>

@@ -167,7 +167,7 @@ async function tryDeleteGroups(groups: string[]) {
     <PageLoading v-if="isLoading" />
     <div v-else>
       <h1 class="text-4xl font-bold mb-4">Rules</h1>
-      <p>View, create and delete groups.</p>
+      <p>View, create and delete groups</p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
