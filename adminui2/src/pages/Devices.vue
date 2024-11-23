@@ -139,7 +139,7 @@ const isCreateTokenModalOpen = ref(false)
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.public_key }}</div>
                 </td>
-                <td class="font-mono ">
+                <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.last_endpoint == '<nil>' ? '-'
                     : device.last_endpoint}}</div>
 
