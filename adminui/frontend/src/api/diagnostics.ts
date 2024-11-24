@@ -26,8 +26,6 @@ export function getUserAcls(user: AclsTestRequestDTO): Promise<AclsTestResponseD
   return client.post('/api/diag/acls', user).then(res => res.data)
 }
 
-
 export function testNotifications(dummyNotification: TestNotificationsRequestDTO): Promise<GenericResponseDTO> {
   return client.post('/api/diag/notifications', dummyNotification).then(res => res.data)
 }
-

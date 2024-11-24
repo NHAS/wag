@@ -4,7 +4,7 @@ import { useToast } from 'vue-toastification'
 
 import { useToastError } from '@/composables/useToastError'
 
-import {  testNotifications, type GenericResponseDTO, type TestNotificationsRequestDTO } from '@/api'
+import { testNotifications, type GenericResponseDTO, type TestNotificationsRequestDTO } from '@/api'
 
 const toast = useToast()
 const { catcher } = useToastError()

@@ -44,7 +44,7 @@ export const Icons = {
   Device: 'fa-solid fa-display',
 
   List: 'fa-solid fa-list',
-  HashSearch: 'fa-solid fa-magnifying-glass',
+  Inspect: 'fa-solid fa-magnifying-glass',
   Utilisation: 'fa-solid fa-gauge',
 
   // misc

@@ -2,13 +2,14 @@
 import { storeToRefs } from 'pinia'
 import { onMounted, watch } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
+import { POSITION, useToast } from 'vue-toastification'
+
+import { type NotificationDTO } from './api'
 
 import { useAuthStore } from '@/stores/auth'
 import { useDevicesStore } from '@/stores/devices'
 import { useUsersStore } from '@/stores/users'
 
-import { type NotificationDTO } from './api'
-import { POSITION, useToast } from 'vue-toastification'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,21 +20,20 @@ const { hasCompletedAuth, hasTriedAuth, isLoggedIn } = storeToRefs(authStore)
 
 const toast = useToast()
 
-const httpsEnabled = window.location.protocol == "https:";
+const httpsEnabled = window.location.protocol == 'https:'
 
 function connectNotificationsWebsocket() {
-  const notificationsSocket = new WebSocket((httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/api/notifications")
-  notificationsSocket.onmessage = function(msg) {
-    
+  const notificationsSocket = new WebSocket((httpsEnabled ? 'wss://' : 'ws://') + window.location.host + '/api/notifications')
+  notificationsSocket.onmessage = function (msg) {
     const notf = JSON.parse(msg.data) as NotificationDTO
     console.log(notf)
-    toast(notf.message.join("\n"), {
+    toast(notf.message.join('\n'), {
       position: POSITION.TOP_RIGHT,
       pauseOnFocusLoss: true,
-      onClick: function(){
-        if(notf.url.length != 0) {
-          if(notf.openNewTab) {
-            window.open(notf.url, "_blank")
+      onClick: function () {
+        if (notf.url.length != 0) {
+          if (notf.open_new_tab) {
+            window.open(notf.url, '_blank')
             return
           }
           router.push(notf.url)
@@ -43,11 +43,10 @@ function connectNotificationsWebsocket() {
   }
 
   notificationsSocket.onerror = function (err) {
-      console.error('Notifications websocket encountered error: ', err, 'Closing socket');
-      notificationsSocket.close();
-  };
+    console.error('Notifications websocket encountered error: ', err, 'Closing socket')
+    notificationsSocket.close()
+  }
 }
-
 
 onMounted(async () => {
   await router.isReady()

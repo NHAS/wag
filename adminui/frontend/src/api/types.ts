@@ -91,7 +91,7 @@ export interface LogLinesDTO {
   log_lines: string[]
 }
 
-export interface EventError {
+export interface EventErrorDTO {
   node_id: string
   error_id: string
 
@@ -102,7 +102,7 @@ export interface EventError {
 
 export interface ClusterEvents {
   events: string[]
-  errors: EventError[]
+  errors: EventErrorDTO[]
 }
 
 export interface ClusterMember {
@@ -228,17 +228,20 @@ export interface AclsTestResponseDTO {
   acls: Acl
 }
 
-
 export interface NotificationDTO {
-  id: string;
-  heading: string;
-  message: string[];
-  url: string;
-  time: string;
-  color: string;
-  open_new_tab: boolean;
+  id: string
+  heading: string
+  message: string[]
+  url: string
+  time: string
+  color: string
+  open_new_tab: boolean
 }
 
 export interface TestNotificationsRequestDTO {
   message: string
+}
+
+export interface AcknowledgeErrorResponseDTO {
+  error_id: string
 }

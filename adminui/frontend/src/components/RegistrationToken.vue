@@ -41,10 +41,9 @@ async function createToken() {
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
-    } 
-    
+    }
+
     toast.success('token ' + resp.message + ' for ' + newToken.value.username + ' created!')
-    
   } catch (e) {
     catcher(e, 'failed to create token: ')
   } finally {

@@ -46,7 +46,6 @@ const debugPageLinks = [
   { name: 'Test Rule', icon: Icons.Test, to: '/diagnostics/check' },
   { name: 'User ACLs', icon: Icons.List, to: '/diagnostics/acls' },
   { name: 'Notifications', icon: Icons.Send, to: '/diagnostics/notifications' }
-
 ]
 
 async function logout() {

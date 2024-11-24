@@ -2,6 +2,7 @@ package adminui
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -82,60 +83,67 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 }
 
 func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
-	var newNodeReq data.NewNodeRequest
-	err := json.NewDecoder(r.Body).Decode(&newNodeReq)
-	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+	var (
+		newNodeReq  NewNodeRequestDTO
+		newNodeResp NewNodeResponseDTO
+	)
+
+	defer func() {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(newNodeResp)
+	}()
+
+	newNodeResp.ErrorMessage = json.NewDecoder(r.Body).Decode(&newNodeReq)
+	if newNodeResp.ErrorMessage != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	token, err := data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
-	if err != nil {
-		log.Println("failed to add member: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	newNodeResp.JoinToken, newNodeResp.ErrorMessage = data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
+	if newNodeResp.ErrorMessage != nil {
+		log.Println("failed to add member: ", newNodeResp.ErrorMessage)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	newNodeResp := data.NewNodeResponse{
-		JoinToken: token,
-	}
-	b, _ := json.Marshal(newNodeResp)
 
 	log.Println("added new node: ", newNodeReq.NodeName, newNodeReq.ConnectionURL)
-
-	w.Write(b)
 }
 
 func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
-
-	events := data.EventsQueue.ReadAll()
 
 	var (
-		es  EventsResponseDTO
+		es = EventsResponseDTO{
+			EventLog: data.EventsQueue.ReadAll(),
+		}
 		err error
 	)
-	es.EventLog = events
+	defer func() {
+		if err != nil {
+			au.respond(err, w)
+		}
+	}()
+
 	es.Errors, err = data.GetAllErrors()
 	if err != nil {
-		var e GenericResponseDTO
-
-		e.Message = err.Error()
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(e)
-
 		return
 	}
 
+	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode(es)
 }
 
 func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
-	var ncR data.NodeControlRequest
-	err := json.NewDecoder(r.Body).Decode(&ncR)
+	var (
+		ncR NodeControlRequestDTO
+		err error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&ncR)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -146,7 +154,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 		err = data.PromoteMember(ncR.Node)
 		if err != nil {
 			log.Println("failed to promote member: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	case "drain", "restore":
@@ -155,7 +163,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 		err = data.SetDrained(ncR.Node, ncR.Action == "drain")
 		if err != nil {
 			log.Println("failed to set/reset node drain: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	case "stepdown":
@@ -163,7 +171,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 		err = data.StepDown()
 		if err != nil {
 			log.Println("failed to step down from leadership makenode: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	case "remove":
@@ -172,42 +180,43 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 		if data.GetServerID().String() == ncR.Node {
 			log.Println("user tried to remove current operating node from cluster")
-			http.Error(w, "cannot remove current node", http.StatusBadRequest)
+			err = errors.New("cannot remove current node")
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		err = data.RemoveMember(ncR.Node)
 		if err != nil {
 			log.Println("failed to remove member from cluster: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 	default:
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		err = errors.New("unknown action")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	w.Write([]byte("OK"))
-
 }
 
 func (au *AdminUI) clusterEventsAcknowledge(w http.ResponseWriter, r *http.Request) {
 
-	var acknowledgeError struct {
-		ErrorID string
-	}
-	err := json.NewDecoder(r.Body).Decode(&acknowledgeError)
+	var (
+		acknowledgeError AcknowledgeErrorResponseDTO
+		err              error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&acknowledgeError)
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = data.ResolveError(acknowledgeError.ErrorID)
 	if err != nil {
 		log.Println("failed to resolve error: ", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
-
-	w.Write([]byte("Success!"))
 }

@@ -174,3 +174,23 @@ type NotificationDTO struct {
 type TestNotificationsRequestDTO struct {
 	Message string `json:"message"`
 }
+
+type AcknowledgeErrorResponseDTO struct {
+	ErrorID string `json:"error_id"`
+}
+
+type NewNodeRequestDTO struct {
+	NodeName      string `json:"node_name"`
+	ConnectionURL string `json:"connection_url"`
+	ManagerURL    string `json:"manager_url"`
+}
+
+type NewNodeResponseDTO struct {
+	JoinToken    string `json:"join_token"`
+	ErrorMessage error  `json:"error_message"`
+}
+
+type NodeControlRequestDTO struct {
+	Node   string `json:"node"`
+	Action string `json:"actions"`
+}

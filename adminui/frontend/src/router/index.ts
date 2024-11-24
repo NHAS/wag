@@ -50,7 +50,6 @@ const router = createRouter({
     route('/diagnostics/acls', 'ACLs', () => import('@/pages/Diagnostics/Acls.vue')),
     route('/diagnostics/notifications', 'Test Notifications', () => import('@/pages/Diagnostics/Notifications.vue')),
 
-
     route('/management/users/:filter?', 'User Management', () => import('@/pages/Users.vue')),
     route('/management/devices/:filter?', 'Device Management', () => import('@/pages/Devices.vue')),
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),

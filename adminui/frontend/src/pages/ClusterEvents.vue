@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useToast } from 'vue-toastification'
 
 import EmptyTable from '@/components/EmptyTable.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import PageLoading from '@/components/PageLoading.vue'
+import Modal from '@/components/Modal.vue'
 
-import { getClusterEvents } from '@/api/cluster'
+import { acknowledgeClusterError, getClusterEvents } from '@/api/cluster'
 
 import { usePagination } from '@/composables/usePagination'
 import { useApi } from '@/composables/useApi'
+import { useToastError } from '@/composables/useToastError'
 
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
+
+import { Icons } from '@/util/icons'
+
+import { type AcknowledgeErrorResponseDTO, type EventErrorDTO } from '@/api'
 
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(false)
 
-const { data: events, isLoading: isLoadingEvents } = useApi(() => getClusterEvents())
+const { data: events, isLoading: isLoadingEvents, silentlyRefresh: refresh } = useApi(() => getClusterEvents())
 
 const isLoading = computed(() => {
   return isLoadingEvents.value
@@ -38,10 +45,79 @@ const {
   currentItems: currentErrors,
   activePage: activeErrorsPage
 } = usePagination(errors, 20)
+
+const toast = useToast()
+const { catcher } = useToastError()
+
+async function acknowledgeError(error: EventErrorDTO) {
+  try {
+    const data: AcknowledgeErrorResponseDTO = {
+      error_id: error.error_id
+    }
+    const resp = await acknowledgeClusterError(data)
+
+    if (!resp.success) {
+      toast.error(resp.message ?? 'Failed')
+      return
+    } else {
+      toast.success('error acknowledged')
+      refresh()
+      isInspectionModalOpen.value = false
+    }
+  } catch (e) {
+    catcher(e, 'failed to acknowledged error: ')
+  }
+}
+
+const isInspectionModalOpen = ref(false)
+const inspectedError = ref<EventErrorDTO>({} as EventErrorDTO)
+
+function openInspectionModal(error: EventErrorDTO) {
+  inspectedError.value = error
+  isInspectionModalOpen.value = true
+}
 </script>
 
 <template>
   <main class="w-full p-4">
+    <Modal v-model:isOpen="isInspectionModalOpen">
+      <div class="w-screen max-w-[600px]">
+        <h3 class="text-lg font-bold">Error {{ inspectedError.error_id }}</h3>
+        <div class="mt-8">
+          <p>Error details</p>
+
+          <p>Node: {{ inspectedError.node_id }}</p>
+          <p>
+            Time:
+            {{
+              new Date(inspectedError.time).toLocaleString(undefined, {
+                weekday: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }}
+          </p>
+
+          <label for="members" class="block font-medium text-gray-900 pt-6">Error:</label>
+          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" v-model="inspectedError.error"></textarea>
+
+          <label for="members" class="block font-medium text-gray-900 pt-6">Event JSON:</label>
+          <textarea
+            class="disabled textarea textarea-bordered w-full font-mono"
+            rows="3"
+            v-model="inspectedError.failed_event_data"
+          ></textarea>
+
+          <span class="mt-4 flex">
+            <button class="btn btn-primary" @click="() => acknowledgeError(inspectedError)">Acknowledge</button>
+
+            <div class="flex flex-grow"></div>
+
+            <button class="btn btn-secondary" @click="() => (isInspectionModalOpen = false)">Cancel</button>
+          </span>
+        </div>
+      </div>
+    </Modal>
     <PageLoading v-if="isLoading" />
 
     <div v-else>
@@ -75,9 +151,34 @@ const {
             <h2 class="card-title">Errors</h2>
             <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="line in currentErrors" :key="line.error_id">
+                <tr class="hover group" v-for="error in currentErrors" :key="error.error_id" v-on:dblclick="openInspectionModal(error)">
+                  <!-- Time -->
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[145px]">
+                    {{
+                      new Date(error.time).toLocaleString(undefined, {
+                        weekday: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    }}
+                  </td>
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap">
-                    {{ line }}
+                    <div class="font-medium">{{ error.node_id }}</div>
+                  </td>
+                  <td class="relative overflow-hidden text-ellipsis whitespace-nowrap">
+                    <div class="font-medium">{{ error.error }}</div>
+                    <button
+                      @click="openInspectionModal(error)"
+                      class="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <font-awesome-icon :icon="Icons.Inspect" class="text-secondary hover:text-secondary-focus" />
+                    </button>
+                    <button
+                      @click="acknowledgeError(error)"
+                      class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <font-awesome-icon :icon="Icons.Tick" class="text-success hover:text-success-focus" />
+                    </button>
                   </td>
                 </tr>
               </tbody>

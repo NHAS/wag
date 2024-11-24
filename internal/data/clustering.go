@@ -18,21 +18,6 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
-type NewNodeRequest struct {
-	NodeName      string
-	ConnectionURL string
-	ManagerURL    string
-}
-
-type NewNodeResponse struct {
-	JoinToken string
-}
-
-type NodeControlRequest struct {
-	Node   string
-	Action string
-}
-
 func GetServerID() types.ID {
 	return etcdServer.Server.ID()
 }

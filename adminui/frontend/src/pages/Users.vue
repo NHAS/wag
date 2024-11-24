@@ -51,7 +51,7 @@ const toast = useToast()
 const { catcher } = useToastError()
 
 async function updateUser(usernames: string[], action: UserEditActions) {
-  if(usernames.length == 0) {
+  if (usernames.length == 0) {
     return
   }
 
@@ -77,10 +77,9 @@ async function updateUser(usernames: string[], action: UserEditActions) {
 }
 
 async function tryDeleteUsers(users: string[]) {
-  if(users.length == 0) {
+  if (users.length == 0) {
     return
   }
-
 
   try {
     const resp = await deleteUsers(users)
@@ -120,11 +119,10 @@ function sortUsers(by: keyof UserDTO) {
   }
 }
 
-
 const selectedUsers = ref<string[]>([])
 const selectAll = ref(false)
 
-watch(selectAll, (newValue) => {
+watch(selectAll, newValue => {
   if (newValue) {
     // Select all devices
     selectedUsers.value = currentUsers.value.map(d => d.username)
@@ -134,20 +132,19 @@ watch(selectAll, (newValue) => {
   }
 })
 
-watch(selectedUsers, (newVal) => {
-  if(newVal.length == 0) {
+watch(selectedUsers, newVal => {
+  if (newVal.length == 0) {
     selectAll.value = false
   }
 })
 
 const selectedUsersHasLocked = computed(() => {
-  if(selectedUsers.value.length == 0) {
+  if (selectedUsers.value.length == 0) {
     return false
   }
 
   return allUsers.value.some(i => selectedUsers.value.includes(i.username) && i.locked)
 })
-
 </script>
 
 <template>
@@ -161,22 +158,28 @@ const selectedUsersHasLocked = computed(() => {
         <div class="card-body">
           <div class="flex flex-row justify-between">
             <span class="flex">
-            <div class="tooltip" data-tip="Create Registration Token">
-              <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">
-                Add User <font-awesome-icon :icon="Icons.Add" />
-              </button>
-            </div>
-            <div class="tooltip" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ')+selectedUsers.length+' users'">
-                <button @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedUsersHasLocked ? 'Unlock' : 'Lock'}}
-                  <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
-            </div>
-            <div class="tooltip" :data-tip="'Reset '+selectedUsers.length+' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.RestMFA)" class="btn btn-ghost btn-primary">Reset MFA
-                  <font-awesome-icon :icon="Icons.Refresh" /></button>
-            </div>
-            <div class="tooltip" :data-tip="'Delete '+selectedUsers.length+' users'">
-                <ConfirmModal @on-confirm="() => deleteUsers(selectedUsers)" >
-                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+              <div class="tooltip" data-tip="Create Registration Token">
+                <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">
+                  Add User <font-awesome-icon :icon="Icons.Add" />
+                </button>
+              </div>
+              <div class="tooltip" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'">
+                <button
+                  @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)"
+                  class="btn btn-ghost btn-primary"
+                >
+                  {{ selectedUsersHasLocked ? 'Unlock' : 'Lock' }}
+                  <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" />
+                </button>
+              </div>
+              <div class="tooltip" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
+                <button @click="updateUser(selectedUsers, UserEditActions.RestMFA)" class="btn btn-ghost btn-primary">
+                  Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
+                </button>
+              </div>
+              <div class="tooltip" :data-tip="'Delete ' + selectedUsers.length + ' users'">
+                <ConfirmModal @on-confirm="() => deleteUsers(selectedUsers)">
+                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>
@@ -200,7 +203,7 @@ const selectedUsersHasLocked = computed(() => {
             <thead>
               <tr>
                 <th class="w-10">
-                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                  <input type="checkbox" class="checkbox" v-model="selectAll" />
                 </th>
                 <th class="cursor-pointer" @click="sortUsers('username')">Username</th>
                 <th class="cursor-pointer" @click="sortUsers('groups')">Groups</th>
@@ -212,7 +215,7 @@ const selectedUsersHasLocked = computed(() => {
             <tbody>
               <tr class="hover group" v-for="user in currentUsers" :key="user.username">
                 <th>
-                    <input type="checkbox" class="checkbox" v-model="selectedUsers" :value="user.username"/>
+                  <input type="checkbox" class="checkbox" v-model="selectedUsers" :value="user.username" />
                 </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.username }}</div>

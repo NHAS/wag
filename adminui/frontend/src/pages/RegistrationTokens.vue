@@ -16,8 +16,6 @@ import { useTokensStore } from '@/stores/registration_tokens'
 
 import { Icons } from '@/util/icons'
 
-import type { RegistrationTokenRequestDTO } from '@/api'
-
 const tokensStore = useTokensStore()
 tokensStore.load(true)
 
@@ -47,7 +45,7 @@ const toast = useToast()
 const { catcher } = useToastError()
 
 async function deleteTokens(tokensToDelete: string[]) {
-  if(tokensToDelete.length == 0) {
+  if (tokensToDelete.length == 0) {
     return
   }
 
@@ -66,11 +64,10 @@ async function deleteTokens(tokensToDelete: string[]) {
   }
 }
 
-
 const selectedTokens = ref<string[]>([])
 const selectAll = ref(false)
 
-watch(selectAll, (newValue) => {
+watch(selectAll, newValue => {
   if (newValue) {
     // Select all devices
     selectedTokens.value = currentTokens.value.map(t => t.token)
@@ -80,12 +77,11 @@ watch(selectAll, (newValue) => {
   }
 })
 
-watch(selectedTokens, (newVal) => {
-  if(newVal.length == 0) {
+watch(selectedTokens, newVal => {
+  if (newVal.length == 0) {
     selectAll.value = false
   }
 })
-
 </script>
 
 <template>
@@ -106,14 +102,14 @@ watch(selectedTokens, (newVal) => {
         <div class="card-body">
           <div class="flex flex-row justify-between">
             <span class="flex">
-            <div class="tooltip" data-tip="Add rule">
-              <button class="btn btn-ghost btn-primary" @click="() => (isCreateTokenModalOpen = true)">
-                Add Token <font-awesome-icon :icon="Icons.Add" />
-              </button>
-            </div>
-            <div class="tooltip" :data-tip="'Delete '+selectedTokens.length+' tokens'">
-                <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)" >
-                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+              <div class="tooltip" data-tip="Add rule">
+                <button class="btn btn-ghost btn-primary" @click="() => (isCreateTokenModalOpen = true)">
+                  Add Token <font-awesome-icon :icon="Icons.Add" />
+                </button>
+              </div>
+              <div class="tooltip" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
+                <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)">
+                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>
@@ -128,7 +124,7 @@ watch(selectedTokens, (newVal) => {
             <thead>
               <tr>
                 <th class="w-10">
-                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                  <input type="checkbox" class="checkbox" v-model="selectAll" />
                 </th>
                 <th>Token</th>
                 <th>Username</th>
@@ -140,7 +136,7 @@ watch(selectedTokens, (newVal) => {
             <tbody>
               <tr class="hover group" v-for="token in currentTokens" :key="token.token">
                 <th>
-                    <input type="checkbox" class="checkbox" v-model="selectedTokens" :value="token.token"/>
+                  <input type="checkbox" class="checkbox" v-model="selectedTokens" :value="token.token" />
                 </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.token }}</div>
