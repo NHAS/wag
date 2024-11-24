@@ -7,12 +7,47 @@ import { useAuthStore } from '@/stores/auth'
 import { useDevicesStore } from '@/stores/devices'
 import { useUsersStore } from '@/stores/users'
 
+import { type NotificationDTO } from './api'
+import { POSITION, useToast } from 'vue-toastification'
+
 const router = useRouter()
 const authStore = useAuthStore()
 const devicesStore = useDevicesStore()
 const usersStore = useUsersStore()
 
 const { hasCompletedAuth, hasTriedAuth, isLoggedIn } = storeToRefs(authStore)
+
+const toast = useToast()
+
+const httpsEnabled = window.location.protocol == "https:";
+
+function connectNotificationsWebsocket() {
+  const notificationsSocket = new WebSocket((httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/api/notifications")
+  notificationsSocket.onmessage = function(msg) {
+    
+    const notf = JSON.parse(msg.data) as NotificationDTO
+    console.log(notf)
+    toast(notf.message.join("\n"), {
+      position: POSITION.TOP_RIGHT,
+      pauseOnFocusLoss: true,
+      onClick: function(){
+        if(notf.url.length != 0) {
+          if(notf.openNewTab) {
+            window.open(notf.url, "_blank")
+            return
+          }
+          router.push(notf.url)
+        }
+      }
+    })
+  }
+
+  notificationsSocket.onerror = function (err) {
+      console.error('Notifications websocket encountered error: ', err, 'Closing socket');
+      notificationsSocket.close();
+  };
+}
+
 
 onMounted(async () => {
   await router.isReady()
@@ -28,6 +63,7 @@ watch(hasCompletedAuth, (newHasCompletedAuth, prevHasCompletedAuth) => {
   if (newHasCompletedAuth && !prevHasCompletedAuth) {
     devicesStore.load(true)
     usersStore.load(true)
+    connectNotificationsWebsocket()
   }
 })
 

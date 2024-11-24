@@ -162,11 +162,15 @@ type MFAMethodDTO struct {
 }
 
 type NotificationDTO struct {
-	ID         string
-	Heading    string
-	Message    []string
-	Url        string
-	Time       time.Time
-	Color      string
-	OpenNewTab bool
+	ID         string    `json:"id"`
+	Heading    string    `json:"heading"`
+	Message    []string  `json:"message"`
+	Url        string    `json:"url"`
+	Time       time.Time `json:"time"`
+	Color      string    `json:"color"`
+	OpenNewTab bool      `json:"open_new_tab"`
+}
+
+type TestNotificationsRequestDTO struct {
+	Message string `json:"message"`
 }

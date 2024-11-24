@@ -2,12 +2,14 @@ package adminui
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/NHAS/wag/internal/data"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -138,4 +140,24 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 		}
 		decision = fmt.Sprintf("%s -%s-> %s, decided: %s %s", t.Address, displayProto, t.Target, checkerDecision, isAuthed)
 	}
+}
+
+func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		err error
+		t   TestNotificationsRequestDTO
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&t)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	b, _ := json.Marshal(t)
+
+	err = data.RaiseError(errors.New(t.Message), b)
 }

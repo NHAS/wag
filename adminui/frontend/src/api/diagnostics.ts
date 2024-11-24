@@ -4,7 +4,8 @@ import type {
   FirewallTestRequestDTO,
   GenericResponseDTO,
   AclsTestRequestDTO,
-  AclsTestResponseDTO
+  AclsTestResponseDTO,
+  TestNotificationsRequestDTO
 } from './types'
 
 import { client } from '.'
@@ -24,3 +25,9 @@ export function checkFirewallRule(test: FirewallTestRequestDTO): Promise<Generic
 export function getUserAcls(user: AclsTestRequestDTO): Promise<AclsTestResponseDTO> {
   return client.post('/api/diag/acls', user).then(res => res.data)
 }
+
+
+export function testNotifications(dummyNotification: TestNotificationsRequestDTO): Promise<GenericResponseDTO> {
+  return client.post('/api/diag/notifications', dummyNotification).then(res => res.data)
+}
+

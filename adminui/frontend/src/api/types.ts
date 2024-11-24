@@ -227,3 +227,18 @@ export interface AclsTestResponseDTO {
   success: boolean
   acls: Acl
 }
+
+
+export interface NotificationDTO {
+  id: string;
+  heading: string;
+  message: string[];
+  url: string;
+  time: string;
+  color: string;
+  open_new_tab: boolean;
+}
+
+export interface TestNotificationsRequestDTO {
+  message: string
+}

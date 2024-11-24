@@ -65,5 +65,6 @@ export const Icons = {
 
   Awaiting: 'fa-solid fa-hourglass-end',
   Dead: 'fa-solid fa-skull-crossbones',
-  Unknown: 'fa-solid fa-question'
+  Unknown: 'fa-solid fa-question',
+  Send: 'fa-solid fa-paper-plane'
 }

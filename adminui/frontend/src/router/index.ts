@@ -48,6 +48,8 @@ const router = createRouter({
     route('/diagnostics/firewall', 'Firewall Diagnostics', () => import('@/pages/Diagnostics/FirewallState.vue')),
     route('/diagnostics/check', 'Check Firewall', () => import('@/pages/Diagnostics/TestRule.vue')),
     route('/diagnostics/acls', 'ACLs', () => import('@/pages/Diagnostics/Acls.vue')),
+    route('/diagnostics/notifications', 'Test Notifications', () => import('@/pages/Diagnostics/Notifications.vue')),
+
 
     route('/management/users/:filter?', 'User Management', () => import('@/pages/Users.vue')),
     route('/management/devices/:filter?', 'Device Management', () => import('@/pages/Devices.vue')),
