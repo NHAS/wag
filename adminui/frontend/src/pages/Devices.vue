@@ -247,7 +247,9 @@ const selectedDevicesHasLocked = computed(() => {
               </tr>
             </tbody>
           </table>
-          <EmptyTable v-if="currentDevices.length == 0" text="No matching devices" />
+          <EmptyTable v-if="allDevices.length == 0" text="No devices" />
+          <EmptyTable v-if="allDevices.length != 0 && allDevices.length == 0" text="No matching devices" />
+
 
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"

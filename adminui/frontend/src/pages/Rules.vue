@@ -236,7 +236,9 @@ async function tryDeleteRules(rules: string[]) {
                 </tr>
               </tbody>
             </table>
-            <EmptyTable v-if="currentRules.length == 0" text="No rules" />
+            <EmptyTable v-if="allRules.length == 0" text="No rules" />
+            <EmptyTable v-if="allRules.length != 0 && allRules.length == 0" text="No matching rules" />
+
 
             <div class="mt-2 w-full text-center">
               <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />

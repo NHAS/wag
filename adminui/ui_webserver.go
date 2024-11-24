@@ -187,6 +187,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		allRoutes.HandleFunc("GET /index.html", frontend.Index)
 
 		allRoutes.HandleFunc("GET /favicon.ico", frontend.Favicon)
+		allRoutes.HandleFunc("GET /logo.png", frontend.Logo)
 		allRoutes.HandleFunc("GET /assets/", frontend.Assets)
 
 		allRoutes.HandleFunc("POST /api/login", adminUI.doLogin)
