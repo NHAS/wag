@@ -1,6 +1,8 @@
 package adminui
 
 import (
+	"time"
+
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/go-playground/validator/v10"
@@ -157,4 +159,14 @@ type EditDevicesDTO struct {
 type MFAMethodDTO struct {
 	FriendlyName string `json:"friendly_name"`
 	Method       string `json:"method"`
+}
+
+type NotificationDTO struct {
+	ID         string
+	Heading    string
+	Message    []string
+	Url        string
+	Time       time.Time
+	Color      string
+	OpenNewTab bool
 }

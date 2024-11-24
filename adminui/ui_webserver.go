@@ -273,8 +273,8 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
 		protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
 
-		notifications := make(chan Notification, 1)
-		protectedRoutes.HandleFunc("/notifications", adminUI.notificationsWS(notifications))
+		notifications := make(chan NotificationDTO, 1)
+		protectedRoutes.HandleFunc("GET /notifications", adminUI.notificationsWS(notifications))
 		data.RegisterEventListener(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
 		go adminUI.monitorClusterMembers(notifications)
 

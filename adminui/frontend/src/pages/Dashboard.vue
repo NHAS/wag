@@ -7,6 +7,8 @@ import { useUsersStore } from '@/stores/users'
 import { useDevicesStore } from '@/stores/devices'
 import { useTokensStore } from '@/stores/registration_tokens'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
+import { usePagination } from '@/composables/usePagination'
+import PaginationControls from '@/components/PaginationControls.vue'
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -25,6 +27,11 @@ const usersLackingMfa = computed(() => allUsers.value.filter(x => x.mfa_type == 
 
 const allDevices = computed(() => devicesStore.devices ?? [])
 const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
+
+
+const allLogLines = computed(() => instanceDetails.logLines?.log_lines ?? [])
+const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLines, activePage } = usePagination(allLogLines, 20)
+
 </script>
 
 <template>
@@ -115,7 +122,7 @@ const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
           <h2 class="card-title">Recent Log Messages</h2>
           <table class="table w-full">
             <tbody>
-              <tr class="hover" v-for="(line, index) in instanceDetails.log" :key="'log-line-' + index">
+              <tr class="hover" v-for="(line, index) in currentLogLines" :key="'log-line-' + index">
                 <td>
                   {{ line }}
                 </td>
@@ -123,6 +130,9 @@ const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
             </tbody>
           </table>
           <EmptyTable v-if="instanceDetails.log.length == 0" text="No log lines yet" />
+          <div class="mt-2 w-full text-center">
+              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
+           </div>
         </div>
       </div>
     </div>

@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/gorilla/websocket"
-	"golang.org/x/exp/maps"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,10 +22,10 @@ type Acknowledgement struct {
 	ID   string
 }
 
-func (au *AdminUI) notificationsWS(notifications <-chan Notification) func(w http.ResponseWriter, r *http.Request) {
+func (au *AdminUI) notificationsWS(notifications <-chan NotificationDTO) func(w http.ResponseWriter, r *http.Request) {
 
 	var mapLck sync.RWMutex
-	servingConnections := map[string]chan<- Notification{}
+	servingConnections := map[string]chan<- NotificationDTO{}
 
 	go func() {
 
@@ -43,7 +41,7 @@ func (au *AdminUI) notificationsWS(notifications <-chan Notification) func(w htt
 			notificationsMapLck.Unlock()
 
 			for key := range servingConnections {
-				go func(key string, notification Notification) {
+				go func(key string, notification NotificationDTO) {
 					servingConnections[key] <- notification
 				}(key, notification)
 			}
@@ -58,7 +56,7 @@ func (au *AdminUI) notificationsWS(notifications <-chan Notification) func(w htt
 			return
 		}
 
-		connectionChan := make(chan Notification)
+		connectionChan := make(chan NotificationDTO)
 		defer func() {
 			mapLck.Lock()
 			delete(servingConnections, r.RemoteAddr)
@@ -94,56 +92,12 @@ type githubResponse struct {
 	Url        string `json:"html_url"`
 }
 
-type Notification struct {
-	ID         string
-	Heading    string
-	Message    []string
-	Url        string
-	Time       time.Time
-	Color      string
-	OpenNewTab bool
-}
-
 var (
 	notificationsMapLck sync.RWMutex
-	notificationsMap    = map[string]Notification{}
+	notificationsMap    = map[string]NotificationDTO{}
 )
 
-func (au *AdminUI) getNotifications() []Notification {
-
-	notificationsMapLck.RLock()
-
-	// Make sure we have any historic errors on display as a notification
-	errs, err := au.ctrl.GetClusterErrors()
-	if err == nil {
-		for _, e := range errs {
-			if _, ok := notificationsMap[e.ErrorID]; !ok {
-				notificationsMap[e.ErrorID] = Notification{
-					ID:         e.ErrorID,
-					Heading:    "Node Error",
-					Message:    []string{"Node " + e.NodeID, e.Error},
-					Url:        "/cluster/events/",
-					Time:       e.Time,
-					OpenNewTab: false,
-					Color:      "#db0b3c",
-				}
-
-			}
-		}
-	}
-
-	notfs := maps.Values(notificationsMap)
-
-	notificationsMapLck.RUnlock()
-
-	sort.Slice(notfs, func(i, j int) bool {
-		return notfs[i].Time.After(notfs[j].Time)
-	})
-
-	return notfs
-}
-
-func (au *AdminUI) startUpdateChecker(notifications chan<- Notification) {
+func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 	go func() {
 
 		for {
@@ -161,7 +115,7 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- Notification) {
 				return
 			}
 
-			notifications <- Notification{
+			notifications <- NotificationDTO{
 				Heading:    gr.TagName,
 				Message:    strings.Split(gr.Body, "\r\n"),
 				Url:        gr.Url,
@@ -175,13 +129,13 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- Notification) {
 	}()
 }
 
-func (au *AdminUI) receiveErrorNotifications(notifications chan<- Notification) func(key string, current, previous data.EventError, et data.EventType) error {
+func (au *AdminUI) receiveErrorNotifications(notifications chan<- NotificationDTO) func(key string, current, previous data.EventError, et data.EventType) error {
 
 	return func(key string, current, previous data.EventError, et data.EventType) error {
 		switch et {
 		case data.CREATED:
 
-			msg := Notification{
+			msg := NotificationDTO{
 				ID:         current.ErrorID,
 				Heading:    "Node Error",
 				Message:    []string{"Node " + current.NodeID, current.Error},
@@ -202,7 +156,7 @@ func (au *AdminUI) receiveErrorNotifications(notifications chan<- Notification) 
 	}
 }
 
-func (au *AdminUI) monitorClusterMembers(notifications chan<- Notification) {
+func (au *AdminUI) monitorClusterMembers(notifications chan<- NotificationDTO) {
 	for {
 		currentMembers, err := au.ctrl.GetClusterMembers()
 		if err != nil {
@@ -210,7 +164,7 @@ func (au *AdminUI) monitorClusterMembers(notifications chan<- Notification) {
 		} else {
 
 			if len(currentMembers) == 2 {
-				notifications <- Notification{
+				notifications <- NotificationDTO{
 					ID:      "monitor_node_number",
 					Heading: "Unsafe Cluster Size!",
 					Message: []string{"A wag cluster of two nodes doubles the risk of cluster failure.",
@@ -241,7 +195,7 @@ func (au *AdminUI) monitorClusterMembers(notifications chan<- Notification) {
 					delete(notificationsMap, "node_degrading_"+currentMembers[i].ID.String())
 					notificationsMapLck.Unlock()
 
-					notifications <- Notification{
+					notifications <- NotificationDTO{
 						ID:         "node_dead_" + currentMembers[i].ID.String(),
 						Heading:    "Node " + currentMembers[i].ID.String() + " dead",
 						Message:    []string{currentMembers[i].ID.String() + " has not sent ping in 15 seconds and is assumed dead"},
@@ -252,7 +206,7 @@ func (au *AdminUI) monitorClusterMembers(notifications chan<- Notification) {
 					}
 
 				} else if lastPing.Before(time.Now().Add(-6 * time.Second)) {
-					notifications <- Notification{
+					notifications <- NotificationDTO{
 						ID:         "node_degrading_" + currentMembers[i].ID.String(),
 						Heading:    "Node " + currentMembers[i].ID.String() + " degraded",
 						Message:    []string{currentMembers[i].ID.String() + " has exceeded expected liveness ping (5 seconds)"},
