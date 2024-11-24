@@ -52,7 +52,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentDevices
 const toast = useToast()
 const { catcher } = useToastError()
 
-async function updateDevice(addresses: string[], action: DeviceEditActions) {
+async function updateDevices(addresses: string[], action: DeviceEditActions) {
   if(addresses.length == 0) {
     return
   }
@@ -171,7 +171,7 @@ const selectedDevicesHasLocked = computed(() => {
                   <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
               <div class="tooltip" :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ')+selectedDevices.length+' devices'">
-                <button @click="updateDevice(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} 
+                <button @click="updateDevices(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} 
                   <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
               <div class="tooltip" :data-tip="'Delete '+selectedDevices.length+' devices'">
@@ -234,7 +234,7 @@ const selectedDevicesHasLocked = computed(() => {
                 </td>
                 <td class="font-mono relative">
                   <div><font-awesome-icon class="cursor-pointer"
-                      @click="updateDevice([device.internal_ip], (device.is_locked) ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
+                      @click="updateDevices([device.internal_ip], (device.is_locked) ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
                       :icon="device.is_locked ? Icons.Locked : Icons.Unlocked"
                       :class="device.is_locked ? 'text-error' : 'text-secondary'" /></div>
                   <ConfirmModal @on-confirm="() => tryDeleteDevices([device.internal_ip])">

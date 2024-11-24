@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 
 import PaginationControls from '@/components/PaginationControls.vue'
@@ -46,9 +46,11 @@ const isCreateTokenModalOpen = ref(false)
 const toast = useToast()
 const { catcher } = useToastError()
 
-async function deleteToken(token: RegistrationTokenRequestDTO) {
-  //TODO handle multiple
-  const tokensToDelete = [token.token]
+async function deleteTokens(tokensToDelete: string[]) {
+  if(tokensToDelete.length == 0) {
+    return
+  }
+
   try {
     const resp = await deleteRegistrationTokens(tokensToDelete)
 
@@ -63,6 +65,27 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
     catcher(e, 'failed to delete token: ')
   }
 }
+
+
+const selectedTokens = ref<string[]>([])
+const selectAll = ref(false)
+
+watch(selectAll, (newValue) => {
+  if (newValue) {
+    // Select all devices
+    selectedTokens.value = currentTokens.value.map(t => t.token)
+  } else {
+    // Deselect all devices
+    selectedTokens.value = []
+  }
+})
+
+watch(selectedTokens, (newVal) => {
+  if(newVal.length == 0) {
+    selectAll.value = false
+  }
+})
+
 </script>
 
 <template>
@@ -82,11 +105,18 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
       <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
         <div class="card-body">
           <div class="flex flex-row justify-between">
+            <span class="flex">
             <div class="tooltip" data-tip="Add rule">
               <button class="btn btn-ghost btn-primary" @click="() => (isCreateTokenModalOpen = true)">
                 Add Token <font-awesome-icon :icon="Icons.Add" />
               </button>
             </div>
+            <div class="tooltip" :data-tip="'Delete '+selectedTokens.length+' tokens'">
+                <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)" >
+                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                </ConfirmModal>
+              </div>
+            </span>
             <div class="form-control">
               <label class="label">
                 <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
@@ -97,6 +127,9 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
           <table class="table table-fixed w-full">
             <thead>
               <tr>
+                <th class="w-10">
+                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                </th>
                 <th>Token</th>
                 <th>Username</th>
                 <th>Groups</th>
@@ -106,6 +139,9 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
             </thead>
             <tbody>
               <tr class="hover group" v-for="token in currentTokens" :key="token.token">
+                <th>
+                    <input type="checkbox" class="checkbox" v-model="selectedTokens" :value="token.token"/>
+                </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.token }}</div>
                 </td>
@@ -120,7 +156,7 @@ async function deleteToken(token: RegistrationTokenRequestDTO) {
                 </td>
                 <td class="font-mono relative">
                   <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
-                  <ConfirmModal @on-confirm="() => deleteToken(token)">
+                  <ConfirmModal @on-confirm="() => deleteTokens([token.token])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     >
