@@ -18,7 +18,7 @@ const props = defineProps<{
   onSuccess?: (data?: any) => void
 }>()
 
-const newToken = ref({ uses: 1 } as RegistrationTokenRequestDTO)
+const newToken = ref({uses: 1} as RegistrationTokenRequestDTO)
 
 const emit = defineEmits(['update:isOpen'])
 
@@ -49,7 +49,7 @@ async function createToken() {
   } catch (e) {
     catcher(e, 'failed to create token: ')
   } finally {
-    newToken.value = {} as RegistrationTokenRequestDTO
+    newToken.value = {uses: 1} as RegistrationTokenRequestDTO
   }
 }
 </script>
@@ -87,7 +87,7 @@ async function createToken() {
 
         <div class="form-group">
           <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
-          <input type="text" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" placeholder="1" />
+          <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
         </div>
 
         <span class="mt-4 flex">

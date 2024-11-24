@@ -6,6 +6,7 @@ import Modal from '@/components/Modal.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
@@ -15,7 +16,6 @@ import { useTextareaInput } from '@/composables/useTextareaInput'
 import { Icons } from '@/util/icons'
 
 import { getAllRules, type RuleDTO, editRule, createRule, deleteRules } from '@/api'
-import EmptyTable from '@/components/EmptyTable.vue'
 
 const { data: rulesData, isLoading: isLoadingRules, silentlyRefresh: refreshRules } = useApi(() => getAllRules())
 

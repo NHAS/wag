@@ -80,11 +80,15 @@ func (au *AdminUI) editDevice(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) deleteDevice(w http.ResponseWriter, r *http.Request) {
 
-	var addresses []string
+	var (
+		addresses []string
+		err       error
+	)
+	defer func() { au.respond(err, w) }()
 
-	err := json.NewDecoder(r.Body).Decode(&addresses)
+	err = json.NewDecoder(r.Body).Decode(&addresses)
 	if err != nil {
-		http.Error(w, "Bad request", 400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -92,10 +96,8 @@ func (au *AdminUI) deleteDevice(w http.ResponseWriter, r *http.Request) {
 		err := au.ctrl.DeleteDevice(address)
 		if err != nil {
 			log.Println("Error Deleting device: ", address, "err:", err)
-
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
-	w.Write([]byte("OK"))
 }

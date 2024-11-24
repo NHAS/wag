@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
+import { useRoute } from 'vue-router'
 
 import PaginationControls from '@/components/PaginationControls.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import RegistrationToken from '@/components/RegistrationToken.vue'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
@@ -14,8 +16,6 @@ import { useUsersStore } from '@/stores/users'
 import { Icons } from '@/util/icons'
 
 import { deleteUsers, editUser, UserEditActions, type EditUsersDTO, type UserDTO } from '@/api'
-import { useRoute } from 'vue-router'
-import EmptyTable from '@/components/EmptyTable.vue'
 
 const usersStore = useUsersStore()
 usersStore.load(false)
@@ -30,7 +30,9 @@ const filterLocked = ref(route.params.filter == 'locked')
 const filterUnsetMfa = ref(route.params.filter == 'unset')
 
 const filteredUsers = computed(() => {
-  const arr = allUsers.value.filter(a => a.locked || !filterLocked.value).filter(a => (a.mfa_type == '' || a.mfa_type == 'unset') || !filterUnsetMfa.value)
+  const arr = allUsers.value
+    .filter(a => a.locked || !filterLocked.value)
+    .filter(a => a.mfa_type == '' || a.mfa_type == 'unset' || !filterUnsetMfa.value)
 
   if (filterText.value == '') {
     return arr

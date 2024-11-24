@@ -216,7 +216,6 @@ async function tryDeleteGroups(groups: string[]) {
             </table>
             <EmptyTable v-if="currentGroups.length == 0" text="No groups" />
 
-
             <div class="mt-2 w-full text-center">
               <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
             </div>

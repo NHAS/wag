@@ -1,23 +1,25 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
+import { useRoute } from 'vue-router'
 
 import PaginationControls from '@/components/PaginationControls.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import RegistrationToken from '@/components/RegistrationToken.vue'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 
-import { useRoute } from 'vue-router'
 import { useDevicesStore } from '@/stores/devices'
+
 import { Icons } from '@/util/icons'
 
 import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
-import EmptyTable from '@/components/EmptyTable.vue'
+
 
 const devicesStore = useDevicesStore()
-devicesStore.load(false)
+devicesStore.load(true)
 
 const route = useRoute()
 
@@ -52,6 +54,10 @@ const toast = useToast()
 const { catcher } = useToastError()
 
 async function updateDevice(addresses: string[], action: DeviceEditActions) {
+  if(addresses.length == 0) {
+    return
+  }
+
   try {
     let data: EditDevicesDTO = {
       action: action,
@@ -73,6 +79,10 @@ async function updateDevice(addresses: string[], action: DeviceEditActions) {
 }
 
 async function tryDeleteDevices(rules: string[]) {
+  if(rules.length == 0) {
+    return
+  }
+
   try {
 
     const resp = await deleteDevices(rules)
@@ -96,15 +106,15 @@ const ascending = ref(true)
 
 function sortDevices(by: keyof DeviceDTO) {
 
-  if(lastSort.value == null || lastSort.value == by) {
+  if (lastSort.value == null || lastSort.value == by) {
     ascending.value = !ascending.value
   } else {
     ascending.value = true
     lastSort.value = by
   }
 
-  if(devicesStore.devices) {
-    devicesStore.devices.sort((a,b) => {
+  if (devicesStore.devices) {
+    devicesStore.devices.sort((a, b) => {
       const valueA = a[by];
       const valueB = b[by];
       const compair = valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
@@ -112,6 +122,25 @@ function sortDevices(by: keyof DeviceDTO) {
     })
   }
 }
+
+
+const selectedDevices = ref<string[]>([])
+const selectAll = ref(false)
+
+watch(selectAll, (newValue) => {
+  if (newValue) {
+    // Select all devices
+    selectedDevices.value = currentDevices.value.map(device => device.internal_ip)
+  } else {
+    // Deselect all devices
+    selectedDevices.value = []
+  }
+})
+
+watch(filteredDevices, () => {
+  selectAll.value = false
+  selectedDevices.value = []
+})
 
 </script>
 
@@ -128,27 +157,44 @@ function sortDevices(by: keyof DeviceDTO) {
       <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
         <div class="card-body">
           <div class="flex flex-row justify-between">
-            <div class="tooltip" data-tip="Create Registration Token">
-              <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device <font-awesome-icon :icon="Icons.Add" /></button>
-            </div>
             <span class="flex">
-            <label class="label cursor-pointer mr-4">
-              <span class="label-text mr-2">Locked</span>
-              <input v-model=filterLocked type="checkbox" class="toggle toggle-primary"/>
-            </label>
-            <label class="label cursor-pointer mr-4">
-              <span class="label-text mr-2">Active</span>
-              <input v-model=filterActive type="checkbox" class="toggle toggle-primary"/>
-            </label>
-            <label class="label">
-              <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
-            </label>
-          </span>
-          </div>
+              <div class="tooltip" data-tip="Create Registration Token">
+                <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
+                  <font-awesome-icon :icon="Icons.Add" /></button>
+              </div>
+              <div class="tooltip" :data-tip="'Lock '+selectedDevices.length+' devices'">
+                <button class="btn btn-ghost btn-primary">Lock Devices
+                  <font-awesome-icon :icon="Icons.Locked" /></button>
+              </div>
+              <div class="tooltip" :data-tip="'Delete '+selectedDevices.length+' devices'">
+                <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)">
+                <button class="btn btn-ghost btn-primary">Bulk Delete
+                  <font-awesome-icon :icon="Icons.Delete" /></button>
+                  </ConfirmModal>
+              </div>
+            </span>
 
+            
+            <span class="flex">
+              <label class="label cursor-pointer mr-4">
+                <span class="label-text mr-2">Locked</span>
+                <input v-model=filterLocked type="checkbox" class="toggle toggle-primary" />
+              </label>
+              <label class="label cursor-pointer mr-4">
+                <span class="label-text mr-2">Active</span>
+                <input v-model=filterActive type="checkbox" class="toggle toggle-primary" />
+              </label>
+              <label class="label">
+                <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
+              </label>
+            </span>
+          </div>
           <table class="table table-fixed w-full">
             <thead>
               <tr>
+                <th class="w-10">
+                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                </th>
                 <th class="cursor-pointer" @click="sortDevices('owner')">Owner</th>
                 <th class="cursor-pointer" @click="sortDevices('active')">Active</th>
                 <th class="cursor-pointer" @click="sortDevices('internal_ip')">Address</th>
@@ -159,6 +205,9 @@ function sortDevices(by: keyof DeviceDTO) {
             </thead>
             <tbody>
               <tr class="hover group" v-for="device in currentDevices" :key="device.internal_ip">
+                <th>
+                    <input type="checkbox" class="checkbox" v-model="selectedDevices" :value="device.internal_ip"/>
+                </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.owner }}</div>
                 </td>
@@ -173,7 +222,7 @@ function sortDevices(by: keyof DeviceDTO) {
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.last_endpoint == '<nil>' ? '-'
-                    : device.last_endpoint}}</div>
+                    : device.last_endpoint }}</div>
 
                 </td>
                 <td class="font-mono relative">
@@ -181,7 +230,7 @@ function sortDevices(by: keyof DeviceDTO) {
                       @click="updateDevice([device.internal_ip], (device.is_locked) ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
                       :icon="device.is_locked ? Icons.Locked : Icons.Unlocked"
                       :class="device.is_locked ? 'text-error' : 'text-secondary'" /></div>
-                      <ConfirmModal @on-confirm="() => tryDeleteDevices([device.internal_ip])">
+                  <ConfirmModal @on-confirm="() => tryDeleteDevices([device.internal_ip])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />

@@ -2,13 +2,14 @@
 import { computed } from 'vue'
 
 import EmptyTable from '@/components/EmptyTable.vue'
+import PaginationControls from '@/components/PaginationControls.vue'
+
+import { usePagination } from '@/composables/usePagination'
 
 import { useUsersStore } from '@/stores/users'
 import { useDevicesStore } from '@/stores/devices'
 import { useTokensStore } from '@/stores/registration_tokens'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
-import { usePagination } from '@/composables/usePagination'
-import PaginationControls from '@/components/PaginationControls.vue'
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -28,10 +29,8 @@ const usersLackingMfa = computed(() => allUsers.value.filter(x => x.mfa_type == 
 const allDevices = computed(() => devicesStore.devices ?? [])
 const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
 
-
 const allLogLines = computed(() => instanceDetails.logLines?.log_lines ?? [])
 const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLines, activePage } = usePagination(allLogLines, 20)
-
 </script>
 
 <template>
@@ -41,7 +40,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
       <div class="flex w-full gap-4">
         <div class="flex grid w-1/2 grid-cols-2 gap-4 min-w-[405px]">
           <router-link
-            :to="'/management/users' + (usersLackingMfa.length == 0 ? '' : '/unset') "
+            :to="'/management/users' + (usersLackingMfa.length == 0 ? '' : '/unset')"
             class="card-compact bg-base-100 shadow-xl border-l-4"
             :class="usersLackingMfa.length == 0 ? 'border-primary' : 'border-error'"
           >
@@ -55,7 +54,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
             </div>
           </router-link>
           <router-link
-             :to="'/management/devices' + (lockedDevices.length == 0 ? '/' : '/locked') "
+            :to="'/management/devices' + (lockedDevices.length == 0 ? '/' : '/locked')"
             class="card-compact bg-base-100 shadow-xl border-l-4"
             :class="lockedDevices.length == 0 ? 'border-primary' : 'border-error'"
           >
@@ -131,8 +130,8 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
           </table>
           <EmptyTable v-if="instanceDetails.log.length == 0" text="No log lines yet" />
           <div class="mt-2 w-full text-center">
-              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
-           </div>
+            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
+          </div>
         </div>
       </div>
     </div>

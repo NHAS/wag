@@ -5,6 +5,7 @@ import { useToast } from 'vue-toastification'
 import PaginationControls from '@/components/PaginationControls.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import RegistrationToken from '@/components/RegistrationToken.vue'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 import { deleteRegistrationTokens } from '@/api/registration_tokens'
 
@@ -16,7 +17,6 @@ import { useTokensStore } from '@/stores/registration_tokens'
 import { Icons } from '@/util/icons'
 
 import type { RegistrationTokenRequestDTO } from '@/api'
-import EmptyTable from '@/components/EmptyTable.vue'
 
 const tokensStore = useTokensStore()
 tokensStore.load(true)
