@@ -39,6 +39,8 @@ const newMemberDetails = ref<NewNodeRequestDTO>({
   node_name: ''
 } as NewNodeRequestDTO)
 
+const isAddLoading = ref(false)
+
 async function addMember() {
   if (newMemberDetails.value?.connection_url.length == 0) {
     toast.error('Peer URL must be defined')
@@ -46,6 +48,8 @@ async function addMember() {
   }
 
   try {
+    isAddLoading.value = true
+
     const resp = await addClusterMember(newMemberDetails.value)
     refresh()
 
@@ -53,17 +57,16 @@ async function addMember() {
       toast.error(resp.error_message)
       return
     } else {
-      toast.info(
-        `New join token: ${resp.join_token}\nThis will not be displayed again, valid 30 seconds\nUse 'wag start -token ${resp.join_token}'`,
-        {
-          timeout: false,
-          closeOnClick: false,
-          draggable: false
-        }
-      )
+      toast.info(`New join token: ${resp.join_token}\nThis will not be displayed again, valid 30 seconds`, {
+        timeout: false,
+        closeOnClick: false,
+        draggable: false
+      })
     }
   } catch (e) {
-    catcher(e, 'failed to add new cluster member: ')
+    catcher(e, 'failed to add new cluster member: ', 'error_message')
+  } finally {
+    isAddLoading.value = false
   }
 }
 
@@ -147,7 +150,9 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
           </div>
 
           <span class="mt-8 flex">
-            <button class="btn btn-primary" @click="() => addMember()">Add</button>
+            <button class="btn btn-primary" @click="() => addMember()">
+              Add <span class="loading loading-spinner loading-md" v-if="isAddLoading"></span>
+            </button>
 
             <div class="flex flex-grow"></div>
 
@@ -157,6 +162,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
       </div>
     </Modal>
     <h1 class="text-4xl font-bold">Cluster Members</h1>
+
     <button class="btn btn-ghost btn-primary" @click="openAddMemberModal">
       Add Cluster Member <font-awesome-icon :icon="Icons.Add" />
     </button>
@@ -204,10 +210,10 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
                 @click="() => controlNode(member, NodeControlActions.Promote)"
                 :disabled="member.name.length == 0"
               >
-                Promote
+                Promote <font-awesome-icon :icon="Icons.Up" />
               </button>
               <button v-if="member.leader" class="btn btn-sm btn-info" @click="() => controlNode(member, NodeControlActions.Stepdown)">
-                Step Down
+                Step Down <font-awesome-icon :icon="Icons.Down" />
               </button>
               <span v-if="!member.witness">
                 <button
@@ -216,7 +222,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
                   @click="() => controlNode(member, NodeControlActions.Restore)"
                   :disabled="member.name.length == 0"
                 >
-                  Restore
+                  Restore <font-awesome-icon :icon="Icons.Restore" />
                 </button>
                 <button
                   v-else
@@ -224,7 +230,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
                   @click="() => controlNode(member, NodeControlActions.Drain)"
                   :disabled="member.name.length == 0"
                 >
-                  Drain
+                  Drain <font-awesome-icon :icon="Icons.Pause" />
                 </button>
               </span>
             </div>

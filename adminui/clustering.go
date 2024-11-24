@@ -105,7 +105,7 @@ func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
 
 	newNodeResp.JoinToken, err = data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
 	if err != nil {
-		log.Println("failed to add member: ", newNodeResp.ErrorMessage)
+		log.Println("failed to add member: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
