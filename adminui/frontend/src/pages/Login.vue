@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
+import PageLoading from '@/components/PageLoading.vue'
 
 import HrOr from '@/components/HrOr.vue'
 
@@ -12,13 +13,17 @@ import { useAuthStore } from '@/stores/auth'
 
 import { Icons } from '@/util/icons'
 
-import { changePassword } from '@/api'
+import { changePassword, getConfig } from '@/api'
+import { useApi } from '@/composables/useApi'
 
 const authStore = useAuthStore()
 const router = useRouter()
 const toast = useToast()
 
 const { hasCompletedAuth, loginError, isLoginLoading, loggedInUser } = storeToRefs(authStore)
+
+const { data: config, isLoading: isConfigLoading } = useApi(() => getConfig())
+
 
 enum ActiveScreens {
   FirstStep,
@@ -59,7 +64,7 @@ async function doCredentialLogin(event: Event) {
   authStore.login(username.value, password.value)
 }
 
-async function startOIDCLogin() {
+async function oidcLogin() {
   window.location.href = '/login/oidc'
 }
 
@@ -110,14 +115,15 @@ async function doPasswordChange(event: Event) {
 
 <template>
   <main class="z-10 flex min-h-screen items-center justify-center self-center bg-neutral">
-    <div class="card w-96 bg-base-100 shadow-xl">
+    <PageLoading v-if="isConfigLoading" />
+    <div v-else class="card w-96 bg-base-100 shadow-xl">
       <div class="card-body">
         <div class="card-title justify-center">
           <h2>{{ cardTitle }}</h2>
         </div>
 
         <div v-if="activeScreen == ActiveScreens.FirstStep">
-          <form @submit="doCredentialLogin">
+          <form @submit="doCredentialLogin" v-if="config?.password">
             <div v-if="loginError != null" class="my-2 text-center text-red-500">
               <p>{{ loginError }}</p>
             </div>
@@ -141,10 +147,10 @@ async function doPasswordChange(event: Event) {
             </div>
           </form>
 
-          <HrOr class="my-4" v-if="true" />
+          <HrOr class="my-4" v-if="config?.password && config?.sso" />
 
-          <div class="form-control" v-if="true">
-            <button class="btn btn-primary" @click="startOIDCLogin" :disabled="isLoginLoading">Login with SSO</button>
+          <div class="form-control" v-if="config?.sso">
+            <button class="btn btn-primary" @click="oidcLogin" :disabled="isLoginLoading">Login with SSO</button>
           </div>
         </div>
 

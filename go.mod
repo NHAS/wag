@@ -6,7 +6,7 @@ toolchain go1.23.2
 
 require (
 	github.com/NHAS/autoetcdtls v0.0.0-20240225231227-9d5906c5b4f2
-	github.com/NHAS/session v0.0.0-20241105193613-908b3caea1a4
+	github.com/NHAS/session v0.0.0-20241124222245-5e27e2e39187
 	github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa
 	github.com/boombuler/barcode v1.0.2
 	github.com/coreos/go-iptables v0.8.0

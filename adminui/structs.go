@@ -194,3 +194,8 @@ type NodeControlRequestDTO struct {
 	Node   string `json:"node"`
 	Action string `json:"actions"`
 }
+
+type ConfigResponseDTO struct {
+	SSO      bool `json:"sso"`
+	Password bool `json:"password"`
+}

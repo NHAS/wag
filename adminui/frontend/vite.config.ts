@@ -23,7 +23,16 @@ export default defineConfig({
         headers: {
           origin: process.env.DEV_API_URL
         }
-      }
+      },
+      '/login':{
+        target: process.env.DEV_API_URL,
+        changeOrigin: true,
+        secure: false,      
+        ws: true,
+        headers: {
+          origin: process.env.DEV_API_URL
+        }
+      },
     }
   }
 })

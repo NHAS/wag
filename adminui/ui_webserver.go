@@ -191,18 +191,18 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		allRoutes.HandleFunc("GET /assets/", frontend.Assets)
 
 		allRoutes.HandleFunc("POST /api/login", adminUI.doLogin)
+		allRoutes.HandleFunc("GET /api/config", adminUI.uiConfig)
 		allRoutes.HandleFunc("POST /api/refresh", adminUI.doAuthRefresh)
 
 		if config.Values.ManagementUI.OIDC.Enabled {
-
-			allRoutes.HandleFunc("/login/oidc", func(w http.ResponseWriter, r *http.Request) {
+			allRoutes.HandleFunc("GET /login/oidc", func(w http.ResponseWriter, r *http.Request) {
 				rp.AuthURLHandler(func() string {
 					r, _ := utils.GenerateRandomHex(32)
 					return r
 				}, adminUI.oidcProvider)(w, r)
 			})
 
-			allRoutes.HandleFunc("/login/oidc/callback", adminUI.oidcCallback)
+			allRoutes.HandleFunc("GET /login/oidc/callback", adminUI.oidcCallback)
 		}
 
 		allRoutes.Handle("/api/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
@@ -336,6 +336,15 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	return &adminUI, nil
 }
 
+func (au *AdminUI) uiConfig(w http.ResponseWriter, r *http.Request) {
+	m := ConfigResponseDTO{
+		SSO:      config.Values.ManagementUI.OIDC.Enabled,
+		Password: *config.Values.ManagementUI.Password.Enabled,
+	}
+
+	json.NewEncoder(w).Encode(m)
+}
+
 func (au *AdminUI) doAuthRefresh(w http.ResponseWriter, r *http.Request) {
 	sessId, user := au.sessionManager.GetSessionFromRequest(r)
 	if user == nil {
@@ -454,7 +463,7 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		data.SetLastLoginInformation(info.Subject, r.RemoteAddr)
 
 		au.sessionManager.StartSession(w, r, adminLogin, nil)
-		http.Redirect(w, r, "/dashboard", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 	}
 
 	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), au.oidcProvider)(w, r)

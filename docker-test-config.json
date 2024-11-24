@@ -16,7 +16,17 @@
     "ManagementUI": {
         "ListenAddress": "127.0.0.1:4433",
         "Enabled": true,
-        "Debug": false
+        "Debug": false,
+        "Password": {
+            "Enabled": true
+        },
+        "OIDC": {
+            "AdminDomainURL": "",
+			"IssuerURL": "",
+			"ClientSecret": "",
+			"ClientID": "",
+			"Enabled": false
+        }
     },
     "Webserver": {
         "Public": {

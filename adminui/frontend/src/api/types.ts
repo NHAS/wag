@@ -257,3 +257,8 @@ export interface TestNotificationsRequestDTO {
 export interface AcknowledgeErrorResponseDTO {
   error_id: string
 }
+
+export interface ConfigResponseDTO {
+  sso: boolean
+  password: boolean
+}

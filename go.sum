@@ -16,6 +16,8 @@ github.com/NHAS/session v0.0.0-20240328005943-54860ccd92f8 h1:mwOpQmLJtp8BMAT6Ht
 github.com/NHAS/session v0.0.0-20240328005943-54860ccd92f8/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/session v0.0.0-20241105193613-908b3caea1a4 h1:WHwVINwVexLI2K7A2JhgPHHNrJeOquOEEnf7ixvdjPc=
 github.com/NHAS/session v0.0.0-20241105193613-908b3caea1a4/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
+github.com/NHAS/session v0.0.0-20241124222245-5e27e2e39187 h1:7Dytx10eY9QVpHCd+MWDEigMAu4VOHgglq3bxucB5hM=
+github.com/NHAS/session v0.0.0-20241124222245-5e27e2e39187/go.mod h1:RrYUQgrmfMmXblxB8uWEWhmTKk24PT/VoMsyQ5PD580=
 github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa h1:z8Lo9+R9h4ZF5qvq2NTrWGVjL8gE92cPUv9J4i4yYKg=
 github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa/go.mod h1:WfTnekCrJZ8MTDSlOeFACJTeGFvQnLInNzbZLRpoqTU=
 github.com/NHAS/wireguard-go v0.0.0-20241018020717-74ab25b11058 h1:QEUGPjvBqKm53fFaOF+e+thevcleTTGmkYoDPBYnZtE=
