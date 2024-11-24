@@ -20,6 +20,10 @@ jobs:
 
       - name: Install build tools
         run: sudo apt install -y make git npm gulp libpam0g-dev
+      
+      - name: Install NPM tools
+        working-directory: adminui/frontend
+        run: npm install
 
       - name: build
         run: make release
