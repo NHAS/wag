@@ -7,7 +7,7 @@ export function useToastError() {
   const catcher = (e: any, prefixString: string = '') => {
     let errorString = 'Unknown Error'
     if (e instanceof AxiosError) {
-      errorString = e.response?.data?.message
+      errorString = e.response?.data?.message ?? e.message
     } else if (e instanceof Error) {
       errorString = e.message
     }
