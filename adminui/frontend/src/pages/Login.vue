@@ -3,18 +3,18 @@ import { ref, watch, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
-import PageLoading from '@/components/PageLoading.vue'
 
+import PageLoading from '@/components/PageLoading.vue'
 import HrOr from '@/components/HrOr.vue'
 
 import { useToastError } from '@/composables/useToastError'
+import { useApi } from '@/composables/useApi'
 
 import { useAuthStore } from '@/stores/auth'
 
 import { Icons } from '@/util/icons'
 
 import { changePassword, getConfig } from '@/api'
-import { useApi } from '@/composables/useApi'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -23,7 +23,6 @@ const toast = useToast()
 const { hasCompletedAuth, loginError, isLoginLoading, loggedInUser } = storeToRefs(authStore)
 
 const { data: config, isLoading: isConfigLoading } = useApi(() => getConfig())
-
 
 enum ActiveScreens {
   FirstStep,

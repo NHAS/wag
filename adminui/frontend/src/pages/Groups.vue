@@ -6,6 +6,7 @@ import Modal from '@/components/Modal.vue'
 import PaginationControls from '@/components/PaginationControls.vue'
 import PageLoading from '@/components/PageLoading.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
+import EmptyTable from '@/components/EmptyTable.vue'
 
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
@@ -15,7 +16,6 @@ import { useTextareaInput } from '@/composables/useTextareaInput'
 import { Icons } from '@/util/icons'
 
 import { getAllGroups, type GroupDTO, editGroup, createGroup, deleteGroups } from '@/api'
-import EmptyTable from '@/components/EmptyTable.vue'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -217,7 +217,6 @@ async function tryDeleteGroups(groups: string[]) {
             </table>
             <EmptyTable v-if="allGroups.length == 0" text="No groups" />
             <EmptyTable v-if="allGroups.length != 0 && allGroups.length == 0" text="No matching groups" />
-
 
             <div class="mt-2 w-full text-center">
               <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />

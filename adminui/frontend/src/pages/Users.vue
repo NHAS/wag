@@ -262,7 +262,6 @@ const selectedUsersHasLocked = computed(() => {
           <EmptyTable v-if="allUsers.length == 0" text="No users" />
           <EmptyTable v-if="allUsers.length != 0 && currentUsers.length == 0" text="No matching users" />
 
-
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
           </div>

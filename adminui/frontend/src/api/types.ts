@@ -262,3 +262,27 @@ export interface ConfigResponseDTO {
   sso: boolean
   password: boolean
 }
+
+export interface NewNodeRequestDTO {
+  node_name: string
+  connection_url: string
+  manager_url: string
+}
+
+export interface NewNodeResponseDTO {
+  join_token: string
+  error_message: string
+}
+
+export interface NodeControlRequestDTO {
+  node: string
+  action: NodeControlActions
+}
+
+export enum NodeControlActions {
+  Promote = 'promote',
+  Drain = 'drain',
+  Restore = 'restore',
+  Stepdown = 'stepdown',
+  Remove = 'remove'
+}

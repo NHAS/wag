@@ -78,7 +78,7 @@ function openErrorInspectionModal(error: EventErrorDTO) {
 }
 
 const isInspectionModalOpen = ref(false)
-const inspectedEvent = ref<GeneralEvent>({state: {previous: "", current: ""}} as GeneralEvent)
+const inspectedEvent = ref<GeneralEvent>({ state: { previous: '', current: '' } } as GeneralEvent)
 function openEventInspectionModal(error: GeneralEvent) {
   inspectedEvent.value = error
   isInspectionModalOpen.value = true

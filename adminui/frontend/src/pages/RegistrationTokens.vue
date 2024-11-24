@@ -166,7 +166,6 @@ watch(selectedTokens, newVal => {
           <EmptyTable v-if="tokens.length == 0" text="No registration tokens" />
           <EmptyTable v-if="tokens.length != 0 && tokens.length == 0" text="No matching tokens" />
 
-
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
           </div>

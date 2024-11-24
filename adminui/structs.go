@@ -6,7 +6,6 @@ import (
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/go-playground/validator/v10"
-	"go.etcd.io/etcd/client/pkg/v3/types"
 )
 
 type Page struct {
@@ -130,8 +129,8 @@ type GenericResponseDTO struct {
 }
 
 type MembershipDTO struct {
-	ID   types.ID `json:"id"`
-	Name string   `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 
 	IsDrained     bool `json:"drained"`
 	IsWitness     bool `json:"witness"`
@@ -187,12 +186,12 @@ type NewNodeRequestDTO struct {
 
 type NewNodeResponseDTO struct {
 	JoinToken    string `json:"join_token"`
-	ErrorMessage error  `json:"error_message"`
+	ErrorMessage string `json:"error_message"`
 }
 
 type NodeControlRequestDTO struct {
 	Node   string `json:"node"`
-	Action string `json:"actions"`
+	Action string `json:"action"`
 }
 
 type ConfigResponseDTO struct {

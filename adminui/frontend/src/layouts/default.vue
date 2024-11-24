@@ -2,12 +2,12 @@
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
+import logo from '../../public/WagLogo.png'
+
 import { useAuthStore } from '@/stores/auth'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
 
 import { Icons } from '@/util/icons'
-
-import logo from "../../public/WagLogo.png"
 
 const authStore = useAuthStore()
 
@@ -70,7 +70,7 @@ async function logout() {
       <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
       <aside class="flex min-h-full w-72 flex-col p-4 bg-neutral text-neutral-content">
         <RouterLink to="/dashboard">
-          <h2 class="btn btn-ghost w-full text-center text-3xl">Wag<img class="h-14" :src="logo"/></h2>
+          <h2 class="btn btn-ghost w-full text-center text-3xl">Wag<img class="h-14" :src="logo" /></h2>
           <div class="w-full text-center" v-if="info.serverInfo.version != ''">
             <small class="text-center font-mono text-xs">{{ info.serverInfo.version }}</small>
           </div>

@@ -63,7 +63,7 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 		}
 
 		members = append(members, MembershipDTO{
-			ID:            member.ID,
+			ID:            member.ID.String(),
 			PeerUrls:      member.PeerURLs,
 			Name:          member.Name,
 			IsLearner:     member.IsLearner,
@@ -86,21 +86,25 @@ func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
 	var (
 		newNodeReq  NewNodeRequestDTO
 		newNodeResp NewNodeResponseDTO
+		err         error
 	)
 
 	defer func() {
 		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			newNodeResp.ErrorMessage = err.Error()
+		}
 		json.NewEncoder(w).Encode(newNodeResp)
 	}()
 
-	newNodeResp.ErrorMessage = json.NewDecoder(r.Body).Decode(&newNodeReq)
-	if newNodeResp.ErrorMessage != nil {
+	err = json.NewDecoder(r.Body).Decode(&newNodeReq)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	newNodeResp.JoinToken, newNodeResp.ErrorMessage = data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
-	if newNodeResp.ErrorMessage != nil {
+	newNodeResp.JoinToken, err = data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
+	if err != nil {
 		log.Println("failed to add member: ", newNodeResp.ErrorMessage)
 		w.WriteHeader(http.StatusInternalServerError)
 		return

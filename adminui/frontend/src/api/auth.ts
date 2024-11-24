@@ -15,8 +15,6 @@ export function apiRefreshAuth(): Promise<AuthLoginResponseDTO> {
   return client.post('/api/refresh').then(res => res.data)
 }
 
-
-
 export function logout() {
   return client.get('/api/logout')
 }
