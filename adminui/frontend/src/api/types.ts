@@ -100,8 +100,20 @@ export interface EventErrorDTO {
   time: string
 }
 
+export interface EventState {
+  current: string
+  previous: string
+}
+
+export interface GeneralEvent {
+  type: string
+  key: string
+  time: string
+  state: EventState
+}
+
 export interface ClusterEvents {
-  events: string[]
+  events: GeneralEvent[]
   errors: EventErrorDTO[]
 }
 

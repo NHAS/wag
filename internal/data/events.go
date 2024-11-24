@@ -55,7 +55,7 @@ var (
 	clusterHealthLck       sync.RWMutex
 	clusterHealthListeners = map[string]func(string){}
 
-	EventsQueue = queue.NewQueue(40)
+	EventsQueue = queue.NewQueue[GeneralEvent](40)
 	exit        = make(chan bool)
 )
 
@@ -139,20 +139,12 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 						return
 					}
 
-					switch state {
-					case DELETED, CREATED:
-						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]", key, state)))
-
-					case MODIFIED:
-
-						previous := "nil"
-						if prevKv != nil {
-							previous = string(prevKv.Value)
-						}
-
-						EventsQueue.Write([]byte(fmt.Sprintf("%s[%s]: %s -> %s", key, state, previous, string(value))))
-
+					previous := ""
+					if prevKv != nil {
+						previous = string(prevKv.Value)
 					}
+
+					EventsQueue.Write(NewGeneralEvent(state, string(key), string(value), previous))
 
 				}(event.Kv.Key, event.PrevKv)
 
@@ -161,6 +153,32 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 	}(wc)
 
 	return key, nil
+}
+
+type GeneralEvent struct {
+	Type string    `json:"type"`
+	Key  string    `json:"key"`
+	Time time.Time `json:"time"`
+
+	State struct {
+		Current  string `json:"current"`
+		Previous string `json:"previous"`
+	} `json:"state"`
+}
+
+func NewGeneralEvent(eType EventType, key, currentState, previousState string) GeneralEvent {
+	return GeneralEvent{
+		Type: eType.String(),
+		Key:  key,
+		Time: time.Now(),
+		State: struct {
+			Current  string "json:\"current\""
+			Previous string "json:\"previous\""
+		}{
+			Current:  currentState,
+			Previous: previousState,
+		},
+	}
 }
 
 func RegisterClusterHealthListener(f func(status string)) (string, error) {

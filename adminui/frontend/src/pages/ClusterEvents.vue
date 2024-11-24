@@ -17,7 +17,7 @@ import { useInstanceDetailsStore } from '@/stores/serverInfo'
 
 import { Icons } from '@/util/icons'
 
-import { type AcknowledgeErrorResponseDTO, type EventErrorDTO } from '@/api'
+import { type AcknowledgeErrorResponseDTO, type EventErrorDTO, type GeneralEvent } from '@/api'
 
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(false)
@@ -62,25 +62,32 @@ async function acknowledgeError(error: EventErrorDTO) {
     } else {
       toast.success('error acknowledged')
       refresh()
-      isInspectionModalOpen.value = false
+      isErrorInspectionModalOpen.value = false
     }
   } catch (e) {
     catcher(e, 'failed to acknowledged error: ')
   }
 }
 
-const isInspectionModalOpen = ref(false)
+const isErrorInspectionModalOpen = ref(false)
 const inspectedError = ref<EventErrorDTO>({} as EventErrorDTO)
 
-function openInspectionModal(error: EventErrorDTO) {
+function openErrorInspectionModal(error: EventErrorDTO) {
   inspectedError.value = error
+  isErrorInspectionModalOpen.value = true
+}
+
+const isInspectionModalOpen = ref(false)
+const inspectedEvent = ref<GeneralEvent>({state: {previous: "", current: ""}} as GeneralEvent)
+function openEventInspectionModal(error: GeneralEvent) {
+  inspectedEvent.value = error
   isInspectionModalOpen.value = true
 }
 </script>
 
 <template>
   <main class="w-full p-4">
-    <Modal v-model:isOpen="isInspectionModalOpen">
+    <Modal v-model:isOpen="isErrorInspectionModalOpen">
       <div class="w-screen max-w-[600px]">
         <h3 class="text-lg font-bold">Error {{ inspectedError.error_id }}</h3>
         <div class="mt-8">
@@ -113,7 +120,41 @@ function openInspectionModal(error: EventErrorDTO) {
 
             <div class="flex flex-grow"></div>
 
-            <button class="btn btn-secondary" @click="() => (isInspectionModalOpen = false)">Cancel</button>
+            <button class="btn btn-secondary" @click="() => (isErrorInspectionModalOpen = false)">Cancel</button>
+          </span>
+        </div>
+      </div>
+    </Modal>
+    <Modal v-model:isOpen="isInspectionModalOpen">
+      <div class="w-screen max-w-[600px]">
+        <h3 class="text-lg font-bold overflow-hidden text-ellipsis whitespace-nowrap">Event Key: {{ inspectedEvent.key }}</h3>
+        <div class="mt-8">
+          <p>
+            <span class="font-medium text-gray-900 pt-6">Time:</span>
+            {{
+              new Date(inspectedEvent.time).toLocaleString(undefined, {
+                weekday: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            }}
+          </p>
+
+          <label for="members" class="block font-medium text-gray-900 pt-6">New Key Value JSON:</label>
+          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" v-model="inspectedEvent.state.current"></textarea>
+
+          <div v-if="inspectedEvent.state.previous.length > 0">
+            <label for="members" class="block font-medium text-gray-900 pt-6">Previous Key Value JSON:</label>
+            <textarea
+              class="disabled textarea textarea-bordered w-full font-mono"
+              rows="3"
+              v-model="inspectedEvent.state.previous"
+            ></textarea>
+          </div>
+
+          <span class="mt-4 flex">
+            <div class="flex flex-grow"></div>
+            <button class="btn btn-secondary" @click="() => (isInspectionModalOpen = false)">Close</button>
           </span>
         </div>
       </div>
@@ -128,9 +169,32 @@ function openInspectionModal(error: EventErrorDTO) {
             <h2 class="card-title">General</h2>
             <table class="table table-fixed">
               <tbody>
-                <tr class="hover" v-for="(line, index) in currentEvents" :key="'cluster-events-' + index">
+                <tr
+                  class="hover"
+                  v-for="(event, index) in currentEvents"
+                  :key="'cluster-events-' + index"
+                  v-on:dblclick="openEventInspectionModal(event)"
+                >
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[145px]">
+                    {{
+                      new Date(event.time).toLocaleString(undefined, {
+                        weekday: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    }}
+                  </td>
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap">
-                    {{ line }}
+                    <div class="font-medium">{{ event.key }}</div>
+                  </td>
+                  <td class="relative overflow-hidden text-ellipsis whitespace-nowrap">
+                    <div class="font-medium">{{ event.type }}</div>
+                    <button
+                      @click="openEventInspectionModal(event)"
+                      class="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
+                      <font-awesome-icon :icon="Icons.Inspect" class="text-secondary hover:text-secondary-focus" />
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -151,7 +215,12 @@ function openInspectionModal(error: EventErrorDTO) {
             <h2 class="card-title">Errors</h2>
             <table class="table table-fixed">
               <tbody>
-                <tr class="hover group" v-for="error in currentErrors" :key="error.error_id" v-on:dblclick="openInspectionModal(error)">
+                <tr
+                  class="hover group"
+                  v-for="error in currentErrors"
+                  :key="error.error_id"
+                  v-on:dblclick="openErrorInspectionModal(error)"
+                >
                   <!-- Time -->
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[145px]">
                     {{
@@ -168,7 +237,7 @@ function openInspectionModal(error: EventErrorDTO) {
                   <td class="relative overflow-hidden text-ellipsis whitespace-nowrap">
                     <div class="font-medium">{{ error.error }}</div>
                     <button
-                      @click="openInspectionModal(error)"
+                      @click="openErrorInspectionModal(error)"
                       class="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     >
                       <font-awesome-icon :icon="Icons.Inspect" class="text-secondary hover:text-secondary-focus" />

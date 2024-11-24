@@ -10,7 +10,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useDevicesStore } from '@/stores/devices'
 import { useUsersStore } from '@/stores/users'
 
-
 const router = useRouter()
 const authStore = useAuthStore()
 const devicesStore = useDevicesStore()

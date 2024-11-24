@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,10 +18,6 @@ type UserModel struct {
 	MfaType   string
 	Locked    bool
 	Enforcing bool
-}
-
-func (um *UserModel) GetID() [20]byte {
-	return sha1.Sum([]byte(um.Username))
 }
 
 // IncrementAuthenticationAttempt Make sure that the attempts is always incremented first to stop race condition attacks

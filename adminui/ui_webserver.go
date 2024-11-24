@@ -35,7 +35,7 @@ type AdminUI struct {
 
 	oidcProvider rp.RelyingParty
 
-	logQueue *queue.Queue
+	logQueue *queue.Queue[[]byte]
 
 	https, http *http.Server
 
@@ -57,7 +57,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	var adminUI AdminUI
 	adminUI.firewall = firewall
-	adminUI.logQueue = queue.NewQueue(40)
+	adminUI.logQueue = queue.NewQueue[[]byte](40)
 
 	adminUI.ctrl = wagctl.NewControlClient(config.Values.Socket)
 

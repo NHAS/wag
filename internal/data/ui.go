@@ -16,7 +16,7 @@ import (
 
 const (
 	minPasswordLength = 14
-	saltLength        = 32
+	saltLength        = 8
 	LocalUser         = "local"
 	OidcUser          = "oidc"
 

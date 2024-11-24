@@ -38,8 +38,10 @@ func (au *AdminUI) serverInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (au *AdminUI) consoleLog(w http.ResponseWriter, r *http.Request) {
-	d := LogLinesDTO{
-		LogItems: au.logQueue.ReadAll(),
+	d := LogLinesDTO{}
+
+	for _, li := range au.logQueue.ReadAll() {
+		d.LogItems = append(d.LogItems, string(li))
 	}
 
 	w.Header().Set("content-type", "application/json")

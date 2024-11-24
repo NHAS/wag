@@ -120,8 +120,8 @@ type LoginResponsetDTO struct {
 }
 
 type EventsResponseDTO struct {
-	EventLog []string          `json:"events"`
-	Errors   []data.EventError `json:"errors"`
+	EventLog []data.GeneralEvent `json:"events"`
+	Errors   []data.EventError   `json:"errors"`
 }
 
 type GenericResponseDTO struct {
