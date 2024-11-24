@@ -171,7 +171,7 @@ const selectedDevicesHasLocked = computed(() => {
                   <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
               <div class="tooltip" :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ')+selectedDevices.length+' devices'">
-                <button @click="updateDevice(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} Devices
+                <button @click="updateDevice(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} 
                   <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
               <div class="tooltip" :data-tip="'Delete '+selectedDevices.length+' devices'">

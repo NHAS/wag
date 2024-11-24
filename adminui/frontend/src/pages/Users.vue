@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useRoute } from 'vue-router'
 
@@ -51,6 +51,10 @@ const toast = useToast()
 const { catcher } = useToastError()
 
 async function updateUser(usernames: string[], action: UserEditActions) {
+  if(usernames.length == 0) {
+    return
+  }
+
   try {
     let data: EditUsersDTO = {
       action: action,
@@ -72,16 +76,21 @@ async function updateUser(usernames: string[], action: UserEditActions) {
   }
 }
 
-async function tryDeleteUsers(rules: string[]) {
+async function tryDeleteUsers(users: string[]) {
+  if(users.length == 0) {
+    return
+  }
+
+
   try {
-    const resp = await deleteUsers(rules)
+    const resp = await deleteUsers(users)
     usersStore.load(true)
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success('user ' + rules.join(', ') + ' deleted!')
+      toast.success('user ' + users.join(', ') + ' deleted!')
     }
   } catch (e) {
     catcher(e, 'failed to delete user: ')
@@ -110,6 +119,35 @@ function sortUsers(by: keyof UserDTO) {
     })
   }
 }
+
+
+const selectedUsers = ref<string[]>([])
+const selectAll = ref(false)
+
+watch(selectAll, (newValue) => {
+  if (newValue) {
+    // Select all devices
+    selectedUsers.value = currentUsers.value.map(d => d.username)
+  } else {
+    // Deselect all devices
+    selectedUsers.value = []
+  }
+})
+
+watch(selectedUsers, (newVal) => {
+  if(newVal.length == 0) {
+    selectAll.value = false
+  }
+})
+
+const selectedUsersHasLocked = computed(() => {
+  if(selectedUsers.value.length == 0) {
+    return false
+  }
+
+  return allUsers.value.some(i => selectedUsers.value.includes(i.username) && i.locked)
+})
+
 </script>
 
 <template>
@@ -122,11 +160,27 @@ function sortUsers(by: keyof UserDTO) {
       <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
         <div class="card-body">
           <div class="flex flex-row justify-between">
+            <span class="flex">
             <div class="tooltip" data-tip="Create Registration Token">
               <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">
                 Add User <font-awesome-icon :icon="Icons.Add" />
               </button>
             </div>
+            <div class="tooltip" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ')+selectedUsers.length+' users'">
+                <button @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedUsersHasLocked ? 'Unlock' : 'Lock'}}
+                  <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
+            </div>
+            <div class="tooltip" :data-tip="'Reset '+selectedUsers.length+' users MFA'">
+                <button @click="updateUser(selectedUsers, UserEditActions.RestMFA)" class="btn btn-ghost btn-primary">Reset MFA
+                  <font-awesome-icon :icon="Icons.Refresh" /></button>
+            </div>
+            <div class="tooltip" :data-tip="'Delete '+selectedUsers.length+' users'">
+                <ConfirmModal @on-confirm="() => deleteUsers(selectedUsers)" >
+                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                </ConfirmModal>
+              </div>
+            </span>
+
             <span class="flex">
               <label class="label cursor-pointer mr-4">
                 <span class="label-text mr-2">Unset MFA</span>
@@ -145,6 +199,9 @@ function sortUsers(by: keyof UserDTO) {
           <table class="table table-fixed w-full">
             <thead>
               <tr>
+                <th class="w-10">
+                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                </th>
                 <th class="cursor-pointer" @click="sortUsers('username')">Username</th>
                 <th class="cursor-pointer" @click="sortUsers('groups')">Groups</th>
                 <th class="cursor-pointer" @click="sortUsers('devices')">Devices</th>
@@ -154,6 +211,9 @@ function sortUsers(by: keyof UserDTO) {
             </thead>
             <tbody>
               <tr class="hover group" v-for="user in currentUsers" :key="user.username">
+                <th>
+                    <input type="checkbox" class="checkbox" v-model="selectedUsers" :value="user.username"/>
+                </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.username }}</div>
                 </td>
