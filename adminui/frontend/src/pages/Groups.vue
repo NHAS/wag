@@ -190,7 +190,7 @@ async function tryDeleteGroups(groups: string[]) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover group" v-for="group in currentGroups" :key="group.group">
+                <tr class="hover group" v-for="group in currentGroups" :key="group.group" v-on:dblclick="openEditGroup(group)">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.group }}</div>
                   </td>

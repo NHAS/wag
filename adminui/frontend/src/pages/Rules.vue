@@ -206,7 +206,7 @@ async function tryDeleteRules(rules: string[]) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover group" v-for="rule in currentRules" :key="rule.effects">
+                <tr class="hover group" v-for="rule in currentRules" :key="rule.effects" v-on:dblclick="openEditRule(rule)">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ rule.effects }}</div>
                   </td>
