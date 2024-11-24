@@ -18,7 +18,7 @@ const props = defineProps<{
   onSuccess?: (data?: any) => void
 }>()
 
-const newToken = ref({uses: 1} as RegistrationTokenRequestDTO)
+const newToken = ref({ uses: 1 } as RegistrationTokenRequestDTO)
 
 const emit = defineEmits(['update:isOpen'])
 
@@ -49,7 +49,7 @@ async function createToken() {
   } catch (e) {
     catcher(e, 'failed to create token: ')
   } finally {
-    newToken.value = {uses: 1} as RegistrationTokenRequestDTO
+    newToken.value = { uses: 1 } as RegistrationTokenRequestDTO
   }
 }
 </script>

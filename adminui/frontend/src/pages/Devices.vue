@@ -27,7 +27,6 @@ const filterText = ref('')
 
 const allDevices = computed(() => devicesStore.devices ?? [])
 
-
 const filterActive = ref(route.params.filter == 'active')
 const filterLocked = ref(route.params.filter == 'locked')
 
@@ -130,16 +129,25 @@ const selectAll = ref(false)
 watch(selectAll, (newValue) => {
   if (newValue) {
     // Select all devices
-    selectedDevices.value = currentDevices.value.map(device => device.internal_ip)
+    selectedDevices.value = currentDevices.value.map(d => d.internal_ip)
   } else {
     // Deselect all devices
     selectedDevices.value = []
   }
 })
 
-watch(filteredDevices, () => {
-  selectAll.value = false
-  selectedDevices.value = []
+watch(selectedDevices, (newVal) => {
+  if(newVal.length == 0) {
+    selectAll.value = false
+  }
+})
+
+const selectedDevicesHasLocked = computed(() => {
+  if(selectedDevices.value.length == 0) {
+    return false
+  }
+
+  return   allDevices.value.some(i => selectedDevices.value.includes(i.internal_ip) && i.is_locked)
 })
 
 </script>
@@ -162,15 +170,14 @@ watch(filteredDevices, () => {
                 <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
                   <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
-              <div class="tooltip" :data-tip="'Lock '+selectedDevices.length+' devices'">
-                <button class="btn btn-ghost btn-primary">Lock Devices
-                  <font-awesome-icon :icon="Icons.Locked" /></button>
+              <div class="tooltip" :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ')+selectedDevices.length+' devices'">
+                <button @click="updateDevice(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} Devices
+                  <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
               <div class="tooltip" :data-tip="'Delete '+selectedDevices.length+' devices'">
-                <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)">
-                <button class="btn btn-ghost btn-primary">Bulk Delete
-                  <font-awesome-icon :icon="Icons.Delete" /></button>
-                  </ConfirmModal>
+                <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)" >
+                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                </ConfirmModal>
               </div>
             </span>
 
