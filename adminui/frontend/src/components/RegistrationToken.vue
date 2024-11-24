@@ -35,7 +35,6 @@ async function createToken() {
 
   try {
     const resp = await createRegistrationToken(newToken.value)
-    emit('update:isOpen', false)
 
     props.onSuccess?.()
 
