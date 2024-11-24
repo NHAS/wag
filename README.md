@@ -8,13 +8,14 @@ Key Features:
 - High Availability
 - Multiple MFA options, including webauthn, oidc and more
 
-![image](https://github.com/NHAS/wag/assets/6820641/3a2b2dd9-15af-40c4-bb81-3e479d48425a)
+![image](https://github.com/user-attachments/assets/9b639991-b795-438d-bd45-8b4e106ef802)
 
-![image](https://github.com/NHAS/wag/assets/6820641/89976794-10af-493a-b8c4-3d02f50417ce)
+![image](https://github.com/user-attachments/assets/d629030b-e845-4461-b609-561a7cf944d4)
 
-![image](https://github.com/NHAS/wag/assets/6820641/83cae3c0-bb19-4aa0-846f-c045387a0910)
+![image](https://github.com/user-attachments/assets/af4f49a7-896b-4399-8298-e8ebc7055a74)
 
-![image](https://github.com/NHAS/wag/assets/6820641/ff237473-d522-451e-8529-92bd111d4b96)
+![image](https://github.com/user-attachments/assets/4341b802-9adf-4a39-abf9-fbc66dff3916)
+
 
 
 # Sponsorship 
