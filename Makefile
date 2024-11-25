@@ -22,4 +22,4 @@ docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 
 .build_ui:
-	cd adminui/frontend; npm run build
+	cd adminui/frontend; npm install; npm run build
