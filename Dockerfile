@@ -6,7 +6,7 @@ FROM golang:latest AS builder
 # hadolint ignore=DL3008
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    make wget llvm clang gcc git npm libpam0g-dev && 
+    make wget gcc git npm libpam0g-dev
 
 WORKDIR /app
 COPY . .
