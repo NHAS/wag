@@ -344,7 +344,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 	public.HandleFunc("GET /reachability", es.reachability)
 	public.HandleFunc("GET /register_device", es.registerDevice)
 
-	if config.Values.Webserver.Public.SupportsTLS() {
+	if data.SupportsTLS(data.Public) {
 
 		go func() {
 
@@ -357,7 +357,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 				Handler:      utils.SetSecurityHeaders(public),
 			}
 
-			if err := es.publicTLSServ.ListenAndServeTLS(config.Values.Webserver.Public.CertPath, config.Values.Webserver.Public.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := es.publicTLSServ.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver enrolment listener failed: %v", err)
 			}
 		}()

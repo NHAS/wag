@@ -21,22 +21,8 @@ import (
 var Version string
 
 type webserverDetails struct {
-	CertPath string `json:",omitempty"`
-	KeyPath  string `json:",omitempty"`
-}
-
-type usualWeb struct {
 	ListenAddress string
-	webserverDetails
-}
-
-type tunnelWeb struct {
-	webserverDetails
-	Port string
-}
-
-func (wb webserverDetails) SupportsTLS() bool {
-	return len(wb.CertPath) > 0 && len(wb.KeyPath) > 0
+	Domain        string
 }
 
 type Acls struct {
@@ -78,18 +64,27 @@ type Config struct {
 
 	DownloadConfigFileName string `json:",omitempty"`
 
+	TLSStrategy struct {
+		DefaultDomain string `json:",omitempty"`
+		DefaultStrat  string
+
+		Tunnel       string `json:",omitempty"`
+		Public       string `json:",omitempty"`
+		ManagementUI string `json:",omitempty"`
+
+		StaticCertsDirectory string `json:",omitempty"`
+	}
+
 	ManagementUI struct {
-		usualWeb
 		Enabled bool
-		Debug   bool
+
+		webserverDetails
 
 		Password struct {
 			Enabled *bool `json:",omitempty"`
 		} `json:",omitempty"`
 
 		OIDC struct {
-			AdminDomainURL string
-
 			IssuerURL    string
 			ClientSecret string
 			ClientID     string
@@ -98,8 +93,11 @@ type Config struct {
 	} `json:",omitempty"`
 
 	Webserver struct {
-		Public usualWeb
-		Tunnel tunnelWeb
+		Public webserverDetails
+		Tunnel struct {
+			Port   string
+			Domain string
+		}
 	}
 
 	Clustering ClusteringDetails

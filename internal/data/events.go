@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"path"
+	"reflect"
 	"sync"
 	"time"
 
@@ -139,12 +140,12 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 						return
 					}
 
-					previous := ""
-					if prevKv != nil {
-						previous = string(prevKv.Value)
+					previous := []byte{}
+					if event.PrevKv != nil {
+						previous = redact(previousValue)
 					}
 
-					EventsQueue.Write(NewGeneralEvent(state, string(key), string(value), previous))
+					EventsQueue.Write(NewGeneralEvent(state, string(key), redact(currentValue), previous))
 
 				}(event.Kv.Key, event.PrevKv)
 
@@ -153,6 +154,34 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 	}(wc)
 
 	return key, nil
+}
+
+func redact[T any](input T) (redacted []byte) {
+
+	current := reflect.TypeOf(input)
+	if current.Kind() == reflect.Pointer {
+		current = current.Elem()
+	}
+
+	values := reflect.ValueOf(current)
+
+	if current.Kind() == reflect.Struct {
+		for i := 0; i < current.NumField(); i++ {
+			_, isSensitive := current.Field(i).Tag.Lookup("sensitive")
+			if isSensitive && values.Field(i).CanSet() {
+				values.Field(i).SetZero()
+			} else {
+				log.Println("cannot remove value for field, as cannot set")
+			}
+		}
+	}
+
+	data, err := json.Marshal(input)
+	if err != nil {
+		log.Println("could not remarshal after redacting: ", err)
+	}
+
+	return data
 }
 
 type GeneralEvent struct {
@@ -166,17 +195,17 @@ type GeneralEvent struct {
 	} `json:"state"`
 }
 
-func NewGeneralEvent(eType EventType, key, currentState, previousState string) GeneralEvent {
+func NewGeneralEvent(eType EventType, key string, currentState, previousState []byte) GeneralEvent {
 	return GeneralEvent{
 		Type: eType.String(),
 		Key:  key,
 		Time: time.Now(),
 		State: struct {
-			Current  string "json:\"current\""
-			Previous string "json:\"previous\""
+			Current  string `json:"current"`
+			Previous string `json:"previous"`
 		}{
-			Current:  currentState,
-			Previous: previousState,
+			Current:  string(currentState),
+			Previous: string(previousState),
 		},
 	}
 }

@@ -62,6 +62,8 @@ type Firewall struct {
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
+
+	tunnelInitallySupportedTLS bool
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {

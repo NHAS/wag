@@ -119,7 +119,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	}
 
 	tunnelListenAddress := address + ":" + config.Values.Webserver.Tunnel.Port
-	if config.Values.Webserver.Tunnel.SupportsTLS() {
+	if data.SupportsTLS(data.Tunnel) {
 
 		go func() {
 
@@ -131,7 +131,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 				TLSConfig:    tlsConfig,
 				Handler:      utils.SetSecurityHeaders(tunnel),
 			}
-			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS(config.Values.Webserver.Tunnel.CertPath, config.Values.Webserver.Tunnel.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
 			}
 

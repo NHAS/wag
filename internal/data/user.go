@@ -14,7 +14,7 @@ import (
 
 type UserModel struct {
 	Username  string
-	Mfa       string
+	Mfa       string `sensitive:"yes"`
 	MfaType   string
 	Locked    bool
 	Enforcing bool

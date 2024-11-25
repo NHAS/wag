@@ -228,9 +228,6 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 
 	copyValues.ManagementUI.Enabled = false
 	copyValues.ManagementUI.ListenAddress = ""
-	copyValues.ManagementUI.KeyPath = ""
-	copyValues.ManagementUI.CertPath = ""
-	copyValues.ManagementUI.Debug = false
 
 	b, _ := json.Marshal(copyValues)
 	token.SetAdditional("config.json", string(b))

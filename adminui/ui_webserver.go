@@ -88,9 +88,9 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 		}
 
-		u, err := url.Parse(config.Values.ManagementUI.OIDC.AdminDomainURL)
+		u, err := url.Parse(config.Values.ManagementUI.Domain)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.ManagementUI.OIDC.AdminDomainURL, err)
+			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.ManagementUI.Domain, err)
 		}
 
 		u.Path = path.Join(u.Path, "/login/oidc/callback")
@@ -296,7 +296,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			http.NotFound(w, r)
 		})
 
-		if config.Values.ManagementUI.SupportsTLS() {
+		if data.SupportsTLS(data.ManagementUI) {
 
 			go func() {
 
@@ -309,7 +309,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 					Handler:      utils.SetSecurityHeaders(allRoutes),
 				}
 
-				if err := adminUI.https.ListenAndServeTLS(config.Values.ManagementUI.CertPath, config.Values.ManagementUI.KeyPath); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				if err := adminUI.https.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 					errs <- fmt.Errorf("TLS management listener failed: %v", err)
 				}
 

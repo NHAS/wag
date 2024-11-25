@@ -88,8 +88,7 @@ func getNextIP(subnet string) (string, error) {
 		txn.If(
 			clientv3util.KeyMissing(deviceRef+addr.String()),
 			clientv3util.KeyMissing("ip-hold-"+addr.String()),
-		)
-		txn.Then(
+		).Then(
 			clientv3.OpPut("ip-hold-"+addr.String(), addr.String(), clientv3.WithLease(lease.ID)),
 		)
 
