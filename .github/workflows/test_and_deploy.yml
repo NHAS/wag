@@ -37,10 +37,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     strategy:
       fail-fast: true
-      matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +106,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
