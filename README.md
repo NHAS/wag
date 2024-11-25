@@ -58,7 +58,7 @@ sudo ./wag gen-config
 sudo ./wag start -config <generated_config_name>
 ```
   
-From source (will require `go1.19`, `npm`, `gulp`):  
+From source (will require `go1.23.1`, `npm`):  
 ```
 git clone git@github.com:NHAS/wag.git
 cd wag
@@ -261,7 +261,7 @@ The web interface itself cannot add administrative users.
   
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
-`Acls`: Defines the `Groups` and `Policies` that restrict routes  
+`Acls`: Defines the `Groups` and `Policies` that restrict routes, this is only respected on first run, use the web UI to edit them during runtime.  
 `Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
 `Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
 `Policies.<policy name>.Public`: Routes and services that do not require authorisation
