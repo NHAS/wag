@@ -66,8 +66,9 @@ type Config struct {
 	DownloadConfigFileName string `json:",omitempty"`
 
 	Acme struct {
-		Email      string
-		CAProvider string
+		Email              string
+		CAProvider         string
+		CloudflareDNSToken string
 	}
 
 	ManagementUI struct {

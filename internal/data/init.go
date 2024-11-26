@@ -324,6 +324,11 @@ func loadInitialSettings() error {
 		return err
 	}
 
+	err = putIfNotFound(AcmeDNS01CloudflareAPIToken, config.Values.Acme.CloudflareDNSToken, "acme cloudflare dns api token")
+	if err != nil {
+		return err
+	}
+
 	tunnelWebserverConfig := WebserverConfiguration{
 		Domain: config.Values.Webserver.Tunnel.Domain,
 		TLS:    config.Values.Webserver.Tunnel.TLS,
