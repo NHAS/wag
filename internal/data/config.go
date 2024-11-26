@@ -30,32 +30,78 @@ type Webauthn struct {
 	Origin      string
 }
 
+type Webserver string
+
 const (
-	fullJsonConfigKey = "wag-config-full"
+	Tunnel     = Webserver("tunnel")
+	Management = Webserver("management")
+	Public     = Webserver("public")
+)
 
-	helpMailKey          = "wag-config-general-help-mail"
-	defaultWGFileNameKey = "wag-config-general-wg-filename"
-	checkUpdatesKey      = "wag-config-general-check-updates"
+const (
+	ConfigKey = "wag-config-"
 
-	InactivityTimeoutKey = "wag-config-authentication-inactivity-timeout"
-	SessionLifetimeKey   = "wag-config-authentication-max-session-lifetime"
+	fullJsonConfigKey = ConfigKey + "full"
 
-	LockoutKey           = "wag-config-authentication-lockout"
-	IssuerKey            = "wag-config-authentication-issuer"
-	DomainKey            = "wag-config-authentication-domain"
-	MFAMethodsEnabledKey = "wag-config-authentication-methods"
-	DefaultMFAMethodKey  = "wag-config-authentication-default-method"
+	helpMailKey          = ConfigKey + "general-help-mail"
+	defaultWGFileNameKey = ConfigKey + "general-wg-filename"
+	checkUpdatesKey      = ConfigKey + "general-check-updates"
 
-	OidcDetailsKey = "wag-config-authentication-oidc"
-	PamDetailsKey  = "wag-config-authentication-pam"
+	InactivityTimeoutKey = ConfigKey + "authentication-inactivity-timeout"
+	SessionLifetimeKey   = ConfigKey + "authentication-max-session-lifetime"
 
-	externalAddressKey = "wag-config-network-external-address"
-	dnsKey             = "wag-config-network-dns"
+	LockoutKey           = ConfigKey + "authentication-lockout"
+	IssuerKey            = ConfigKey + "authentication-issuer"
+	DomainKey            = ConfigKey + "authentication-domain"
+	MFAMethodsEnabledKey = ConfigKey + "authentication-methods"
+	DefaultMFAMethodKey  = ConfigKey + "authentication-default-method"
+
+	OidcDetailsKey = ConfigKey + "authentication-oidc"
+	PamDetailsKey  = ConfigKey + "authentication-pam"
+
+	externalAddressKey = ConfigKey + "network-external-address"
+	dnsKey             = ConfigKey + "network-dns"
 
 	MembershipKey = "wag-membership"
 
 	deviceRef = "deviceref-"
+
+	WebServerConfigKey           = ConfigKey + "webserver-"
+	TunnelWebServerConfigKey     = WebServerConfigKey + string(Tunnel)
+	PublicWebServerConfigKey     = WebServerConfigKey + string(Public)
+	ManagementWebServerConfigKey = WebServerConfigKey + string(Management)
 )
+
+type WebserverConfiguration struct {
+	ListenAddress string `json:"listen_address"`
+	Domain        string `json:"domain"`
+	TLS           bool   `json:"tls"`
+}
+
+func GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
+
+	response, err := etcd.Get(context.Background(), WebServerConfigKey+string(forWhat))
+	if err != nil {
+		return WebserverConfiguration{}, err
+	}
+
+	if len(response.Kvs) == 0 {
+		return WebserverConfiguration{}, errors.New("no web server settings found")
+	}
+
+	err = json.Unmarshal(response.Kvs[0].Value, &details)
+	return
+}
+
+func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
+
+	b, err := json.Marshal(details)
+	if err != nil {
+		return err
+	}
+	_, err = etcd.Put(context.Background(), WebServerConfigKey+string(forWhat), string(b))
+	return err
+}
 
 func getString(key string) (ret string, err error) {
 	resp, err := etcd.Get(context.Background(), key)

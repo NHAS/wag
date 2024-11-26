@@ -23,6 +23,7 @@ var Version string
 type webserverDetails struct {
 	ListenAddress string
 	Domain        string
+	TLS           bool
 }
 
 type Acls struct {
@@ -64,15 +65,9 @@ type Config struct {
 
 	DownloadConfigFileName string `json:",omitempty"`
 
-	TLSStrategy struct {
-		DefaultDomain string `json:",omitempty"`
-		DefaultStrat  string
-
-		Tunnel       string `json:",omitempty"`
-		Public       string `json:",omitempty"`
-		ManagementUI string `json:",omitempty"`
-
-		StaticCertsDirectory string `json:",omitempty"`
+	Acme struct {
+		Email      string
+		CAProvider string
 	}
 
 	ManagementUI struct {
@@ -94,9 +89,11 @@ type Config struct {
 
 	Webserver struct {
 		Public webserverDetails
+
 		Tunnel struct {
 			Port   string
 			Domain string
+			TLS    bool
 		}
 	}
 
@@ -106,7 +103,6 @@ type Config struct {
 		DefaultMethod string `json:",omitempty"`
 		Issuer        string
 		Methods       []string `json:",omitempty"`
-		DomainURL     string
 
 		OIDC struct {
 			IssuerURL       string

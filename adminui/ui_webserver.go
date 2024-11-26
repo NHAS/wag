@@ -2,7 +2,6 @@ package adminui
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/NHAS/session"
 	"github.com/NHAS/wag/adminui/frontend"
+	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
@@ -36,8 +36,6 @@ type AdminUI struct {
 	oidcProvider rp.RelyingParty
 
 	logQueue *queue.Queue[[]byte]
-
-	https, http *http.Server
 
 	listenerEvents struct {
 		clusterHealth string
@@ -160,176 +158,125 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	log.SetOutput(io.MultiWriter(os.Stdout, adminUI.logQueue))
 
-	//https://blog.cloudflare.com/exposing-go-on-the-internet/
-	tlsConfig := &tls.Config{
-		// Only use curves which have assembly implementations
-		CurvePreferences: []tls.CurveID{
-			tls.CurveP256,
-			tls.X25519, // Go 1.8 only
-		},
-		MinVersion: tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
+	protectedRoutes := http.NewServeMux()
+	allRoutes := http.NewServeMux()
+
+	allRoutes.HandleFunc("/", frontend.Index)
+	allRoutes.HandleFunc("GET /index.html", frontend.Index)
+
+	allRoutes.HandleFunc("GET /favicon.ico", frontend.Favicon)
+	allRoutes.HandleFunc("GET /logo.png", frontend.Logo)
+	allRoutes.HandleFunc("GET /assets/", frontend.Assets)
+
+	allRoutes.HandleFunc("POST /api/login", adminUI.doLogin)
+	allRoutes.HandleFunc("GET /api/config", adminUI.uiConfig)
+	allRoutes.HandleFunc("POST /api/refresh", adminUI.doAuthRefresh)
+
+	if config.Values.ManagementUI.OIDC.Enabled {
+		allRoutes.HandleFunc("GET /login/oidc", func(w http.ResponseWriter, r *http.Request) {
+			rp.AuthURLHandler(func() string {
+				r, _ := utils.GenerateRandomHex(32)
+				return r
+			}, adminUI.oidcProvider)(w, r)
+		})
+
+		allRoutes.HandleFunc("GET /login/oidc/callback", adminUI.oidcCallback)
 	}
 
-	go func() {
+	allRoutes.Handle("/api/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
+		func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		},
+		func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminUserDTO) bool {
 
-		protectedRoutes := http.NewServeMux()
-		allRoutes := http.NewServeMux()
-
-		allRoutes.HandleFunc("/", frontend.Index)
-		allRoutes.HandleFunc("GET /index.html", frontend.Index)
-
-		allRoutes.HandleFunc("GET /favicon.ico", frontend.Favicon)
-		allRoutes.HandleFunc("GET /logo.png", frontend.Logo)
-		allRoutes.HandleFunc("GET /assets/", frontend.Assets)
-
-		allRoutes.HandleFunc("POST /api/login", adminUI.doLogin)
-		allRoutes.HandleFunc("GET /api/config", adminUI.uiConfig)
-		allRoutes.HandleFunc("POST /api/refresh", adminUI.doAuthRefresh)
-
-		if config.Values.ManagementUI.OIDC.Enabled {
-			allRoutes.HandleFunc("GET /login/oidc", func(w http.ResponseWriter, r *http.Request) {
-				rp.AuthURLHandler(func() string {
-					r, _ := utils.GenerateRandomHex(32)
-					return r
-				}, adminUI.oidcProvider)(w, r)
-			})
-
-			allRoutes.HandleFunc("GET /login/oidc/callback", adminUI.oidcCallback)
-		}
-
-		allRoutes.Handle("/api/", adminUI.sessionManager.AuthorisationChecks(protectedRoutes,
-			func(w http.ResponseWriter, r *http.Request) {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			},
-			func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminUserDTO) bool {
-
-				key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
-				if adminDetails != nil {
-					if adminDetails.Type == "" || adminDetails.Type == data.LocalUser {
-						d, err := data.GetAdminUser(dAdmin.Username)
-						if err != nil {
-							adminUI.sessionManager.DeleteSession(w, r)
-							http.Error(w, "Unauthorized", http.StatusUnauthorized)
-							return false
-						}
-
-						adminUI.sessionManager.UpdateSession(key, d)
+			key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
+			if adminDetails != nil {
+				if adminDetails.Type == "" || adminDetails.Type == data.LocalUser {
+					d, err := data.GetAdminUser(dAdmin.Username)
+					if err != nil {
+						adminUI.sessionManager.DeleteSession(w, r)
+						http.Error(w, "Unauthorized", http.StatusUnauthorized)
+						return false
 					}
 
-					// Otherwise the admin type is OIDC, and will no be in the local db
+					adminUI.sessionManager.UpdateSession(key, d)
 				}
 
-				return true
-			}))
+				// Otherwise the admin type is OIDC, and will no be in the local db
+			}
 
-		protectedRoutes.HandleFunc("GET /api/info", adminUI.serverInfo)
-		protectedRoutes.HandleFunc("GET /api/console_log", adminUI.consoleLog)
+			return true
+		}))
 
-		protectedRoutes.HandleFunc("GET /api/cluster/members", adminUI.members)
-		protectedRoutes.HandleFunc("POST /api/cluster/members", adminUI.newNode)
-		protectedRoutes.HandleFunc("PUT /api/cluster/members", adminUI.nodeControl)
+	protectedRoutes.HandleFunc("GET /api/info", adminUI.serverInfo)
+	protectedRoutes.HandleFunc("GET /api/console_log", adminUI.consoleLog)
 
-		protectedRoutes.HandleFunc("GET /api/cluster/events", adminUI.getClusterEvents)
-		protectedRoutes.HandleFunc("PUT /api/cluster/events", adminUI.clusterEventsAcknowledge)
+	protectedRoutes.HandleFunc("GET /api/cluster/members", adminUI.members)
+	protectedRoutes.HandleFunc("POST /api/cluster/members", adminUI.newNode)
+	protectedRoutes.HandleFunc("PUT /api/cluster/members", adminUI.nodeControl)
 
-		protectedRoutes.HandleFunc("GET /api/diag/wg", adminUI.wgDiagnositicsData)
-		protectedRoutes.HandleFunc("GET /api/diag/firewall", adminUI.getFirewallState)
-		protectedRoutes.HandleFunc("POST /api/diag/check", adminUI.firewallCheckTest)
-		protectedRoutes.HandleFunc("POST /api/diag/acls", adminUI.aclsTest)
-		protectedRoutes.HandleFunc("POST /api/diag/notifications", adminUI.testNotifications)
+	protectedRoutes.HandleFunc("GET /api/cluster/events", adminUI.getClusterEvents)
+	protectedRoutes.HandleFunc("PUT /api/cluster/events", adminUI.clusterEventsAcknowledge)
 
-		protectedRoutes.HandleFunc("GET /api/management/users", adminUI.getUsers)
-		protectedRoutes.HandleFunc("PUT /api/management/users", adminUI.editUser)
-		protectedRoutes.HandleFunc("DELETE /api/management/users", adminUI.removeUsers)
-		protectedRoutes.HandleFunc("GET /api/management/admin_users", adminUI.adminUsersData)
+	protectedRoutes.HandleFunc("GET /api/diag/wg", adminUI.wgDiagnositicsData)
+	protectedRoutes.HandleFunc("GET /api/diag/firewall", adminUI.getFirewallState)
+	protectedRoutes.HandleFunc("POST /api/diag/check", adminUI.firewallCheckTest)
+	protectedRoutes.HandleFunc("POST /api/diag/acls", adminUI.aclsTest)
+	protectedRoutes.HandleFunc("POST /api/diag/notifications", adminUI.testNotifications)
 
-		protectedRoutes.HandleFunc("GET /api/management/devices", adminUI.getAllDevices)
-		protectedRoutes.HandleFunc("PUT /api/management/devices", adminUI.editDevice)
-		protectedRoutes.HandleFunc("DELETE /api/management/devices", adminUI.deleteDevice)
+	protectedRoutes.HandleFunc("GET /api/management/users", adminUI.getUsers)
+	protectedRoutes.HandleFunc("PUT /api/management/users", adminUI.editUser)
+	protectedRoutes.HandleFunc("DELETE /api/management/users", adminUI.removeUsers)
+	protectedRoutes.HandleFunc("GET /api/management/admin_users", adminUI.adminUsersData)
 
-		protectedRoutes.HandleFunc("GET /api/management/registration_tokens", adminUI.getAllRegistrationTokens)
-		protectedRoutes.HandleFunc("POST /api/management/registration_tokens", adminUI.createRegistrationToken)
-		protectedRoutes.HandleFunc("DELETE /api/management/registration_tokens", adminUI.deleteRegistrationTokens)
+	protectedRoutes.HandleFunc("GET /api/management/devices", adminUI.getAllDevices)
+	protectedRoutes.HandleFunc("PUT /api/management/devices", adminUI.editDevice)
+	protectedRoutes.HandleFunc("DELETE /api/management/devices", adminUI.deleteDevice)
 
-		protectedRoutes.HandleFunc("GET /api/policy/rules", adminUI.getAllPolicies)
-		protectedRoutes.HandleFunc("PUT /api/policy/rules", adminUI.editPolicy)
-		protectedRoutes.HandleFunc("POST /api/policy/rules", adminUI.createPolicy)
-		protectedRoutes.HandleFunc("DELETE /api/policy/rules", adminUI.deletePolices)
+	protectedRoutes.HandleFunc("GET /api/management/registration_tokens", adminUI.getAllRegistrationTokens)
+	protectedRoutes.HandleFunc("POST /api/management/registration_tokens", adminUI.createRegistrationToken)
+	protectedRoutes.HandleFunc("DELETE /api/management/registration_tokens", adminUI.deleteRegistrationTokens)
 
-		protectedRoutes.HandleFunc("GET /api/policy/groups", adminUI.getAllGroups)
-		protectedRoutes.HandleFunc("PUT /api/policy/groups", adminUI.editGroup)
-		protectedRoutes.HandleFunc("POST /api/policy/groups", adminUI.createGroup)
-		protectedRoutes.HandleFunc("DELETE /api/policy/groups", adminUI.deleteGroups)
+	protectedRoutes.HandleFunc("GET /api/policy/rules", adminUI.getAllPolicies)
+	protectedRoutes.HandleFunc("PUT /api/policy/rules", adminUI.editPolicy)
+	protectedRoutes.HandleFunc("POST /api/policy/rules", adminUI.createPolicy)
+	protectedRoutes.HandleFunc("DELETE /api/policy/rules", adminUI.deletePolices)
 
-		protectedRoutes.HandleFunc("PUT /api/settings/general", adminUI.updateGeneralSettings)
-		protectedRoutes.HandleFunc("PUT /api/settings/login", adminUI.updateLoginSettings)
-		protectedRoutes.HandleFunc("GET /api/settings/general", adminUI.getGeneralSettings)
-		protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
-		protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
+	protectedRoutes.HandleFunc("GET /api/policy/groups", adminUI.getAllGroups)
+	protectedRoutes.HandleFunc("PUT /api/policy/groups", adminUI.editGroup)
+	protectedRoutes.HandleFunc("POST /api/policy/groups", adminUI.createGroup)
+	protectedRoutes.HandleFunc("DELETE /api/policy/groups", adminUI.deleteGroups)
 
-		notifications := make(chan NotificationDTO, 1)
-		protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
-		data.RegisterEventListener(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
-		go adminUI.monitorClusterMembers(notifications)
+	protectedRoutes.HandleFunc("PUT /api/settings/general", adminUI.updateGeneralSettings)
+	protectedRoutes.HandleFunc("PUT /api/settings/login", adminUI.updateLoginSettings)
+	protectedRoutes.HandleFunc("GET /api/settings/general", adminUI.getGeneralSettings)
+	protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
+	protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
 
-		should, err := data.ShouldCheckUpdates()
-		if err == nil && should {
-			adminUI.startUpdateChecker(notifications)
-		}
+	notifications := make(chan NotificationDTO, 1)
+	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
+	data.RegisterEventListener(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
+	go adminUI.monitorClusterMembers(notifications)
 
-		protectedRoutes.HandleFunc("PUT /api/change_password", adminUI.changePassword)
+	should, err := data.ShouldCheckUpdates()
+	if err == nil && should {
+		adminUI.startUpdateChecker(notifications)
+	}
 
-		protectedRoutes.HandleFunc("GET /api/logout", func(w http.ResponseWriter, r *http.Request) {
-			adminUI.sessionManager.DeleteSession(w, r)
-			w.WriteHeader(http.StatusNoContent)
-		})
+	protectedRoutes.HandleFunc("PUT /api/change_password", adminUI.changePassword)
 
-		protectedRoutes.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.NotFound(w, r)
-		})
+	protectedRoutes.HandleFunc("GET /api/logout", func(w http.ResponseWriter, r *http.Request) {
+		adminUI.sessionManager.DeleteSession(w, r)
+		w.WriteHeader(http.StatusNoContent)
+	})
 
-		if data.SupportsTLS(data.ManagementUI) {
+	protectedRoutes.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
 
-			go func() {
-
-				adminUI.https = &http.Server{
-					Addr:         config.Values.ManagementUI.ListenAddress,
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
-					IdleTimeout:  120 * time.Second,
-					TLSConfig:    tlsConfig,
-					Handler:      utils.SetSecurityHeaders(allRoutes),
-				}
-
-				if err := adminUI.https.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errs <- fmt.Errorf("TLS management listener failed: %v", err)
-				}
-
-			}()
-		} else {
-			go func() {
-				adminUI.http = &http.Server{
-					Addr:         config.Values.ManagementUI.ListenAddress,
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
-					IdleTimeout:  120 * time.Second,
-					Handler:      utils.SetSecurityHeaders(allRoutes),
-				}
-				if err := adminUI.http.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errs <- fmt.Errorf("webserver management listener failed: %v", adminUI.http.ListenAndServe())
-				}
-
-			}()
-		}
-	}()
+	if err := autotls.Do.DynamicListener(data.Management, utils.SetSecurityHeaders(allRoutes)); err != nil {
+		return nil, err
+	}
 
 	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.ManagementUI.ListenAddress)
 
@@ -471,13 +418,7 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) Close() {
 
-	if au.http != nil {
-		au.http.Close()
-	}
-
-	if au.https != nil {
-		au.https.Close()
-	}
+	autotls.Do.Close(data.Management)
 
 	if config.Values.ManagementUI.Enabled {
 		log.Println("Stopped Management UI")

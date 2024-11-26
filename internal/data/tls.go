@@ -2,139 +2,226 @@ package data
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
+	"io/fs"
+	"path"
+	"strings"
 
-	"go.etcd.io/etcd/client/pkg/v3/types"
+	"github.com/caddyserver/certmagic"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/clientv3util"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
-
-type WebServer string
 
 const (
-	Tunnel       = WebServer("tunnel")
-	ManagementUI = WebServer("tunnel")
-	Public       = WebServer("tunnel")
-
-	TLSPrefix         = "wag-tls-"
-	CertificatesKey   = TLSPrefix + "certificates-"
-	UpdateCertHoldKey = TLSPrefix + "hold"
-	PinAcmeQuerierKey = TLSPrefix + "force-acme-from-node"
-
-	AcmeTime = 2 * 60
+	AcmeEmailKey    = "wag-acme-email"
+	AcmeProviderKey = "wag-acme-provider"
 )
 
-func PinNodeToAcmeDuties(node types.ID) error {
-	_, err := etcd.Put(context.Background(), PinAcmeQuerierKey, node.String())
-	return err
+func GetAcmeEmail() (string, error) {
+	return getString(AcmeEmailKey)
 }
 
-func UnpinAcmeDuties() error {
-	_, err := etcd.Delete(context.Background(), PinAcmeQuerierKey)
-	return err
-}
-
-type Certificate struct {
-	Certificate []byte
-	PrivateKey  []byte `sensitive:"true"`
-}
-
-type certificateJSON struct {
-	Certificate string `json:"certificate"`
-	PrivateKey  string `json:"private_key"`
-}
-
-// MarshalJSON implements the json.Marshaler interface
-func (c Certificate) MarshalJSON() ([]byte, error) {
-	return json.Marshal(certificateJSON{
-		Certificate: base64.StdEncoding.EncodeToString(c.Certificate),
-		PrivateKey:  base64.StdEncoding.EncodeToString(c.PrivateKey),
-	})
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface
-func (c *Certificate) UnmarshalJSON(data []byte) error {
-	var jsonData certificateJSON
-	if err := json.Unmarshal(data, &jsonData); err != nil {
-		return err
+func SetAcmeProvider(providerURL string) error {
+	if !strings.HasPrefix(providerURL, "https://") {
+		return errors.New("acme provider must start with https://")
 	}
 
-	cert, err := base64.StdEncoding.DecodeString(jsonData.Certificate)
+	data, _ := json.Marshal(providerURL)
+
+	_, err := etcd.Put(context.Background(), AcmeProviderKey, string(data))
+	return err
+}
+
+func GetAcmeProvider() (string, error) {
+	return getString(AcmeProviderKey)
+}
+
+type CertMagicStore struct {
+	basePath string
+}
+
+func NewCertStore(basePath string) *CertMagicStore {
+	return &CertMagicStore{
+		basePath: basePath,
+	}
+}
+
+func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
+
+	res, err := etcd.Get(ctx, cms.basePath+"/"+key, clientv3.WithCountOnly())
+	if err != nil {
+		return false
+	}
+
+	return res.Count > 1
+}
+
+func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
+	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
 	if err != nil {
 		return err
 	}
 
-	key, err := base64.StdEncoding.DecodeString(jsonData.PrivateKey)
+	return concurrency.NewMutex(session, name).Lock(ctx)
+}
+
+func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
+	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
 	if err != nil {
 		return err
 	}
 
-	c.Certificate = cert
-	c.PrivateKey = key
+	return concurrency.NewMutex(session, name).Unlock(ctx)
+
+}
+
+func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {
+	keyPath := cms.basePath + "/" + key
+
+	_, err := etcd.Put(ctx, keyPath, string(value))
+	return err
+}
+
+func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error) {
+
+	keyPath := cms.basePath + "/" + key
+
+	res, err := etcd.Get(ctx, keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.Count == 0 {
+		return nil, fs.ErrNotExist
+	}
+
+	if len(res.Kvs) == 0 {
+		return nil, fs.ErrNotExist
+	}
+
+	return res.Kvs[0].Value, nil
+}
+
+func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
+
+	keyPath := cms.basePath + "/" + key
+
+	opts := []clientv3.OpOption{}
+
+	res, err := etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
+	if err != nil {
+		return err
+	}
+
+	if res.Count == 0 {
+
+		if !strings.HasSuffix(keyPath, "/") {
+			keyPath = keyPath + "/"
+		}
+
+		res, err = etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
+		if err != nil {
+			return err
+		}
+
+		if res.Count == 0 {
+			return fs.ErrNotExist
+		}
+
+		// intentional fall through
+	}
+
+	//A "directory" is a key with no value, but which may be the prefix of other keys.
+	if res.Count > 1 {
+		opts = append(opts, clientv3.WithPrefix())
+	}
+
+	delRes, err := etcd.Delete(ctx, key, opts...)
+	if err != nil {
+		return err
+	}
+
+	if delRes.Deleted != res.Count {
+		return errors.New("short delete")
+	}
+
 	return nil
 }
 
-func AllowToRenew() (bool, error) {
-	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), AcmeTime)
+func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursive bool) ([]string, error) {
+
+	keyPath := cms.basePath + "/" + pathPrefix
+
+	response, err := etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	txn := etcd.Txn(context.Background())
-	txn.If(
-		clientv3util.KeyMissing(UpdateCertHoldKey),
-	).Then(
-		clientv3.OpPut(UpdateCertHoldKey, GetServerID().String(), clientv3.WithLease(lease.ID)),
-	)
-
-	resp, err := txn.Commit()
-	if err != nil {
-		return false, err
+	if response.Count == 0 {
+		return nil, fs.ErrNotExist
 	}
 
-	// This node won the race, so now it can do acme (and will not be stomped on for <AcmeTime> seconds)
-	return resp.Succeeded, nil
+	var keys []string
+	for _, res := range response.Kvs {
+
+		key := strings.TrimPrefix(string(res.Key), cms.basePath+"/")
+		keys = append(keys, key)
+	}
+
+	if recursive {
+		return keys, nil
+	}
+
+	// stolen from: https://github.com/SUNET/knubbis-fleetlock/blob/main/certmagic/etcd3storage/etcd3storage.go
+
+	combinedKeys := map[string]struct{}{}
+	for _, key := range keys {
+		// prefix/dir1/file1 -> dir1/file1
+		noPrefixKey := strings.TrimPrefix(key, pathPrefix+"/")
+		// dir1/file1 -> dir1
+		part := strings.Split(noPrefixKey, "/")[0]
+
+		combinedKeys[part] = struct{}{}
+	}
+
+	cKeys := []string{}
+	for key := range combinedKeys {
+		cKeys = append(cKeys, path.Join(pathPrefix, key))
+	}
+
+	return cKeys, nil
 }
 
-func SetCertificate(forWhat WebServer, certificate, privateKey []byte) error {
-
-	newCert := Certificate{
-		Certificate: certificate,
-		PrivateKey:  privateKey,
-	}
-
-	data, err := json.Marshal(newCert)
+func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyInfo, error) {
+	res, err := etcd.Get(ctx, key)
 	if err != nil {
-		return fmt.Errorf("failed to marshal new certificate: %w", err)
+		return certmagic.KeyInfo{}, err
 	}
 
-	_, err = etcd.Put(context.Background(), CertificatesKey+string(forWhat), string(data))
+	r := certmagic.KeyInfo{
+		Key: key,
+	}
 
-	return err
-}
+	if len(res.Kvs) > 1 {
 
-// deliberately no getter, so that we force the user to use the events system to update their certificates
+		r.Size = int64(len(res.Kvs[0].Value))
+		r.IsTerminal = true
 
-// SupportsTLS Should only be used on startup, everywhere else use the events system to watch if certificates have been updated/created
-func SupportsTLS(web WebServer) bool {
+		return r, nil
+	}
 
-	certificates, err := etcd.Get(context.Background(), CertificatesKey+string(web))
+	// look for directory
+	res, err = etcd.Get(ctx, key+"/", clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
 	if err != nil {
-		return false
+		return certmagic.KeyInfo{}, err
 	}
 
-	if certificates.Count == 0 {
-		return false
+	if res.Count > 0 {
+		r.IsTerminal = false
+	} else {
+		return certmagic.KeyInfo{}, fs.ErrNotExist
 	}
 
-	if len(certificates.Kvs) != 1 {
-		return false
-	}
-
-	var jsonCert certificateJSON
-	err = json.Unmarshal(certificates.Kvs[0].Value, &jsonCert)
-
-	return err == nil
+	return r, nil
 }

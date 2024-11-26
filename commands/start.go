@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/NHAS/wag/adminui"
+	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/enrolment"
@@ -73,9 +74,13 @@ func (g *start) Check() error {
 
 	err := data.Load(config.Values.DatabaseLocation, g.clusterJoinToken, false)
 	if err != nil {
-		return fmt.Errorf("cannot load database: %v", err)
+		return fmt.Errorf("cannot load database: %w", err)
 	}
 
+	err = autotls.Initialise()
+	if err != nil {
+		return fmt.Errorf("failed to initialise auto tls module: %w", err)
+	}
 	return nil
 
 }

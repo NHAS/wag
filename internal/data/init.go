@@ -274,7 +274,7 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(DomainKey, config.Values.Authenticators.DomainURL, "domain url")
+	err = putIfNotFound(DomainKey, config.Values.Webserver.Tunnel.Domain, "domain url")
 	if err != nil {
 		return err
 	}
@@ -305,6 +305,59 @@ func loadInitialSettings() error {
 	}
 
 	err = putIfNotFound(PamDetailsKey, config.Values.Authenticators.PAM, "pam settings")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(PamDetailsKey, config.Values.Authenticators.PAM, "pam settings")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(AcmeEmailKey, config.Values.Acme.Email, "acme email")
+	if err != nil {
+		return err
+	}
+
+	err = putIfNotFound(AcmeEmailKey, config.Values.Acme.CAProvider, "acme provider")
+	if err != nil {
+		return err
+	}
+
+	tunnelWebserverConfig := WebserverConfiguration{
+		Domain: config.Values.Webserver.Tunnel.Domain,
+		TLS:    config.Values.Webserver.Tunnel.TLS,
+	}
+
+	tunnelWebserverConfig.ListenAddress = config.Values.Wireguard.ServerAddress.String()
+	if config.Values.Wireguard.ServerAddress.To4() == nil && config.Values.Wireguard.ServerAddress.To16() != nil {
+		tunnelWebserverConfig.ListenAddress = "[" + tunnelWebserverConfig.ListenAddress + "]"
+	}
+	tunnelWebserverConfig.ListenAddress += ":" + config.Values.Webserver.Tunnel.Port
+
+	err = putIfNotFound(TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
+	if err != nil {
+		return err
+	}
+
+	publicWebserverConfig := WebserverConfiguration{
+		Domain:        config.Values.Webserver.Public.Domain,
+		TLS:           config.Values.Webserver.Public.TLS,
+		ListenAddress: config.Values.Webserver.Public.ListenAddress,
+	}
+
+	err = putIfNotFound(PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
+	if err != nil {
+		return err
+	}
+
+	managementWebserverConfig := WebserverConfiguration{
+		Domain:        config.Values.ManagementUI.Domain,
+		TLS:           config.Values.ManagementUI.TLS,
+		ListenAddress: config.Values.ManagementUI.ListenAddress,
+	}
+
+	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
 	if err != nil {
 		return err
 	}

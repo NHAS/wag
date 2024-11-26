@@ -2,9 +2,7 @@ package enrolment
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"html/template"
 	"image/png"
@@ -13,8 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
+	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/enrolment/resources"
@@ -30,20 +28,11 @@ import (
 )
 
 type EnrolmentServer struct {
-	publicHTTPServ *http.Server
-	publicTLSServ  *http.Server
-	firewall       *router.Firewall
+	firewall *router.Firewall
 }
 
 func (es *EnrolmentServer) Close() {
-
-	if es.publicHTTPServ != nil {
-		es.publicHTTPServ.Close()
-	}
-
-	if es.publicTLSServ != nil {
-		es.publicTLSServ.Close()
-	}
+	autotls.Do.Close(data.Public)
 }
 
 func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request) {
@@ -321,89 +310,13 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 	var es EnrolmentServer
 	es.firewall = firewall
 
-	//https://blog.cloudflare.com/exposing-go-on-the-internet/
-	tlsConfig := &tls.Config{
-		// Only use curves which have assembly implementations
-		CurvePreferences: []tls.CurveID{
-			tls.CurveP256,
-			tls.X25519, // Go 1.8 only
-		},
-		MinVersion: tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
-	}
-
 	public := http.NewServeMux()
 	public.HandleFunc("GET /static/", utils.EmbeddedStatic(styling.Static))
 	public.HandleFunc("GET /reachability", es.reachability)
 	public.HandleFunc("GET /register_device", es.registerDevice)
 
-	if data.SupportsTLS(data.Public) {
-
-		go func() {
-
-			es.publicTLSServ = &http.Server{
-				Addr:         config.Values.Webserver.Public.ListenAddress,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
-				IdleTimeout:  120 * time.Second,
-				TLSConfig:    tlsConfig,
-				Handler:      utils.SetSecurityHeaders(public),
-			}
-
-			if err := es.publicTLSServ.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errChan <- fmt.Errorf("TLS webserver enrolment listener failed: %v", err)
-			}
-		}()
-
-		if config.Values.NumberProxies == 0 {
-			go func() {
-
-				address, port, err := net.SplitHostPort(config.Values.Webserver.Public.ListenAddress)
-
-				if err != nil {
-					errChan <- fmt.Errorf("malformed listen address for enrolment listener: %v", err)
-					return
-				}
-
-				// If we're supporting tls, add a redirection handler from 80 -> tls
-				port += ":" + port
-				if port == "443" {
-					port = ""
-				}
-
-				es.publicHTTPServ = &http.Server{
-					Addr:         address + ":80",
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
-					IdleTimeout:  120 * time.Second,
-					Handler:      utils.SetSecurityHeaders(utils.SetRedirectHandler(port)),
-				}
-
-				log.Printf("Creating redirection from 80/tcp to TLS webserver enrolment listener failed: %v", es.publicHTTPServ.ListenAndServe())
-			}()
-		}
-
-	} else {
-		go func() {
-			es.publicHTTPServ = &http.Server{
-				Addr:         config.Values.Webserver.Public.ListenAddress,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
-				IdleTimeout:  120 * time.Second,
-				Handler:      utils.SetSecurityHeaders(public),
-			}
-
-			if err := es.publicHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errChan <- fmt.Errorf("HTTP webserver enrolment listener failed: %v", err)
-			}
-		}()
+	if err := autotls.Do.DynamicListener(data.Public, public); err != nil {
+		return nil, err
 	}
 
 	log.Println("[ENROLMENT] Public enrolment listening: ", config.Values.Webserver.Public.ListenAddress)

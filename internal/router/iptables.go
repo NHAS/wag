@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
 
 	"github.com/coreos/go-iptables/iptables"
 )
@@ -70,14 +69,10 @@ func (f *Firewall) setupIptables() error {
 			return err
 		}
 
-		// Open port 80 to allow http redirection
-		if data.SupportsTLS(data.Tunnel) {
-			f.tunnelInitallySupportedTLS = true
-			//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
-			err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
-			if err != nil {
-				return err
-			}
+		//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
+		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
+		if err != nil {
+			return err
 		}
 
 	}
@@ -167,12 +162,10 @@ func (f *Firewall) teardownIptables() {
 		}
 
 		// Open port 80 to allow http redirection
-		if f.tunnelInitallySupportedTLS {
-			//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
-			err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values.Wireguard.DevName, "--dport", "80", "-j", "ACCEPT")
-			if err != nil {
-				log.Println("Unable to clean up firewall rules: ", err)
-			}
+		//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
+		err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values.Wireguard.DevName, "--dport", "80", "-j", "ACCEPT")
+		if err != nil {
+			log.Println("Unable to clean up firewall rules: ", err)
 		}
 	}
 

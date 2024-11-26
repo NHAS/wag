@@ -1,16 +1,14 @@
 package mfaportal
 
 import (
-	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
+	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
@@ -21,9 +19,6 @@ import (
 )
 
 type MfaPortal struct {
-	tunnelHTTPServ *http.Server
-	tunnelTLSServ  *http.Server
-
 	firewall *router.Firewall
 
 	listenerKeys struct {
@@ -36,13 +31,7 @@ type MfaPortal struct {
 
 func (mp *MfaPortal) Close() {
 
-	if mp.tunnelHTTPServ != nil {
-		mp.tunnelHTTPServ.Close()
-	}
-
-	if mp.tunnelTLSServ != nil {
-		mp.tunnelTLSServ.Close()
-	}
+	autotls.Do.Close(data.Public)
 
 	mp.deregisterListeners()
 
@@ -56,24 +45,6 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	var mfaPortal MfaPortal
 	mfaPortal.firewall = firewall
-
-	//https://blog.cloudflare.com/exposing-go-on-the-internet/
-	tlsConfig := &tls.Config{
-		// Only use curves which have assembly implementations
-		CurvePreferences: []tls.CurveID{
-			tls.CurveP256,
-			tls.X25519, // Go 1.8 only
-		},
-		MinVersion: tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
-	}
 
 	tunnel := http.NewServeMux()
 
@@ -113,68 +84,11 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	tunnel.HandleFunc("/", mfaPortal.index)
 
-	address := config.Values.Wireguard.ServerAddress.String()
-	if config.Values.Wireguard.ServerAddress.To4() == nil && config.Values.Wireguard.ServerAddress.To16() != nil {
-		address = "[" + address + "]"
+	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(tunnel)); err != nil {
+		return nil, err
 	}
 
-	tunnelListenAddress := address + ":" + config.Values.Webserver.Tunnel.Port
-	if data.SupportsTLS(data.Tunnel) {
-
-		go func() {
-
-			mfaPortal.tunnelTLSServ = &http.Server{
-				Addr:         tunnelListenAddress,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
-				IdleTimeout:  120 * time.Second,
-				TLSConfig:    tlsConfig,
-				Handler:      utils.SetSecurityHeaders(tunnel),
-			}
-			if err := mfaPortal.tunnelTLSServ.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errChan <- fmt.Errorf("TLS webserver tunnel listener failed: %v", err)
-			}
-
-		}()
-
-		if config.Values.NumberProxies == 0 {
-			go func() {
-
-				port := ":" + config.Values.Webserver.Tunnel.Port
-				if port == "443" {
-					port = ""
-				}
-
-				mfaPortal.tunnelHTTPServ = &http.Server{
-					Addr:         address + ":80",
-					ReadTimeout:  5 * time.Second,
-					WriteTimeout: 10 * time.Second,
-					IdleTimeout:  120 * time.Second,
-					Handler:      utils.SetSecurityHeaders(utils.SetRedirectHandler(port)),
-				}
-
-				log.Printf("HTTP redirect to TLS webserver tunnel listener failed: %v", mfaPortal.tunnelHTTPServ.ListenAndServe())
-			}()
-		}
-	} else {
-		go func() {
-			mfaPortal.tunnelHTTPServ = &http.Server{
-				Addr:         tunnelListenAddress,
-				ReadTimeout:  5 * time.Second,
-				WriteTimeout: 10 * time.Second,
-				IdleTimeout:  120 * time.Second,
-				Handler:      utils.SetSecurityHeaders(tunnel),
-			}
-
-			if err := mfaPortal.tunnelHTTPServ.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				errChan <- fmt.Errorf("webserver tunnel listener failed: %v", err)
-			}
-
-		}()
-	}
-
-	//Group the print statement so that multithreading won't disorder them
-	log.Println("[PORTAL] Captive portal started listening: ", tunnelListenAddress)
+	log.Println("[PORTAL] Captive portal started listening")
 	return m, nil
 }
 
