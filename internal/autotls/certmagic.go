@@ -14,14 +14,13 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/caddyserver/certmagic"
+	"github.com/libdns/cloudflare"
 )
 
 type webserver struct {
 	listeners []*http.Server
 	mux       http.Handler
-	close     chan interface{}
-	isClosed  bool
-	details   data.WebserverConfiguration
+	details   *data.WebserverConfiguration
 }
 
 type AutoTLS struct {
@@ -49,6 +48,11 @@ func Initialise() error {
 		provider = ""
 	}
 
+	cfDnsToken, err := data.GetAcmeDNS01CloudflareToken()
+	if err != nil {
+		cfDnsToken.APIToken = ""
+	}
+
 	config := certmagic.NewDefault()
 	config.Storage = data.NewCertStore("wag-certificates")
 
@@ -57,6 +61,17 @@ func Initialise() error {
 		Email:  email,
 		Agreed: true,
 	})
+
+	if cfDnsToken.APIToken != "" {
+		// enabling the dns challenge disables all other methods
+		issuer.DNS01Solver = &certmagic.DNS01Solver{
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &cloudflare.Provider{
+					APIToken: cfDnsToken.APIToken,
+				},
+			},
+		}
+	}
 
 	if provider != "" && email != "" {
 		config.Issuers = []certmagic.Issuer{issuer}
@@ -84,15 +99,23 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 
 	initialDetails, err := data.GetWebserverConfig(forWhat)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get initial web server config for %s: %w", forWhat, err)
 	}
 
-	return a.refreshListeners(forWhat, mux, initialDetails)
+	return a.refreshListeners(forWhat, mux, &initialDetails)
 }
 
+// The server is entirely closed, must be reopened with "DynamicListener"
 func (a *AutoTLS) Close(what data.Webserver) {
 	a.Lock()
 	defer a.Unlock()
+
+	a.halfClose(what)
+
+	delete(a.webServers, what)
+}
+
+func (a *AutoTLS) halfClose(what data.Webserver) {
 	w, ok := a.webServers[what]
 	if !ok {
 		return
@@ -102,16 +125,42 @@ func (a *AutoTLS) Close(what data.Webserver) {
 		s.Close()
 	}
 
-	w.isClosed = true
+	w.listeners = []*http.Server{}
+}
 
-	delete(a.webServers, what)
-
-	close(w.close)
+// HalfClose shuts down all active server listeners, but does not clear the web server config or mux routes
+func (a *AutoTLS) HalfClose(what data.Webserver) {
+	a.Lock()
+	defer a.Unlock()
+	a.halfClose(what)
 }
 
 func (a *AutoTLS) registerEventListeners() error {
 
-	_, err := data.RegisterEventListener(data.AcmeEmailKey, false, func(_, current, previous string, ev data.EventType) error {
+	_, err := data.RegisterEventListener(data.AcmeDNS01CloudflareAPIToken, false, func(_ string, current, previous data.CloudflareToken, ev data.EventType) error {
+		if ev == data.DELETED || current.APIToken == "" {
+			a.issuer.DNS01Solver = nil
+		} else {
+			a.issuer.DNS01Solver = &certmagic.DNS01Solver{
+				DNSManager: certmagic.DNSManager{
+					DNSProvider: &cloudflare.Provider{
+						APIToken: current.APIToken,
+					},
+				},
+			}
+		}
+
+		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
+			a.refreshListeners(data.Management, nil, nil),
+			a.refreshListeners(data.Public, nil, nil)}
+
+		return errors.Join(errs...)
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = data.RegisterEventListener(data.AcmeEmailKey, false, func(_, current, previous string, ev data.EventType) error {
 
 		a.issuer.Email = current
 		if ev == data.DELETED {
@@ -124,9 +173,11 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.Config.Issuers = []certmagic.Issuer{a.issuer}
 		}
 
-		// todo refesh with stored details & mux
+		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
+			a.refreshListeners(data.Management, nil, nil),
+			a.refreshListeners(data.Public, nil, nil)}
 
-		return nil
+		return errors.Join(errs...)
 	})
 	if err != nil {
 		return err
@@ -145,9 +196,11 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.Config.Issuers = []certmagic.Issuer{a.issuer}
 		}
 
-		// todo refesh with stored details & mux
+		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
+			a.refreshListeners(data.Management, nil, nil),
+			a.refreshListeners(data.Public, nil, nil)}
 
-		return nil
+		return errors.Join(errs...)
 	})
 	if err != nil {
 		return err
@@ -157,22 +210,23 @@ func (a *AutoTLS) registerEventListeners() error {
 
 		webserverTarget := data.Webserver(strings.TrimPrefix(key, data.WebServerConfigKey))
 		a.RLock()
+
 		_, ok := a.webServers[webserverTarget]
 		a.RUnlock()
 
+		// if the web server has been entirely closed, or deleted then we cant re-open it automatically
 		if !ok {
 			return nil
 		}
 
 		if ev == data.DELETED {
-			a.Close(webserverTarget)
+			// shouldnt happen, but may as well handle it
+			a.HalfClose(webserverTarget)
 			return nil
 		}
 
-		// todo reopen after close, thus rethink about how close fully works
-
 		// nil means we keep the established mux
-		return a.refreshListeners(webserverTarget, nil, current)
+		return a.refreshListeners(webserverTarget, nil, &current)
 	}
 
 	_, err = data.RegisterEventListener(data.TunnelWebServerConfigKey, false, webserverEventsFunc)
@@ -193,7 +247,7 @@ func (a *AutoTLS) registerEventListeners() error {
 	return nil
 }
 
-func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, details data.WebserverConfiguration) error {
+func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, details *data.WebserverConfiguration) error {
 	ctx := context.Background()
 
 	a.Lock()
@@ -201,18 +255,23 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 	w, ok := a.webServers[forWhat]
 	if !ok {
-		if mux == nil {
-			return errors.New("refresh called from events while web server doesnt exist")
+		if mux == nil || details == nil {
+			return errors.New("refreshing webserver " + string(forWhat) + " config failed, server not currently on")
 		}
+
 		w = &webserver{
-			mux:      mux,
-			isClosed: false,
-			close:    make(chan interface{}),
+			mux:     mux,
+			details: details,
 		}
 		a.webServers[forWhat] = w
 	}
-	w.details = details
 
+	if details != nil {
+		w.details = details
+	}
+
+	// if we have no domain, or tls is explicitly disabled ( or acme provider hasnt been configured )
+	// open an http only port on whatever the listen address is
 	if w.details.Domain == "" || !w.details.TLS || len(a.Issuers) == 0 {
 		httpListener, err := net.Listen("tcp", w.details.ListenAddress)
 		if err != nil {
@@ -300,7 +359,6 @@ func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Se
 	}
 
 	if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
-		// todo dns-01
 		httpServer.Handler = am.HTTPChallengeHandler(http.HandlerFunc(a.httpRedirectHandler(domain + ":" + port)))
 	}
 

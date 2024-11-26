@@ -14,9 +14,26 @@ import (
 )
 
 const (
-	AcmeEmailKey    = "wag-acme-email"
-	AcmeProviderKey = "wag-acme-provider"
+	AcmeKey                     = "wag-acme-"
+	AcmeEmailKey                = AcmeKey + "email"
+	AcmeProviderKey             = AcmeKey + "provider"
+	AcmeDNS01CloudflareAPIToken = AcmeKey + "dns01-cloudflare"
 )
+
+type CloudflareToken struct {
+	APIToken string `json:"api_token" sensitive:"true"`
+}
+
+func GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
+	return getObject[CloudflareToken](AcmeDNS01CloudflareAPIToken)
+}
+
+func SetAcmeDNS01CloudflareToken(token string) error {
+	var newToken CloudflareToken
+	newToken.APIToken = token
+
+	return setObject(AcmeDNS01CloudflareAPIToken, newToken)
+}
 
 func GetAcmeEmail() (string, error) {
 	return getString(AcmeEmailKey)

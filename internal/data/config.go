@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -119,6 +120,45 @@ func getString(key string) (ret string, err error) {
 	}
 
 	return ret, nil
+}
+
+func setObject[T any](key string, obj T) (err error) {
+
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+
+	_, err = etcd.Put(context.Background(), key, string(b))
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
+func getObject[T any](key string) (ret T, err error) {
+
+	resp, err := etcd.Get(context.Background(), key)
+	if err != nil {
+		return ret, err
+	}
+
+	if len(resp.Kvs) != 1 {
+		return ret, fmt.Errorf("incorrect number of %s keys", key)
+	}
+
+	b := bytes.NewBuffer(resp.Kvs[0].Value)
+
+	dec := json.NewDecoder(b)
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(&ret)
+	if err != nil {
+		return ret, err
+	}
+
+	return
 }
 
 func getInt(key string) (ret int, err error) {

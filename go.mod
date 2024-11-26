@@ -72,6 +72,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/libdns/cloudflare v0.1.1 // indirect
 	github.com/libdns/libdns v0.2.2 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect

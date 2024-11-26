@@ -430,7 +430,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	sessKey, u := au.sessionManager.GetSessionFromRequest(r)
 	if u == nil {
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		http.NotFound(w, r)
 		return
 	}
 
