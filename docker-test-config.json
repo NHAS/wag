@@ -16,12 +16,10 @@
     "ManagementUI": {
         "ListenAddress": "127.0.0.1:4433",
         "Enabled": true,
-        "Debug": false,
         "Password": {
             "Enabled": true
         },
         "OIDC": {
-            "AdminDomainURL": "",
 			"IssuerURL": "",
 			"ClientSecret": "",
 			"ClientID": "",
@@ -33,6 +31,7 @@
             "ListenAddress": ":8081"
         },
         "Tunnel": {
+            "Domain": "http://vpn.test:8080",
             "Port": "8080"
         }
     },
@@ -42,7 +41,6 @@
         "Methods": [
             "totp"
         ],
-        "DomainURL": "https://vpn.test:8080",
         "OIDC": {
             "IssuerURL": "",
             "ClientSecret": "",

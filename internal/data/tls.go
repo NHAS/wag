@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/caddyserver/certmagic"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -39,6 +40,14 @@ func GetAcmeEmail() (string, error) {
 	return getString(AcmeEmailKey)
 }
 
+func SetAcmeEmail(email string) error {
+	data, _ := json.Marshal(email)
+
+	_, err := etcd.Put(context.Background(), AcmeEmailKey, string(data))
+
+	return err
+}
+
 func SetAcmeProvider(providerURL string) error {
 	if !strings.HasPrefix(providerURL, "https://") {
 		return errors.New("acme provider must start with https://")
@@ -56,11 +65,16 @@ func GetAcmeProvider() (string, error) {
 
 type CertMagicStore struct {
 	basePath string
+
+	locks    map[string]*concurrency.Mutex
+	mapMutex *sync.RWMutex
 }
 
 func NewCertStore(basePath string) *CertMagicStore {
 	return &CertMagicStore{
 		basePath: basePath,
+		locks:    make(map[string]*concurrency.Mutex),
+		mapMutex: &sync.RWMutex{},
 	}
 }
 
@@ -74,23 +88,56 @@ func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
 	return res.Count > 1
 }
 
+func (cms *CertMagicStore) lockPath(name string) string {
+	return path.Join(cms.basePath, "locks", certmagic.StorageKeys.Safe(name)+"-lock")
+}
+
 func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
+
+	lockKey := cms.lockPath(name)
+	cms.mapMutex.RLock()
+	_, lockExists := cms.locks[lockKey]
+	cms.mapMutex.RUnlock()
+	if lockExists {
+		return nil
+	}
+
 	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
 	if err != nil {
 		return err
 	}
 
-	return concurrency.NewMutex(session, name).Lock(ctx)
+	mutex := concurrency.NewMutex(session, lockKey)
+	err = mutex.Lock(session.Client().Ctx())
+	if err != nil {
+		return err
+	}
+
+	cms.mapMutex.Lock()
+	cms.locks[lockKey] = mutex
+	cms.mapMutex.Unlock()
+
+	return nil
 }
 
 func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
-	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
-	if err != nil {
-		return err
+
+	lockKey := cms.lockPath(name)
+
+	cms.mapMutex.RLock()
+	mutex, ok := cms.locks[lockKey]
+	cms.mapMutex.RUnlock()
+	if !ok {
+		return errors.New("mutex is not held")
 	}
 
-	return concurrency.NewMutex(session, name).Unlock(ctx)
+	defer func() {
+		cms.mapMutex.Lock()
+		delete(cms.locks, lockKey)
+		cms.mapMutex.Unlock()
+	}()
 
+	return mutex.Unlock(ctx)
 }
 
 func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {

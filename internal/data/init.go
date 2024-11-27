@@ -324,7 +324,9 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(AcmeDNS01CloudflareAPIToken, config.Values.Acme.CloudflareDNSToken, "acme cloudflare dns api token")
+	var token CloudflareToken
+	token.APIToken = config.Values.Acme.CloudflareDNSToken
+	err = putIfNotFound(AcmeDNS01CloudflareAPIToken, token, "acme cloudflare dns api token")
 	if err != nil {
 		return err
 	}

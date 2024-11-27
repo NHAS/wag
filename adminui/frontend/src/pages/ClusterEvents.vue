@@ -141,13 +141,19 @@ function openEventInspectionModal(error: GeneralEvent) {
           </p>
 
           <label for="members" class="block font-medium text-gray-900 pt-6">New Key Value JSON:</label>
-          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" v-model="inspectedEvent.state.current"></textarea>
+          <textarea
+            class="disabled textarea textarea-bordered w-full font-mono"
+            disabled
+            rows="3"
+            v-model="inspectedEvent.state.current"
+          ></textarea>
 
           <div v-if="inspectedEvent.state.previous.length > 0">
             <label for="members" class="block font-medium text-gray-900 pt-6">Previous Key Value JSON:</label>
             <textarea
               class="disabled textarea textarea-bordered w-full font-mono"
               rows="3"
+              disabled
               v-model="inspectedEvent.state.previous"
             ></textarea>
           </div>

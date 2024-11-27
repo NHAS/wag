@@ -15,19 +15,108 @@ import {
   updateLoginSettings,
   type GeneralSettingsResponseDTO as GeneralSettingsDTO,
   type LoginSettingsResponseDTO as LoginSettingsDTO,
-  type MFAMethodDTO
+  type WebServerConfigDTO,
+  type MFAMethodDTO,
+  getAcmeDetails,
+  type AcmeDetailsDTO,
+  setAcmeCloudflareDNSKey,
+  setAcmeEmail,
+  setAcmeProvider,
+  getWebservers,
+  editWebserver
 } from '@/api'
 
 const toast = useToast()
 const { catcher } = useToastError()
 
+const apiTokenSetValue = '**********'
+
+const { data: acme, isLoading: isLoadingAcmeSettings, silentlyRefresh: refreshAcme } = useApi(() => getAcmeDetails())
 const { data: general, isLoading: isLoadingGeneralSettings, silentlyRefresh: refreshGeneral } = useApi(() => getGeneralSettings())
 const { data: loginSettings, isLoading: isLoadingLoginSettings, silentlyRefresh: refreshLoginSettings } = useApi(() => getLoginSettings())
+const { data: webservers, isLoading: isLoadingWebserverSettings, silentlyRefresh: refreshWebservers } = useApi(() => getWebservers())
 
 const { data: mfaTypes, isLoading: isLoadingMFATypes } = useApi(() => getMFAMethods())
 
-const generalData = computed(() => general.value ?? ({} as GeneralSettingsDTO))
+const originalAcmeStates = ref<AcmeDetailsDTO>({} as AcmeDetailsDTO)
+
+watch(
+  acme,
+  newAcme => {
+    if (newAcme) {
+      originalAcmeStates.value = {
+        api_token_set: newAcme.api_token_set,
+        email: newAcme.email,
+        provider_url: newAcme.provider_url
+      }
+    }
+  },
+  { immediate: true }
+)
+
+const originalServerStates = ref<Record<string, WebServerConfigDTO>>({})
+
+watch(
+  webservers,
+  newServers => {
+    if (newServers) {
+      originalServerStates.value = newServers.reduce(
+        (acc, server) => {
+          acc[server.server_name] = {
+            server_name: server.server_name,
+            domain: server.domain,
+            listen_address: server.listen_address,
+            tls: server.tls
+          }
+          return acc
+        },
+        {} as Record<string, WebServerConfigDTO>
+      )
+    }
+  },
+  { immediate: true }
+)
+
+const getModifiedServers = () => {
+  if (!webservers.value) return []
+
+  return webservers.value.filter(server => {
+    const original = originalServerStates.value[server.server_name]
+    if (!original) return true // New server
+
+    return original.domain !== server.domain || original.listen_address !== server.listen_address || original.tls !== server.tls
+  })
+}
+
+async function saveServerSettings() {
+  try {
+    const updateResults = await Promise.all(getModifiedServers().map(server => editWebserver(server)))
+
+    const allSuccessful = updateResults.every(result => result.success) // Adjust based on your API response structure
+    if (allSuccessful) {
+      toast.success('updated servers!')
+    } else {
+      const failedServers = updateResults.filter(resp => resp.success)
+      toast.error('failed to save server settings' + failedServers.map(s => s.message))
+    }
+  } catch (e) {
+    catcher(e, 'failed to save acme settings: ')
+  } finally {
+    refreshWebservers()
+  }
+}
+
+const generalData = computed(
+  () =>
+    general.value ??
+    ({
+      dns: [] as string[]
+    } as GeneralSettingsDTO)
+)
 const loginSettingsData = computed(() => loginSettings.value ?? ({} as LoginSettingsDTO))
+const acmeSettingsData = computed(() => acme.value ?? ({} as AcmeDetailsDTO))
+
+const webserversSettingsData = computed(() => webservers.value ?? ([] as WebServerConfigDTO[]))
 
 const textValue = ref(general.value?.dns.join('\n') ?? '')
 
@@ -39,9 +128,56 @@ watch(textValue, newValue => {
 
 watch(general, newValue => {
   if (newValue) {
-    textValue.value = newValue.dns.join('\n')
+    textValue.value = newValue.dns?.join('\n') ?? ''
   }
 })
+
+const cloudflareApiTokenRef = ref('')
+watch(acme, newVal => {
+  if (newVal?.api_token_set) {
+    cloudflareApiTokenRef.value = apiTokenSetValue
+  } else {
+    cloudflareApiTokenRef.value = ''
+  }
+})
+
+async function saveAcmeSettings() {
+  try {
+    let failed = false
+
+    if (cloudflareApiTokenRef.value !== apiTokenSetValue) {
+      const resp = await setAcmeCloudflareDNSKey(cloudflareApiTokenRef.value)
+      if (!resp.success) {
+        toast.error('Failed to save cloudflare api token:' + (resp.message ?? 'Unknown Error'))
+        failed = true
+      }
+    }
+
+    if (acmeSettingsData.value.email != originalAcmeStates.value.email) {
+      const resp = await setAcmeEmail(acmeSettingsData.value.email)
+      if (!resp.success) {
+        toast.error('Failed to save acme email:' + (resp.message ?? 'Unknown Error'))
+        failed = true
+      }
+    }
+
+    if (acmeSettingsData.value.provider_url != originalAcmeStates.value.provider_url) {
+      const resp = await setAcmeProvider(acmeSettingsData.value.provider_url)
+      if (!resp.success) {
+        toast.error('Failed to save acme provider url:' + (resp.message ?? 'Unknown Error'))
+        failed = true
+      }
+    }
+
+    if (!failed) {
+      toast.success('Saved acme settings')
+    }
+  } catch (e) {
+    catcher(e, 'failed to save acme settings: ')
+  } finally {
+    refreshAcme()
+  }
+}
 
 async function saveGeneralSettings() {
   try {
@@ -82,7 +218,9 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
 
 <template>
   <main class="w-full p-4">
-    <PageLoading v-if="isLoadingGeneralSettings || isLoadingLoginSettings || isLoadingMFATypes" />
+    <PageLoading
+      v-if="isLoadingGeneralSettings || isLoadingLoginSettings || isLoadingMFATypes || isLoadingAcmeSettings || isLoadingWebserverSettings"
+    />
 
     <div v-else>
       <h1 class="text-4xl font-bold">Settings</h1>
@@ -158,7 +296,12 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
 
               <div class="form-control w-full">
                 <label for="default_method" class="label font-bold">Default MFA Method</label>
-                <select class="select select-bordered" name="default_method" v-model="loginSettingsData.default_mfa_method">
+                <select
+                  class="select select-bordered"
+                  name="default_method"
+                  v-model="loginSettingsData.default_mfa_method"
+                  :disabled="loginSettingsData.enabled_mfa_methods.length == 0"
+                >
                   <option
                     v-for="method in filterMfaMethods(loginSettingsData.enabled_mfa_methods, mfaTypes ?? [])"
                     :selected="method.method == loginSettingsData.default_mfa_method"
@@ -175,7 +318,11 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
                   <label :for="method.method" class="label cursor-pointer">
                     <span class="label-text" :key="method.method">{{ method.friendly_name }}</span>
                     <span class="flex flex-grow"></span>
-                    <span v-if="method.method == loginSettingsData.default_mfa_method" class="text-gray-400 mr-4">DEFAULT</span>
+                    <span
+                      v-if="method.method == loginSettingsData.default_mfa_method && loginSettingsData.enabled_mfa_methods.length > 0"
+                      class="text-gray-400 mr-4"
+                      >DEFAULT</span
+                    >
                     <input
                       :name="method.method"
                       type="checkbox"
@@ -275,6 +422,81 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
                 </label>
                 <input v-model="loginSettingsData.oidc.device_username_claim" type="text" class="input input-bordered w-full" />
               </div>
+            </div>
+          </div>
+          <div class="card bg-base-100 shadow-xl min-w-[350px] h-max">
+            <div class="card-body">
+              <h2 class="card-title">ACME</h2>
+
+              <div class="form-control">
+                <label class="label font-bold">
+                  <span class="label-text">E-Mail</span>
+                </label>
+                <input v-model="acmeSettingsData.email" type="email" class="input input-bordered w-full" />
+              </div>
+
+              <div class="form-control">
+                <label class="label font-bold">
+                  <span class="label-text">Provider</span>
+                </label>
+                <input v-model="acmeSettingsData.provider_url" type="url" class="input input-bordered w-full" />
+              </div>
+
+              <div class="form-control">
+                <label class="label font-bold">
+                  <span class="label-text">Cloudflare API Token</span>
+                </label>
+                <input v-model="cloudflareApiTokenRef" type="password" class="input input-bordered w-full" />
+              </div>
+
+              <button type="submit" class="btn btn-primary w-full" @click="() => saveAcmeSettings()">
+                <span class="loading loading-spinner loading-md" v-if="isLoadingAcmeSettings"></span>
+                Save
+              </button>
+            </div>
+          </div>
+          <div class="card bg-base-100 shadow-xl min-w-[350px] h-w max-w-[350px]">
+            <div class="card-body">
+              <h2 class="card-title mb-4">Web Servers</h2>
+              <div class="flex mb-2">
+                <p>TLS Method:</p>
+                <div class="flex flex-grow"></div>
+                <p class="font-bold">
+                  {{
+                    acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
+                      ? 'Disabled'
+                      : acmeSettingsData.api_token_set
+                        ? 'DNS-01'
+                        : 'HTTP-01'
+                  }}
+                </p>
+              </div>
+              <div role="tablist" class="tabs tabs-bordered">
+                <template v-for="(server, index) in webserversSettingsData" :key="'webserver-' + server.server_name">
+                  <input type="radio" name="webserver-tabs" role="tab" class="tab" :aria-label="server.server_name" :checked="index == 0" />
+                  <div role="tabpanel" class="tab-content p-10">
+                    <label class="label font-bold">
+                      <span class="label-text">Domain</span>
+                    </label>
+                    <input v-model="server.domain" type="test" class="input input-bordered w-full" />
+
+                    <label class="label font-bold">
+                      <span class="label-text">Listen Address</span>
+                    </label>
+                    <input v-model="server.listen_address" type="test" class="input input-bordered w-full" />
+
+                    <label class="label font-bold">
+                      <span class="label-text">TLS</span>
+                      <input v-model="server.tls" type="checkbox" class="toggle toggle-primary" />
+                    </label>
+                  </div>
+                </template>
+              </div>
+
+              <button type="submit" class="btn btn-primary w-full" @click="saveServerSettings">
+                <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
+                Save
+              </button>
             </div>
           </div>
         </div>

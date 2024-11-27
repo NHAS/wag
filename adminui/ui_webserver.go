@@ -253,6 +253,14 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	protectedRoutes.HandleFunc("GET /api/settings/login", adminUI.getLoginSettings)
 	protectedRoutes.HandleFunc("GET /api/settings/all_mfa_methods", adminUI.getAllMfaMethods)
 
+	protectedRoutes.HandleFunc("GET /api/settings/webservers", adminUI.getAllWebserverConfigs)
+	protectedRoutes.HandleFunc("PUT /api/settings/webserver", adminUI.editWebserverConfig)
+
+	protectedRoutes.HandleFunc("GET /api/settings/acme", adminUI.getAcmeDetails)
+	protectedRoutes.HandleFunc("PUT /api/settings/acme/email", adminUI.editAcmeEmail)
+	protectedRoutes.HandleFunc("PUT /api/settings/acme/provider_url", adminUI.editAcmeProvider)
+	protectedRoutes.HandleFunc("PUT /api/settings/acme/cloudflare_api_key", adminUI.editCloudflareApiToken)
+
 	notifications := make(chan NotificationDTO, 1)
 	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
 	data.RegisterEventListener(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))

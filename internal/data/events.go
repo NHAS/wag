@@ -164,14 +164,19 @@ func redact[T any](input T) (redacted []byte) {
 	}
 
 	values := reflect.ValueOf(current)
+	if values.Kind() == reflect.Pointer {
+		values = values.Elem()
+	}
 
 	if current.Kind() == reflect.Struct {
 		for i := 0; i < current.NumField(); i++ {
 			_, isSensitive := current.Field(i).Tag.Lookup("sensitive")
-			if isSensitive && values.Field(i).CanSet() {
-				values.Field(i).SetZero()
-			} else {
-				log.Println("cannot remove value for field, as cannot set")
+			if isSensitive {
+				if values.Field(i).CanSet() {
+					values.Field(i).SetZero()
+				} else {
+					log.Println("cannot remove value for field, as cannot set")
+				}
 			}
 		}
 	}

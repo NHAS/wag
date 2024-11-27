@@ -79,6 +79,27 @@ type WebserverConfiguration struct {
 	TLS           bool   `json:"tls"`
 }
 
+func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {
+
+	details = make(map[string]WebserverConfiguration)
+	response, err := etcd.Get(context.Background(), WebServerConfigKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, res := range response.Kvs {
+		var conf WebserverConfiguration
+		err := json.Unmarshal(res.Value, &conf)
+		if err != nil {
+			return nil, err
+		}
+
+		details[strings.TrimPrefix(string(res.Key), WebServerConfigKey)] = conf
+	}
+
+	return details, nil
+}
+
 func GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
 
 	response, err := etcd.Get(context.Background(), WebServerConfigKey+string(forWhat))
@@ -95,6 +116,12 @@ func GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err 
 }
 
 func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
+
+	switch forWhat {
+	case Tunnel, Management, Public:
+	default:
+		return errors.New("unsupported webserver")
+	}
 
 	b, err := json.Marshal(details)
 	if err != nil {

@@ -198,3 +198,18 @@ type ConfigResponseDTO struct {
 	SSO      bool `json:"sso"`
 	Password bool `json:"password"`
 }
+
+type WebServerConfigDTO struct {
+	ServerName string `json:"server_name"`
+	data.WebserverConfiguration
+}
+
+type AcmeDetailsResponseDTO struct {
+	ProviderURL     string `json:"provider_url"`
+	Email           string `json:"email"`
+	CloudflareToken bool   `json:"api_token_set"`
+}
+
+type StringDTO struct {
+	Data string `json:"data"`
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
@@ -102,4 +103,135 @@ func (au *AdminUI) getAllMfaMethods(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (au *AdminUI) getAllWebserverConfigs(w http.ResponseWriter, _ *http.Request) {
+
+	confs, err := data.GetAllWebserverConfigs()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var results []WebServerConfigDTO
+
+	for name, conf := range confs {
+		results = append(results, WebServerConfigDTO{ServerName: name, WebserverConfiguration: conf})
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ServerName < results[j].ServerName
+	})
+
+	w.Header().Set("content-type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		s   WebServerConfigDTO
+		err error
+	)
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&s)
+	r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = data.SetWebserverConfig(data.Webserver(s.ServerName), s.WebserverConfiguration)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (au *AdminUI) getAcmeDetails(w http.ResponseWriter, _ *http.Request) {
+
+	var (
+		results AcmeDetailsResponseDTO
+		err     error
+	)
+
+	cfToken, err := data.GetAcmeDNS01CloudflareToken()
+	results.CloudflareToken = (err == nil && cfToken.APIToken != "")
+
+	results.ProviderURL, _ = data.GetAcmeProvider()
+
+	results.Email, _ = data.GetAcmeEmail()
+
+	w.Header().Set("content-type", "application/json")
+	json.NewEncoder(w).Encode(results)
+}
+
+func (au *AdminUI) editAcmeEmail(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		email StringDTO
+		err   error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&email)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = data.SetAcmeEmail(email.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (au *AdminUI) editAcmeProvider(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		provider StringDTO
+		err      error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&provider)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = data.SetAcmeProvider(provider.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (au *AdminUI) editCloudflareApiToken(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		token StringDTO
+		err   error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = json.NewDecoder(r.Body).Decode(&token)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = data.SetAcmeDNS01CloudflareToken(token.Data)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 }

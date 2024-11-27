@@ -177,6 +177,12 @@ export interface LoginSettingsResponseDTO {
   pam: PamResponseDTO
 }
 
+export interface AcmeDetailsDTO {
+  provider_url: string
+  email: string
+  api_token_set: boolean
+}
+
 export interface MFAMethodDTO {
   friendly_name: string
   method: string
@@ -285,4 +291,11 @@ export enum NodeControlActions {
   Restore = 'restore',
   Stepdown = 'stepdown',
   Remove = 'remove'
+}
+
+export interface WebServerConfigDTO {
+  server_name: string
+  listen_address: string
+  domain: string
+  tls: boolean
 }

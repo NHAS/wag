@@ -73,9 +73,7 @@ func Initialise() error {
 		}
 	}
 
-	if provider != "" && email != "" {
-		config.Issuers = []certmagic.Issuer{issuer}
-	}
+	config.Issuers = []certmagic.Issuer{issuer}
 
 	ret := &AutoTLS{
 		Config:     config,
@@ -150,11 +148,7 @@ func (a *AutoTLS) registerEventListeners() error {
 			}
 		}
 
-		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
-			a.refreshListeners(data.Management, nil, nil),
-			a.refreshListeners(data.Public, nil, nil)}
-
-		return errors.Join(errs...)
+		return nil
 	})
 	if err != nil {
 		return err
@@ -167,17 +161,7 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.issuer.Email = ""
 		}
 
-		if a.issuer.CA == "" || a.issuer.Email == "" {
-			a.Config.Issuers = []certmagic.Issuer{}
-		} else {
-			a.Config.Issuers = []certmagic.Issuer{a.issuer}
-		}
-
-		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
-			a.refreshListeners(data.Management, nil, nil),
-			a.refreshListeners(data.Public, nil, nil)}
-
-		return errors.Join(errs...)
+		return nil
 	})
 	if err != nil {
 		return err
@@ -190,17 +174,7 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.issuer.CA = ""
 		}
 
-		if a.issuer.CA == "" || a.issuer.Email == "" {
-			a.Config.Issuers = []certmagic.Issuer{}
-		} else {
-			a.Config.Issuers = []certmagic.Issuer{a.issuer}
-		}
-
-		errs := []error{a.refreshListeners(data.Tunnel, nil, nil),
-			a.refreshListeners(data.Management, nil, nil),
-			a.refreshListeners(data.Public, nil, nil)}
-
-		return errors.Join(errs...)
+		return nil
 	})
 	if err != nil {
 		return err
@@ -273,10 +247,6 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 	// if we have no domain, or tls is explicitly disabled ( or acme provider hasnt been configured )
 	// open an http only port on whatever the listen address is
 	if w.details.Domain == "" || !w.details.TLS || len(a.Issuers) == 0 {
-		httpListener, err := net.Listen("tcp", w.details.ListenAddress)
-		if err != nil {
-			return err
-		}
 
 		httpServer := &http.Server{
 			ReadHeaderTimeout: 10 * time.Second,
@@ -292,6 +262,11 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 		}
 		w.listeners = []*http.Server{httpServer}
 
+		httpListener, err := net.Listen("tcp", w.details.ListenAddress)
+		if err != nil {
+			return err
+		}
+
 		go httpServer.Serve(httpListener)
 	} else {
 		err := a.Config.ManageSync(ctx, []string{w.details.Domain})
@@ -301,11 +276,6 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 		tlsConfig := a.Config.TLSConfig()
 		tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
-
-		httpsLn, err := tls.Listen("tcp", fmt.Sprintf(w.details.ListenAddress), tlsConfig)
-		if err != nil {
-			return err
-		}
 
 		httpsServer := &http.Server{
 			ReadHeaderTimeout: 10 * time.Second,
@@ -329,6 +299,10 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 		w.listeners = append(w.listeners, httpsServer)
 
+		httpsLn, err := tls.Listen("tcp", fmt.Sprintf(w.details.ListenAddress), tlsConfig)
+		if err != nil {
+			return err
+		}
 		go httpsServer.Serve(httpsLn)
 
 	}
@@ -345,7 +319,9 @@ func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Se
 		port = "443"
 	}
 
-	httpRedirectListener, err := net.Listen("tcp", fmt.Sprintf("%s:80", host))
+	listenAddr := fmt.Sprintf("%s:80", host)
+
+	httpRedirectListener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return nil, err
 	}
