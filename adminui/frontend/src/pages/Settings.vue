@@ -455,7 +455,7 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
               </button>
             </div>
           </div>
-          <div class="card bg-base-100 shadow-xl min-w-[350px] h-w max-w-[350px]">
+          <div class="card bg-base-100 shadow-xl min-w-[350px] h-max max-w-[350px]">
             <div class="card-body">
               <h2 class="card-title mb-4">Web Servers</h2>
               <div class="flex mb-2">
