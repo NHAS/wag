@@ -40,7 +40,7 @@ func (au *AdminUI) serverInfo(w http.ResponseWriter, r *http.Request) {
 func (au *AdminUI) consoleLog(w http.ResponseWriter, r *http.Request) {
 	d := LogLinesDTO{}
 
-	for _, li := range au.logQueue.ReadAll() {
+	for _, li := range au.logQueue.w.ReadAll() {
 		d.LogItems = append(d.LogItems, string(li))
 	}
 

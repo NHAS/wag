@@ -35,7 +35,7 @@ type AdminUI struct {
 
 	oidcProvider rp.RelyingParty
 
-	logQueue *queue.Queue[[]byte]
+	logQueue *clonerWriter
 
 	listenerEvents struct {
 		clusterHealth string
@@ -47,6 +47,14 @@ type AdminUI struct {
 	csrfHeaderName string
 }
 
+type clonerWriter struct {
+	w *queue.Queue[string]
+}
+
+func (c *clonerWriter) Write(b []byte) (int, error) {
+	return c.w.Write(string(b))
+}
+
 func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
 
 	if firewall == nil {
@@ -55,7 +63,9 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	var adminUI AdminUI
 	adminUI.firewall = firewall
-	adminUI.logQueue = queue.NewQueue[[]byte](40)
+	adminUI.logQueue = &clonerWriter{
+		queue.NewQueue[string](40),
+	}
 
 	adminUI.ctrl = wagctl.NewControlClient(config.Values.Socket)
 
