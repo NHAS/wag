@@ -158,19 +158,14 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 
 func redact[T any](input T) (redacted []byte) {
 
-	current := reflect.TypeOf(input)
-	if current.Kind() == reflect.Pointer {
-		current = current.Elem()
-	}
-
-	values := reflect.ValueOf(current)
+	values := reflect.ValueOf(input)
 	if values.Kind() == reflect.Pointer {
 		values = values.Elem()
 	}
 
-	if current.Kind() == reflect.Struct {
-		for i := 0; i < current.NumField(); i++ {
-			_, isSensitive := current.Field(i).Tag.Lookup("sensitive")
+	if values.Kind() == reflect.Struct {
+		for i := 0; i < values.NumField(); i++ {
+			_, isSensitive := values.Type().Field(i).Tag.Lookup("sensitive")
 			if isSensitive {
 				if values.Field(i).CanSet() {
 					values.Field(i).SetZero()
