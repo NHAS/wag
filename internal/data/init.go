@@ -310,7 +310,7 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(AcmeEmailKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
+	err = putIfNotFound(AcmeProviderKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
 	if err != nil {
 		return err
 	}

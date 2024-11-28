@@ -21,13 +21,13 @@ type Device struct {
 	Address      string
 	Publickey    string
 	Username     string
-	PresharedKey string
+	PresharedKey string `sensitive:"yes"`
 	Endpoint     *net.UDPAddr
 	Attempts     int
 	Active       bool
 	Authorised   time.Time
 
-	Challenge      string
+	Challenge      string `sensitive:"yes"`
 	AssociatedNode types.ID
 }
 

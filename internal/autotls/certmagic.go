@@ -104,7 +104,12 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 		return fmt.Errorf("could not get initial web server config for %s: %w", forWhat, err)
 	}
 
-	return a.refreshListeners(forWhat, mux, &initialDetails)
+	if err := a.refreshListeners(forWhat, mux, &initialDetails); err != nil {
+		data.RaiseError(err, []byte(""))
+		log.Printf("could not start web server for %q, err: %s", forWhat, err)
+	}
+
+	return nil
 }
 
 // The server is entirely closed, must be reopened with "DynamicListener"

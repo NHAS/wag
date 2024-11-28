@@ -214,7 +214,7 @@ async function loginUser(event) {
             return
         }
         
-        if (send.headers.get("WAG-CHALLENGE") !== null) {
+        if (finalise.headers.get("WAG-CHALLENGE") !== null) {
             localStorage.setItem("challenge", send.headers.get("WAG-CHALLENGE"))
         }
 
