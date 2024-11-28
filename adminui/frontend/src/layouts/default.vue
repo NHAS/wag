@@ -68,7 +68,7 @@ async function logout() {
       <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
       <aside class="flex min-h-full w-72 flex-col p-4 bg-neutral text-neutral-content">
         <RouterLink to="/dashboard">
-          <h2 class="btn btn-ghost w-full text-center text-3xl">Wag<img class="h-14" src="/WagLogo.png" /></h2>
+          <h2 class="btn btn-ghost w-full text-center text-3xl">Wag<img class="h-14" src="/logo.png" /></h2>
           <div class="w-full text-center" v-if="info.serverInfo.version != ''">
             <small class="text-center font-mono text-xs">{{ info.serverInfo.version }}</small>
           </div>

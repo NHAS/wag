@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 
 import PageLoading from '@/components/PageLoading.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 import { useToastError } from '@/composables/useToastError'
 import { useApi } from '@/composables/useApi'
@@ -25,7 +26,6 @@ import {
   getWebservers,
   editWebserver
 } from '@/api'
-import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const toast = useToast()
 const { catcher } = useToastError()
@@ -225,11 +225,11 @@ function serverCanHaveTLS(domain: string): boolean {
 }
 
 function doesTunnelHaveDomain() {
-  return webserversSettingsData.value.some((x) => x.server_name == 'tunnel' && x.domain.length > 0)
+  return webserversSettingsData.value.some(x => x.server_name == 'tunnel' && x.domain.length > 0)
 }
 
 function doesTunnelHaveTLS() {
-  return webserversSettingsData.value.some((x) => x.server_name == 'tunnel' && x.tls)
+  return webserversSettingsData.value.some(x => x.server_name == 'tunnel' && x.tls)
 }
 </script>
 
@@ -346,7 +346,10 @@ function doesTunnelHaveTLS() {
                       class="toggle toggle-primary"
                       :value="method.method"
                       v-model="loginSettingsData.enabled_mfa_methods"
-                      :disabled="!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn') || (!doesTunnelHaveTLS() && method.method == 'webauthn')"
+                      :disabled="
+                        (!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')) ||
+                        (!doesTunnelHaveTLS() && method.method == 'webauthn')
+                      "
                       :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1"
                     />
                   </label>
@@ -492,7 +495,7 @@ function doesTunnelHaveTLS() {
                   </p>
                 </div>
               </div>
-              <div >
+              <div>
                 <div role="tablist" class="tabs tabs-bordered">
                   <template v-for="(server, index) in webserversSettingsData" :key="'webserver-' + server.server_name">
                     <input
@@ -550,11 +553,16 @@ function doesTunnelHaveTLS() {
                   </template>
                 </div>
               </div>
-              <ConfirmModal v-if="getModifiedServers().some(s => s.server_name == 'management')" @on-cancel="refreshWebservers" @on-confirm="saveServerSettings" body="Editing the management interface may stop you from being able to manage wag, are you sure you want to proceed?">
-              <button type="submit" class="btn btn-primary w-full">
-                <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
-                Save
-              </button>
+              <ConfirmModal
+                v-if="getModifiedServers().some(s => s.server_name == 'management')"
+                @on-cancel="refreshWebservers"
+                @on-confirm="saveServerSettings"
+                body="Editing the management interface may stop you from being able to manage wag, are you sure you want to proceed?"
+              >
+                <button type="submit" class="btn btn-primary w-full">
+                  <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
+                  Save
+                </button>
               </ConfirmModal>
               <button v-else type="submit" class="btn btn-primary w-full" @click="saveServerSettings">
                 <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>

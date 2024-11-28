@@ -11,7 +11,7 @@ var (
 	//go:embed dist/assets/*
 	adminResources embed.FS
 
-	//go:embed dist/index.html dist/favicon.ico dist/WagLogo.png
+	//go:embed dist/index.html dist/favicon.ico dist/logo.png
 	index embed.FS
 
 	distFiles = must(fs.Sub(adminResources, "dist"))
@@ -49,7 +49,7 @@ func Favicon(w http.ResponseWriter, r *http.Request) {
 
 func Logo(w http.ResponseWriter, r *http.Request) {
 
-	f, err := index.Open("dist/WagIcon.png")
+	f, err := index.Open("dist/logo.png")
 	if err != nil {
 		panic(err)
 	}

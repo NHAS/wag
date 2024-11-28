@@ -7,49 +7,57 @@
         "100-500/tcp"
     ],
     "NAT": true,
-    "HelpMail": "help@example.com",
-    "Lockout": 5,
-    "ExternalAddress": "192.168.121.61",
-    "MaxSessionLifetimeMinutes": 2,
-    "SessionInactivityTimeoutMinutes": 1,
-    "DownloadConfigFileName": "wg0.conf",
-    "ManagementUI": {
-        "ListenAddress": "127.0.0.1:4433",
-        "Enabled": true,
-        "Password": {
-            "Enabled": true
-        },
-        "OIDC": {
-			"IssuerURL": "",
-			"ClientSecret": "",
-			"ClientID": "",
-			"Enabled": false
-        }
-    },
+    
     "Webserver": {
-        "Public": {
-            "ListenAddress": ":8081"
-        },
+        "Lockout": 5,
+
         "Tunnel": {
             "Domain": "http://vpn.test:8080",
-            "Port": "8080"
-        }
-    },
-    "Authenticators": {
-        "DefaultMethod": "totp",
-        "Issuer": "vpn.test",
-        "Methods": [
-            "totp"
-        ],
-        "OIDC": {
-            "IssuerURL": "",
-            "ClientSecret": "",
-            "ClientID": ""
+            "Port": "8080",
+
+            "MaxSessionLifetimeMinutes": 2,
+            "SessionInactivityTimeoutMinutes": 1,
+
+            "HelpMail": "help@example.com",
+
+            "DefaultMethod": "totp",
+            "Issuer": "vpn.test",
+            "Methods": [
+                "totp"
+            ],
+            "OIDC": {
+                "IssuerURL": "",
+                "ClientSecret": "",
+                "ClientID": ""
+            },
+            "PAM": {
+                "ServiceName": ""
+            }
         },
-        "PAM": {
-            "ServiceName": ""
+
+        "Public": {
+            "ListenAddress": ":8081",
+         
+
+            "ExternalAddress": "192.168.121.61",
+            "DownloadConfigFileName": "wg0.conf"
+
+        },
+        "Management": {
+            "Enabled": true,
+            "ListenAddress": "127.0.0.1:4433",
+            "Password": {
+                "Enabled": true
+            },
+            "OIDC": {
+                "IssuerURL": "",
+                "ClientSecret": "",
+                "ClientID": "",
+                "Enabled": false
+            }
         }
     },
+
     "Wireguard": {
         "DevName": "wg1",
         "ListenPort": 53230,
