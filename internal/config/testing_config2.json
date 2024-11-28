@@ -1,16 +1,19 @@
 {
-    "Lockout": 5,
-    "HelpMail": "help@example.com",
-    "MaxSessionLifetimeMinutes": 1,
-    "SessionInactivityTimeoutMinutes": 1,
-    "ExternalAddress": "192.168.121.61",
+    
+   
     "DatabaseLocation": "file::memory:",
     "Webserver": {
+        "Lockout": 5,
+
         "Public": {
-            "ListenAddress": ":8081"
+            "ListenAddress": ":8081",
+            "ExternalAddress": "192.168.121.61"
         },
         "Tunnel": {
-            "Port": "8080"
+            "Port": "8080",
+            "HelpMail": "help@example.com",
+            "MaxSessionLifetimeMinutes": 1,
+            "SessionInactivityTimeoutMinutes": 1
         }
     },
     "Clustering": {
@@ -21,9 +24,6 @@
         "ListenAddresses": [
             "https://localhost:2381"
         ]
-    },
-    "Authenticators": {
-        "Issuer": "192.168.121.61"
     },
     "Wireguard": {
         "DevName": "loopbackTun1",
