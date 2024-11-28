@@ -475,7 +475,7 @@ func TestSlidingWindow(t *testing.T) {
 		beforeLastPacketTime = testerDevice.lastPacketTime
 	)
 
-	difference := uint64(config.Values.SessionInactivityTimeoutMinutes) * 60000000000
+	difference := uint64(config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes) * 60000000000
 	if testFw.inactivityTimeout != time.Duration(difference) {
 		t.Fatal("timeout retrieved from ebpf program does not match json")
 	}
@@ -497,10 +497,10 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal("the resulting update must be closer in time")
 	}
 
-	t.Logf("Now doing timing test for sliding window waiting %d+10seconds", config.Values.SessionInactivityTimeoutMinutes)
+	t.Logf("Now doing timing test for sliding window waiting %d+10seconds", config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes)
 
 	//Check slightly after inactivity timeout to see if the user is now not authenticated
-	time.Sleep(time.Duration(config.Values.SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
+	time.Sleep(time.Duration(config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
 
 	if testFw.Test(packet) {
 		t.Fatalf("program did not drop packet instead passed it")
@@ -693,9 +693,9 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatalf("program did not pass packet instead dropped it")
 	}
 
-	t.Logf("Waiting for %d minutes to test max session timeout", config.Values.MaxSessionLifetimeMinutes)
+	t.Logf("Waiting for %d minutes to test max session timeout", config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes)
 
-	time.Sleep(time.Minute * time.Duration(config.Values.MaxSessionLifetimeMinutes))
+	time.Sleep(time.Minute * time.Duration(config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes))
 
 	if testFw.Test(packet) {
 		t.Fatalf("program did not drop packet instead passed it")

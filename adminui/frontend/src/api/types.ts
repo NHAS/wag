@@ -170,7 +170,6 @@ export interface LoginSettingsResponseDTO {
   default_mfa_method: string
   enabled_mfa_methods: string[]
 
-  domain: string
   issuer: string
 
   oidc: OidcResponseDTO

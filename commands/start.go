@@ -193,7 +193,7 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 						return
 					}
 
-					if config.Values.ManagementUI.Enabled {
+					if config.Values.Webserver.Management.Enabled {
 						adminUI, err = adminui.New(routerFw, errorChan)
 						if err != nil {
 							errorChan <- fmt.Errorf("unable to start management web server: %v", err)

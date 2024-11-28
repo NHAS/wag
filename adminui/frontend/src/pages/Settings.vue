@@ -223,6 +223,14 @@ function isAcmeValid(): boolean {
 function serverCanHaveTLS(domain: string): boolean {
   return isAcmeValid() && domain.length > 0
 }
+
+function doesTunnelHaveDomain() {
+  return webserversSettingsData.value.some((x) => x.server_name == 'tunnel' && x.domain.length > 0)
+}
+
+function doesTunnelHaveTLS() {
+  return webserversSettingsData.value.some((x) => x.server_name == 'tunnel' && x.tls)
+}
 </script>
 
 <template>
@@ -338,6 +346,7 @@ function serverCanHaveTLS(domain: string): boolean {
                       class="toggle toggle-primary"
                       :value="method.method"
                       v-model="loginSettingsData.enabled_mfa_methods"
+                      :disabled="!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn') || (!doesTunnelHaveTLS() && method.method == 'webauthn')"
                       :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1"
                     />
                   </label>
@@ -369,12 +378,6 @@ function serverCanHaveTLS(domain: string): boolean {
                     <span class="label-text">Issuer</span>
                   </label>
                   <input v-model="loginSettingsData.issuer" type="text" required class="input input-bordered w-full" />
-                </div>
-                <div class="form-control">
-                  <label class="label font-bold">
-                    <span class="label-text">Internal VPN Domain</span>
-                  </label>
-                  <input v-model="loginSettingsData.domain" type="text" required class="input input-bordered w-full" />
                 </div>
               </div>
             </div>

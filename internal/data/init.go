@@ -240,12 +240,12 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(helpMailKey, config.Values.HelpMail, "help mail")
+	err = putIfNotFound(helpMailKey, config.Values.Webserver.Tunnel.HelpMail, "help mail")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(externalAddressKey, config.Values.ExternalAddress, "external wag address")
+	err = putIfNotFound(externalAddressKey, config.Values.Webserver.Public.ExternalAddress, "external wag address")
 	if err != nil {
 		return err
 	}
@@ -255,32 +255,27 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(InactivityTimeoutKey, config.Values.SessionInactivityTimeoutMinutes, "inactivity timeout")
+	err = putIfNotFound(InactivityTimeoutKey, config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes, "inactivity timeout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(SessionLifetimeKey, config.Values.MaxSessionLifetimeMinutes, "max session life")
+	err = putIfNotFound(SessionLifetimeKey, config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes, "max session life")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(LockoutKey, config.Values.Lockout, "lockout")
+	err = putIfNotFound(LockoutKey, config.Values.Webserver.Lockout, "lockout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(IssuerKey, config.Values.Authenticators.Issuer, "issuer name")
+	err = putIfNotFound(IssuerKey, config.Values.Webserver.Tunnel.Issuer, "issuer name")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(DomainKey, config.Values.Webserver.Tunnel.Domain, "domain url")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(defaultWGFileNameKey, config.Values.DownloadConfigFileName, "wireguard config file")
+	err = putIfNotFound(defaultWGFileNameKey, config.Values.Webserver.Public.DownloadConfigFileName, "wireguard config file")
 	if err != nil {
 		return err
 	}
@@ -290,43 +285,38 @@ func loadInitialSettings() error {
 		return err
 	}
 
-	err = putIfNotFound(MFAMethodsEnabledKey, config.Values.Authenticators.Methods, "authorisation methods")
+	err = putIfNotFound(MFAMethodsEnabledKey, config.Values.Webserver.Tunnel.Methods, "authorisation methods")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(DefaultMFAMethodKey, config.Values.Authenticators.DefaultMethod, "default mfa method")
+	err = putIfNotFound(DefaultMFAMethodKey, config.Values.Webserver.Tunnel.DefaultMethod, "default mfa method")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(OidcDetailsKey, config.Values.Authenticators.OIDC, "oidc settings")
+	err = putIfNotFound(OidcDetailsKey, config.Values.Webserver.Tunnel.OIDC, "oidc settings")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(PamDetailsKey, config.Values.Authenticators.PAM, "pam settings")
+	err = putIfNotFound(PamDetailsKey, config.Values.Webserver.Tunnel.PAM, "pam settings")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(PamDetailsKey, config.Values.Authenticators.PAM, "pam settings")
+	err = putIfNotFound(AcmeEmailKey, config.Values.Webserver.Acme.Email, "acme email")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(AcmeEmailKey, config.Values.Acme.Email, "acme email")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(AcmeEmailKey, config.Values.Acme.CAProvider, "acme provider")
+	err = putIfNotFound(AcmeEmailKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
 	if err != nil {
 		return err
 	}
 
 	var token CloudflareToken
-	token.APIToken = config.Values.Acme.CloudflareDNSToken
+	token.APIToken = config.Values.Webserver.Acme.CloudflareDNSToken
 	err = putIfNotFound(AcmeDNS01CloudflareAPIToken, token, "acme cloudflare dns api token")
 	if err != nil {
 		return err
@@ -360,9 +350,9 @@ func loadInitialSettings() error {
 	}
 
 	managementWebserverConfig := WebserverConfiguration{
-		Domain:        config.Values.ManagementUI.Domain,
-		TLS:           config.Values.ManagementUI.TLS,
-		ListenAddress: config.Values.ManagementUI.ListenAddress,
+		Domain:        config.Values.Webserver.Management.Domain,
+		TLS:           config.Values.Webserver.Management.TLS,
+		ListenAddress: config.Values.Webserver.Management.ListenAddress,
 	}
 
 	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")

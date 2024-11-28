@@ -53,7 +53,7 @@ func NewChallenger() *Challenger {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				domain, err := data.GetDomain()
+				domain, err := data.GetTunnelDomainUrl()
 				if err != nil {
 					log.Println("was unable to get the wag domain: ", err)
 					return false

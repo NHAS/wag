@@ -66,7 +66,7 @@ func (o *Oidc) Init(fw *router.Firewall) error {
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 	}
 
-	domain, err := data.GetDomain()
+	domain, err := data.GetTunnelDomainUrl()
 	if err != nil {
 		return err
 	}

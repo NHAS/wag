@@ -64,11 +64,11 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		return nil, fmt.Errorf("admin ui failed to start as we could not get wag version: %s", err)
 	}
 
-	if !config.Values.ManagementUI.OIDC.Enabled && !*config.Values.ManagementUI.Password.Enabled {
+	if !config.Values.Webserver.Management.OIDC.Enabled && !*config.Values.Webserver.Management.Password.Enabled {
 		return nil, errors.New("neither oidc or password authentication was enabled for the admin user interface, you wont be able to log in despite having it enabled")
 	}
 
-	if config.Values.ManagementUI.OIDC.Enabled {
+	if config.Values.Webserver.Management.OIDC.Enabled {
 		key, err := utils.GenerateRandom(32)
 		if err != nil {
 			return nil, errors.New("failed to get random key: " + err.Error())
@@ -86,18 +86,18 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 			rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 		}
 
-		u, err := url.Parse(config.Values.ManagementUI.Domain)
+		u, err := url.Parse(config.Values.Webserver.Management.Domain)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.ManagementUI.Domain, err)
+			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.Webserver.Management.Domain, err)
 		}
 
 		u.Path = path.Join(u.Path, "/login/oidc/callback")
 		log.Println("[ADMINUI] OIDC callback: ", u.String())
-		log.Println("[ADMINUI] Connecting to OIDC provider: ", config.Values.ManagementUI.OIDC.IssuerURL)
+		log.Println("[ADMINUI] Connecting to OIDC provider: ", config.Values.Webserver.Management.OIDC.IssuerURL)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-		adminUI.oidcProvider, err = rp.NewRelyingPartyOIDC(ctx, config.Values.ManagementUI.OIDC.IssuerURL, config.Values.ManagementUI.OIDC.ClientID, config.Values.ManagementUI.OIDC.ClientSecret, u.String(), []string{"openid"}, options...)
+		adminUI.oidcProvider, err = rp.NewRelyingPartyOIDC(ctx, config.Values.Webserver.Management.OIDC.IssuerURL, config.Values.Webserver.Management.OIDC.ClientID, config.Values.Webserver.Management.OIDC.ClientSecret, u.String(), []string{"openid"}, options...)
 		cancel()
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect to oidc provider for admin ui. err %s", err)
@@ -106,7 +106,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		log.Println("[ADMINUI] Connected to admin oidc provider!")
 	}
 
-	if *config.Values.ManagementUI.Password.Enabled {
+	if *config.Values.Webserver.Management.Password.Enabled {
 
 		admins, err := adminUI.ctrl.ListAdminUsers("")
 		if err != nil {
@@ -172,7 +172,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	allRoutes.HandleFunc("GET /api/config", adminUI.uiConfig)
 	allRoutes.HandleFunc("POST /api/refresh", adminUI.doAuthRefresh)
 
-	if config.Values.ManagementUI.OIDC.Enabled {
+	if config.Values.Webserver.Management.OIDC.Enabled {
 		allRoutes.HandleFunc("GET /login/oidc", func(w http.ResponseWriter, r *http.Request) {
 			rp.AuthURLHandler(func() string {
 				r, _ := utils.GenerateRandomHex(32)
@@ -286,15 +286,15 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		return nil, err
 	}
 
-	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.ManagementUI.ListenAddress)
+	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.Webserver.Management.ListenAddress)
 
 	return &adminUI, nil
 }
 
 func (au *AdminUI) uiConfig(w http.ResponseWriter, r *http.Request) {
 	m := ConfigResponseDTO{
-		SSO:      config.Values.ManagementUI.OIDC.Enabled,
-		Password: *config.Values.ManagementUI.Password.Enabled,
+		SSO:      config.Values.Webserver.Management.OIDC.Enabled,
+		Password: *config.Values.Webserver.Management.Password.Enabled,
 	}
 
 	json.NewEncoder(w).Encode(m)
@@ -330,7 +330,7 @@ func (au *AdminUI) doAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 
-	if !*config.Values.ManagementUI.Password.Enabled {
+	if !*config.Values.Webserver.Management.Password.Enabled {
 		http.NotFound(w, r)
 		return
 	}
@@ -428,7 +428,7 @@ func (au *AdminUI) Close() {
 
 	autotls.Do.Close(data.Management)
 
-	if config.Values.ManagementUI.Enabled {
+	if config.Values.Webserver.Management.Enabled {
 		log.Println("Stopped Management UI")
 	}
 

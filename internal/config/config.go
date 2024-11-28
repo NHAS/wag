@@ -52,70 +52,73 @@ type Config struct {
 	CheckUpdates  bool   `json:",omitempty"`
 	NumberProxies int
 	Proxied       bool
-	ExposePorts   []string `json:",omitempty"`
-	NAT           *bool    `json:",omitempty"`
+
+	ExposePorts []string `json:",omitempty"`
+	NAT         *bool    `json:",omitempty"`
 
 	MFATemplatesDirectory string `json:",omitempty"`
 
-	HelpMail                        string
-	Lockout                         int
-	ExternalAddress                 string
-	MaxSessionLifetimeMinutes       int
-	SessionInactivityTimeoutMinutes int
-
-	DownloadConfigFileName string `json:",omitempty"`
-
-	Acme struct {
-		Email              string
-		CAProvider         string
-		CloudflareDNSToken string
-	}
-
-	ManagementUI struct {
-		Enabled bool
-
-		webserverDetails
-
-		Password struct {
-			Enabled *bool `json:",omitempty"`
-		} `json:",omitempty"`
-
-		OIDC struct {
-			IssuerURL    string
-			ClientSecret string
-			ClientID     string
-			Enabled      bool
-		} `json:",omitempty"`
-	} `json:",omitempty"`
-
 	Webserver struct {
-		Public webserverDetails
+		Acme struct {
+			Email              string
+			CAProvider         string
+			CloudflareDNSToken string
+		}
+
+		Public struct {
+			webserverDetails
+			DownloadConfigFileName string `json:",omitempty"`
+			ExternalAddress        string
+		}
+
+		Lockout int
 
 		Tunnel struct {
 			Port   string
 			Domain string
 			TLS    bool
+
+			HelpMail string
+
+			MaxSessionLifetimeMinutes       int
+			SessionInactivityTimeoutMinutes int
+
+			DefaultMethod string `json:",omitempty"`
+			Issuer        string
+			Methods       []string `json:",omitempty"`
+
+			OIDC struct {
+				IssuerURL       string
+				ClientSecret    string
+				ClientID        string
+				GroupsClaimName string `json:",omitempty"`
+			} `json:",omitempty"`
+
+			PAM struct {
+				ServiceName string
+			} `json:",omitempty"`
 		}
+
+		Management struct {
+			webserverDetails
+
+			Enabled bool
+
+			Password struct {
+				Enabled *bool `json:",omitempty"`
+			} `json:",omitempty"`
+
+			OIDC struct {
+				IssuerURL    string
+				ClientSecret string
+				ClientID     string
+				Enabled      bool
+			} `json:",omitempty"`
+		} `json:",omitempty"`
 	}
 
 	Clustering ClusteringDetails
 
-	Authenticators struct {
-		DefaultMethod string `json:",omitempty"`
-		Issuer        string
-		Methods       []string `json:",omitempty"`
-
-		OIDC struct {
-			IssuerURL       string
-			ClientSecret    string
-			ClientID        string
-			GroupsClaimName string `json:",omitempty"`
-		} `json:",omitempty"`
-
-		PAM struct {
-			ServiceName string
-		} `json:",omitempty"`
-	}
 	Wireguard struct {
 		DevName    string
 		ListenPort int
@@ -157,8 +160,8 @@ func load(path string) (c Config, err error) {
 		c.Socket = control.DefaultWagSocket
 	}
 
-	if c.DownloadConfigFileName == "" {
-		c.DownloadConfigFileName = "wg0.conf"
+	if c.Webserver.Public.DownloadConfigFileName == "" {
+		c.Webserver.Public.DownloadConfigFileName = "wg0.conf"
 	}
 
 	if c.Proxied {
@@ -225,20 +228,20 @@ func load(path string) (c Config, err error) {
 		*c.NAT = true
 	}
 
-	err = validators.ValidExternalAddresses(c.ExternalAddress)
+	err = validators.ValidExternalAddresses(c.Webserver.Public.ExternalAddress)
 	if err != nil {
 		return c, err
 	}
 
-	if c.Lockout <= 0 {
+	if c.Webserver.Lockout <= 0 {
 		return c, errors.New("lockout policy unconfigured")
 	}
 
-	if c.MaxSessionLifetimeMinutes == 0 {
+	if c.Webserver.Tunnel.MaxSessionLifetimeMinutes == 0 {
 		return c, errors.New("session max lifetime policy is not set (may be disabled by setting it to -1)")
 	}
 
-	if c.SessionInactivityTimeoutMinutes == 0 {
+	if c.Webserver.Tunnel.SessionInactivityTimeoutMinutes == 0 {
 		return c, errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
@@ -329,13 +332,13 @@ func load(path string) (c Config, err error) {
 		}
 	}
 
-	if len(c.Authenticators.Methods) == 1 {
-		c.Authenticators.DefaultMethod = c.Authenticators.Methods[len(c.Authenticators.Methods)-1]
+	if len(c.Webserver.Tunnel.Methods) == 1 {
+		c.Webserver.Tunnel.DefaultMethod = c.Webserver.Tunnel.Methods[len(c.Webserver.Tunnel.Methods)-1]
 	}
 
-	if c.ManagementUI.Password.Enabled == nil {
+	if c.Webserver.Management.Password.Enabled == nil {
 		enabled := true
-		c.ManagementUI.Password.Enabled = &enabled
+		c.Webserver.Management.Password.Enabled = &enabled
 	}
 
 	return c, nil

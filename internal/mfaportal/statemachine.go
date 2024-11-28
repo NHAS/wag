@@ -17,7 +17,7 @@ func (mp *MfaPortal) registerListeners() error {
 		return err
 	}
 
-	mp.listenerKeys.Domain, err = data.RegisterEventListener(data.DomainKey, false, mp.domainChanged)
+	mp.listenerKeys.Domain, err = data.RegisterEventListener(data.TunnelWebServerConfigKey, false, mp.domainChanged)
 	if err != nil {
 		return err
 	}
@@ -73,8 +73,7 @@ func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.Eve
 	return nil
 }
 
-// DomainKey            = "wag-config-authentication-domain"
-func (mp *MfaPortal) domainChanged(_ string, _ string, _ string, et data.EventType) error {
+func (mp *MfaPortal) domainChanged(_ string, _, _ data.WebserverConfiguration, et data.EventType) error {
 	switch et {
 	case data.MODIFIED:
 

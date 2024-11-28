@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
+	"net"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -53,7 +53,6 @@ const (
 
 	LockoutKey           = ConfigKey + "authentication-lockout"
 	IssuerKey            = ConfigKey + "authentication-issuer"
-	DomainKey            = ConfigKey + "authentication-domain"
 	MFAMethodsEnabledKey = ConfigKey + "authentication-methods"
 	DefaultMFAMethodKey  = ConfigKey + "authentication-default-method"
 
@@ -240,7 +239,7 @@ func GetWebauthn() (wba Webauthn, err error) {
 
 	txn := etcd.Txn(context.Background())
 	response, err := txn.Then(clientv3.OpGet(IssuerKey),
-		clientv3.OpGet(DomainKey)).Commit()
+		clientv3.OpGet(TunnelWebServerConfigKey)).Commit()
 	if err != nil {
 		return wba, err
 	}
@@ -254,20 +253,35 @@ func GetWebauthn() (wba Webauthn, err error) {
 		return wba, errors.New("no domain set")
 	}
 
-	var urlData string
 	// Issuer
 	json.Unmarshal(response.Responses[0].GetResponseRange().Kvs[0].Value, &wba.DisplayName)
 
+	var tunnelConfig WebserverConfiguration
 	//Domain
-	json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &urlData)
-
-	tunnelURL, err := url.Parse(urlData)
+	err = json.Unmarshal(response.Responses[1].GetResponseRange().Kvs[0].Value, &tunnelConfig)
 	if err != nil {
-		return wba, errors.New("unable to parse Authenticators.DomainURL: " + err.Error())
+		return wba, err
 	}
 
-	wba.Origin = tunnelURL.String()
-	wba.ID = strings.Split(tunnelURL.Host, ":")[0]
+	if tunnelConfig.Domain == "" {
+		return wba, errors.New("domain was empty")
+	}
+
+	tunnelURL := tunnelConfig.Domain
+	scheme := "http://"
+	if tunnelConfig.TLS {
+		scheme = "https://"
+	}
+	tunnelURL = scheme + tunnelURL
+
+	_, port, err := net.SplitHostPort(tunnelConfig.ListenAddress)
+	// ignore default ports
+	if err == nil && !(tunnelConfig.TLS && port == "443") && !(!tunnelConfig.TLS && port == "80") {
+		tunnelURL = tunnelURL + ":" + port
+	}
+
+	wba.Origin = tunnelURL
+	wba.ID = tunnelConfig.Domain
 
 	return
 }
@@ -343,8 +357,29 @@ func ShouldCheckUpdates() (bool, error) {
 	return ret, nil
 }
 
-func GetDomain() (string, error) {
-	return getString(DomainKey)
+func GetTunnelDomainUrl() (string, error) {
+	details, err := GetWebserverConfig(Tunnel)
+	if err != nil {
+		return "", err
+	}
+
+	if details.Domain == "" {
+		return "", nil
+	}
+
+	scheme := "http://"
+	if details.TLS {
+		scheme = "https://"
+	}
+
+	url := scheme + details.Domain
+	_, port, err := net.SplitHostPort(details.ListenAddress)
+	if err == nil {
+		url = url + ":" + port
+	}
+
+	return url, nil
+
 }
 
 func SetIssuer(issuer string) error {
@@ -410,7 +445,6 @@ type LoginSettings struct {
 	DefaultMFAMethod  string   `validate:"required" json:"default_mfa_method"`
 	EnabledMFAMethods []string `validate:"required,lt=10,dive,required" json:"enabled_mfa_methods"`
 
-	Domain string `validate:"required" json:"domain"`
 	Issuer string `validate:"required" json:"issuer"`
 
 	OidcDetails OIDC `json:"oidc"`
@@ -418,7 +452,6 @@ type LoginSettings struct {
 }
 
 func (lg *LoginSettings) Validate() error {
-	lg.Domain = strings.TrimSpace(lg.Domain)
 	lg.Issuer = strings.TrimSpace(lg.Issuer)
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
@@ -446,9 +479,6 @@ func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op, err error) {
 
 	b, _ = json.Marshal(lg.EnabledMFAMethods)
 	ret = append(ret, clientv3.OpPut(MFAMethodsEnabledKey, string(b)))
-
-	b, _ = json.Marshal(lg.Domain)
-	ret = append(ret, clientv3.OpPut(DomainKey, string(b)))
 
 	b, _ = json.Marshal(lg.Issuer)
 	ret = append(ret, clientv3.OpPut(IssuerKey, string(b)))
@@ -518,7 +548,6 @@ func GetLoginSettings() (s LoginSettings, err error) {
 		clientv3.OpGet(LockoutKey),
 		clientv3.OpGet(DefaultMFAMethodKey),
 		clientv3.OpGet(MFAMethodsEnabledKey),
-		clientv3.OpGet(DomainKey),
 		clientv3.OpGet(IssuerKey),
 		clientv3.OpGet(OidcDetailsKey),
 		clientv3.OpGet(PamDetailsKey)).Commit()
@@ -562,29 +591,22 @@ func GetLoginSettings() (s LoginSettings, err error) {
 	}
 
 	if response.Responses[5].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.Domain)
+		err = json.Unmarshal(response.Responses[5].GetResponseRange().Kvs[0].Value, &s.Issuer)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[6].GetResponseRange().Count == 1 {
-		err = json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.Issuer)
+		s.OidcDetails.GroupsClaimName = "groups"
+		err := json.Unmarshal(response.Responses[6].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
 		if err != nil {
 			return s, err
 		}
 	}
 
 	if response.Responses[7].GetResponseRange().Count == 1 {
-		s.OidcDetails.GroupsClaimName = "groups"
-		err := json.Unmarshal(response.Responses[7].GetResponseRange().Kvs[0].Value, &s.OidcDetails)
-		if err != nil {
-			return s, err
-		}
-	}
-
-	if response.Responses[8].GetResponseRange().Count == 1 {
-		err := json.Unmarshal(response.Responses[8].GetResponseRange().Kvs[0].Value, &s.PamDetails)
+		err := json.Unmarshal(response.Responses[7].GetResponseRange().Kvs[0].Value, &s.PamDetails)
 		if err != nil {
 			return s, err
 		}
