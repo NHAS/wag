@@ -158,30 +158,52 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 
 func redact[T any](input T) (redacted []byte) {
 
-	values := reflect.ValueOf(input)
-	if values.Kind() == reflect.Pointer {
-		values = values.Elem()
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("redacting paniced: ", e)
+		}
+	}()
+
+	// Make a copy of the input to avoid modifying the original
+	inputValue := reflect.ValueOf(input)
+	inputType := inputValue.Type()
+
+	copied := reflect.New(inputType).Elem()
+	copied.Set(inputValue)
+
+	if copied.Kind() == reflect.Pointer {
+		if copied.IsNil() {
+			return nil
+		}
+
+		elemType := copied.Elem().Type()
+		newElem := reflect.New(elemType).Elem()
+		newElem.Set(copied.Elem())
+		copied = newElem
 	}
 
-	if values.Kind() == reflect.Struct {
-		for i := 0; i < values.NumField(); i++ {
-			_, isSensitive := values.Type().Field(i).Tag.Lookup("sensitive")
-			if isSensitive {
-				if values.Field(i).CanSet() {
-					values.Field(i).SetZero()
+	if copied.Kind() == reflect.Struct {
+		for i := 0; i < copied.NumField(); i++ {
+			field := copied.Field(i)
+			fieldType := copied.Type().Field(i)
+
+			// Check for sensitive tag
+			if _, isSensitive := fieldType.Tag.Lookup("sensitive"); isSensitive {
+				// Set field to zero value if possible
+				if field.CanSet() {
+					field.Set(reflect.Zero(field.Type()))
 				} else {
-					log.Println("cannot remove value for field, as cannot set")
+					log.Printf("cannot redact field %s: field cannot be set", fieldType.Name)
 				}
 			}
 		}
 	}
 
-	data, err := json.Marshal(input)
+	b, err := json.Marshal(copied.Interface())
 	if err != nil {
-		log.Println("could not remarshal after redacting: ", err)
+		log.Println("could not marshal: ", err)
 	}
-
-	return data
+	return b
 }
 
 type GeneralEvent struct {
