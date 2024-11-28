@@ -20,4 +20,9 @@ type GroupData struct {
 	Members []string `json:"members"`
 }
 
+type PutReq struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 const DefaultWagSocket = "/tmp/wag.sock"

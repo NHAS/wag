@@ -128,6 +128,9 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 	controlMux.HandleFunc("POST /config/group/create", srvSock.newGroup)
 	controlMux.HandleFunc("POST /config/group/delete", srvSock.deleteGroup)
 
+	controlMux.HandleFunc("POST /db/get", srvSock.getDBKey)
+	controlMux.HandleFunc("POST /db/put", srvSock.putDBKey)
+
 	controlMux.HandleFunc("GET /config/settings/general", srvSock.getGeneralSettings)
 	controlMux.HandleFunc("GET /config/settings/login", srvSock.getLoginSettings)
 	controlMux.HandleFunc("GET /config/settings/lockout", srvSock.getLockout)

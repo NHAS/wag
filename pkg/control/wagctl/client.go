@@ -767,3 +767,51 @@ func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error
 
 	return t, nil
 }
+
+func (c *CtrlClient) GetDBKey(key string) (string, error) {
+
+	b := bytes.NewBuffer(nil)
+
+	json.NewEncoder(b).Encode(key)
+
+	response, err := c.httpClient.Post("http://unix/db/get", "application/json", b)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+}
+
+func (c *CtrlClient) PutDBKey(key, value string) error {
+
+	b := bytes.NewBuffer(nil)
+
+	var d control.PutReq
+	d.Key = key
+	d.Value = value
+
+	json.NewEncoder(b).Encode(d)
+
+	response, err := c.httpClient.Post("http://unix/db/put", "application/json", b)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	result, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 200 {
+		return errors.New(string(result))
+	}
+
+	return nil
+}

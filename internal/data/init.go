@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/url"
 	"os"
@@ -615,4 +616,27 @@ func GetInitialData() (users []UserModel, devices []Device, err error) {
 	}
 
 	return
+}
+
+func Get(key string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	resp, err := etcd.Get(ctx, key)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Count == 0 {
+		return nil, fs.ErrNotExist
+	}
+
+	return resp.Kvs[0].Value, nil
+}
+
+func Put(key, value string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	_, err := etcd.Put(ctx, key, value)
+	cancel()
+
+	return err
 }

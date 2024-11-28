@@ -30,6 +30,8 @@ type AutoTLS struct {
 
 	webServers map[data.Webserver]*webserver
 
+	ourHttpServers map[string]bool
+
 	issuer *certmagic.ACMEIssuer
 }
 
@@ -76,9 +78,11 @@ func Initialise() error {
 	config.Issuers = []certmagic.Issuer{issuer}
 
 	ret := &AutoTLS{
-		Config:     config,
-		webServers: make(map[data.Webserver]*webserver),
-		issuer:     issuer}
+		Config:         config,
+		webServers:     make(map[data.Webserver]*webserver),
+		issuer:         issuer,
+		ourHttpServers: make(map[string]bool),
+	}
 	ret.registerEventListeners()
 
 	if Do != nil {
@@ -180,7 +184,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	webserverEventsFunc := func(key string, current, _ data.WebserverConfiguration, ev data.EventType) error {
+	webserverEventsFunc := func(key string, current, previous data.WebserverConfiguration, ev data.EventType) error {
 
 		webserverTarget := data.Webserver(strings.TrimPrefix(key, data.WebServerConfigKey))
 		a.RLock()
@@ -198,9 +202,14 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.HalfClose(webserverTarget)
 			return nil
 		}
-
 		// nil means we keep the established mux
-		return a.refreshListeners(webserverTarget, nil, &current)
+		preserveError := a.refreshListeners(webserverTarget, nil, &current)
+		if preserveError != nil {
+			data.SetWebserverConfig(webserverTarget, previous)
+			data.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
+			log.Printf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError)
+		}
+		return preserveError
 	}
 
 	_, err = data.RegisterEventListener(data.TunnelWebServerConfigKey, false, webserverEventsFunc)
@@ -257,6 +266,10 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 			BaseContext:       func(listener net.Listener) context.Context { return ctx },
 		}
 
+		if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
+			httpServer.Handler = am.HTTPChallengeHandler(w.mux)
+		}
+
 		for _, s := range w.listeners {
 			s.Close()
 		}
@@ -267,7 +280,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 			return err
 		}
 
-		go httpServer.Serve(httpListener)
+		go a.runHttpServer(httpServer, httpListener)
 	} else {
 		err := a.Config.ManageSync(ctx, []string{w.details.Domain})
 		if err != nil {
@@ -291,9 +304,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 		w.listeners = []*http.Server{}
 
 		httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
-		if err != nil {
-			log.Println("WARNING could start acme tls listener on", w.details.ListenAddress, err, " auto provisioning certificate may fail")
-		} else {
+		if err == nil {
 			w.listeners = append(w.listeners, httpRedirectServer)
 		}
 
@@ -321,10 +332,16 @@ func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Se
 
 	listenAddr := fmt.Sprintf("%s:80", host)
 
+	if a.ourHttpServers[listenAddr] || a.ourHttpServers[":80"] {
+		return nil, errors.New("ignore me, we already have an http listener on this port")
+	}
+
 	httpRedirectListener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return nil, err
 	}
+
+	a.ourHttpServers[listenAddr] = true
 
 	httpServer := &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,
@@ -338,8 +355,7 @@ func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Se
 		httpServer.Handler = am.HTTPChallengeHandler(http.HandlerFunc(a.httpRedirectHandler(domain + ":" + port)))
 	}
 
-	go httpServer.Serve(httpRedirectListener)
-
+	go a.runHttpServer(httpServer, httpRedirectListener)
 	return httpServer, nil
 }
 
@@ -349,4 +365,11 @@ func (a *AutoTLS) httpRedirectHandler(redirectTo string) func(w http.ResponseWri
 		w.Header().Set("Connection", "close")
 		http.Redirect(w, r, "https://"+redirectTo, http.StatusMovedPermanently)
 	}
+}
+
+func (a *AutoTLS) runHttpServer(httpServer *http.Server, listener net.Listener) {
+	httpServer.Serve(listener)
+	a.Lock()
+	delete(a.ourHttpServers, listener.Addr().String())
+	a.Unlock()
 }

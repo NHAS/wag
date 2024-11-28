@@ -23,6 +23,8 @@ var cmds = []commands.Command{
 	commands.Webadmin(),
 
 	commands.VersionCmd(),
+
+	commands.ModifyConfig(),
 }
 
 func help(full bool) {

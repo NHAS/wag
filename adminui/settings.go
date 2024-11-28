@@ -2,7 +2,9 @@ package adminui
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sort"
 
@@ -140,6 +142,41 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
+	}
+
+	host, port, err := net.SplitHostPort(s.ListenAddress)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		err = fmt.Errorf("listen address was not in host:port format: %q", s.ListenAddress)
+		return
+	}
+
+	if s.ServerName == string(data.Tunnel) {
+		var (
+			details    data.WebserverConfiguration
+			storedHost string
+		)
+		details, err = data.GetWebserverConfig(data.Tunnel)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			err = fmt.Errorf("unable to get tunnel webserver configuration to check ip: %w", err)
+			return
+		}
+
+		storedHost, _, err = net.SplitHostPort(details.ListenAddress)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if storedHost != host {
+			w.WriteHeader(http.StatusBadRequest)
+			err = fmt.Errorf("cannot change tunnel address")
+			return
+		}
+
+		s.ListenAddress = storedHost + ":" + port
+
 	}
 
 	err = data.SetWebserverConfig(data.Webserver(s.ServerName), s.WebserverConfiguration)

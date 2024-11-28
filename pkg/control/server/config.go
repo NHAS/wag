@@ -156,3 +156,49 @@ func (wsg *WagControlSocketServer) deleteGroup(w http.ResponseWriter, r *http.Re
 
 	w.Write([]byte("OK!"))
 }
+
+func (wsg *WagControlSocketServer) getDBKey(w http.ResponseWriter, r *http.Request) {
+
+	var key string
+
+	if err := json.NewDecoder(r.Body).Decode(&key); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if key == "" {
+		http.Error(w, "No key specified", http.StatusInternalServerError)
+		return
+	}
+
+	data, err := data.Get(key)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(data)
+}
+
+func (wsg *WagControlSocketServer) putDBKey(w http.ResponseWriter, r *http.Request) {
+
+	var toWrite control.PutReq
+
+	if err := json.NewDecoder(r.Body).Decode(&toWrite); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if toWrite.Key == "" {
+		http.Error(w, "No key specified", http.StatusInternalServerError)
+		return
+	}
+
+	err := data.Put(toWrite.Key, toWrite.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte("OK!"))
+}

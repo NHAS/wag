@@ -25,6 +25,7 @@ import {
   getWebservers,
   editWebserver
 } from '@/api'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const toast = useToast()
 const { catcher } = useToastError()
@@ -213,6 +214,14 @@ async function saveLoginSettings() {
 
 function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]): MFAMethodDTO[] {
   return allMethods.filter(x => enabledMethods.indexOf(x.method) != -1)
+}
+
+function isAcmeValid(): boolean {
+  return acmeSettingsData.value.email.length > 0 && acmeSettingsData.value.provider_url.length > 0
+}
+
+function serverCanHaveTLS(domain: string): boolean {
+  return isAcmeValid() && domain.length > 0
 }
 </script>
 
@@ -461,39 +470,90 @@ function filterMfaMethods(enabledMethods: string[], allMethods: MFAMethodDTO[]):
               <div class="flex mb-2">
                 <p>TLS Method:</p>
                 <div class="flex flex-grow"></div>
-                <p class="font-bold">
-                  {{
+                <div
+                  class="tooltip"
+                  :data-tip="
                     acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
-                      ? 'Disabled'
-                      : acmeSettingsData.api_token_set
-                        ? 'DNS-01'
-                        : 'HTTP-01'
-                  }}
-                </p>
+                      ? 'Acme settings have not been set'
+                      : 'ACME Method'
+                  "
+                >
+                  <p class="font-bold">
+                    {{
+                      acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
+                        ? 'Disabled'
+                        : acmeSettingsData.api_token_set
+                          ? 'DNS-01'
+                          : 'HTTP-01'
+                    }}
+                  </p>
+                </div>
               </div>
-              <div role="tablist" class="tabs tabs-bordered">
-                <template v-for="(server, index) in webserversSettingsData" :key="'webserver-' + server.server_name">
-                  <input type="radio" name="webserver-tabs" role="tab" class="tab" :aria-label="server.server_name" :checked="index == 0" />
-                  <div role="tabpanel" class="tab-content p-10">
-                    <label class="label font-bold">
-                      <span class="label-text">Domain</span>
-                    </label>
-                    <input v-model="server.domain" type="test" class="input input-bordered w-full" />
+              <div >
+                <div role="tablist" class="tabs tabs-bordered">
+                  <template v-for="(server, index) in webserversSettingsData" :key="'webserver-' + server.server_name">
+                    <input
+                      type="radio"
+                      name="webserver-tabs"
+                      role="tab"
+                      class="tab"
+                      :aria-label="server.server_name"
+                      :checked="index == 0"
+                    />
+                    <div role="tabpanel" class="tab-content p-10">
+                      <label class="label font-bold">
+                        <span class="label-text">Domain</span>
+                      </label>
+                      <input v-model="server.domain" type="text" class="input input-bordered w-full" />
 
-                    <label class="label font-bold">
-                      <span class="label-text">Listen Address</span>
-                    </label>
-                    <input v-model="server.listen_address" type="test" class="input input-bordered w-full" />
+                      <template v-if="server.server_name == 'tunnel'">
+                        <label class="label font-bold">
+                          <span class="label-text">Port</span>
+                        </label>
+                        <input
+                          :value="server.listen_address.split(':')[1] || ''"
+                          @input="
+                            (e: Event) => {
+                              const [host] = server.listen_address.split(':')
+                              server.listen_address = `${host}:${(e.target as HTMLInputElement).value}`
+                            }
+                          "
+                          type="number"
+                          class="input input-bordered w-full"
+                        />
+                      </template>
+                      <template v-else>
+                        <label class="label font-bold">
+                          <span class="label-text">Listen Address</span>
+                        </label>
+                        <input v-model="server.listen_address" type="text" class="input input-bordered w-full" />
+                      </template>
 
-                    <label class="label font-bold">
-                      <span class="label-text">TLS</span>
-                      <input v-model="server.tls" type="checkbox" class="toggle toggle-primary" />
-                    </label>
-                  </div>
-                </template>
+                      <label class="label font-bold">
+                        <span class="label-text">TLS</span>
+                        <span
+                          :class="serverCanHaveTLS(server.domain) ? '' : 'tooltip'"
+                          data-tip="Domain name required and ACME configuration must be valid"
+                        >
+                          <input
+                            v-model="server.tls"
+                            type="checkbox"
+                            class="toggle toggle-primary"
+                            :disabled="!serverCanHaveTLS(server.domain) && !server.tls"
+                          />
+                        </span>
+                      </label>
+                    </div>
+                  </template>
+                </div>
               </div>
-
-              <button type="submit" class="btn btn-primary w-full" @click="saveServerSettings">
+              <ConfirmModal v-if="getModifiedServers().some(s => s.server_name == 'management')" @on-cancel="refreshWebservers" @on-confirm="saveServerSettings" body="Editing the management interface may stop you from being able to manage wag, are you sure you want to proceed?">
+              <button type="submit" class="btn btn-primary w-full">
+                <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
+                Save
+              </button>
+              </ConfirmModal>
+              <button v-else type="submit" class="btn btn-primary w-full" @click="saveServerSettings">
                 <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
                 Save
               </button>

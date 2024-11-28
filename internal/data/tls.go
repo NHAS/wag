@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
+	"net/mail"
+	"net/url"
 	"path"
 	"strings"
 	"sync"
@@ -41,6 +44,15 @@ func GetAcmeEmail() (string, error) {
 }
 
 func SetAcmeEmail(email string) error {
+
+	// allow unsetting value
+	if email != "" {
+		_, err := mail.ParseAddress(email)
+		if err != nil {
+			return err
+		}
+	}
+
 	data, _ := json.Marshal(email)
 
 	_, err := etcd.Put(context.Background(), AcmeEmailKey, string(data))
@@ -49,8 +61,21 @@ func SetAcmeEmail(email string) error {
 }
 
 func SetAcmeProvider(providerURL string) error {
-	if !strings.HasPrefix(providerURL, "https://") {
-		return errors.New("acme provider must start with https://")
+
+	// we're allowing users to unset a provider url
+	if providerURL != "" {
+		u, err := url.ParseRequestURI(providerURL)
+		if err != nil {
+			return fmt.Errorf("invalid acme provider url: %w", err)
+		}
+
+		if u.Scheme != "https" {
+			return errors.New("acme provider must start with https://")
+		}
+
+		if u.Host == "" {
+			return errors.New("invalid hostname in provider url")
+		}
 	}
 
 	data, _ := json.Marshal(providerURL)
