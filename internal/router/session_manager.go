@@ -130,8 +130,8 @@ func (c *Challenger) Challenge(address string) error {
 }
 
 func (c *Challenger) Reset(address string) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	conn, ok := c.connections[address]
 	if !ok {
@@ -139,6 +139,8 @@ func (c *Challenger) Reset(address string) {
 	}
 
 	conn.WriteJSON("reset")
+	conn.Close()
+	delete(c.connections, address)
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {

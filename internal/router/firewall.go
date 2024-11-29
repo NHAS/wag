@@ -45,8 +45,6 @@ type Firewall struct {
 
 	nodeID types.ID
 
-	challenger *Challenger
-
 	listenerKeys struct {
 		Device     string
 		Membership string
@@ -293,7 +291,7 @@ func (f *Firewall) Deauthenticate(address string) error {
 
 	err = f._deauthenticate(addr)
 
-	f.challenger.Reset(address)
+	f.Verifier.Reset(address)
 
 	return err
 }

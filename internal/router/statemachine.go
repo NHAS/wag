@@ -123,7 +123,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 
 			var err error
 			for attempts := 0; attempts < 3; attempts++ {
-				err = f.challenger.Challenge(current.Address)
+				err = f.Verifier.Challenge(current.Address)
 				if err != nil {
 					time.Sleep(2 * time.Second)
 				} else {
