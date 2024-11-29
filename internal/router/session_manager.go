@@ -129,7 +129,7 @@ func (c *Challenger) Challenge(address string) error {
 	return nil
 }
 
-func (c *Challenger) Reset(address string) {
+func (c *Challenger) FailChallenge(address string) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -138,7 +138,21 @@ func (c *Challenger) Reset(address string) {
 		return
 	}
 
-	conn.WriteJSON("reset")
+	conn.WriteJSON("failed_challenge")
+	conn.Close()
+	delete(c.connections, address)
+}
+
+func (c *Challenger) NotifyDeauth(address string) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[address]
+	if !ok {
+		return
+	}
+
+	conn.WriteJSON("deauthed")
 	conn.Close()
 	delete(c.connections, address)
 }
@@ -182,7 +196,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	err = c.Challenge(remoteAddress.String())
 	if err != nil {
-		c.Reset(remoteAddress.String())
+		c.FailChallenge(remoteAddress.String())
 		log.Printf("%s:%s client did not complete inital ws challenge: %s", user.Username, remoteAddress, err)
 		return
 	}

@@ -4,6 +4,7 @@ const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/chall
 
 let backoff = 200;
 let attempts = 0;
+let failed = false;
 let challenge = getCookie("challenge");
 if (challenge === null || challenge === "null" || challenge == "") {
     challenge = null
@@ -37,15 +38,22 @@ function connect() {
                     JSON.stringify({challenge: challenge
                 }));
             return
-            case "reset":
+            case "deauthed":
+                window.location.href = "/"
+                return
+            case "failed_challenge":
+                failed = true;
                 deleteCookie("challenge")
-                window.location.href = '/'
             return
         }
    
     };
 
     ws.onclose = function (e) {
+        if(failed) {
+            return
+        }
+
         console.log(`Socket is closed. Reconnect will be attempted in ${backoff} ms.`, e.reason);
         if(backoff < 1000) {
             backoff += backoff*2

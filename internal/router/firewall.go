@@ -291,7 +291,7 @@ func (f *Firewall) Deauthenticate(address string) error {
 
 	err = f._deauthenticate(addr)
 
-	f.Verifier.Reset(address)
+	f.Verifier.NotifyDeauth(address)
 
 	return err
 }
