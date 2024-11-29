@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --padding-card: 24px;
+}
+
+.compact-table tr th:first-of-type,
+.compact-table tr td:first-of-type {
+  padding-left: 0;
+}
+
+.compact-table tr th:last-of-type,
+.compact-table tr td:last-of-type {
+  padding-right: 0;
+}
+
+table.table-first-col-bold tr > td:first-of-type {
+  font-weight: bold;
+}
+
+.btn {
+  text-transform: uppercase;
+}
+
+.btn.normal-case {
+  text-transform: none;
+}
+
+.label {
+  padding-left: 0px !important;
+}

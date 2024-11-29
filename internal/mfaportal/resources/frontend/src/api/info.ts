@@ -1,0 +1,5 @@
+import { client, type UserInfoDTO } from ".";
+
+export function apiGetInfo(): Promise<UserInfoDTO> {
+  return client.get("/api/info").then((res) => res.data);
+}
