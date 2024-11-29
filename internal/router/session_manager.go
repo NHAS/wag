@@ -153,7 +153,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	// Upgrade HTTP connection to WebSocket connection
 	_c, err := c.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "failed to create websocket challenger:", err)
+		log.Println(user.Username, remoteAddress, "failed to create websocket:", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}

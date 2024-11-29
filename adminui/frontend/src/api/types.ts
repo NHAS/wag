@@ -48,7 +48,7 @@ export interface UsersGetAllResponseDTO {
 export enum UserEditActions {
   Lock = 'lock',
   Unlock = 'unlock',
-  RestMFA = 'resetMFA'
+  ResetMFA = 'resetMFA'
 }
 
 export interface EditUsersDTO {

@@ -173,7 +173,7 @@ const selectedUsersHasLocked = computed(() => {
                 </button>
               </div>
               <div class="tooltip" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.RestMFA)" class="btn btn-ghost btn-primary">
+                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost btn-primary">
                   Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
                 </button>
               </div>
