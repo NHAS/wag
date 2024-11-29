@@ -154,7 +154,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	_c, err := c.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(user.Username, remoteAddress, "failed to create websocket:", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
+		// do not error here as upgrade has already done it
 		return
 	}
 
