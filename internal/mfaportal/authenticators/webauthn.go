@@ -160,7 +160,7 @@ func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 				return nil
 			})
-		w.Header().Set("WAG-CHALLENGE", challenge)
+		IssueChallengeTokenCookie(w, r, challenge)
 
 		msg, status := resultMessage(err)
 		jsonResponse(w, msg, status) // Send back an error message before we do the server side of handling it
@@ -285,7 +285,7 @@ func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Header().Set("WAG-CHALLENGE", challenge)
+		IssueChallengeTokenCookie(w, r, challenge)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 

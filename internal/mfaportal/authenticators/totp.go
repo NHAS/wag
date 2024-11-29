@@ -140,7 +140,7 @@ func (t *Totp) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
-		w.Header().Set("WAG-CHALLENGE", challenge)
+		IssueChallengeTokenCookie(w, r, challenge)
 
 		if err := user.EnforceMFA(); err != nil {
 			log.Println(user.Username, clientTunnelIp, "enforce mfa failed:", err)
@@ -180,7 +180,7 @@ func (t *Totp) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
-	w.Header().Set("WAG-CHALLENGE", challenge)
+	IssueChallengeTokenCookie(w, r, challenge)
 
 	msg, status := resultMessage(err)
 	jsonResponse(w, msg, status)

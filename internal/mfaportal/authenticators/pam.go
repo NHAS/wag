@@ -84,7 +84,7 @@ func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 			log.Println(user.Username, clientTunnelIp, "failed to enforce mfa: ", err)
 		}
 
-		w.Header().Set("WAG-CHALLENGE", challenge)
+		IssueChallengeTokenCookie(w, r, challenge)
 
 	default:
 		http.NotFound(w, r)
@@ -121,7 +121,7 @@ func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
 	msg, status := resultMessage(err)
-	w.Header().Set("WAG-CHALLENGE", challenge)
+	IssueChallengeTokenCookie(w, r, challenge)
 
 	jsonResponse(w, msg, status)
 
