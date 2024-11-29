@@ -3,17 +3,29 @@ const httpsEnabled = window.location.protocol == "https:";
 const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/challenge/";
 
 let backoff = 200;
+let attempts = 0;
 let challenge = localStorage.getItem("challenge");
-if (challenge === null || challenge === "null") {
+if (challenge === null || challenge === "null" || challenge == "") {
     // oidc sets the challenge via cookie
     challenge = getCookie("challenge");
-    if(challenge !== null) {
+    if(challenge !== null || challenge != "") {
         localStorage.setItem("challenge", challenge)
+    } else {
+        challenge = null
     }
     deleteCookie("challenge")
 }
 
+
+
 function connect() {
+
+    attempts++;
+
+    if(attempts > 5) {
+        console.log("giving up retrying websockets connection")
+        return
+    }
 
     let ws = new WebSocket(url);
     ws.onopen = function () {
@@ -29,12 +41,14 @@ function connect() {
         let msg = JSON.parse(e.data)
         switch(msg) {
             case "challenge":
+                attempts = 0;
                 ws.send(
                     JSON.stringify({challenge: challenge
                 }));
             return
             case "reset":
                 localStorage.removeItem("challenge")
+                deleteCookie("challenge")
                 window.location.href = '/'
             return
         }

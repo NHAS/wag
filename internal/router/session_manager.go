@@ -83,7 +83,7 @@ func (c *Challenger) Challenge(address string) error {
 		return fmt.Errorf("no connection found for device: %s", address)
 	}
 
-	err = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
 		conn.Close()
 		return err
@@ -95,7 +95,7 @@ func (c *Challenger) Challenge(address string) error {
 		return err
 	}
 
-	err = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
 		conn.Close()
 		return err

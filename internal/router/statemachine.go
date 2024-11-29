@@ -137,6 +137,8 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 				if err != nil {
 					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 				}
+				// attempt to tell the device to reset on deauth
+
 			} else {
 				log.Printf("%s:%s device succeeded challenge", current.Username, current.Address)
 			}
