@@ -72,9 +72,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
               <h5 class="card-title">View Active Sessions</h5>
               <div>
                 {{
-                  allDevices.filter(e => {
-                    e.active
-                  }).length ?? 0 + ' active sessions'
+                  devicesStore.numActive() + ' active sessions'
                 }}
               </div>
             </div>
