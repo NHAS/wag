@@ -173,7 +173,7 @@ const selectedUsersHasLocked = computed(() => {
                 </button>
               </div>
               <div class="tooltip" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.RestMFA)" class="btn btn-ghost btn-primary">
+                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost btn-primary">
                   Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
                 </button>
               </div>
@@ -243,7 +243,7 @@ const selectedUsersHasLocked = computed(() => {
                     class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   >
                     <div class="tooltip" data-tip="Reset MFA">
-                      <button class="mr-3" @click="updateUser([user.username], UserEditActions.Lock)">
+                      <button class="mr-3" @click="updateUser([user.username], UserEditActions.ResetMFA)">
                         <font-awesome-icon :icon="Icons.Refresh" class="text-secondary hover:text-secondary-focus" />
                       </button>
                     </div>

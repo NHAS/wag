@@ -374,7 +374,7 @@ func GetTunnelDomainUrl() (string, error) {
 
 	url := scheme + details.Domain
 	_, port, err := net.SplitHostPort(details.ListenAddress)
-	if err == nil {
+	if err == nil && ((scheme == "http://" && port != "80") || (scheme == "https://" && port != "443")) {
 		url = url + ":" + port
 	}
 

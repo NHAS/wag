@@ -83,28 +83,30 @@ func (c *Challenger) Challenge(address string) error {
 		return fmt.Errorf("no connection found for device: %s", address)
 	}
 
-	err = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
+
+	err = conn.SetWriteDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
 	err = conn.WriteJSON("challenge")
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
-	err = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
 	msg := struct{ Challenge string }{}
 	err = conn.ReadJSON(&msg)
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
@@ -115,30 +117,49 @@ func (c *Challenger) Challenge(address string) error {
 
 	maxLifetimeMinutes, err := data.GetSessionLifetimeMinutes()
 	if err != nil {
-		return fmt.Errorf("failed max lifetime: %s", err)
+		err = fmt.Errorf("failed max lifetime: %s", err)
+		return err
 	}
 
 	if time.Now().After(deviceDetails.Authorised.Add(time.Duration(maxLifetimeMinutes) * time.Minute)) {
-		return fmt.Errorf("challenge came from expired session")
+		err = fmt.Errorf("challenge came from expired session")
+		return err
 	}
 
 	if subtle.ConstantTimeCompare([]byte(deviceDetails.Challenge), []byte(msg.Challenge)) != 1 {
-		return fmt.Errorf("challenge does not match")
+		err = fmt.Errorf("challenge does not match")
+		return err
 	}
 
 	return nil
 }
 
-func (c *Challenger) Reset(address string) {
-	c.RLock()
-	defer c.RUnlock()
+func (c *Challenger) FailChallenge(address string) {
+	c.Lock()
+	defer c.Unlock()
 
 	conn, ok := c.connections[address]
 	if !ok {
 		return
 	}
 
-	conn.WriteJSON("reset")
+	conn.WriteJSON("failed_challenge")
+	conn.Close()
+	delete(c.connections, address)
+}
+
+func (c *Challenger) NotifyDeauth(address string) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[address]
+	if !ok {
+		return
+	}
+
+	conn.WriteJSON("deauthed")
+	conn.Close()
+	delete(c.connections, address)
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
@@ -153,8 +174,8 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	// Upgrade HTTP connection to WebSocket connection
 	_c, err := c.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "failed to create websocket challenger:", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
+		log.Println(user.Username, remoteAddress, "failed to create websocket:", err)
+		// do not error here as upgrade has already done it
 		return
 	}
 
@@ -180,7 +201,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	err = c.Challenge(remoteAddress.String())
 	if err != nil {
-		c.Reset(remoteAddress.String())
+		c.FailChallenge(remoteAddress.String())
 		log.Printf("%s:%s client did not complete inital ws challenge: %s", user.Username, remoteAddress, err)
 		return
 	}

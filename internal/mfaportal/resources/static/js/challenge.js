@@ -3,17 +3,21 @@ const httpsEnabled = window.location.protocol == "https:";
 const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + "/challenge/";
 
 let backoff = 200;
-let challenge = localStorage.getItem("challenge");
-if (challenge === null || challenge === "null") {
-    // oidc sets the challenge via cookie
-    challenge = getCookie("challenge");
-    if(challenge !== null) {
-        localStorage.setItem("challenge", challenge)
-    }
-    deleteCookie("challenge")
+let attempts = 0;
+let failed = false;
+let challenge = getCookie("challenge");
+if (challenge === null || challenge === "null" || challenge == "") {
+    challenge = null
 }
 
 function connect() {
+
+    attempts++;
+
+    if(attempts > 5) {
+        console.log("giving up retrying websockets connection")
+        return
+    }
 
     let ws = new WebSocket(url);
     ws.onopen = function () {
@@ -29,19 +33,27 @@ function connect() {
         let msg = JSON.parse(e.data)
         switch(msg) {
             case "challenge":
+                attempts = 0;
                 ws.send(
                     JSON.stringify({challenge: challenge
                 }));
             return
-            case "reset":
-                localStorage.removeItem("challenge")
-                window.location.href = '/'
+            case "deauthed":
+                window.location.href = "/"
+                return
+            case "failed_challenge":
+                failed = true;
+                deleteCookie("challenge")
             return
         }
    
     };
 
     ws.onclose = function (e) {
+        if(failed) {
+            return
+        }
+
         console.log(`Socket is closed. Reconnect will be attempted in ${backoff} ms.`, e.reason);
         if(backoff < 1000) {
             backoff += backoff*2
@@ -65,7 +77,7 @@ function getCookie(name) {
 
 function deleteCookie(name) {
     document.cookie = name +'=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  }
+}
 
 
 if(challenge !== null) {

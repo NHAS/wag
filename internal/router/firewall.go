@@ -45,8 +45,6 @@ type Firewall struct {
 
 	nodeID types.ID
 
-	challenger *Challenger
-
 	listenerKeys struct {
 		Device     string
 		Membership string
@@ -291,7 +289,11 @@ func (f *Firewall) Deauthenticate(address string) error {
 		return fmt.Errorf("failed to parse address as netip.Addr: %s", err)
 	}
 
-	return f._deauthenticate(addr)
+	err = f._deauthenticate(addr)
+
+	f.Verifier.NotifyDeauth(address)
+
+	return err
 }
 
 func (f *Firewall) _deauthenticate(address netip.Addr) error {

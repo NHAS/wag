@@ -60,7 +60,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
           >
             <div class="card-body" v-if="lockedDevices.length == 0">
               <h5 class="card-title">Manage Devices</h5>
-              <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() }}</div>
+              <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() + " devices"}}</div>
             </div>
             <div class="card-body" v-else>
               <h5 class="card-title">Unlock Device{{ lockedDevices.length > 1 ? 's' : '' }}</h5>
@@ -72,9 +72,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
               <h5 class="card-title">View Active Sessions</h5>
               <div>
                 {{
-                  allDevices.filter(e => {
-                    e.active
-                  }).length ?? 0 + ' active sessions'
+                  devicesStore.numActive() + ' active sessions'
                 }}
               </div>
             </div>
