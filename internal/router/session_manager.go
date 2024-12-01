@@ -83,28 +83,30 @@ func (c *Challenger) Challenge(address string) error {
 		return fmt.Errorf("no connection found for device: %s", address)
 	}
 
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
+
 	err = conn.SetWriteDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
 	err = conn.WriteJSON("challenge")
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
 	err = conn.SetReadDeadline(time.Now().Add(40 * time.Second))
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
 	msg := struct{ Challenge string }{}
 	err = conn.ReadJSON(&msg)
 	if err != nil {
-		conn.Close()
 		return err
 	}
 
@@ -115,15 +117,18 @@ func (c *Challenger) Challenge(address string) error {
 
 	maxLifetimeMinutes, err := data.GetSessionLifetimeMinutes()
 	if err != nil {
-		return fmt.Errorf("failed max lifetime: %s", err)
+		err = fmt.Errorf("failed max lifetime: %s", err)
+		return err
 	}
 
 	if time.Now().After(deviceDetails.Authorised.Add(time.Duration(maxLifetimeMinutes) * time.Minute)) {
-		return fmt.Errorf("challenge came from expired session")
+		err = fmt.Errorf("challenge came from expired session")
+		return err
 	}
 
 	if subtle.ConstantTimeCompare([]byte(deviceDetails.Challenge), []byte(msg.Challenge)) != 1 {
-		return fmt.Errorf("challenge does not match")
+		err = fmt.Errorf("challenge does not match")
+		return err
 	}
 
 	return nil
