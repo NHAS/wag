@@ -1,16 +1,27 @@
-import { client, type TOTPDetailsDTO, type TOTPRequestDTO, type GenericResponseDTO, type MFARequest, MFARequestTypes } from ".";
+import {
+  client,
+  type GenericResponseDTO,
+  type MFARequest,
+  MFARequestTypes,
+  verifyEndpoint,
+} from ".";
 
-export function getWebauthnDetails(): Promise<TOTPDetailsDTO> {
-  navigator.credentials.create()
-  CredentialCreationOptions
-      return client.get("/api/webauthn").then((res) => res.data);
+export function getRegistrationWebauthnDetails(): Promise<CredentialCreationOptions> {
+  return client.get("/api/webauthn/register").then((res) => res.data);
 }
 
-export function authoriseTotp(code: TOTPRequestDTO, attempt_register: boolean): Promise<GenericResponseDTO> {
+export function getAuthorisationWebauthnDetails(): Promise<CredentialRequestOptions> {
+  return client.get("/api/webauthn/authorise").then((res) => res.data);
+}
+
+export function authoriseWebauthn(
+  details: CredentialCreationOptions | CredentialRequestOptions,
+  attempt_register: boolean,
+): Promise<GenericResponseDTO> {
   const data: MFARequest = {
-    type: MFARequestTypes.Totp,
-    data: code,
+    type: MFARequestTypes.Webauthn,
+    data: details,
     is_registration: attempt_register,
-  }
-  return client.get("/api/authorise").then((res) => res.data);
+  };
+  return client.post(verifyEndpoint, data).then((res) => res.data);
 }

@@ -1,19 +1,31 @@
 <script setup lang="ts">
-import { useInfoStore } from '@/store/info';
+import { useInfoStore } from "@/store/info";
 
-
-const infoStore = useInfoStore()
-
+const infoStore = useInfoStore();
 </script>
 
 <template>
   <h4 class="card-title w-full text-center justify-center">Authorised!</h4>
 
   <div class="max-w-[300px] min-w-[300px] w-full flex justify-center">
-    <div class="w-32 h-32 bg-success rounded-full flex items-center justify-center mb-4 mt-4 checkmark">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-28 w-28 text-success-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 13l4 4L19 7" class="text-neutral-content"/>
-        </svg>
+    <div
+      class="w-32 h-32 bg-success rounded-full flex items-center justify-center mb-4 mt-4 checkmark"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-28 w-28 text-success-content"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1"
+          d="M5 13l4 4L19 7"
+          class="text-neutral-content"
+        />
+      </svg>
     </div>
   </div>
 

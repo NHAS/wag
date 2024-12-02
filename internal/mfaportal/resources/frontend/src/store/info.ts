@@ -45,9 +45,11 @@ export const useInfoStore = defineStore({
     isLoggedIn: (state) => state.whoamiDetails?.is_authorized,
     loggedInUser: (state) => state.whoamiDetails?.username,
 
-    user: (state) => state.whoamiDetails ?? ({
-      available_mfa_methods: [] as MFAMethod[],
-    } as UserInfoDTO),
+    user: (state) =>
+      state.whoamiDetails ??
+      ({
+        available_mfa_methods: [] as MFAMethod[],
+      } as UserInfoDTO),
 
     error: (state) => state.loginError,
   },

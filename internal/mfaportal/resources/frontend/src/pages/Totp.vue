@@ -1,49 +1,56 @@
 <script setup lang="ts">
-import { authoriseTotp, getTotpDetails, type MFARequest, type TOTPDetailsDTO, type TOTPRequestDTO } from "@/api";
-import PageLoading from "@/components/PageLoading.vue";
-import { useApi } from "@/composables/useApi";
-import { useToastError } from "@/composables/useToastError";
-import router from "@/router";
-import { useInfoStore } from "@/store/info";
 import { computed, ref } from "vue";
 import { useToast } from "vue-toastification";
 
+import PageLoading from "@/components/PageLoading.vue";
+
+import { useApi } from "@/composables/useApi";
+import { useToastError } from "@/composables/useToastError";
+
+import {
+  authoriseTotp,
+  getTotpDetails,
+  type TOTPDetailsDTO,
+  type TOTPRequestDTO,
+} from "@/api";
+import router from "@/router";
+import { useInfoStore } from "@/store/info";
+
 const infoStore = useInfoStore();
 
-const { data: totp, isLoading: isLoadingTotpDetails } = useApi(() => getTotpDetails())
+const { data: totp, isLoading: isLoadingTotpDetails } = useApi(() =>
+  getTotpDetails(),
+);
 
 const isLoadingRegistrationDetails = computed(() => {
-  return isLoadingTotpDetails.value
-})
+  return isLoadingTotpDetails.value;
+});
 
-const totpDetails = computed(() => totp.value ?? {} as TOTPDetailsDTO)
+const totpDetails = computed(() => totp.value ?? ({} as TOTPDetailsDTO));
 
+const code = ref("");
 
-const code = ref('')
-
-const toast = useToast()
-const { catcher } = useToastError()
+const toast = useToast();
+const { catcher } = useToastError();
 
 async function totpAction(isRegistration: boolean) {
   try {
     let data: TOTPRequestDTO = {
-      code: code.value
-    }
+      code: code.value,
+    };
 
-    const resp = await authoriseTotp(data, isRegistration)
+    const resp = await authoriseTotp(data, isRegistration);
 
     if (!resp.success) {
-      toast.error(resp.message ?? 'Failed')
-      return
+      toast.error(resp.message ?? "Failed");
+      return;
     } else {
-      router.push("/success")
+      router.push("/success");
     }
   } catch (e) {
-    catcher(e, 'failed to apply action: ')
+    catcher(e, "failed to apply action: ");
   }
 }
-
-
 </script>
 
 <template>
@@ -57,15 +64,24 @@ async function totpAction(isRegistration: boolean) {
         send an email to
         <a :href="'mailto:' + infoStore.user.helpmail">{{
           infoStore.user.helpmail
-        }}</a>.
+        }}</a
+        >.
       </p>
       <div class="flex items-center justify-center mb-8 mt-8">
         <label class="label font-bold text-neutral-content">
-          <input type="text" class="input input-bordered text-center text-neutral" maxlength="6" autofocus
-            placeholder="000000" v-mode="code"/>
+          <input
+            type="text"
+            class="input input-bordered text-center text-neutral"
+            maxlength="6"
+            autofocus
+            placeholder="000000"
+            v-mode="code"
+          />
         </label>
       </div>
-      <button class="btn btn-primary w-full" @click="() => totpAction(false)" >Submit</button>
+      <button class="btn btn-primary w-full" @click="() => totpAction(false)">
+        Submit
+      </button>
     </div>
   </template>
   <template v-else>
@@ -83,26 +99,36 @@ async function totpAction(isRegistration: boolean) {
       </div>
 
       <p>
-        If you are unable to scan this image, select "Enter a setup key" and enter the following information.
+        If you are unable to scan this image, select "Enter a setup key" and
+        enter the following information.
       </p>
 
       <div class="font-bold">Account name: {{ totpDetails.account_name }}</div>
       <div class="font-bold">Your key: {{ totpDetails.key }}</div>
       <div class="font-bold">Type of key: Time based</div>
 
-
       <div class="flex items-center justify-center mb-8 mt-8">
         <label class="label font-bold text-neutral-content">
-          <input type="text" class="input input-bordered text-center text-neutral" maxlength="6" autofocus
-            placeholder="000000" v-mode="code"/>
+          <input
+            type="text"
+            class="input input-bordered text-center text-neutral"
+            maxlength="6"
+            autofocus
+            placeholder="000000"
+            v-mode="code"
+          />
         </label>
       </div>
-      <button class="btn btn-primary w-full" @click="() => totpAction(true)">Submit</button>
+      <button class="btn btn-primary w-full" @click="() => totpAction(true)">
+        Submit
+      </button>
 
-      <router-link to="/" v-if="infoStore.user.available_mfa_methods.length > 1">
+      <router-link
+        to="/"
+        v-if="infoStore.user.available_mfa_methods.length > 1"
+      >
         <button class="btn btn-primary">Use another method</button>
       </router-link>
     </template>
-
   </template>
 </template>

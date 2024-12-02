@@ -1,6 +1,6 @@
 export interface MFAMethod {
-  friendly_name: string
-  method: string
+  friendly_name: string;
+  method: string;
 }
 
 export interface UserInfoDTO {
@@ -13,26 +13,40 @@ export interface UserInfoDTO {
 }
 
 export interface TOTPDetailsDTO {
-  qrcode: string
-  account_name: string
-  key: string
+  qrcode: string;
+  account_name: string;
+  key: string;
 }
 
 export interface TOTPRequestDTO {
-  code: string
+  code: string;
 }
 
 export interface GenericResponseDTO {
-  message: string
-  success: boolean
+  message: string;
+  success: boolean;
 }
 
 export interface MFARequest {
-  type: MFARequestTypes
-  data: TOTPRequestDTO 
-  is_registration: boolean
+  type: MFARequestTypes;
+  data:
+    | TOTPRequestDTO
+    | CredentialCreationOptions
+    | CredentialRequestOptions
+    | PamAuthoriseDTO;
+  is_registration: boolean;
 }
 
 export enum MFARequestTypes {
-  Totp = "totp"
+  Totp = "totp",
+  Webauthn = "webauthn",
+  Pam = "pam",
+}
+
+export interface PamDetailsDTO {
+  account_name: string;
+}
+
+export interface PamAuthoriseDTO {
+  password: string;
 }
