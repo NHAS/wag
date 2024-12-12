@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const client = axios.create();
-export const verifyEndpoint = "/api/mfa/verify";
+export const verifyEndpoint = "/api/verify";
 
 export * from "./types";
 export * from "./totp";

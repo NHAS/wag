@@ -64,7 +64,7 @@ func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.Eve
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(types.Oidc)
 
 			return err
 		}
@@ -84,7 +84,7 @@ func (mp *MfaPortal) domainChanged(_ string, _, _ data.WebserverConfiguration, e
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Oidc)
+			_, err := authenticators.ReinitaliseMethods(types.Oidc)
 
 			return err
 		}
@@ -101,14 +101,14 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string,
 	case data.CREATED:
 		var initdMethods []types.MFA
 
-		initdMethods, err = authenticators.ReinitaliseMethods(mp.firewall, authenticators.StringsToMFA(current)...)
+		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
 		authenticators.EnableMethods(initdMethods...)
 
 	case data.MODIFIED:
 		var initdMethods []types.MFA
 
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
-		initdMethods, err = authenticators.ReinitaliseMethods(mp.firewall, authenticators.StringsToMFA(current)...)
+		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
 
 		authenticators.EnableMethods(initdMethods...)
 	}
@@ -122,7 +122,7 @@ func (mp *MfaPortal) issuerKeyChanged(_ string, _, _ string, et data.EventType) 
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
 	case data.CREATED, data.MODIFIED:
-		_, err := authenticators.ReinitaliseMethods(mp.firewall, types.Totp, types.Webauthn)
+		_, err := authenticators.ReinitaliseMethods(types.Totp, types.Webauthn)
 		return err
 	}
 

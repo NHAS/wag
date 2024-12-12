@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"sort"
 	"sync"
 
@@ -55,7 +56,7 @@ func EnableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitaliseMethods(firewall *router.Firewall, method ...types.MFA) ([]types.MFA, error) {
+func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -64,7 +65,7 @@ func ReinitaliseMethods(firewall *router.Firewall, method ...types.MFA) ([]types
 	var errRet error
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
-			err := a.Init(firewall)
+			err := a.ReloadSettings()
 			if err != nil {
 				if errRet == nil {
 					errRet = fmt.Errorf("%s failed to init: %s", m, err)
@@ -112,6 +113,7 @@ func GetAllEnabledMethods() (r []Authenticator) {
 	return
 }
 
+// GetAllAvaliableMethods returns All implemented authenticators in wag
 func GetAllAvaliableMethods() (r []Authenticator) {
 	lck.RLock()
 	defer lck.RUnlock()
@@ -133,69 +135,55 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 
-	for method, handler := range allMfa {
-		mux.HandleFunc("GET /authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
-		mux.HandleFunc("POST /authorise/"+string(method)+"/", checkEnabled(handler, handler.AuthorisationAPI))
-		mux.HandleFunc("GET /register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
-		mux.HandleFunc("POST /register_mfa/"+string(method)+"/", checkEnabled(handler, handler.RegistrationAPI))
-
-	}
-
 	enabledMethods, err := data.GetEnabledAuthenicationMethods()
 	if err != nil {
 		return err
 	}
 
-	for _, method := range enabledMethods {
-		err := allMfa[types.MFA(method)].Init(firewall)
+	for method, handler := range allMfa {
+		prefix := "/api/" + string(method)
+		r, err := handler.Routes(firewall, slices.Contains(enabledMethods, string(method)))
 		if err != nil {
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}
-		allMfa[types.MFA(method)].Enable()
+
+		mux.Handle(prefix, http.StripPrefix(prefix, checkEnabled(r, allMfa[method])))
 	}
 
 	return nil
 }
 
-func checkEnabled(a Authenticator, f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
+type enabled struct {
+	next http.Handler
+	auth Authenticator
+}
 
-		if !a.IsEnabled() {
-			http.NotFound(w, r)
-			return
-		}
+func (d *enabled) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	d.next.ServeHTTP(w, r)
+}
 
-		f(w, r)
+func checkEnabled(next http.Handler, auth Authenticator) http.Handler {
+	return &enabled{
+		next: next,
+		auth: auth,
 	}
 }
 
 type Authenticator interface {
-	Init(fw *router.Firewall) error
-
 	IsEnabled() bool
+
 	Enable()
 	Disable()
+
+	ReloadSettings() error
 
 	Type() string
 
 	//FriendlyName is the name that is displayed in the MFA selection table
 	FriendlyName() string
 
-	//LogoutPath returns the redirection path that deauthenticates selected mfa method (mostly just "/" unless it's externally connected to something)
-	LogoutPath() string
-
-	//RegistrationAPI automatically added under /register_mfa/<mfa_method_name>
-	RegistrationAPI(w http.ResponseWriter, r *http.Request)
-
-	//AuthorisationAPI automatically added under /authorise/<mfa_method_name>
-	AuthorisationAPI(w http.ResponseWriter, r *http.Request)
-
-	//MFAPromptUI is executed in /authorise/ path to display UI when user browses to that path
-	MFAPromptUI(w http.ResponseWriter, r *http.Request, username, ip string)
-
-	//RegistrationUI is executed in /register_mfa/ path to show the UI for registration
-	RegistrationUI(w http.ResponseWriter, r *http.Request, username, ip string)
+	Routes(fw *router.Firewall, initiallyEnabled bool) (*http.ServeMux, error)
 }
 
 func StringsToMFA(methods []string) (ret []types.MFA) {

@@ -3,6 +3,11 @@ export interface MFAMethod {
   method: string;
 }
 
+export interface MFAMethod {
+	method: string
+	friendly_name: string
+}
+
 export interface UserInfoDTO {
   has_registered: boolean;
   available_mfa_methods: MFAMethod[];

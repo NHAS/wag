@@ -36,11 +36,7 @@ type Oidc struct {
 	fw       *router.Firewall
 }
 
-func (o *Oidc) LogoutPath() string {
-	return o.provider.GetEndSessionEndpoint()
-}
-
-func (o *Oidc) Init(fw *router.Firewall) error {
+func (o *Oidc) Routes(fw *router.Firewall, initiallyEnabled bool) error {
 
 	o.fw = fw
 

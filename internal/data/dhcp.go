@@ -102,7 +102,7 @@ func getNextIP(subnet string) (string, error) {
 		}
 
 		addr = incrementIP(addr, 1)
-		if cidr.Contains(addr) {
+		if cidr.Contains(addr) && !broadcastAddr(cidr).Equal(addr) {
 			continue
 		} else {
 			addr = incrementIP(cidr.IP, 1)
@@ -114,4 +114,23 @@ func getNextIP(subnet string) (string, error) {
 
 	}
 
+}
+
+// https://github.com/IBM/netaddr/blob/master/net_utils.go#L73
+func broadcastAddr(n *net.IPNet) net.IP {
+	// The golang net package doesn't make it easy to calculate the broadcast address. :(
+	var broadcast net.IP
+	switch len(n.IP) {
+	case 4:
+		broadcast = net.ParseIP("0.0.0.0").To4()
+	case 16:
+		broadcast = net.ParseIP("::")
+	default:
+		panic("Bad value for size")
+	}
+
+	for i := 0; i < len(n.IP); i++ {
+		broadcast[i] = n.IP[i] | ^n.Mask[i]
+	}
+	return broadcast
 }

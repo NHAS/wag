@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"path"
 	"strings"
 
 	"github.com/NHAS/wag/internal/autotls"
-	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
@@ -48,18 +46,6 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	tunnel := http.NewServeMux()
 
-	tunnel.HandleFunc("GET /status/", mfaPortal.status)
-	tunnel.HandleFunc("GET /routes/", mfaPortal.routes)
-
-	tunnel.HandleFunc("GET /logout/", mfaPortal.logout)
-
-	if config.Values.MFATemplatesDirectory != "" {
-		fs := http.FileServer(http.Dir(path.Join(config.Values.MFATemplatesDirectory, "static")))
-		tunnel.Handle("/custom/", http.StripPrefix("/custom/", fs))
-	}
-
-	tunnel.HandleFunc("GET /static/", utils.EmbeddedStatic(resources.Static))
-
 	// Do inital state setup for our authentication methods
 	err = authenticators.AddMFARoutes(tunnel, mfaPortal.firewall)
 	if err != nil {
@@ -72,49 +58,32 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		return nil, fmt.Errorf("failed ot register listeners: %s", err)
 	}
 
-	// TODO split these out to their own post/get endpoints
-	tunnel.HandleFunc("GET /authorise/", mfaPortal.authorise)
-	tunnel.HandleFunc("POST /authorise/", mfaPortal.authorise)
-	tunnel.HandleFunc("GET /register_mfa/", mfaPortal.registerMFA)
-	tunnel.HandleFunc("POST /register_mfa/", mfaPortal.registerMFA)
+	tunnel.HandleFunc("POST /api/verify", mfaPortal.authorise)
 
-	tunnel.HandleFunc("GET /public_key/", mfaPortal.publicKey)
+	tunnel.HandleFunc("GET /api/pam", mfaPortal.authorise)
+	tunnel.HandleFunc("GET /api/totp", mfaPortal.authorise)
 
-	tunnel.HandleFunc("GET /challenge/", mfaPortal.firewall.Verifier.WS)
+	tunnel.HandleFunc("GET /api/webauthn/register", mfaPortal.authorise)
+	tunnel.HandleFunc("GET /api/webauthn/authorise", mfaPortal.authorise)
 
-	tunnel.HandleFunc("/", mfaPortal.index)
+	tunnel.HandleFunc("GET /api/challenge", mfaPortal.firewall.Verifier.WS)
 
-	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(tunnel)); err != nil {
+	tunnel.HandleFunc("GET /api/public_key", mfaPortal.publicKey)
+	tunnel.HandleFunc("GET /api/status", mfaPortal.status)
+	tunnel.HandleFunc("GET /api/userinfo", mfaPortal.userinfo)
+	tunnel.HandleFunc("GET /api/routes", mfaPortal.routes)
+	tunnel.HandleFunc("GET /api/logout", mfaPortal.logout)
+
+	tunnel.HandleFunc("GET /logout/", mfaPortal.logout)
+
+	tunnel.HandleFunc("/", utils.EmbeddedStatic(resources.Static))
+
+	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(fetchState(tunnel, mfaPortal.firewall))); err != nil {
 		return nil, err
 	}
 
 	log.Println("[PORTAL] Captive portal started listening")
 	return m, nil
-}
-
-func (mp *MfaPortal) index(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
-
-	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/authorise/", http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(w, r, "/register_mfa/", http.StatusSeeOther)
 }
 
 func (mp *MfaPortal) registerMFA(w http.ResponseWriter, r *http.Request) {
@@ -218,21 +187,17 @@ func (mp *MfaPortal) authorise(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if !mp.firewall.IsAuthed(clientTunnelIp.String()) {
+	if !Authed(r.Context()) {
 		http.NotFound(w, r)
 		return
 	}
 
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
+	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	err = user.Deauthenticate(clientTunnelIp.String())
+	user := users.GetUserFromContext(r.Context())
+
+	err := user.Deauthenticate(clientTunnelIp.String())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "could not deauthenticate:", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -249,17 +214,11 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
-	remoteAddress := utils.GetIPFromRequest(r)
-	user, err := users.GetUserFromAddress(remoteAddress)
-	if err != nil {
-		log.Println("unknown", remoteAddress, "Could not find user: ", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
-	}
+	user := users.GetUserFromContext(r.Context())
 
 	routes, err := mp.firewall.GetRoutes(user.Username)
 	if err != nil {
-		log.Println(user.Username, remoteAddress, "Getting routes from firewall failed: ", err)
+		log.Println(user.Username, "Getting routes from firewall failed: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -267,40 +226,49 @@ func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(strings.Join(routes, ", ")))
-
 }
 
 func (mp *MfaPortal) status(w http.ResponseWriter, r *http.Request) {
-	remoteAddress := utils.GetIPFromRequest(r)
-	user, err := users.GetUserFromAddress(remoteAddress)
-	if err != nil {
-		log.Println("unknown", remoteAddress, "Could not find user: ", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
-	}
+	user := users.GetUserFromContext(r.Context())
 
 	acl := data.GetEffectiveAcl(user.Username)
 
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "application/json")
-	status := struct {
-		IsAuthorised bool
-		MFA          []string
-		Public       []string
-	}{
-		IsAuthorised: mp.firewall.IsAuthed(remoteAddress.String()),
+	status := StatusDTO{
+		IsAuthorised: Authed(r.Context()),
 		MFA:          acl.Mfa,
 		Public:       acl.Allow,
+		Deny:         acl.Deny,
 	}
 
-	result, err := json.Marshal(&status)
-	if err != nil {
-		log.Println(user.Username, remoteAddress, "error marshalling status")
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
+	json.NewEncoder(w).Encode(status)
+}
+
+func (mp *MfaPortal) userinfo(w http.ResponseWriter, r *http.Request) {
+
+	u := users.GetUserFromContext(r.Context())
+
+	authenticators := authenticators.GetAllEnabledMethods()
+	names := []MFAMethod{}
+	for _, a := range authenticators {
+		names = append(names, MFAMethod{
+			FriendlyName: a.FriendlyName(),
+			Method:       a.Type(),
+		})
 	}
 
-	w.Write(result)
+	w.Header().Set("Content-Type", "application/json")
+	info := UserInfoDTO{
+		HelpMail:            data.GetHelpMail(),
+		AvailableMfaMethods: names,
+		Locked:              u.Locked,
+		Registered:          u.Enforcing,
+		Username:            u.Username,
+		Authorised:          Authed(r.Context()),
+	}
+
+	json.NewEncoder(w).Encode(info)
 }
 
 func (mp *MfaPortal) publicKey(w http.ResponseWriter, r *http.Request) {

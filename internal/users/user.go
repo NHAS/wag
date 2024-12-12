@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -193,10 +194,23 @@ func GetUser(username string) (user, error) {
 }
 
 func GetUserFromAddress(address net.IP) (user, error) {
+	if address == nil {
+		return user{}, errors.New("address was nil")
+	}
 	ud, err := data.GetUserDataFromAddress(address.String())
 	if err != nil {
 		return user{}, err
 	}
 
 	return user{ud.Username, ud.Locked, ud.Enforcing}, nil
+}
+
+type contextKey string
+
+// Define context key for user
+const UserContextKey contextKey = "user"
+
+// crash out intentionally if the user key is not in the context
+func GetUserFromContext(ctx context.Context) user {
+	return ctx.Value(UserContextKey).(user)
 }
