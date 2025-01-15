@@ -345,7 +345,9 @@ Full config example
             "IssuerURL": "http://localhost:8080/",
             "ClientSecret": "<OMITTED>",
             "ClientID": "account",
-            "GroupsClaimName": "groups"
+            "GroupsClaimName": "groups",
+            "DeviceUsernameClaim": "",
+            "Scopes": []
         }
     },
     "Clustering": {

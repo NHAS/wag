@@ -31,7 +31,9 @@
             "IssuerURL": "http://localhost:8080/",
             "ClientSecret": "AN EXAMPLE KEY",
             "ClientID": "account",
-            "GroupsClaimName": "groups"
+            "GroupsClaimName": "groups",
+            "DeviceUsernameClaim": "",
+            "Scopes": []
         },
         "PAM": {
             "ServiceName": "vpncheckpass"
