@@ -75,7 +75,11 @@ func (o *Oidc) Init() error {
 	log.Println("OIDC callback: ", u.String())
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
-	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
+    if len(o.details.Scopes) == 0 {
+        o.details.Scopes = []string{"openid"}
+    }
+
+	o.provider, err = rp.NewRelyingPartyOIDC(o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), o.details.Scopes, options...)
 	if err != nil {
 		return err
 	}

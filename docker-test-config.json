@@ -36,7 +36,9 @@
         "OIDC": {
             "IssuerURL": "",
             "ClientSecret": "",
-            "ClientID": ""
+            "ClientID": "",
+            "DeviceUsernameClaim": "",
+            "Scopes": []
         },
         "PAM": {
             "ServiceName": ""

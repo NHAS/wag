@@ -102,6 +102,8 @@ type Config struct {
 			ClientSecret    string
 			ClientID        string
 			GroupsClaimName string `json:",omitempty"`
+			DeviceUsernameClaim string `json:",omitempty"`
+			Scopes          []string `json:"scopes,omitempty"`
 		} `json:",omitempty"`
 
 		PAM struct {

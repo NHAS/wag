@@ -17,7 +17,8 @@ type OIDC struct {
 	ClientSecret        string
 	ClientID            string
 	GroupsClaimName     string
-	DeviceUsernameClaim string
+	DeviceUsernameClaim string `json:",omitempty"`
+	Scopes              []string `json:"scopes,omitempty"`
 }
 
 type PAM struct {
