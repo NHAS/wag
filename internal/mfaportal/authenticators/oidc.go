@@ -77,7 +77,6 @@ func (o *Oidc) Routes(fw *router.Firewall, initiallyEnabled bool) error {
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	o.provider, err = rp.NewRelyingPartyOIDC(ctx, o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
 	cancel()
 	if err != nil {

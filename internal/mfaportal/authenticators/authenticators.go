@@ -160,7 +160,12 @@ type enabled struct {
 }
 
 func (d *enabled) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !d.auth.IsEnabled() {
+		http.NotFound(w, r)
+		return
+	}
 	d.next.ServeHTTP(w, r)
+
 }
 
 func checkEnabled(next http.Handler, auth Authenticator) http.Handler {
@@ -183,7 +188,7 @@ type Authenticator interface {
 	//FriendlyName is the name that is displayed in the MFA selection table
 	FriendlyName() string
 
-	Routes(fw *router.Firewall, initiallyEnabled bool) (*http.ServeMux, error)
+	Routes(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, logout *http.ServeMux, err error)
 }
 
 func StringsToMFA(methods []string) (ret []types.MFA) {
