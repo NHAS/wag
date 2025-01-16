@@ -14,11 +14,12 @@ import (
 )
 
 type OIDC struct {
-	IssuerURL           string `json:"issuer"`
-	ClientSecret        string `json:"client_secret" sensitive:"yes"`
-	ClientID            string `json:"client_id"`
-	GroupsClaimName     string `json:"group_claim_name"`
-	DeviceUsernameClaim string `json:"device_username_claim"`
+	IssuerURL           string   `json:"issuer"`
+	ClientSecret        string   `json:"client_secret" sensitive:"yes"`
+	ClientID            string   `json:"client_id"`
+	GroupsClaimName     string   `json:"group_claim_name"`
+	DeviceUsernameClaim string   `json:"device_username_claim"`
+	Scopes              []string `json:"scopes"`
 }
 
 type PAM struct {

@@ -80,9 +80,13 @@ func (o *Oidc) Init(fw *router.Firewall) error {
 	log.Println("OIDC callback: ", u.String())
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
+	if len(o.details.Scopes) == 0 {
+		o.details.Scopes = []string{"openid"}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	o.provider, err = rp.NewRelyingPartyOIDC(ctx, o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), []string{"openid"}, options...)
+	o.provider, err = rp.NewRelyingPartyOIDC(ctx, o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), o.details.Scopes, options...)
 	cancel()
 	if err != nil {
 		return err

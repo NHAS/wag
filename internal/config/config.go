@@ -88,10 +88,12 @@ type Config struct {
 			Methods       []string `json:",omitempty"`
 
 			OIDC struct {
-				IssuerURL       string
-				ClientSecret    string
-				ClientID        string
-				GroupsClaimName string `json:",omitempty"`
+				IssuerURL           string
+				ClientSecret        string
+				ClientID            string
+				GroupsClaimName     string   `json:",omitempty"`
+				DeviceUsernameClaim string   `json:",omitempty"`
+				Scopes              []string `json:",omitempty"`
 			} `json:",omitempty"`
 
 			PAM struct {
