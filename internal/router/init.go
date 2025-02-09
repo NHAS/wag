@@ -20,9 +20,10 @@ func New(iptables bool) (*Firewall, error) {
 	return newFw(false, iptables, nil)
 }
 
-func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
+func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
+
 	log.Println("[ROUTER] Starting up")
-	fw := Firewall{
+	fw = &Firewall{
 		userPolicies: make(map[string]*Policies),
 		userIsLocked: make(map[string]bool),
 
@@ -79,12 +80,6 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 		return nil, fmt.Errorf("failed to setup devices: %s", err)
 	}
 
-	log.Println("[ROUTER] Registering event handlers")
-	err = fw.handleEvents()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
-	}
-
 	if fw.hasIptables {
 
 		routeMode := "MASQUERADE (NAT)"
@@ -102,9 +97,17 @@ func newFw(testing, iptables bool, testDev tun.Device) (*Firewall, error) {
 
 	fw.Verifier = NewChallenger()
 
+	log.Println("[ROUTER] Registering event handlers")
+
+	// This must be the last thing that occurs otherwise we may get events before we're ready to serve them
+	err = fw.handleEvents()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
+	}
+
 	log.Println("[ROUTER] Setup finished")
 
-	return &fw, nil
+	return fw, nil
 }
 
 func (f *Firewall) Close() {
