@@ -83,10 +83,14 @@ func Initialise() error {
 		issuer:         issuer,
 		ourHttpServers: make(map[string]bool),
 	}
-	ret.registerEventListeners()
 
 	if Do != nil {
 		panic("should not occur")
+	}
+
+	err = ret.registerEventListeners()
+	if err != nil {
+		return fmt.Errorf("failed to register events for auto tls: %w", err)
 	}
 
 	Do = ret

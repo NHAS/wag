@@ -66,12 +66,6 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		return nil, fmt.Errorf("failed to add mfa routes: %s", err)
 	}
 
-	// For any change to the authentication config re-up
-	err = mfaPortal.registerListeners()
-	if err != nil {
-		return nil, fmt.Errorf("failed ot register listeners: %s", err)
-	}
-
 	// TODO split these out to their own post/get endpoints
 	tunnel.HandleFunc("GET /authorise/", mfaPortal.authorise)
 	tunnel.HandleFunc("POST /authorise/", mfaPortal.authorise)
@@ -89,6 +83,14 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	}
 
 	log.Println("[PORTAL] Captive portal started listening")
+
+	// For any change to the authentication config re-up
+	// This should always be done at the bottom
+	err = mfaPortal.registerListeners()
+	if err != nil {
+		return nil, fmt.Errorf("failed ot register listeners: %s", err)
+	}
+
 	return m, nil
 }
 
