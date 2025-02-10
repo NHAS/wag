@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # hadolint ignore=DL3007
-FROM golang:1.24rc3-bookworm AS builder
+FROM golang:latest AS builder
 
 # hadolint ignore=DL3008
 RUN apt-get update && \

@@ -15,19 +15,6 @@ jobs:
         with:
           go-version: "1.23.1"
 
-      - name: Update repos
-        run: sudo apt update && sudo apt upgrade
-
-      - name: Install build tools
-        run: sudo apt install -y make git npm gulp libpam0g-dev
-      
-      - name: Install NPM tools
-        working-directory: adminui/frontend
-        run: npm install
-
-      - name: build
-        run: make release
-
       - name: Test with the Go CLI
         run: go test -exec sudo -v ./...
 
