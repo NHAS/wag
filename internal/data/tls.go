@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/mail"
 	"net/url"
 	"os"
@@ -116,6 +117,8 @@ func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
 		return false
 	}
 
+	log.Println("exists: ", key, res.Count > 1)
+
 	return res.Count > 1
 }
 
@@ -124,23 +127,30 @@ func (cms *CertMagicStore) lockPath(name string) string {
 }
 
 func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
-
 	lockKey := cms.lockPath(name)
+
+	log.Println("lock: ", lockKey)
+
 	cms.mapMutex.RLock()
 	_, lockExists := cms.locks[lockKey]
 	cms.mapMutex.RUnlock()
 	if lockExists {
+		log.Println("lock: ", lockKey, "failed exists")
+
 		return nil
 	}
 
 	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
 	if err != nil {
+		log.Println("lock: ", lockKey, "failed ", err)
+
 		return err
 	}
 
 	mutex := concurrency.NewMutex(session, lockKey)
 	err = mutex.Lock(session.Client().Ctx())
 	if err != nil {
+		log.Println("lock: ", lockKey, "mux fail ", err)
 		return err
 	}
 
@@ -152,8 +162,8 @@ func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
 }
 
 func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
-
 	lockKey := cms.lockPath(name)
+	log.Println("unlock: ", lockKey)
 
 	cms.mapMutex.RLock()
 	mutex, ok := cms.locks[lockKey]
@@ -172,12 +182,19 @@ func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
 }
 
 func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {
-	_, err := etcd.Put(ctx, path.Join(cms.basePath, key), string(value))
+	keyPath := path.Join(cms.basePath, key)
+
+	log.Println("store: ", keyPath)
+
+	_, err := etcd.Put(ctx, keyPath, string(value))
 	return err
 }
 
 func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error) {
-	res, err := etcd.Get(ctx, path.Join(cms.basePath, key))
+	keyPath := path.Join(cms.basePath, key)
+	log.Println("load: ", keyPath)
+
+	res, err := etcd.Get(ctx, keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -196,9 +213,12 @@ func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error)
 func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
 	keyPath := path.Join(cms.basePath, key)
+	log.Println("delete: ", keyPath)
 
 	delResp, err := etcd.Delete(ctx, keyPath)
 	if err != nil {
+		log.Println("delete: ", keyPath, "err: ", err)
+
 		return err
 	}
 
@@ -214,6 +234,8 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 		}
 
 		if delResp.Deleted == 0 {
+			log.Println("delete: ", keyPath, "no exist")
+
 			return fs.ErrNotExist
 		}
 
@@ -225,6 +247,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursive bool) ([]string, error) {
 
 	keyPath := path.Join(cms.basePath, pathPrefix)
+	log.Println("list: ", keyPath, recursive)
 
 	response, err := etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
@@ -269,6 +292,7 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyInfo, error) {
 
 	keyPath := path.Join(cms.basePath, key)
+	log.Println("stat: ", keyPath)
 
 	res, err := etcd.Get(ctx, keyPath)
 	if err != nil {
