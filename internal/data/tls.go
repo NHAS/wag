@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -96,6 +97,7 @@ type CertMagicStore struct {
 }
 
 func NewCertStore(basePath string) *CertMagicStore {
+
 	return &CertMagicStore{
 		basePath: basePath,
 		locks:    make(map[string]*concurrency.Mutex),
@@ -104,8 +106,7 @@ func NewCertStore(basePath string) *CertMagicStore {
 }
 
 func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
-
-	res, err := etcd.Get(ctx, cms.basePath+"/"+key, clientv3.WithCountOnly())
+	res, err := etcd.Get(ctx, path.Join(cms.basePath, key), clientv3.WithCountOnly())
 	if err != nil {
 		return false
 	}
@@ -166,17 +167,12 @@ func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
 }
 
 func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {
-	keyPath := cms.basePath + "/" + key
-
-	_, err := etcd.Put(ctx, keyPath, string(value))
+	_, err := etcd.Put(ctx, path.Join(cms.basePath, key), string(value))
 	return err
 }
 
 func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error) {
-
-	keyPath := cms.basePath + "/" + key
-
-	res, err := etcd.Get(ctx, keyPath)
+	res, err := etcd.Get(ctx, path.Join(cms.basePath, key))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +190,7 @@ func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error)
 
 func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
-	keyPath := cms.basePath + "/" + key
+	keyPath := path.Join(cms.basePath, key)
 
 	opts := []clientv3.OpOption{}
 
@@ -204,9 +200,10 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 	}
 
 	if res.Count == 0 {
+		// directories dont have a value per say
 
-		if !strings.HasSuffix(keyPath, "/") {
-			keyPath = keyPath + "/"
+		if !strings.HasSuffix(keyPath, string(filepath.Separator)) {
+			keyPath = keyPath + string(filepath.Separator)
 		}
 
 		res, err = etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
@@ -226,7 +223,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 		opts = append(opts, clientv3.WithPrefix())
 	}
 
-	delRes, err := etcd.Delete(ctx, key, opts...)
+	delRes, err := etcd.Delete(ctx, keyPath, opts...)
 	if err != nil {
 		return err
 	}

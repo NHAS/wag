@@ -86,7 +86,7 @@ func Load(path, joinToken string, testing bool) error {
 		if joinToken == "" {
 			TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
 			if err != nil {
-				return fmt.Errorf("tls manager: %s", err)
+				return fmt.Errorf("tls manager: %w", err)
 			}
 		} else {
 

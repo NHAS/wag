@@ -319,7 +319,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 		w.listeners = append(w.listeners, httpsServer)
 
-		httpsLn, err := tls.Listen("tcp", fmt.Sprintf(w.details.ListenAddress), tlsConfig)
+		httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
 		if err != nil {
 			return err
 		}
