@@ -73,6 +73,10 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+        matrix:
+          platform:
+            - linux/amd64
+            - linux/arm64
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -100,7 +104,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
