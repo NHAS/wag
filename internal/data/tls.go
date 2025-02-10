@@ -306,11 +306,11 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 		return certmagic.KeyInfo{}, err
 	}
 
-	if res.Count > 0 {
-		r.IsTerminal = false
-	} else {
+	if res.Count == 0 {
 		return certmagic.KeyInfo{}, fs.ErrNotExist
 	}
+
+	r.IsTerminal = false
 
 	return r, nil
 }
