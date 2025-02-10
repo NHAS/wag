@@ -58,7 +58,7 @@ func Initialise() error {
 	config := certmagic.NewDefault()
 	config.Storage = data.NewCertStore("wag-certificates")
 
-	issuer := certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
+	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
 		CA:     provider,
 		Email:  email,
 		Agreed: true,

@@ -91,21 +91,26 @@ func GetAcmeProvider() (string, error) {
 
 type CertMagicStore struct {
 	basePath string
-
 	locks    map[string]*concurrency.Mutex
 	mapMutex *sync.RWMutex
 }
 
 func NewCertStore(basePath string) *CertMagicStore {
+	if !strings.HasPrefix(basePath, string(os.PathSeparator)) {
+		basePath = string(os.PathSeparator) + basePath
+	}
 
-	return &CertMagicStore{
+	c := &CertMagicStore{
 		basePath: basePath,
 		locks:    make(map[string]*concurrency.Mutex),
 		mapMutex: &sync.RWMutex{},
 	}
+
+	return c
 }
 
 func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
+
 	res, err := etcd.Get(ctx, path.Join(cms.basePath, key), clientv3.WithCountOnly())
 	if err != nil {
 		return false
@@ -192,44 +197,26 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
 	keyPath := path.Join(cms.basePath, key)
 
-	opts := []clientv3.OpOption{}
-
-	res, err := etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
+	delResp, err := etcd.Delete(ctx, keyPath)
 	if err != nil {
 		return err
 	}
 
-	if res.Count == 0 {
-		// directories dont have a value per say
+	if delResp.Deleted == 0 {
 
 		if !strings.HasSuffix(keyPath, string(os.PathSeparator)) {
 			keyPath = keyPath + string(os.PathSeparator)
 		}
 
-		res, err = etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
+		delResp, err := etcd.Delete(ctx, keyPath, clientv3.WithPrefix())
 		if err != nil {
 			return err
 		}
 
-		if res.Count == 0 {
+		if delResp.Deleted == 0 {
 			return fs.ErrNotExist
 		}
 
-		// intentional fall through
-	}
-
-	//A "directory" is a key with no value, but which may be the prefix of other keys.
-	if res.Count > 1 {
-		opts = append(opts, clientv3.WithPrefix())
-	}
-
-	delRes, err := etcd.Delete(ctx, keyPath, opts...)
-	if err != nil {
-		return err
-	}
-
-	if delRes.Deleted != res.Count {
-		return errors.New("short delete")
 	}
 
 	return nil
