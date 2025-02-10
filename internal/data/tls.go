@@ -8,8 +8,8 @@ import (
 	"io/fs"
 	"net/mail"
 	"net/url"
+	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -202,8 +202,8 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 	if res.Count == 0 {
 		// directories dont have a value per say
 
-		if !strings.HasSuffix(keyPath, string(filepath.Separator)) {
-			keyPath = keyPath + string(filepath.Separator)
+		if !strings.HasSuffix(keyPath, string(os.PathSeparator)) {
+			keyPath = keyPath + string(os.PathSeparator)
 		}
 
 		res, err = etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
@@ -237,7 +237,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
 func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursive bool) ([]string, error) {
 
-	keyPath := cms.basePath + "/" + pathPrefix
+	keyPath := path.Join(cms.basePath, pathPrefix)
 
 	response, err := etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
@@ -251,7 +251,7 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 	var keys []string
 	for _, res := range response.Kvs {
 
-		key := strings.TrimPrefix(string(res.Key), cms.basePath+"/")
+		key := strings.TrimPrefix(string(res.Key), cms.basePath+string(os.PathSeparator))
 		keys = append(keys, key)
 	}
 
@@ -280,7 +280,10 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 }
 
 func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyInfo, error) {
-	res, err := etcd.Get(ctx, key)
+
+	keyPath := path.Join(cms.basePath, key)
+
+	res, err := etcd.Get(ctx, keyPath)
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
@@ -298,7 +301,7 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 	}
 
 	// look for directory
-	res, err = etcd.Get(ctx, key+"/", clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
+	res, err = etcd.Get(ctx, keyPath+string(os.PathSeparator), clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
