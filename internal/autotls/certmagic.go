@@ -58,7 +58,7 @@ func Initialise() error {
 	config := certmagic.NewDefault()
 	config.Storage = data.NewCertStore("wag-certificates")
 
-	issuer := certmagic.NewACMEIssuer(&certmagic.Default, certmagic.ACMEIssuer{
+	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
 		CA:     provider,
 		Email:  email,
 		Agreed: true,
@@ -83,10 +83,14 @@ func Initialise() error {
 		issuer:         issuer,
 		ourHttpServers: make(map[string]bool),
 	}
-	ret.registerEventListeners()
 
 	if Do != nil {
 		panic("should not occur")
+	}
+
+	err = ret.registerEventListeners()
+	if err != nil {
+		return fmt.Errorf("failed to register events for auto tls: %w", err)
 	}
 
 	Do = ret
@@ -315,7 +319,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 		w.listeners = append(w.listeners, httpsServer)
 
-		httpsLn, err := tls.Listen("tcp", fmt.Sprintf(w.details.ListenAddress), tlsConfig)
+		httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
 		if err != nil {
 			return err
 		}

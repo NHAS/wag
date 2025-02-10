@@ -437,6 +437,18 @@ function doesTunnelHaveTLS() {
                 </label>
                 <input v-model="loginSettingsData.oidc.device_username_claim" type="text" class="input input-bordered w-full" />
               </div>
+              <div class="form-control">
+                <label class="label font-bold">
+                  <span class="label-text">Scopes</span>
+                </label>
+                <input 
+                  :value="loginSettingsData.oidc.scopes?.join(' ')" 
+                  @input="e => loginSettingsData.oidc.scopes = (e.target as HTMLInputElement).value.split(' ')"
+                  type="text" 
+                  class="input input-bordered w-full" 
+                  placeholder="Enter scopes separated by spaces"
+                />
+              </div>
             </div>
           </div>
           <div class="card bg-base-100 shadow-xl min-w-[350px] h-max">

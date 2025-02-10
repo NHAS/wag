@@ -156,6 +156,7 @@ export interface OidcResponseDTO {
   client_id: string
   group_claim_name: string
   device_username_claim: string
+  scopes: string[]
 }
 
 export interface PamResponseDTO {

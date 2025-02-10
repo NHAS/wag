@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/mail"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -90,22 +91,28 @@ func GetAcmeProvider() (string, error) {
 
 type CertMagicStore struct {
 	basePath string
-
 	locks    map[string]*concurrency.Mutex
 	mapMutex *sync.RWMutex
 }
 
 func NewCertStore(basePath string) *CertMagicStore {
-	return &CertMagicStore{
+	if !strings.HasPrefix(basePath, string(os.PathSeparator)) {
+		basePath = string(os.PathSeparator) + basePath
+	}
+
+	c := &CertMagicStore{
 		basePath: basePath,
 		locks:    make(map[string]*concurrency.Mutex),
 		mapMutex: &sync.RWMutex{},
 	}
+
+	return c
 }
 
 func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
+	keyPath := path.Join(cms.basePath, key)
 
-	res, err := etcd.Get(ctx, cms.basePath+"/"+key, clientv3.WithCountOnly())
+	res, err := etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
 	if err != nil {
 		return false
 	}
@@ -118,23 +125,26 @@ func (cms *CertMagicStore) lockPath(name string) string {
 }
 
 func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
-
 	lockKey := cms.lockPath(name)
+
 	cms.mapMutex.RLock()
 	_, lockExists := cms.locks[lockKey]
 	cms.mapMutex.RUnlock()
 	if lockExists {
+
 		return nil
 	}
 
 	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
 	if err != nil {
+
 		return err
 	}
 
 	mutex := concurrency.NewMutex(session, lockKey)
 	err = mutex.Lock(session.Client().Ctx())
 	if err != nil {
+
 		return err
 	}
 
@@ -146,7 +156,6 @@ func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
 }
 
 func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
-
 	lockKey := cms.lockPath(name)
 
 	cms.mapMutex.RLock()
@@ -166,15 +175,14 @@ func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
 }
 
 func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {
-	keyPath := cms.basePath + "/" + key
+	keyPath := path.Join(cms.basePath, key)
 
 	_, err := etcd.Put(ctx, keyPath, string(value))
 	return err
 }
 
 func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error) {
-
-	keyPath := cms.basePath + "/" + key
+	keyPath := path.Join(cms.basePath, key)
 
 	res, err := etcd.Get(ctx, keyPath)
 	if err != nil {
@@ -194,45 +202,30 @@ func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error)
 
 func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
-	keyPath := cms.basePath + "/" + key
+	keyPath := path.Join(cms.basePath, key)
 
-	opts := []clientv3.OpOption{}
-
-	res, err := etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
+	delResp, err := etcd.Delete(ctx, keyPath)
 	if err != nil {
+
 		return err
 	}
 
-	if res.Count == 0 {
+	if delResp.Deleted == 0 {
 
-		if !strings.HasSuffix(keyPath, "/") {
-			keyPath = keyPath + "/"
+		if !strings.HasSuffix(keyPath, string(os.PathSeparator)) {
+			keyPath = keyPath + string(os.PathSeparator)
 		}
 
-		res, err = etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
+		delResp, err := etcd.Delete(ctx, keyPath, clientv3.WithPrefix())
 		if err != nil {
 			return err
 		}
 
-		if res.Count == 0 {
+		if delResp.Deleted == 0 {
+
 			return fs.ErrNotExist
 		}
 
-		// intentional fall through
-	}
-
-	//A "directory" is a key with no value, but which may be the prefix of other keys.
-	if res.Count > 1 {
-		opts = append(opts, clientv3.WithPrefix())
-	}
-
-	delRes, err := etcd.Delete(ctx, key, opts...)
-	if err != nil {
-		return err
-	}
-
-	if delRes.Deleted != res.Count {
-		return errors.New("short delete")
 	}
 
 	return nil
@@ -240,7 +233,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
 func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursive bool) ([]string, error) {
 
-	keyPath := cms.basePath + "/" + pathPrefix
+	keyPath := path.Join(cms.basePath, pathPrefix)
 
 	response, err := etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
@@ -254,7 +247,7 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 	var keys []string
 	for _, res := range response.Kvs {
 
-		key := strings.TrimPrefix(string(res.Key), cms.basePath+"/")
+		key := strings.TrimPrefix(string(res.Key), cms.basePath+string(os.PathSeparator))
 		keys = append(keys, key)
 	}
 
@@ -283,7 +276,10 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 }
 
 func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyInfo, error) {
-	res, err := etcd.Get(ctx, key)
+
+	keyPath := path.Join(cms.basePath, key)
+
+	res, err := etcd.Get(ctx, keyPath)
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
@@ -301,16 +297,16 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 	}
 
 	// look for directory
-	res, err = etcd.Get(ctx, key+"/", clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
+	res, err = etcd.Get(ctx, keyPath+string(os.PathSeparator), clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
 
-	if res.Count > 0 {
-		r.IsTerminal = false
-	} else {
+	if res.Count == 0 {
 		return certmagic.KeyInfo{}, fs.ErrNotExist
 	}
+
+	r.IsTerminal = false
 
 	return r, nil
 }

@@ -270,7 +270,7 @@ func (g *start) Run() error {
 		wagType += " Learner"
 	}
 
-	log.Printf("%s starting, Ctrl + C to stop", wagType)
+	log.Printf("%s (%s) starting, Ctrl + C to stop", wagType, config.Version)
 
 	err = <-errorChan
 	cancel <- true

@@ -24,5 +24,6 @@
         "typeinfo": "c",
         "in.h": "c",
         "numbers": "c"
-    }
+    },
+    "git.ignoreLimitWarning": true
 }
