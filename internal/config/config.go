@@ -182,7 +182,9 @@ func load(path string) (c Config, err error) {
 	}
 
 	if c.Clustering.TLSManagerListenURL == "" {
-		return c, fmt.Errorf("no listen url was specified for the etcd cluster TLS manager, new wag servers will not be able to join")
+		c.Clustering.TLSManagerListenURL = "https://127.0.0.1:4455"
+		log.Println("WARNING no TLSManagerListenURL specified adding another cluster member will be disabled.")
+
 	}
 
 	if !strings.HasPrefix(c.Clustering.TLSManagerListenURL, "https://") {
