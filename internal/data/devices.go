@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,47 @@ type Device struct {
 
 	Challenge      string `sensitive:"yes"`
 	AssociatedNode types.ID
+}
+
+func ValidateChallenge(username, address, challenge string) error {
+
+	expectedChallenge, err := getString("devicechallenge-" + address)
+	if err != nil {
+		return err
+	}
+
+	d, err := GetDeviceByAddress(address)
+	if err != nil {
+		return err
+	}
+
+	if subtle.ConstantTimeCompare([]byte(d.Challenge), []byte(challenge)) != 0 {
+		return errors.New("device challenge did not match stored challenge")
+	}
+
+	if subtle.ConstantTimeCompare([]byte(expectedChallenge), []byte(challenge)) != 0 {
+		return errors.New("challenge did not match stored challenge")
+	}
+
+	return nil
+}
+
+func (d Device) ChallengeExists() error {
+	_, err := getString("devicechallenge-" + d.Address)
+	return err
+}
+
+func (d Device) SetChallenge() error {
+
+	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 30)
+	if err != nil {
+		return err
+	}
+
+	b, _ := json.Marshal(d.Challenge)
+
+	_, err = etcd.Put(context.Background(), "devicechallenge-"+d.Address, string(b), clientv3.WithLease(lease.ID))
+	return err
 }
 
 func (d Device) String() string {
@@ -96,11 +138,11 @@ func GetDevice(username, id string) (device Device, err error) {
 }
 
 // Set device as authorized and clear authentication attempts
-func AuthoriseDevice(username, address string) (string, error) {
+func AuthoriseDevice(username, address string) error {
 
 	challenge, err := utils.GenerateRandomHex(32)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
+		return fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
 	}
 
 	err = doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
@@ -134,10 +176,10 @@ func AuthoriseDevice(username, address string) (string, error) {
 		return string(b), err
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to update device authorisation state: %s", err)
+		return fmt.Errorf("failed to update device authorisation state: %s", err)
 	}
 
-	return challenge, nil
+	return nil
 }
 
 func DeauthenticateDevice(address string) error {

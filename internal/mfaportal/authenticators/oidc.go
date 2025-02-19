@@ -9,12 +9,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
-	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -36,9 +34,36 @@ type Oidc struct {
 	fw       *router.Firewall
 }
 
-func (o *Oidc) Routes(fw *router.Firewall, initiallyEnabled bool) error {
+func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
 
 	o.fw = fw
+
+	err = o.ReloadSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	routes = http.NewServeMux()
+	routes.HandleFunc("GET /register", isUnauthedFunc(isUnregisteredFunc(o.register), fw))
+
+	authorisationEndpoints := http.NewServeMux()
+	authorisationEndpoints.HandleFunc("GET /start", o.startAuthorisation)
+	authorisationEndpoints.HandleFunc("GET /callback", o.oidcCallbackFinishAuth)
+
+	routes.Handle("/authorise",
+		http.StripPrefix(
+			"/authorise",
+			isUnauthed(
+				authorisationEndpoints,
+				fw,
+			),
+		),
+	)
+
+	return routes, nil
+}
+
+func (o *Oidc) ReloadSettings() error {
 
 	key, err := utils.GenerateRandom(32)
 	if err != nil {
@@ -50,16 +75,16 @@ func (o *Oidc) Routes(fw *router.Firewall, initiallyEnabled bool) error {
 		return errors.New("failed to get random hash key: " + err.Error())
 	}
 
-	o.details, err = data.GetOidc()
-	if err != nil {
-		return err
-	}
-
 	cookieHandler := httphelper.NewCookieHandler([]byte(hashkey), []byte(key), httphelper.WithUnsecure())
 
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
+	}
+
+	o.details, err = data.GetOidc()
+	if err != nil {
+		return err
 	}
 
 	domain, err := data.GetTunnelDomainUrl()
@@ -89,7 +114,6 @@ func (o *Oidc) Routes(fw *router.Firewall, initiallyEnabled bool) error {
 	}
 
 	log.Println("Connected!")
-
 	return nil
 }
 
@@ -101,25 +125,12 @@ func (o *Oidc) FriendlyName() string {
 	return "Single Sign On"
 }
 
-func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
+func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
-	if o.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
+	user := users.GetUserFromContext(r.Context())
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
-
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
@@ -131,7 +142,7 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 		Subject: "", // Empty is unconfigured waiting for first login
 	})
 
-	err = data.SetUserMfa(user.Username, string(value), o.Type())
+	err := data.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -144,31 +155,37 @@ func (o *Oidc) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
 	}, o.provider)(w, r)
 }
 
-func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
+func (o *Oidc) startAuthorisation(w http.ResponseWriter, r *http.Request) {
+	clientTunnelIp := utils.GetIPFromRequest(r)
+
+	if o.fw.IsAuthed(clientTunnelIp.String()) {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	rp.AuthURLHandler(func() string {
+		r, _ := utils.GenerateRandomHex(32)
+		return r
+	}, o.provider)(w, r)
+}
+
+func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if o.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
+	user := users.GetUserFromContext(r.Context())
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
 		groupsIntf, ok := tokens.IDTokenClaims.Claims[o.details.GroupsClaimName].([]interface{})
 		if !ok {
 			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
-
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-
+			http.Redirect(w, r, "/error", http.StatusSeeOther)
 			return
 		}
 
@@ -179,7 +196,7 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			deviceUsernameClaim, ok := tokens.IDTokenClaims.Claims[o.details.DeviceUsernameClaim].(string)
 			if !ok {
 				log.Println("Error, Device Username Claim set but idP has not set attribute in users token")
-				http.Error(w, "Server Error", http.StatusInternalServerError)
+				http.Redirect(w, r, "/error", http.StatusSeeOther)
 				return
 			}
 
@@ -193,14 +210,14 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 			conv, ok := groupsIntf[i].(string)
 			if !ok {
 				log.Println("Error, could not convert group claim to string, probably mistake in your OIDC idP configuration")
-				http.Error(w, "Server Error", http.StatusInternalServerError)
+				http.Redirect(w, r, "/error", http.StatusSeeOther)
 				return
 			}
 			groups = append(groups, "group:"+conv)
 		}
 
 		// Will set enforcing on first use
-		challenge, err := user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuerString, username string) error {
+		err := user.Authenticate(clientTunnelIp.String(), user.GetMFAType(), func(issuerString, username string) error {
 
 			var issuerDetails issuer
 			err := json.Unmarshal([]byte(issuerString), &issuerDetails)
@@ -240,48 +257,16 @@ func (o *Oidc) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-
-			msg, _ := resultMessage(err)
-			if strings.Contains(err.Error(), "returned username") {
-				msg = fmt.Sprintf("username %q not associated with device, device owned by %q", info.PreferredUsername, user.Username)
-			}
-
-			w.WriteHeader(http.StatusUnauthorized)
-
-			// Preserve original error
-			err2 := resources.Render("oidc_error.html", w, &resources.Msg{
-				HelpMail:   data.GetHelpMail(),
-				NumMethods: NumberOfMethods(),
-				Message:    msg,
-				URL:        rp.GetEndSessionEndpoint(),
-			})
-
-			if err2 != nil {
-				log.Println(user.Username, clientTunnelIp, "error rendering oidc_error.html: ", err2)
-			}
-
+			http.Redirect(w, r, "/error", http.StatusSeeOther)
 			return
 		}
-
-		IssueChallengeTokenCookie(w, r, challenge)
 
 		log.Println(user.Username, clientTunnelIp, "used sso to login with groups: ", groups)
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 
 	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), o.provider)(w, r)
-}
-
-func (o *Oidc) MFAPromptUI(w http.ResponseWriter, r *http.Request, _, _ string) {
-	rp.AuthURLHandler(func() string {
-		r, _ := utils.GenerateRandomHex(32)
-		return r
-	}, o.provider)(w, r)
-}
-
-func (o *Oidc) RegistrationUI(w http.ResponseWriter, r *http.Request, _, _ string) {
-	o.RegistrationAPI(w, r)
 }

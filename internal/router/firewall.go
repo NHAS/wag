@@ -56,8 +56,6 @@ type Firewall struct {
 		Timeout string
 	}
 
-	Verifier *Challenger
-
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
 }
@@ -290,8 +288,6 @@ func (f *Firewall) Deauthenticate(address string) error {
 	}
 
 	err = f._deauthenticate(addr)
-
-	f.Verifier.NotifyDeauth(address)
 
 	return err
 }

@@ -1,15 +1,16 @@
 package authenticators
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"path"
 
 	"fmt"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
-	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -22,8 +23,21 @@ type Pam struct {
 	fw *router.Firewall
 }
 
-func (t *Pam) Init(fw *router.Firewall) error {
+func (t *Pam) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
 	t.fw = fw
+
+	routes = http.NewServeMux()
+	routes.HandleFunc("POST /register/complete", isUnregisteredFunc(
+		isUnauthedFunc(t.completeRegistration, fw)),
+	)
+	routes.HandleFunc("POST /authorise",
+		isUnauthedFunc(t.authorise, fw),
+	)
+
+	return nil, nil
+}
+
+func (t *Pam) ReloadSettings() error {
 	return nil
 }
 
@@ -35,133 +49,97 @@ func (t *Pam) FriendlyName() string {
 	return "System Login"
 }
 
-func (t *Pam) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
+func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
+	user := users.GetUserFromContext(r.Context())
 
-	if t.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
+	err := data.SetUserMfa(user.Username, "PAMauth", t.Type())
 	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
+		http.Error(w, "Unknown error", 500)
 		return
 	}
 
-	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
+	err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-		err = data.SetUserMfa(user.Username, "PAMauth", t.Type())
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
-			http.Error(w, "Unknown error", 500)
-			return
-		}
-
-		jsonResponse(w, user.Username, 200)
-
-	case "POST":
-		challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg, status := resultMessage(err)
-		jsonResponse(w, msg, status)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  msg,
+		}, status)
 
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			return
-		}
-
-		log.Println(user.Username, clientTunnelIp, "authorised")
-		if err := user.EnforceMFA(); err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to enforce mfa: ", err)
-		}
-
-		IssueChallengeTokenCookie(w, r, challenge)
-
-	default:
-		http.NotFound(w, r)
 		return
 	}
+
+	log.Println(user.Username, clientTunnelIp, "authorised")
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+	}, http.StatusOK)
 }
 
-func (t *Pam) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.NotFound(w, r)
-		return
-	}
+func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
-
-	if t.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
+	user := users.GetUserFromContext(r.Context())
 
 	if !user.IsEnforcingMFA() {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
 
-	challenge, err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
-
-	msg, status := resultMessage(err)
-	IssueChallengeTokenCookie(w, r, challenge)
-
-	jsonResponse(w, msg, status)
-
+	err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		msg, status := resultMessage(err)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  msg,
+		}, status)
 		return
 	}
 
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+	}, http.StatusOK)
 	log.Println(user.Username, clientTunnelIp, "authorised")
 
 }
 
 func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.AuthenticatorFunc {
 	return func(mfaSecret, username string) error {
-		err := r.ParseForm()
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return fmt.Errorf("failed to parse form: %s", err)
-		}
+		defer r.Body.Close()
 
-		passwd := r.FormValue("password")
+		clientTunnelIp := utils.GetIPFromRequest(r)
+
+		dec := json.NewDecoder(r.Body)
+		dec.DisallowUnknownFields()
+
+		var suppliedDetails PAMRequestDTO
+		err := dec.Decode(&suppliedDetails)
+		if err != nil {
+			return fmt.Errorf("failed to decode pam details: %s", err)
+		}
 
 		pamDetails, err := data.GetPAM()
 		if err != nil {
-			http.Error(w, "Unable to get pam details: "+err.Error(), http.StatusInternalServerError)
 			return err
 		}
 
-		pamRulesFile := "config /etc/pam.d/" + pamDetails.ServiceName
+		serviceFilePath := path.Join("/etc/pam.d/", path.Join("/", path.Clean(pamDetails.ServiceName)))
+		pamRulesFile := "config " + serviceFilePath
 		if pamDetails.ServiceName == "" {
 			pamDetails.ServiceName = "login"
 			pamRulesFile = "default PAM /etc/pam.d/login"
 		}
 
-		log.Println(username, "attempting to authorise with PAM (using ", pamRulesFile, ")")
+		log.Printf("%q %s attempting to authorise with PAM (using %q )", username, clientTunnelIp, pamRulesFile)
 		t, err := pam.StartFunc(pamDetails.ServiceName, username, func(s pam.Style, msg string) (string, error) {
 
 			switch s {
 			case pam.PromptEchoOff:
-				return passwd, nil
+				return suppliedDetails.Password, nil
 			case pam.PromptEchoOn, pam.ErrorMsg, pam.TextInfo:
 				return "", nil
 			}
@@ -183,31 +161,9 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 		// We should take whatever the PAM stack returns for it.
 		pamUsername, err := t.GetItem(pam.User)
 		if err != nil {
-			return fmt.Errorf("PAM get user '%s' (%s) failed", pamUsername, username)
+			return fmt.Errorf("PAM get user %q (%s) failed: %s", pamUsername, username, err)
 		}
 
 		return nil
 	}
-}
-
-func (t *Pam) MFAPromptUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
-	if err := resources.Render("prompt_mfa_pam.html", w, &resources.Msg{
-		HelpMail:   data.GetHelpMail(),
-		NumMethods: NumberOfMethods(),
-	}); err != nil {
-		log.Println(username, ip, "unable to render pam prompt template: ", err)
-	}
-}
-
-func (t *Pam) RegistrationUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
-	if err := resources.Render("register_mfa_pam.html", w, &resources.Msg{
-		HelpMail:   data.GetHelpMail(),
-		NumMethods: NumberOfMethods(),
-	}); err != nil {
-		log.Println(username, ip, "unable to render pam mfa template: ", err)
-	}
-}
-
-func (t *Pam) LogoutPath() string {
-	return "/"
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/NHAS/session"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
-	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -29,10 +29,56 @@ type Webauthn struct {
 	fw *router.Firewall
 }
 
-func (wa *Webauthn) Init(fw *router.Firewall) error {
+func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
 
 	wa.fw = fw
+	wa.enable = enable(initiallyEnabled)
 
+	err = wa.ReloadSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	routes = http.NewServeMux()
+
+	registrationEndpoints := http.NewServeMux()
+	registrationEndpoints.HandleFunc("POST /details", wa.getRegistrationDetails)
+	registrationEndpoints.HandleFunc("POST /complete", wa.completeRegistration)
+
+	routes.Handle("/register",
+		http.StripPrefix(
+			"/register",
+			isUnauthed(
+				ensureUnregistered(registrationEndpoints, fw),
+				fw,
+			),
+		),
+	)
+
+	authorisationEndpoints := http.NewServeMux()
+	authorisationEndpoints.HandleFunc("GET /start", wa.startAuthorisation)
+	authorisationEndpoints.HandleFunc("GET /finish", wa.finishAuthorisation)
+
+	routes.Handle("/authorise",
+		http.StripPrefix(
+			"/authorise",
+			isUnauthed(
+				authorisationEndpoints,
+				fw,
+			),
+		),
+	)
+
+	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", "WAG-CSRF", 30*time.Minute, 1800, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise cookie storage for webauth: %w", err)
+	}
+	log.Println("Webauthn provider initialised!")
+
+	return routes, nil
+}
+
+func (wa *Webauthn) ReloadSettings() error {
 	d, err := data.GetWebauthn()
 	if err != nil {
 		return err
@@ -44,13 +90,10 @@ func (wa *Webauthn) Init(fw *router.Firewall) error {
 		RPOrigins:     []string{d.Origin}, // The origin URL for WebAuthn requests
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialise the webuathn provider: %w", err)
 	}
 
-	wa.sessions, err = session.NewStore[*webauthn.SessionData]("authentication", "WAG-CSRF", 30*time.Minute, 1800, false)
-	log.Println("initialised webauthn provider")
-
-	return err
+	return nil
 }
 
 func (wa *Webauthn) Type() string {
@@ -61,262 +104,241 @@ func (wa *Webauthn) FriendlyName() string {
 	return "Security Key"
 }
 
-func (wa *Webauthn) RegistrationAPI(w http.ResponseWriter, r *http.Request) {
+func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
+	user := users.GetUserFromContext(r.Context())
 
-	if wa.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-		return
-	}
+	webauthnUser := NewUser(user.Username, user.Username)
 
-	user, err := users.GetUserFromAddress(clientTunnelIp)
+	// generate PublicKeyCredentialCreationOptions, session data
+	options, sessionData, err := wa.webauthnExecutor.BeginRegistration(
+		webauthnUser,
+		func(pkcco *protocol.PublicKeyCredentialCreationOptions) {
+			pkcco.AuthenticatorSelection.UserVerification = "discouraged"
+		},
+	)
+
 	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Failed to create webauthn registration.",
+		}, http.StatusInternalServerError)
 		return
 	}
 
-	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
+	wa.sessions.StartSession(w, r, sessionData, nil)
 
-		http.Error(w, "Bad request", http.StatusBadRequest)
+	webauthdata, err := webauthnUser.MarshalJSON()
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Save webauthn registration.",
+		}, http.StatusInternalServerError)
 		return
 	}
 
-	switch r.Method {
-	case "GET":
-
-		webauthnUser := NewUser(user.Username, user.Username)
-
-		// generate PublicKeyCredentialCreationOptions, session data
-		options, sessionData, err := wa.webauthnExecutor.BeginRegistration(
-			webauthnUser,
-			func(pkcco *protocol.PublicKeyCredentialCreationOptions) {
-				pkcco.AuthenticatorSelection.UserVerification = "discouraged"
-			},
-		)
-
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		wa.sessions.StartSession(w, r, sessionData, nil)
-
-		webauthdata, err := webauthnUser.MarshalJSON()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		err = data.SetUserMfa(user.Username, string(webauthdata), wa.Type())
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		jsonResponse(w, options, http.StatusOK)
-	case "POST":
-		challenge, err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
-
-			func(mfaSecret, username string) error {
-
-				var webauthnUser WebauthnUser
-				err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
-				if err != nil {
-					return err
-				}
-
-				_, sessionData := wa.sessions.GetSessionFromRequest(r)
-				if sessionData == nil {
-					return errors.New("session not found")
-				}
-
-				webauthnSession := *sessionData
-
-				credential, err := wa.webauthnExecutor.FinishRegistration(webauthnUser, *webauthnSession, r)
-				if err != nil {
-					return err
-				}
-
-				webauthnUser.AddCredential(*credential)
-
-				webauthdata, err := webauthnUser.MarshalJSON()
-				if err != nil {
-					return err
-				}
-
-				err = data.SetUserMfa(username, string(webauthdata), wa.Type())
-				if err != nil {
-
-					return err
-				}
-
-				wa.sessions.DeleteSession(w, r)
-
-				return nil
-			})
-		IssueChallengeTokenCookie(w, r, challenge)
-
-		msg, status := resultMessage(err)
-		jsonResponse(w, msg, status) // Send back an error message before we do the server side of handling it
-
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			return
-		}
-
-		log.Println(user.Username, clientTunnelIp, "authorised")
-
-		log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
-
-	default:
-		http.NotFound(w, r)
+	err = data.SetUserMfa(user.Username, string(webauthdata), wa.Type())
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Save MFA settings for user.",
+		}, http.StatusInternalServerError)
 		return
 	}
+
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+		Data:   options,
+	}, http.StatusOK)
 }
 
-func (wa *Webauthn) AuthorisationAPI(w http.ResponseWriter, r *http.Request) {
+func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request) {
+	clientTunnelIp := utils.GetIPFromRequest(r)
+	user := users.GetUserFromContext(r.Context())
+
+	err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
+
+		func(mfaSecret, username string) error {
+
+			var webauthnUser WebauthnUser
+			err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
+			if err != nil {
+				return err
+			}
+
+			_, sessionData := wa.sessions.GetSessionFromRequest(r)
+			if sessionData == nil {
+				return errors.New("session not found")
+			}
+
+			webauthnSession := *sessionData
+
+			credential, err := wa.webauthnExecutor.FinishRegistration(webauthnUser, *webauthnSession, r)
+			if err != nil {
+				return err
+			}
+
+			webauthnUser.AddCredential(*credential)
+
+			webauthdata, err := webauthnUser.MarshalJSON()
+			if err != nil {
+				return err
+			}
+
+			err = data.SetUserMfa(username, string(webauthdata), wa.Type())
+			if err != nil {
+
+				return err
+			}
+
+			wa.sessions.DeleteSession(w, r)
+
+			return nil
+		})
+
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+
+		msg, status := resultMessage(err)
+
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  msg,
+		}, status)
+
+		return
+	}
+	log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
+	log.Println(user.Username, clientTunnelIp, "authorised")
+
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+	}, http.StatusOK)
+}
+
+func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
-
-	if wa.fw.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
+	user := users.GetUserFromContext(r.Context())
 
 	if !user.IsEnforcingMFA() {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
 
-	switch r.Method {
-	case "GET":
+	webauthUserData, err := user.MFA()
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
 
-		webauthUserData, err := user.MFA()
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
-
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		var webauthnUser WebauthnUser
-		err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		// generate PublicKeyCredentialRequestOptions, session data
-		options, sessionData, err := wa.webauthnExecutor.BeginLogin(webauthnUser, func(pkcro *protocol.PublicKeyCredentialRequestOptions) {
-			pkcro.UserVerification = "discouraged"
-		})
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
-			jsonResponse(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		wa.sessions.StartSession(w, r, sessionData, nil)
-
-		jsonResponse(w, options, http.StatusOK)
-		log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
-	case "POST":
-
-		challenge, err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
-			func(mfaSecret, username string) error {
-
-				var webauthnUser WebauthnUser
-				err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
-				if err != nil {
-					log.Println("failed to unmarshal db object:", err)
-					return err
-				}
-
-				// load the session data
-				_, sessionData := wa.sessions.GetSessionFromRequest(r)
-				if sessionData == nil {
-					return errors.New("session was not found in request")
-				}
-
-				c, err := wa.webauthnExecutor.FinishLogin(webauthnUser, **sessionData, r)
-				if err != nil {
-					return err
-				}
-
-				//  check for cloned security keys
-				if c.Authenticator.CloneWarning {
-					return errors.New("cloned key detected")
-				}
-
-				webauthdata, err := webauthnUser.MarshalJSON()
-				if err != nil {
-					return err
-				}
-
-				// Store the updated credentials (credential counter incremented by one)
-				err = data.SetUserMfa(username, string(webauthdata), wa.Type())
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-
-		msg, status := resultMessage(err)
-		jsonResponse(w, msg, status)
-
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			return
-		}
-
-		IssueChallengeTokenCookie(w, r, challenge)
-
-		log.Println(user.Username, clientTunnelIp, "authorised")
-
-	default:
-		http.NotFound(w, r)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Failed to retrieve webauthn data.",
+		}, http.StatusInternalServerError)
 		return
 	}
-}
 
-func (wa *Webauthn) MFAPromptUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
-
-	if err := resources.Render("prompt_mfa_webauthn.html", w, &resources.Msg{
-		HelpMail:   data.GetHelpMail(),
-		NumMethods: NumberOfMethods(),
-	}); err != nil {
-		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
+	var webauthnUser WebauthnUser
+	err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Failed to parse webauthn data.",
+		}, http.StatusInternalServerError)
+		return
 	}
-}
 
-func (wa *Webauthn) RegistrationUI(w http.ResponseWriter, _ *http.Request, username, ip string) {
-
-	if err := resources.Render("register_mfa_webauthn.html", w, &resources.Msg{
-		HelpMail:   data.GetHelpMail(),
-		NumMethods: NumberOfMethods(),
-	}); err != nil {
-		log.Println(username, ip, "unable to render weauthn prompt template: ", err)
+	// generate PublicKeyCredentialRequestOptions, session data
+	options, sessionData, err := wa.webauthnExecutor.BeginLogin(webauthnUser, func(pkcro *protocol.PublicKeyCredentialRequestOptions) {
+		pkcro.UserVerification = "discouraged"
+	})
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  "Failed to generate challenge.",
+		}, http.StatusInternalServerError)
+		return
 	}
+
+	wa.sessions.StartSession(w, r, sessionData, nil)
+
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+		Data:   options,
+	}, http.StatusOK)
+	log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
+
 }
 
-func (wa *Webauthn) LogoutPath() string {
-	return "/"
+func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) {
+
+	clientTunnelIp := utils.GetIPFromRequest(r)
+	user := users.GetUserFromContext(r.Context())
+
+	if !user.IsEnforcingMFA() {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
+		func(mfaSecret, username string) error {
+
+			var webauthnUser WebauthnUser
+			err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
+			if err != nil {
+				log.Println("failed to unmarshal db object:", err)
+				return err
+			}
+
+			// load the session data
+			_, sessionData := wa.sessions.GetSessionFromRequest(r)
+			if sessionData == nil {
+				return errors.New("session was not found in request")
+			}
+
+			c, err := wa.webauthnExecutor.FinishLogin(webauthnUser, **sessionData, r)
+			if err != nil {
+				return err
+			}
+
+			//  check for cloned security keys
+			if c.Authenticator.CloneWarning {
+				return errors.New("cloned key detected")
+			}
+
+			webauthdata, err := webauthnUser.MarshalJSON()
+			if err != nil {
+				return err
+			}
+
+			// Store the updated credentials (credential counter incremented by one)
+			err = data.SetUserMfa(username, string(webauthdata), wa.Type())
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err)
+		msg, status := resultMessage(err)
+		jsonResponse(w, AuthResponse{
+			Status: "error",
+			Error:  msg,
+		}, status)
+		return
+	}
+
+	jsonResponse(w, AuthResponse{
+		Status: "success",
+	}, http.StatusOK)
+
+	log.Println(user.Username, clientTunnelIp, "authorised")
 }
 
 // WebauthnUser represents the user model

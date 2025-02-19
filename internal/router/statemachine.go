@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
@@ -119,28 +118,16 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		if current.Endpoint.String() != previous.Endpoint.String() && f.IsAuthed(current.Address) {
 
 			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
-			// Will take at most 6 seconds
 
-			var err error
-			for attempts := 0; attempts < 3; attempts++ {
-				err = f.Verifier.Challenge(current.Address)
-				if err != nil {
-					time.Sleep(2 * time.Second)
-				} else {
-					break
-				}
+			err := f.Deauthenticate(current.Address)
+			if err != nil {
+				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
 
+			// Will set a record deleted after 30 seconds that a device can use to reauthenticate
+			err = current.SetChallenge()
 			if err != nil {
-				log.Printf("%s:%s failed to pass websockets challenge: %s", current.Username, current.Address, err)
-				err := f.Deauthenticate(current.Address)
-				if err != nil {
-					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
-				}
-				// attempt to tell the device to reset on deauth
-
-			} else {
-				log.Printf("%s:%s device succeeded challenge", current.Username, current.Address)
+				return fmt.Errorf("failed to set device challenge")
 			}
 		}
 
@@ -175,14 +162,13 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		}
 
 		// If the authorisation state has changed and is not disabled
-		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() {
-			if current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
-				err := f.SetAuthorized(current.Address, current.AssociatedNode)
-				if err != nil {
-					return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
-				}
-				log.Println("authorized device: ", current.Address)
+		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
+			err := f.SetAuthorized(current.Address, current.AssociatedNode)
+			if err != nil {
+				return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 			}
+			log.Println("authorized device: ", current.Address)
+
 		}
 
 	default:

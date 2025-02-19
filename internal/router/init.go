@@ -95,8 +95,6 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 		}
 	}
 
-	fw.Verifier = NewChallenger()
-
 	log.Println("[ROUTER] Registering event handlers")
 
 	// This must be the last thing that occurs otherwise we may get events before we're ready to serve them

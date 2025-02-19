@@ -18,6 +18,7 @@ import (
 
 type MfaPortal struct {
 	firewall *router.Firewall
+	session  *Challenger
 
 	listenerKeys struct {
 		Oidc       string
@@ -30,6 +31,9 @@ type MfaPortal struct {
 func (mp *MfaPortal) Close() {
 
 	autotls.Do.Close(data.Public)
+	if mp.session != nil {
+		mp.session.Close()
+	}
 
 	mp.deregisterListeners()
 
@@ -43,6 +47,10 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	var mfaPortal MfaPortal
 	mfaPortal.firewall = firewall
+	mfaPortal.session, err = NewChallenger()
+	if err != nil {
+		return nil, err
+	}
 
 	tunnel := http.NewServeMux()
 
@@ -52,27 +60,13 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		return nil, fmt.Errorf("failed to add mfa routes: %s", err)
 	}
 
-	// TODO split these out to their own post/get endpoints
-	tunnel.HandleFunc("GET /authorise/", mfaPortal.authorise)
-	tunnel.HandleFunc("POST /authorise/", mfaPortal.authorise)
-	tunnel.HandleFunc("GET /register_mfa/", mfaPortal.registerMFA)
-	tunnel.HandleFunc("POST /register_mfa/", mfaPortal.registerMFA)
-
-	tunnel.HandleFunc("GET /api/pam", mfaPortal.authorise)
-	tunnel.HandleFunc("GET /api/totp", mfaPortal.authorise)
-
-	tunnel.HandleFunc("GET /api/webauthn/register", mfaPortal.authorise)
-	tunnel.HandleFunc("GET /api/webauthn/authorise", mfaPortal.authorise)
-
-	tunnel.HandleFunc("GET /api/challenge", mfaPortal.firewall.Verifier.WS)
+	tunnel.HandleFunc("GET /api/session", mfaPortal.session.WS)
 
 	tunnel.HandleFunc("GET /api/public_key", mfaPortal.publicKey)
 	tunnel.HandleFunc("GET /api/status", mfaPortal.status)
-	tunnel.HandleFunc("GET /api/userinfo", mfaPortal.userinfo)
 	tunnel.HandleFunc("GET /api/routes", mfaPortal.routes)
-	tunnel.HandleFunc("GET /api/logout", mfaPortal.logout)
 
-	tunnel.HandleFunc("GET /logout/", mfaPortal.logout)
+	tunnel.HandleFunc("GET /api/logout", mfaPortal.logout)
 
 	tunnel.HandleFunc("/", utils.EmbeddedStatic(resources.Static))
 
@@ -90,106 +84,6 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	}
 
 	return m, nil
-}
-
-func (mp *MfaPortal) registerMFA(w http.ResponseWriter, r *http.Request) {
-
-	clientTunnelIp := utils.GetIPFromRequest(r)
-
-	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
-
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	method := r.URL.Query().Get("method")
-	if method == "" {
-		method, err = data.GetDefaultMfaMethod()
-		if err != nil {
-			method = ""
-		}
-	}
-
-	if method == "" || method == "select" {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-
-		var menu resources.Menu
-
-		for _, method := range authenticators.GetAllEnabledMethods() {
-
-			menu.MFAMethods = append(menu.MFAMethods, resources.MenuEntry{
-				Path:         method.Type(),
-				FriendlyName: method.FriendlyName(),
-			})
-		}
-
-		menu.LastElement = len(menu.MFAMethods) - 1
-
-		err = resources.Render("register_mfa.html", w, &menu)
-		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "unable to build template:", err)
-			http.Error(w, "Server error", http.StatusInternalServerError)
-		}
-
-		return
-	}
-
-	mfaMethod, ok := authenticators.GetMethod(method)
-	if !ok {
-		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", method)
-		http.NotFound(w, r)
-		return
-	}
-
-	mfaMethod.RegistrationUI(w, r, user.Username, clientTunnelIp.String())
-}
-
-func (mp *MfaPortal) authorise(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
-
-	if mp.firewall.IsAuthed(clientTunnelIp.String()) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		resources.Render("success.html", w, nil)
-
-		return
-	}
-
-	user, err := users.GetUserFromAddress(clientTunnelIp)
-	if err != nil {
-		log.Println("unknown", clientTunnelIp, "could not get associated device:", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	mfaMethod, ok := authenticators.GetMethod(user.GetMFAType())
-	if !ok {
-		log.Println(user.Username, clientTunnelIp, "Invalid MFA type requested: ", user.GetMFAType())
-
-		http.NotFound(w, r)
-		return
-	}
-
-	mfaMethod.MFAPromptUI(w, r, user.Username, clientTunnelIp.String())
 }
 
 func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
@@ -210,13 +104,7 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	method, ok := authenticators.GetMethod(user.GetMFAType())
-	if !ok {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(w, r, method.LogoutPath(), http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
@@ -249,32 +137,6 @@ func (mp *MfaPortal) status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(status)
-}
-
-func (mp *MfaPortal) userinfo(w http.ResponseWriter, r *http.Request) {
-
-	u := users.GetUserFromContext(r.Context())
-
-	authenticators := authenticators.GetAllEnabledMethods()
-	names := []MFAMethod{}
-	for _, a := range authenticators {
-		names = append(names, MFAMethod{
-			FriendlyName: a.FriendlyName(),
-			Method:       a.Type(),
-		})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	info := UserInfoDTO{
-		HelpMail:            data.GetHelpMail(),
-		AvailableMfaMethods: names,
-		Locked:              u.Locked,
-		Registered:          u.Enforcing,
-		Username:            u.Username,
-		Authorised:          Authed(r.Context()),
-	}
-
-	json.NewEncoder(w).Encode(info)
 }
 
 func (mp *MfaPortal) publicKey(w http.ResponseWriter, r *http.Request) {

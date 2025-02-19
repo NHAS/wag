@@ -102,54 +102,54 @@ func (u *user) Delete() error {
 	return data.DeleteUser(u.Username)
 }
 
-func (u *user) Authenticate(device, mfaType string, authenticator types.AuthenticatorFunc) (string, error) {
+func (u *user) Authenticate(device, mfaType string, authenticator types.AuthenticatorFunc) error {
 
 	// Make sure that the attempts is always incremented first to stop race condition attacks
 	err := data.IncrementAuthenticationAttempt(u.Username, device)
 	if err != nil {
-		return "", fmt.Errorf("failed to pre-emptively increment authentication attempt counter: %s", err)
+		return fmt.Errorf("failed to pre-emptively increment authentication attempt counter: %s", err)
 	}
 
 	mfa, userMfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
 	if err != nil {
-		return "", fmt.Errorf("failed to get authenticator details: %s", err)
+		return fmt.Errorf("failed to get authenticator details: %s", err)
 	}
 
 	lockout, err := data.GetLockout()
 	if err != nil {
-		return "", errors.New("could not get lockout value")
+		return errors.New("could not get lockout value")
 	}
 
 	if attempts >= lockout {
-		return "", errors.New("device is locked")
+		return errors.New("device is locked")
 	}
 
 	if locked {
-		return "", errors.New("account is locked")
+		return errors.New("account is locked")
 	}
 
 	if userMfaType != mfaType {
-		return "", errors.New("authenticator " + mfaType + " used for user with " + userMfaType)
+		return errors.New("authenticator " + mfaType + " used for user with " + userMfaType)
 	}
 
 	if err := authenticator(mfa, u.Username); err != nil {
-		return "", err
+		return err
 	}
 
 	// Device has now successfully authenticated
 	if !u.IsEnforcingMFA() {
 		err := u.EnforceMFA()
 		if err != nil {
-			return "", fmt.Errorf("%s %s failed to set MFA to enforcing: %s", u.Username, device, err)
+			return fmt.Errorf("%s %s failed to set MFA to enforcing: %s", u.Username, device, err)
 		}
 	}
 
-	challenge, err := data.AuthoriseDevice(u.Username, device)
+	err = data.AuthoriseDevice(u.Username, device)
 	if err != nil {
-		return "", fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
+		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
 
-	return challenge, nil
+	return nil
 }
 
 func (u *user) Deauthenticate(device string) error {
