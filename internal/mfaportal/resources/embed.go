@@ -2,46 +2,7 @@ package resources
 
 import (
 	"embed"
-	"html/template"
-	"io"
-	"path"
-
-	"github.com/NHAS/wag/internal/config"
 )
 
-type Msg struct {
-	Message    string
-	URL        string
-	HelpMail   string
-	NumMethods int
-}
-
-type Menu struct {
-	MFAMethods  []MenuEntry
-	LastElement int
-}
-
-type MenuEntry struct {
-	Path, FriendlyName string
-}
-
-//go:embed templates/*
-var embeddedUI embed.FS
-
-//go:embed static
+//go:embed frontend/dist/*
 var Static embed.FS
-
-func Render(page string, out io.Writer, data interface{}) error {
-	return RenderWithFuncs(page, out, data, nil)
-}
-
-func RenderWithFuncs(page string, out io.Writer, data interface{}, templateFuncs template.FuncMap) error {
-	var currentTemplate *template.Template
-	if len(config.Values.MFATemplatesDirectory) != 0 {
-		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFiles(path.Join(config.Values.MFATemplatesDirectory, page)))
-	} else {
-		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFS(embeddedUI, "templates/"+page))
-	}
-
-	return currentTemplate.Execute(out, data)
-}
