@@ -272,7 +272,7 @@ func checkClusterHealth() {
 		}
 	}()
 
-	clusterMonitor := time.NewTicker(5 * time.Second)
+	clusterMonitor := time.NewTicker(30 * time.Second)
 	go func() {
 		for range clusterMonitor.C {
 			// If we're a learner we cant write to the cluster, so just wait until we're promoted
@@ -291,7 +291,7 @@ func checkClusterHealth() {
 }
 
 func testCluster() {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
 	_, err := etcd.Put(ctx, path.Join(NodeInfo, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
