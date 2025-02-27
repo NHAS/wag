@@ -1,6 +1,7 @@
 package mfaportal
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"sync"
@@ -10,7 +11,8 @@ import (
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 // https://github.com/gorilla/websocket/blob/main/examples/chat/client.go
@@ -19,10 +21,7 @@ const (
 	writeWait = 10 * time.Second
 
 	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
+	readWait = 30 * time.Second
 
 	// Maximum message size allowed from peer.
 	maxMessageSize = 4096
@@ -30,32 +29,14 @@ const (
 
 type Challenger struct {
 	sync.RWMutex
+
 	connections map[string]*websocket.Conn
 	deviceKey   string
-	upgrader    websocket.Upgrader
 }
 
 func NewChallenger() (*Challenger, error) {
 	r := &Challenger{
 		connections: make(map[string]*websocket.Conn),
-		upgrader: websocket.Upgrader{
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-			CheckOrigin: func(r *http.Request) bool {
-				domain, err := data.GetTunnelDomainUrl()
-				if err != nil {
-					log.Println("was unable to get the wag domain: ", err)
-					return false
-				}
-
-				valid := r.Header.Get("Origin") == domain
-				if !valid {
-					log.Printf("websocket origin does not equal expected value: %q != %q", r.Header.Get("Origin"), domain)
-				}
-
-				return valid
-			},
-		},
 	}
 
 	var err error
@@ -88,9 +69,7 @@ func (c *Challenger) Close() error {
 	defer c.Unlock()
 
 	for _, conn := range c.connections {
-		conn.SetWriteDeadline(time.Now().Add(writeWait))
-		conn.WriteMessage(websocket.CloseMessage, []byte{})
-		conn.Close()
+		conn.Close(websocket.StatusGoingAway, "Going away")
 	}
 	clear(c.connections)
 
@@ -105,9 +84,7 @@ func (c *Challenger) Disconnect(address string) {
 	if !ok {
 		return
 	}
-	conn.SetWriteDeadline(time.Now().Add(writeWait))
-	conn.WriteMessage(websocket.CloseMessage, []byte{})
-	conn.Close()
+	conn.Close(websocket.StatusNormalClosure, "Disconnected")
 	delete(c.connections, address)
 }
 
@@ -123,7 +100,14 @@ func (c *Challenger) NotifyDeauth(address string) {
 	var d DeauthNotificationDTO
 	d.Status = "deauthed"
 
-	conn.WriteJSON(d)
+	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+	err := wsjson.Write(ctx, conn, d)
+	cancel()
+	if err != nil {
+		conn.CloseNow()
+		delete(c.connections, address)
+		return
+	}
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
@@ -131,20 +115,36 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	user := users.GetUserFromContext(r.Context())
 
-	// Upgrade HTTP connection to WebSocket connection
-	conn, err := c.upgrader.Upgrade(w, r, nil)
+	defaultMFAMethod, err := data.GetDefaultMfaMethod()
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to create websocket:", err)
-		// do not error here as upgrade has already done it
+		http.Error(w, "Server error", http.StatusInternalServerError)
+
 		return
 	}
+
+	domain, err := data.GetTunnelDomainUrl()
+	if err != nil {
+		log.Println("was unable to get the wag domain: ", err)
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OriginPatterns: []string{domain},
+	})
+	if err != nil {
+		log.Println("failed to accept websocket connection: ", err)
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+	defer conn.CloseNow()
+
 	conn.SetReadLimit(maxMessageSize)
-	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	defer func() {
 		c.Lock()
 		if conn != nil {
-			conn.Close()
+			conn.Close(websocket.StatusNormalClosure, "Connection Ended")
 		}
 		delete(c.connections, clientTunnelIp.String())
 		c.Unlock()
@@ -153,7 +153,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	c.Lock()
 	if prev, ok := c.connections[clientTunnelIp.String()]; ok && prev != nil {
-		prev.Close()
+		prev.Close(websocket.StatusAbnormalClosure, "Duplicate connection")
 	}
 
 	c.connections[clientTunnelIp.String()] = conn
@@ -172,6 +172,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	info := UserInfoDTO{
 		HelpMail:            data.GetHelpMail(),
+		DefaultMFAMethod:    defaultMFAMethod,
 		AvailableMfaMethods: names,
 		Locked:              user.Locked,
 		Registered:          user.Enforcing,
@@ -179,20 +180,33 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		Authorised:          Authed(r.Context()),
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(writeWait))
-	err = conn.WriteJSON(info)
+	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+	err = wsjson.Write(ctx, conn, info)
+	cancel()
 	if err != nil {
 		return
 	}
-	conn.SetWriteDeadline(time.Time{})
+
+	var potentialChallenge ChallengeAuthorisationDTO
+	ctx, cancel = context.WithTimeout(context.Background(), readWait)
+	err = wsjson.Read(ctx, conn, &potentialChallenge)
+	cancel()
+	if err != nil {
+		return
+	}
+
+	err = data.ValidateChallenge(user.Username, clientTunnelIp.String(), potentialChallenge.Challenge)
+	if err != nil {
+		log.Println("client failed challenge: ", err)
+	} else {
+		err = data.AuthoriseDevice(info.Username, clientTunnelIp.String())
+		if err != nil {
+			log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+		}
+	}
 
 	for {
-		conn.SetWriteDeadline(time.Now().Add(writeWait))
-		if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-			return
-		}
 
-		time.Sleep(pingPeriod)
 	}
 
 }
