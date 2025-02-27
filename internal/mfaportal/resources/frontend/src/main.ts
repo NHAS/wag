@@ -26,10 +26,6 @@ const infoStore = useInfoStore();
 onMounted(async () => {
   await router.isReady();
 
-  router.beforeEach(() => {
-    infoStore.load();
-  });
-
   infoStore.load();
 });
 
