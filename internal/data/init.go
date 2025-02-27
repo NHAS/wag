@@ -132,6 +132,7 @@ func Load(path, joinToken string, testing bool) error {
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 	cfg.AutoCompactionMode = "periodic"
 	cfg.AutoCompactionRetention = "1h"
+	cfg.SnapshotCount = 10000
 
 	cfg.PeerTLSInfo.ClientCertAuth = true
 	cfg.PeerTLSInfo.TrustedCAFile = TLSManager.GetCACertPath()
