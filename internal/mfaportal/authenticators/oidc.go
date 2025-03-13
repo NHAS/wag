@@ -49,6 +49,9 @@ func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *h
 	authorisationEndpoints := http.NewServeMux()
 	authorisationEndpoints.HandleFunc("GET /start", o.startAuthorisation)
 	authorisationEndpoints.HandleFunc("GET /callback", o.oidcCallbackFinishAuth)
+	//For iDPs that dont respect the trailing slash
+	// https://github.com/NHAS/wag/issues/129
+	authorisationEndpoints.HandleFunc("GET /callback/", o.oidcCallbackFinishAuth)
 
 	routes.Handle("/authorise",
 		http.StripPrefix(
@@ -97,7 +100,7 @@ func (o *Oidc) ReloadSettings() error {
 		return err
 	}
 
-	u.Path = path.Join(u.Path, "/authorise/oidc/")
+	u.Path = path.Join(u.Path, "/api/oidc/authorise/callback/")
 	log.Println("OIDC callback: ", u.String())
 	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 

@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { useInfoStore } from "@/store/info";
+import { useWebSocketStore } from "@/store/info";
 
-const info = useInfoStore();
+const info = useWebSocketStore();
 </script>
 
 <template>
-  <template v-if="!info.isInfoLoading && !info.user.has_registered">
+  <template v-if="!info.isLoading && !info.isRegistered">
     <h4 class="card-title text-center mb-4">Register MFA Method</h4>
-    <template v-if="info.user.available_mfa_methods.length > 0">
+    <template v-if="info.availableMfaMethods.length > 0">
       <div
-        v-for="method in info.user.available_mfa_methods"
+        v-for="method in info.availableMfaMethods"
         :key="'mfa-' + method.method"
       >
         <button class="btn btn-primary w-full">

@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { useInfoStore } from "@/store/info";
 
-const infoStore = useInfoStore();
 </script>
 
 <template>

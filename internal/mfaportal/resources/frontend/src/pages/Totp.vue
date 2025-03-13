@@ -14,9 +14,9 @@ import {
   type TOTPRequestDTO,
 } from "@/api";
 import router from "@/router";
-import { useInfoStore } from "@/store/info";
+import { useWebSocketStore } from "@/store/info";
 
-const infoStore = useInfoStore();
+const infoStore = useWebSocketStore();
 
 const { data: totp, isLoading: isLoadingTotpDetails } = useApi(() =>
   getTotpDetails(),
@@ -54,7 +54,7 @@ async function totpAction(isRegistration: boolean) {
 </script>
 
 <template>
-  <template v-if="infoStore.user.has_registered">
+  <template v-if="infoStore.isRegistered">
     <h4 class="card-title text-center">MFA Code</h4>
 
     <div class="max-w-[400px]">
@@ -62,8 +62,8 @@ async function totpAction(isRegistration: boolean) {
         In order to access restricted resources you must verify your identity.
         Please enter your MFA code below. If you are encountering issues, please
         send an email to
-        <a :href="'mailto:' + infoStore.user.helpmail">{{
-          infoStore.user.helpmail
+        <a :href="'mailto:' + infoStore.helpMail">{{
+          infoStore.helpMail
         }}</a
         >.
       </p>
@@ -125,7 +125,7 @@ async function totpAction(isRegistration: boolean) {
 
       <router-link
         to="/"
-        v-if="infoStore.user.available_mfa_methods.length > 1"
+        v-if="infoStore.availableMfaMethods.length > 1"
       >
         <button class="btn btn-primary">Use another method</button>
       </router-link>

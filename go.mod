@@ -10,6 +10,7 @@ require (
 	github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa
 	github.com/boombuler/barcode v1.0.2
 	github.com/caddyserver/certmagic v0.21.7
+	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-iptables v0.8.0
 	github.com/gaissmai/bart v0.17.10
 	github.com/go-playground/validator/v10 v10.24.0
@@ -39,7 +40,6 @@ require (
 	github.com/caddyserver/zerossl v0.1.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/coder/websocket v1.8.12 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

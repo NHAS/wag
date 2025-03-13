@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useInfoStore } from "@/store/info";
+import { useWebSocketStore } from "@/store/info";
 
-const infoStore = useInfoStore();
+const infoStore = useWebSocketStore();
 </script>
 
 <template>
@@ -11,8 +11,8 @@ const infoStore = useInfoStore();
       In order to access restricted resources you must verify your identity.
       Please insert your security key. If you are encountering issues, please
       send an email to
-      <a :href="'mailto:' + infoStore.user.helpmail">{{
-        infoStore.user.helpmail
+      <a :href="'mailto:' + infoStore.helpMail">{{
+        infoStore.helpMail
       }}</a>
     </p>
     <button class="btn btn-primary w-full" autofocus>

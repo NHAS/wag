@@ -6,6 +6,7 @@ type MFAMethod struct {
 }
 
 type UserInfoDTO struct {
+	Type                string      `json:"type"`
 	Locked              bool        `json:"is_locked"`
 	HelpMail            string      `json:"helpmail"`
 	DefaultMFAMethod    string      `json:"default_mfa"`
@@ -23,10 +24,17 @@ type StatusDTO struct {
 	Deny   []string
 }
 
-type ChallengeAuthorisationDTO struct {
+type ChallengeRequestDTO struct {
+	Type string `json:"type"`
+}
+
+type ChallengeResponseDTO struct {
 	Challenge string `json:"challenge"`
 }
 
+type AuthorisationSuccessDTO struct {
+}
+
 type DeauthNotificationDTO struct {
-	Status string `json:"status"`
+	Type string `json:"type"`
 }

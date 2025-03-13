@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
 
-import { useInfoStore } from "./store/info";
+import { useWebSocketStore } from "./store/info";
 
-const infoStore = useInfoStore();
-infoStore.load();
+const infoStore = useWebSocketStore();
 </script>
 
 <template>
@@ -14,7 +13,7 @@ infoStore.load();
         class="card bg-neutral shadow-xl max-w-3xl h-max text-neutral-content"
       >
         <div class="card-body">
-          <RouterView v-if="infoStore.isInfoLoading || true" />
+          <RouterView v-if="infoStore.isLoading " />
           <div v-else>
             <span class="flex items-center gap-4"
               >Loading details...

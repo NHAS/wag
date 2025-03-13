@@ -10,7 +10,7 @@ import "./styles.css";
 
 import App from "./App.vue";
 import router from "./router";
-import { useInfoStore } from "./store/info";
+import { useWebSocketStore } from "./store/info";
 
 const app = createApp(App);
 
@@ -21,12 +21,12 @@ app.use(createPinia());
 app.use(Toast, {});
 app.use(router);
 
-const infoStore = useInfoStore();
+const infoStore = useWebSocketStore();
 
 onMounted(async () => {
   await router.isReady();
 
-  infoStore.load();
+  infoStore.connect();
 });
 
 const toast = useToast();

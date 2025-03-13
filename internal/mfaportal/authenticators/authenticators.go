@@ -165,6 +165,11 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 		return err
 	}
 
+	mux.HandleFunc("/authorise/oidc/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("SSO ERROR. YOU ARE USING A DEPRECATED PATH /authorise/oidc/, please update to /api/oidc/authorise/callback/")
+		http.Error(w, "Deprecated sso path", http.StatusBadRequest)
+	})
+
 	for method, handler := range allMfa {
 		prefix := "/api/" + string(method)
 		routes, err := handler.Initialise(firewall, slices.Contains(enabledMethods, string(method)))
@@ -216,6 +221,7 @@ func (d *mustBeUnregistered) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Make sure the user hasnt already registered an MFA method
 func ensureUnregistered(next http.Handler, fw *router.Firewall) http.Handler {
 	return &mustBeUnregistered{
 		next: next,
@@ -238,6 +244,7 @@ func (d *unauthed) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Ensure that the calling vpn user is unauthenticated
 func isUnauthed(next http.Handler, fw *router.Firewall) http.Handler {
 	return &unauthed{
 		next: next,

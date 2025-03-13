@@ -57,6 +57,8 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 		if current.Endpoint.String() != previous.Endpoint.String() {
 			if current.ChallengeExists() == nil {
 				c.NotifyDeauth(current.Address)
+			} else {
+				c.Challenge(current.Username, current.Address)
 			}
 		}
 	}
@@ -76,10 +78,57 @@ func (c *Challenger) Close() error {
 	return data.DeregisterEventListener(c.deviceKey)
 }
 
+func (c *Challenger) Challenge(username, address string) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[address]
+	if !ok {
+		return
+	}
+
+	var req ChallengeRequestDTO
+	req.Type = "endpoint-change-challenge"
+	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+	err := wsjson.Write(ctx, conn, req)
+	cancel()
+	if err != nil {
+		c.disconnect(address)
+		return
+	}
+
+	var potentialChallenge ChallengeResponseDTO
+	ctx, cancel = context.WithTimeout(context.Background(), readWait)
+	err = wsjson.Read(ctx, conn, &potentialChallenge)
+	cancel()
+	if err != nil {
+		c.disconnect(address)
+		return
+	}
+
+	if potentialChallenge.Challenge != "" {
+
+		err = data.ValidateChallenge(username, address, potentialChallenge.Challenge)
+		if err != nil {
+			log.Println("client failed challenge: ", err)
+		} else {
+			err = data.AuthoriseDevice(username, address)
+			if err != nil {
+				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+			}
+		}
+	}
+
+}
+
 func (c *Challenger) Disconnect(address string) {
 	c.Lock()
 	defer c.Unlock()
 
+	c.disconnect(address)
+}
+
+func (c *Challenger) disconnect(address string) {
 	conn, ok := c.connections[address]
 	if !ok {
 		return
@@ -98,7 +147,7 @@ func (c *Challenger) NotifyDeauth(address string) {
 	}
 
 	var d DeauthNotificationDTO
-	d.Status = "deauthed"
+	d.Type = "deauthed"
 
 	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
 	err := wsjson.Write(ctx, conn, d)
@@ -187,7 +236,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var potentialChallenge ChallengeAuthorisationDTO
+	var potentialChallenge ChallengeResponseDTO
 	ctx, cancel = context.WithTimeout(context.Background(), readWait)
 	err = wsjson.Read(ctx, conn, &potentialChallenge)
 	cancel()
@@ -195,18 +244,29 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.ValidateChallenge(user.Username, clientTunnelIp.String(), potentialChallenge.Challenge)
-	if err != nil {
-		log.Println("client failed challenge: ", err)
-	} else {
-		err = data.AuthoriseDevice(info.Username, clientTunnelIp.String())
+	if potentialChallenge.Challenge != "" {
+
+		err = data.ValidateChallenge(user.Username, clientTunnelIp.String(), potentialChallenge.Challenge)
 		if err != nil {
-			log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+			log.Println("client failed challenge: ", err)
+		} else {
+			err = data.AuthoriseDevice(info.Username, clientTunnelIp.String())
+			if err != nil {
+				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+			}
 		}
 	}
 
 	for {
+		ctx, cancel = context.WithTimeout(context.Background(), writeWait)
+		err := conn.Ping(ctx)
+		cancel()
+		if err != nil {
+			c.Disconnect(clientTunnelIp.String())
+			return
+		}
 
+		time.Sleep(writeWait / 2)
 	}
 
 }
