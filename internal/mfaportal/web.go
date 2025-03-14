@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/autotls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
@@ -90,7 +91,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 		return nil, err
 	}
 
-	log.Println("[PORTAL] Captive portal started listening")
+	log.Println("[PORTAL] Captive portal started listening, port", config.Values.Webserver.Tunnel.Port)
 
 	// For any change to the authentication config re-up
 	// This should always be done at the bottom

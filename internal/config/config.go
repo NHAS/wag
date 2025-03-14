@@ -52,6 +52,7 @@ type Config struct {
 	CheckUpdates  bool   `json:",omitempty"`
 	NumberProxies int
 	Proxied       bool
+	DevMode       bool `json:",omitempty"`
 
 	ExposePorts []string `json:",omitempty"`
 	NAT         *bool    `json:",omitempty"`

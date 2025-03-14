@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -110,6 +111,14 @@ func SetSecurityHeaders(f http.Handler) http.Handler {
 }
 
 func GetIPFromRequest(r *http.Request) net.IP {
+
+	if config.Values.DevMode {
+		ip, ok := os.LookupEnv("CLIENT_IP_6da8a04fc2f3")
+		if ok {
+			return net.ParseIP(ip)
+		}
+	}
+
 	//Do not respect the X-Forwarded-For header until we are explictly told we are being proxied.
 	if config.Values.NumberProxies > 0 {
 		ips := r.Header.Get("X-Forwarded-For")

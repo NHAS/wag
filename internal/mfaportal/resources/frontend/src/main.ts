@@ -1,4 +1,4 @@
-import { createApp, onMounted } from "vue";
+import { createApp, onMounted, onBeforeUnmount, onBeforeMount } from "vue";
 import { createPinia } from "pinia";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { fas } from "@fortawesome/free-solid-svg-icons";
@@ -21,13 +21,6 @@ app.use(createPinia());
 app.use(Toast, {});
 app.use(router);
 
-const infoStore = useWebSocketStore();
-
-onMounted(async () => {
-  await router.isReady();
-
-  infoStore.connect();
-});
 
 const toast = useToast();
 app.config.errorHandler = (err) => {

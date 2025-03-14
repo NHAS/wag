@@ -5,7 +5,7 @@ const info = useWebSocketStore();
 </script>
 
 <template>
-  <template v-if="!info.isLoading && !info.isRegistered">
+  <template v-if="info.state.userInfo && !info.isRegistered">
     <h4 class="card-title text-center mb-4">Register MFA Method</h4>
     <template v-if="info.availableMfaMethods.length > 0">
       <div

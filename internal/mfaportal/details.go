@@ -52,7 +52,7 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 
 	switch et {
 	case data.DELETED:
-		c.Disconnect(current.Address)
+		c.Disconnect(current.Address, "Device deleted.")
 	case data.MODIFIED:
 		if current.Endpoint.String() != previous.Endpoint.String() {
 			if current.ChallengeExists() == nil {
@@ -93,7 +93,7 @@ func (c *Challenger) Challenge(username, address string) {
 	err := wsjson.Write(ctx, conn, req)
 	cancel()
 	if err != nil {
-		c.disconnect(address)
+		c.disconnect(address, "Bad connection")
 		return
 	}
 
@@ -102,7 +102,7 @@ func (c *Challenger) Challenge(username, address string) {
 	err = wsjson.Read(ctx, conn, &potentialChallenge)
 	cancel()
 	if err != nil {
-		c.disconnect(address)
+		c.disconnect(address, "No challenge response")
 		return
 	}
 
@@ -121,19 +121,19 @@ func (c *Challenger) Challenge(username, address string) {
 
 }
 
-func (c *Challenger) Disconnect(address string) {
+func (c *Challenger) Disconnect(address, reason string) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.disconnect(address)
+	c.disconnect(address, reason)
 }
 
-func (c *Challenger) disconnect(address string) {
+func (c *Challenger) disconnect(address, reason string) {
 	conn, ok := c.connections[address]
 	if !ok {
 		return
 	}
-	conn.Close(websocket.StatusNormalClosure, "Disconnected")
+	conn.Close(websocket.StatusNormalClosure, reason)
 	delete(c.connections, address)
 }
 
@@ -203,6 +203,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	c.Lock()
 	if prev, ok := c.connections[clientTunnelIp.String()]; ok && prev != nil {
 		prev.Close(websocket.StatusAbnormalClosure, "Duplicate connection")
+		log.Println("Duplicate connection, closing previous")
 	}
 
 	c.connections[clientTunnelIp.String()] = conn
@@ -220,6 +221,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info := UserInfoDTO{
+		Type:                "info",
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
 		AvailableMfaMethods: names,
@@ -259,10 +261,13 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		ctx, cancel = context.WithTimeout(context.Background(), writeWait)
+
+		conn.Read(ctx)
+
 		err := conn.Ping(ctx)
 		cancel()
 		if err != nil {
-			c.Disconnect(clientTunnelIp.String())
+			c.Disconnect(clientTunnelIp.String(), "Failed to respond to ping")
 			return
 		}
 

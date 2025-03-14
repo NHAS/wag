@@ -2,8 +2,18 @@
 import { RouterView } from "vue-router";
 
 import { useWebSocketStore } from "./store/info";
+import { onBeforeUnmount, onMounted } from "vue";
 
 const infoStore = useWebSocketStore();
+
+onMounted( () => {
+  infoStore.connect();
+});
+
+onBeforeUnmount(() => {
+  infoStore.cleanup();
+});
+
 </script>
 
 <template>
@@ -13,7 +23,7 @@ const infoStore = useWebSocketStore();
         class="card bg-neutral shadow-xl max-w-3xl h-max text-neutral-content"
       >
         <div class="card-body">
-          <RouterView v-if="infoStore.isLoading " />
+          <RouterView v-if="infoStore.state.isConnected" />
           <div v-else>
             <span class="flex items-center gap-4"
               >Loading details...

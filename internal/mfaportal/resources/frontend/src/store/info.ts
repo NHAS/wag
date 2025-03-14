@@ -1,7 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { ChallengeAuthorisationDTO, UserInfoDTO } from "@/api/types";
-
+import { useToast } from "vue-toastification";
+const toast = useToast();
 export interface WebSocketState {
   connection: WebSocket | null;
   isConnected: boolean;
@@ -75,6 +76,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
       switch (data.type) {
         case "info":
           state.value.userInfo = data;
+          state.value.connection?.send("{}")
           break;
         case "deauthed":
             if( state.value.userInfo !== null) {
@@ -89,10 +91,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
           }
           break;
         default:
-          console.log("Server sent message with unknown type: ", data.type)
-      }
-      // Check if the message is UserInfoDTO
-      if (data.username !== undefined) {
+          console.log("Server sent message with unknown type: ", data.type, data)
       }
 
       // Additional message handling can be added here
@@ -114,6 +113,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.isConnected = false;
     state.value.isConnecting = false;
 
+    
+    toast.error("Websocket connection closed, reason: "+ event.reason)
     // Attempt to reconnect if not a normal closure
     if (event.code !== 1000 && state.value.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       const delay = Math.min(1000 * (state.value.reconnectAttempts + 1), 10000);
@@ -155,7 +156,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
   const isLocked = computed(() => state.value.userInfo?.is_locked ?? false);
   const isRegistered = computed(() => state.value.userInfo?.has_registered ?? false);
   const helpMail = computed(() => state.value.userInfo?.helpmail ?? "");
-  const isLoading = computed(() => !state.value.isConnected)
 
   // Cleanup on unmount
   const cleanup = () => {
@@ -167,7 +167,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
     connect,
     disconnect,
     sendChallenge,
-    isLoading,
     isLoggedIn,
     username,
     availableMfaMethods,
