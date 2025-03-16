@@ -9,19 +9,23 @@ const router = createRouter({
       component: () => import("../pages/Index.vue"),
     },
     {
-      path: "/authorise/totp",
-      name: "totp_auth",
-      component: () => import("../pages/authorisation/Totp.vue"),
-    },
-    {
       path: "/register/totp",
       name: "totp_register",
       component: () => import("../pages/registration/Totp.vue"),
     },
     {
-      path: "/pam",
-      name: "pam",
-      component: () => import("../pages/Pam.vue"),
+      path: "/authorise/totp",
+      name: "totp_auth",
+      component: () => import("../pages/authorisation/Totp.vue"),
+    },
+    {
+      path: "/register/pam",
+      name: "pam_register",
+      component: () => import("../pages/registration/Pam.vue"),
+    },    {
+      path: "/register/pam",
+      name: "pam_register",
+      component: () => import("../pages/registration/Pam.vue"),
     },
     {
       path: "/webauthn",

@@ -27,7 +27,7 @@ func (t *Pam) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *ht
 	t.fw = fw
 
 	routes = http.NewServeMux()
-	routes.HandleFunc("POST /register/complete", isUnregisteredFunc(
+	routes.HandleFunc("POST /register", isUnregisteredFunc(
 		isUnauthedFunc(t.completeRegistration, fw)),
 	)
 	routes.HandleFunc("POST /authorise",
@@ -49,48 +49,10 @@ func (t *Pam) FriendlyName() string {
 	return "System Login"
 }
 
-func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
-	user := users.GetUserFromContext(r.Context())
-
-	err := data.SetUserMfa(user.Username, "PAMauth", t.Type())
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
-		jsonResponse(w, AuthResponse{
-			Status: Error,
-			Error:  "Server error",
-		}, http.StatusInternalServerError)
-		return
-	}
-
-	err = user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
-
-	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-		msg, status := resultMessage(err)
-		jsonResponse(w, AuthResponse{
-			Status: Error,
-			Error:  msg,
-		}, status)
-
-		return
-	}
-
-	log.Println(user.Username, clientTunnelIp, "authorised")
-	jsonResponse(w, AuthResponse{
-		Status: Success,
-	}, http.StatusOK)
-}
-
-func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
+func (t *Pam) doAuth(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
-
-	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
 
 	err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 	if err != nil {
@@ -108,6 +70,45 @@ func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 	log.Println(user.Username, clientTunnelIp, "authorised")
 
+}
+
+func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
+	clientTunnelIp := utils.GetIPFromRequest(r)
+	user := users.GetUserFromContext(r.Context())
+
+	if user.IsEnforcingMFA() {
+		jsonResponse(w, AuthResponse{
+			Status: Error,
+			Error:  "MFA method is already selected",
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	err := data.SetUserMfa(user.Username, "PAMauth", t.Type())
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
+		jsonResponse(w, AuthResponse{
+			Status: Error,
+			Error:  "Server error",
+		}, http.StatusInternalServerError)
+		return
+	}
+
+	t.doAuth(w, r)
+}
+
+func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
+
+	user := users.GetUserFromContext(r.Context())
+	if !user.IsEnforcingMFA() {
+		jsonResponse(w, AuthResponse{
+			Status: Error,
+			Error:  "MFA is not registered",
+		}, http.StatusUnauthorized)
+		return
+	}
+
+	t.doAuth(w, r)
 }
 
 func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.AuthenticatorFunc {

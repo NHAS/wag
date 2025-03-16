@@ -1,24 +1,39 @@
 import {
   client,
   type AuthResponse,
-  type MFARequest,
-  MFARequestTypes,
-  type PamDetailsDTO,
-  type PamAuthoriseDTO,
+  type PamAuthRequestDTO,
 } from ".";
 
-export function getPamDetails(): Promise<PamDetailsDTO> {
-  return client.get("/api/pam").then((res) => res.data);
+export function authorisePam(
+  password: string,
+): Promise<AuthResponse> {
+  const data: PamAuthRequestDTO = {
+    password:password,
+  };
+  return client.post("/api/pam/authorise", data).then((res) => res.data).catch(e => {
+    if (e.status != 200) {
+      if (e.response.data.status !== undefined && e.response.data.status == "error") {
+        throw new Error(e.response.data.error)
+      }
+    }
+
+    throw e
+  });
 }
 
-export function authorisePam(
-  password: PamAuthoriseDTO,
-  attempt_register: boolean,
+export function registerPam(
+  password: string,
 ): Promise<AuthResponse> {
-  const data: MFARequest = {
-    type: MFARequestTypes.Pam,
-    data: password,
-    is_registration: attempt_register,
+  const data: PamAuthRequestDTO = {
+    password:password,
   };
-  return client.post("/api/pam/r", data).then((res) => res.data);
+  return client.post("/api/pam/register", data).then((res) => res.data).catch(e => {
+    if (e.status != 200) {
+      if (e.response.data.status !== undefined && e.response.data.status == "error") {
+        throw new Error(e.response.data.error)
+      }
+    }
+
+    throw e
+  });
 }

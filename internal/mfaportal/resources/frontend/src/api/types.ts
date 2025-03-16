@@ -38,26 +38,6 @@ export interface AuthResponse {
 	error: string;
 }
 
-export interface MFARequest {
-  type: MFARequestTypes;
-  data:
-    | TOTPRequestDTO
-    | CredentialCreationOptions
-    | CredentialRequestOptions
-    | PamAuthoriseDTO;
-  is_registration: boolean;
-}
-
-export enum MFARequestTypes {
-  Totp = "totp",
-  Webauthn = "webauthn",
-  Pam = "pam",
-}
-
-export interface PamDetailsDTO {
-  account_name: string;
-}
-
-export interface PamAuthoriseDTO {
-  password: string;
+export interface PamAuthRequestDTO {
+  password: string
 }

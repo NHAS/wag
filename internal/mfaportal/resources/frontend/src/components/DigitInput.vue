@@ -74,7 +74,7 @@ function handlePaste(event: ClipboardEvent): void {
                         class="input input-bordered text-neutral input-primary w-12 h-12 text-center text-lg font-mono"
                         maxlength="1" :ref="(el) => digitInputs[index] = (el as HTMLInputElement)"
                         v-model="digits[index]" @input="moveToNextInput(index)" placeholder="0"
-                        @keydown.backspace="handleBackspace(index, $event)" @paste="handlePaste($event)" />
+                        @keydown.backspace="handleBackspace(index, $event)" @paste="handlePaste($event)" autocomplete="off"/>
                 </template>
             </div>
         </div>
