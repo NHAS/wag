@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/NHAS/wag/internal/data"
@@ -160,49 +161,46 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 
-	enabledMethods, err := data.GetEnabledAuthenicationMethods()
+	enabledMethods, err := data.GetEnabledAuthenticationMethods()
 	if err != nil {
 		return err
 	}
 
-	mux.HandleFunc("/authorise/oidc/", func(w http.ResponseWriter, r *http.Request) {
+	depreciatedMessage := func(w http.ResponseWriter, r *http.Request) {
 		log.Println("SSO ERROR. YOU ARE USING A DEPRECATED PATH /authorise/oidc/, please update to /api/oidc/authorise/callback/")
 		http.Error(w, "Deprecated sso path", http.StatusBadRequest)
-	})
+	}
+
+	mux.HandleFunc("/authorise/oidc/", depreciatedMessage)
+	mux.HandleFunc("/authorise/oidc", depreciatedMessage)
 
 	for method, handler := range allMfa {
 		prefix := "/api/" + string(method)
-		routes, err := handler.Initialise(firewall, slices.Contains(enabledMethods, string(method)))
+
+		isEnabled := slices.Contains(enabledMethods, string(method))
+
+		routes, err := handler.Initialise(firewall, isEnabled)
 		if err != nil {
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}
 
-		mux.Handle(prefix, http.StripPrefix(prefix, checkEnabled(routes, allMfa[method])))
+		// Directly register each handler from routes to the main mux with the proper prefix
+		mux.Handle(prefix+"/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// First check if the method is enabled
+			if !handler.IsEnabled() {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Strip the prefix and pass to routes
+			r2 := *r
+			r2.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
+			routes.ServeHTTP(w, &r2)
+		}))
 	}
 
 	return nil
-}
-
-type enabled struct {
-	next http.Handler
-	auth Authenticator
-}
-
-func (d *enabled) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !d.auth.IsEnabled() {
-		http.NotFound(w, r)
-		return
-	}
-	d.next.ServeHTTP(w, r)
-
-}
-
-func checkEnabled(next http.Handler, auth Authenticator) http.Handler {
-	return &enabled{
-		next: next,
-		auth: auth,
-	}
 }
 
 type mustBeUnregistered struct {

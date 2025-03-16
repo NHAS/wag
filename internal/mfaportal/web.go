@@ -68,7 +68,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	tunnel.HandleFunc("GET /api/status", mfaPortal.status)
 	tunnel.HandleFunc("GET /api/routes", mfaPortal.routes)
 
-	tunnel.HandleFunc("GET /api/logout", mfaPortal.logout)
+	tunnel.HandleFunc("POST /api/logout", mfaPortal.logout)
 
 	tunnel.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -121,7 +121,7 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {

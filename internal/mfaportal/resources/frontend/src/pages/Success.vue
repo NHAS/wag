@@ -1,4 +1,26 @@
 <script setup lang="ts">
+import { logout } from '@/api';
+import { useToastError } from '@/composables/useToastError';
+import router from '@/router';
+import { useToast } from 'vue-toastification';
+
+const toast = useToast()
+const { catcher } = useToastError();
+
+async function doLogout() {
+  try {
+    const resp = await logout();
+
+    if (!resp) {
+      toast.error("Failed to logout");
+      return;
+    } else {
+      router.push("/");
+    }
+  } catch (e) {
+    catcher(e, "");
+  }
+}
 
 </script>
 
@@ -28,7 +50,7 @@
   </div>
 
   <div class="w-full flex justify-center gap-4">
-    <button class="btn btn-primary w-32">Logout</button>
+    <button class="btn btn-primary w-32" @click="() => doLogout()">Logout</button>
   </div>
 </template>
 

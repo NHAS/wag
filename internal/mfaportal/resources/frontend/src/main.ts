@@ -10,7 +10,6 @@ import "./styles.css";
 
 import App from "./App.vue";
 import router from "./router";
-import { useWebSocketStore } from "./store/info";
 
 const app = createApp(App);
 

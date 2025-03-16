@@ -1,9 +1,8 @@
 import {
   client,
-  type GenericResponseDTO,
+  type AuthResponse,
   type MFARequest,
   MFARequestTypes,
-  verifyEndpoint,
 } from ".";
 
 export function getRegistrationWebauthnDetails(): Promise<CredentialCreationOptions> {
@@ -17,11 +16,11 @@ export function getAuthorisationWebauthnDetails(): Promise<CredentialRequestOpti
 export function authoriseWebauthn(
   details: CredentialCreationOptions | CredentialRequestOptions,
   attempt_register: boolean,
-): Promise<GenericResponseDTO> {
+): Promise<AuthResponse> {
   const data: MFARequest = {
     type: MFARequestTypes.Webauthn,
     data: details,
     is_registration: attempt_register,
   };
-  return client.post(verifyEndpoint, data).then((res) => res.data);
+  return client.post("", data).then((res) => res.data);
 }

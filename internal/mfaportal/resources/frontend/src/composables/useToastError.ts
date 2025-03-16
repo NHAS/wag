@@ -17,11 +17,13 @@ export function useToastError() {
       } else {
         errorString = potentialString[messageProperty];
       }
+
+      if(e.message !== undefined) {
+        errorString = e.message
+      }
     } else if (e instanceof Error) {
       errorString = e.message;
     }
-
-    console.log(e, typeof e);
 
     const paddedPrefixString = prefixString.endsWith(" ")
       ? prefixString

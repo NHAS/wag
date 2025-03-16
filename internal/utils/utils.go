@@ -90,12 +90,14 @@ func (sh *security) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		u, err := url.Parse(r.Header.Get("Origin"))
 		if err != nil {
+			log.Println("No Origin header")
 			http.Error(w, "Bad Request", 400)
 			return
 		}
 
 		//If origin != host header
 		if r.Host != u.Host {
+			log.Printf("Bad Origin: got %q expected %q", r.Host, u.Host)
 			http.Error(w, "Bad Request", 400)
 			return
 		}

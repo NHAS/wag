@@ -9,9 +9,14 @@ const router = createRouter({
       component: () => import("../pages/Index.vue"),
     },
     {
-      path: "/totp",
-      name: "totp",
-      component: () => import("../pages/Totp.vue"),
+      path: "/authorise/totp",
+      name: "totp_auth",
+      component: () => import("../pages/authorisation/Totp.vue"),
+    },
+    {
+      path: "/register/totp",
+      name: "totp_register",
+      component: () => import("../pages/registration/Totp.vue"),
     },
     {
       path: "/pam",

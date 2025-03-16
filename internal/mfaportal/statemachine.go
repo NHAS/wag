@@ -57,7 +57,7 @@ func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.Eve
 		authenticators.DisableMethods(types.Oidc)
 	case data.CREATED, data.MODIFIED:
 		// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
-		methods, err := data.GetEnabledAuthenicationMethods()
+		methods, err := data.GetEnabledAuthenticationMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)
 			return err
@@ -77,7 +77,7 @@ func (mp *MfaPortal) domainChanged(_ string, _, _ data.WebserverConfiguration, e
 	switch et {
 	case data.MODIFIED:
 
-		methods, err := data.GetEnabledAuthenicationMethods()
+		methods, err := data.GetEnabledAuthenticationMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)
 			return err

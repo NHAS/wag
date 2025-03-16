@@ -34,7 +34,7 @@ func (t *Pam) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *ht
 		isUnauthedFunc(t.authorise, fw),
 	)
 
-	return nil, nil
+	return routes, nil
 }
 
 func (t *Pam) ReloadSettings() error {
@@ -56,7 +56,10 @@ func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
 	err := data.SetUserMfa(user.Username, "PAMauth", t.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
-		http.Error(w, "Unknown error", 500)
+		jsonResponse(w, AuthResponse{
+			Status: Error,
+			Error:  "Server error",
+		}, http.StatusInternalServerError)
 		return
 	}
 
@@ -66,7 +69,7 @@ func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg, status := resultMessage(err)
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  msg,
 		}, status)
 
@@ -75,7 +78,7 @@ func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "authorised")
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Success,
 	}, http.StatusOK)
 }
 
@@ -94,14 +97,14 @@ func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 		msg, status := resultMessage(err)
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  msg,
 		}, status)
 		return
 	}
 
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Success,
 	}, http.StatusOK)
 	log.Println(user.Username, clientTunnelIp, "authorised")
 

@@ -53,7 +53,7 @@ func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *h
 	// https://github.com/NHAS/wag/issues/129
 	authorisationEndpoints.HandleFunc("GET /callback/", o.oidcCallbackFinishAuth)
 
-	routes.Handle("/authorise",
+	routes.Handle("/authorise/",
 		http.StripPrefix(
 			"/authorise",
 			isUnauthed(

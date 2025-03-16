@@ -87,10 +87,8 @@ func (c *Challenger) Challenge(username, address string) {
 		return
 	}
 
-	var req ChallengeRequestDTO
-	req.Type = "endpoint-change-challenge"
 	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
-	err := wsjson.Write(ctx, conn, req)
+	err := wsjson.Write(ctx, conn, Challenge())
 	cancel()
 	if err != nil {
 		c.disconnect(address, "Bad connection")
@@ -146,11 +144,8 @@ func (c *Challenger) NotifyDeauth(address string) {
 		return
 	}
 
-	var d DeauthNotificationDTO
-	d.Type = "deauthed"
-
 	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
-	err := wsjson.Write(ctx, conn, d)
+	err := wsjson.Write(ctx, conn, Deauth())
 	cancel()
 	if err != nil {
 		conn.CloseNow()
@@ -259,19 +254,39 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	innerClose := func(conn *websocket.Conn, address string) {
+		if conn != nil {
+			conn.CloseNow()
+		}
+
+		c.Lock()
+		// if the current record is still our conn and we are closing, remove it from the map and send a nice disconnect message
+		if current, ok := c.connections[address]; ok && conn == current {
+			c.disconnect(address, "Duplicate")
+		}
+		c.Unlock()
+	}
+
 	for {
 		ctx, cancel = context.WithTimeout(context.Background(), writeWait)
-
-		conn.Read(ctx)
-
-		err := conn.Ping(ctx)
+		err := wsjson.Write(ctx, conn, Ping())
 		cancel()
 		if err != nil {
-			c.Disconnect(clientTunnelIp.String(), "Failed to respond to ping")
+			// if we fail writing here, its quite likely that our conn isnt the conn for this device anymore
+			innerClose(conn, clientTunnelIp.String())
 			return
 		}
 
-		time.Sleep(writeWait / 2)
+		ctx, cancel = context.WithTimeout(context.Background(), readWait)
+		var res PingResponseDTO
+		err = wsjson.Read(ctx, conn, &res)
+		cancel()
+		if err != nil {
+			innerClose(conn, clientTunnelIp.String())
+			return
+		}
+
+		time.Sleep(readWait)
 	}
 
 }

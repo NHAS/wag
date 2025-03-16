@@ -45,7 +45,7 @@ func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (rout
 	registrationEndpoints.HandleFunc("POST /details", wa.getRegistrationDetails)
 	registrationEndpoints.HandleFunc("POST /complete", wa.completeRegistration)
 
-	routes.Handle("/register",
+	routes.Handle("/register/",
 		http.StripPrefix(
 			"/register",
 			isUnauthed(
@@ -59,7 +59,7 @@ func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (rout
 	authorisationEndpoints.HandleFunc("GET /start", wa.startAuthorisation)
 	authorisationEndpoints.HandleFunc("GET /finish", wa.finishAuthorisation)
 
-	routes.Handle("/authorise",
+	routes.Handle("/authorise/",
 		http.StripPrefix(
 			"/authorise",
 			isUnauthed(
@@ -121,7 +121,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Failed to create webauthn registration.",
 		}, http.StatusInternalServerError)
 		return
@@ -133,7 +133,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Save webauthn registration.",
 		}, http.StatusInternalServerError)
 		return
@@ -143,14 +143,14 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Save MFA settings for user.",
 		}, http.StatusInternalServerError)
 		return
 	}
 
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Details,
 		Data:   options,
 	}, http.StatusOK)
 }
@@ -205,7 +205,7 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 		msg, status := resultMessage(err)
 
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  msg,
 		}, status)
 
@@ -215,7 +215,7 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 	log.Println(user.Username, clientTunnelIp, "authorised")
 
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Success,
 	}, http.StatusOK)
 }
 
@@ -234,7 +234,7 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 		log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
 
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Failed to retrieve webauthn data.",
 		}, http.StatusInternalServerError)
 		return
@@ -245,7 +245,7 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Failed to parse webauthn data.",
 		}, http.StatusInternalServerError)
 		return
@@ -258,7 +258,7 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  "Failed to generate challenge.",
 		}, http.StatusInternalServerError)
 		return
@@ -267,7 +267,7 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	wa.sessions.StartSession(w, r, sessionData, nil)
 
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Success,
 		Data:   options,
 	}, http.StatusOK)
 	log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
@@ -328,14 +328,14 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err)
 		msg, status := resultMessage(err)
 		jsonResponse(w, AuthResponse{
-			Status: "error",
+			Status: Error,
 			Error:  msg,
 		}, status)
 		return
 	}
 
 	jsonResponse(w, AuthResponse{
-		Status: "success",
+		Status: Success,
 	}, http.StatusOK)
 
 	log.Println(user.Username, clientTunnelIp, "authorised")

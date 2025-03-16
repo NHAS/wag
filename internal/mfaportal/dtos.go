@@ -1,5 +1,14 @@
 package mfaportal
 
+type Status string
+
+const (
+	EndpointChallenge Status = "endpoint-change-challenge"
+	Deauthed          Status = "deauthed"
+	Authorised        Status = "authorised"
+	PingType          Status = "ping"
+)
+
 type MFAMethod struct {
 	Method       string `json:"method"`
 	FriendlyName string `json:"friendly_name"`
@@ -24,17 +33,38 @@ type StatusDTO struct {
 	Deny   []string
 }
 
-type ChallengeRequestDTO struct {
-	Type string `json:"type"`
+type NotificationDTO struct {
+	Type Status `json:"type"`
+}
+
+func Challenge() NotificationDTO {
+	return NotificationDTO{
+		Type: EndpointChallenge,
+	}
+}
+
+func AuthoriseSuccess() NotificationDTO {
+	return NotificationDTO{
+		Type: Authorised,
+	}
+}
+
+func Deauth() NotificationDTO {
+	return NotificationDTO{
+		Type: Deauthed,
+	}
+}
+
+func Ping() NotificationDTO {
+	return NotificationDTO{
+		Type: PingType,
+	}
+}
+
+type PingResponseDTO struct {
+	Pong string `json:"pong"`
 }
 
 type ChallengeResponseDTO struct {
 	Challenge string `json:"challenge"`
-}
-
-type AuthorisationSuccessDTO struct {
-}
-
-type DeauthNotificationDTO struct {
-	Type string `json:"type"`
 }

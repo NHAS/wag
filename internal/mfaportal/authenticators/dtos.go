@@ -23,9 +23,19 @@ type PAMRequestDTO struct {
 	Password string `json:"password"`
 }
 
+type StatusType string
+
+const (
+	Success   StatusType = "success"
+	Challenge StatusType = "challenge"
+	Details   StatusType = "register_details"
+
+	Error StatusType = "error"
+)
+
 type AuthResponse struct {
-	Status string      `json:"status"` // "success", "challenge", "error"
-	Data   interface{} `json:"Data,omitempty"`
+	Status StatusType  `json:"status"`
+	Data   interface{} `json:"data,omitempty"`
 	Error  string      `json:"error,omitempty"`
 }
 

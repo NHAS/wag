@@ -23,7 +23,7 @@ export interface ChallengeAuthorisationDTO {
 }
 
 export interface TOTPDetailsDTO {
-  qrcode: string;
+  image_data: string;
   account_name: string;
   key: string;
 }
@@ -32,9 +32,10 @@ export interface TOTPRequestDTO {
   code: string;
 }
 
-export interface GenericResponseDTO {
-  message: string;
-  success: boolean;
+export interface AuthResponse {
+  status: string;
+	data: any;
+	error: string;
 }
 
 export interface MFARequest {

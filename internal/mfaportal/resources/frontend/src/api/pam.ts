@@ -3,7 +3,6 @@ import {
   type GenericResponseDTO,
   type MFARequest,
   MFARequestTypes,
-  verifyEndpoint,
   type PamDetailsDTO,
   type PamAuthoriseDTO,
 } from ".";
@@ -21,5 +20,5 @@ export function authorisePam(
     data: password,
     is_registration: attempt_register,
   };
-  return client.post(verifyEndpoint, data).then((res) => res.data);
+  return client.post("/api/pam/r", data).then((res) => res.data);
 }

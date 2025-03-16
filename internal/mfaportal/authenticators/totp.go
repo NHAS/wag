@@ -50,7 +50,7 @@ func (t *Totp) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *h
 	registrationEndpoints.HandleFunc("POST /details", t.getTotpSecret)
 	registrationEndpoints.HandleFunc("POST /complete", t.authorise("Incorrect TOTP Code. Registration incomplete."))
 
-	routes.Handle("/register",
+	routes.Handle("/register/",
 		http.StripPrefix(
 			"/register",
 			isUnauthed(
@@ -147,7 +147,7 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, AuthResponse{
-		Status: "challenge",
+		Status: Details,
 		Data: TOTPSecretDTO{
 			ImageData:   "data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes()),
 			Key:         key.Secret(),
@@ -166,7 +166,7 @@ func (t *Totp) authorise(failureMessage string) http.HandlerFunc {
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 			jsonResponse(w, AuthResponse{
-				Status: "error",
+				Status: Error,
 				Error:  failureMessage,
 			}, http.StatusUnauthorized)
 			return

@@ -318,7 +318,7 @@ func SetAuthenticationMethods(methods []string) error {
 	return err
 }
 
-func GetEnabledAuthenicationMethods() (result []string, err error) {
+func GetEnabledAuthenticationMethods() (result []string, err error) {
 
 	resp, err := etcd.Get(context.Background(), MFAMethodsEnabledKey)
 	if err != nil {

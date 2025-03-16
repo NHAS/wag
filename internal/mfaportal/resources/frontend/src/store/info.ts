@@ -73,6 +73,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
         return
       }
 
+      console.log("got ", data)
+
       switch (data.type) {
         case "info":
           state.value.userInfo = data;
@@ -90,6 +92,16 @@ export const useWebSocketStore = defineStore("websocket", () => {
             state.value.userInfo.is_authorized = false
           }
           break;
+        case "ping":
+          state.value.connection?.send(JSON.stringify({
+            "pong": "true"
+          }))
+          console.log("got ping")
+          break;
+
+        case "authorised":
+          console.log("got authorised message: ", data)
+          break
         default:
           console.log("Server sent message with unknown type: ", data.type, data)
       }
