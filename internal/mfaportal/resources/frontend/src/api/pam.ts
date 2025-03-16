@@ -1,6 +1,6 @@
 import {
   client,
-  type GenericResponseDTO,
+  type AuthResponse,
   type MFARequest,
   MFARequestTypes,
   type PamDetailsDTO,
@@ -14,7 +14,7 @@ export function getPamDetails(): Promise<PamDetailsDTO> {
 export function authorisePam(
   password: PamAuthoriseDTO,
   attempt_register: boolean,
-): Promise<GenericResponseDTO> {
+): Promise<AuthResponse> {
   const data: MFARequest = {
     type: MFARequestTypes.Pam,
     data: password,
