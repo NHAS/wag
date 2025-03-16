@@ -8,7 +8,6 @@ import { useApi } from "@/composables/useApi";
 import { useToastError } from "@/composables/useToastError";
 
 import {
-  authoriseTotp,
   getTotpDetails,
   registerTotp,
   type TOTPDetailsDTO,
@@ -101,7 +100,7 @@ async function register(code: string) {
     <DigitInput execution-name="Verify & Complete Setup" @submit="register"></DigitInput>
 
     <router-link to="/" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
-        <button class="btn btn-outline w-full">Use Another Method</button>
-      </router-link>
+      <button class="btn btn-outline w-full">Use Another Method</button>
+    </router-link>
   </template>
 </template>

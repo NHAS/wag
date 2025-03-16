@@ -1,17 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef } from "vue";
 import { useToast } from "vue-toastification";
-
-import PageLoading from "@/components/PageLoading.vue";
-
-import { useApi } from "@/composables/useApi";
 import { useToastError } from "@/composables/useToastError";
 
 import {
   authoriseTotp,
-  getTotpDetails,
-  registerTotp,
-  type TOTPDetailsDTO,
 } from "@/api";
 import router from "@/router";
 import { useWebSocketStore } from "@/store/info";
