@@ -29,6 +29,7 @@ const (
 
 type Challenger struct {
 	sync.RWMutex
+	closing bool
 
 	connections map[string]*websocket.Conn
 	deviceKey   string
@@ -69,6 +70,7 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 func (c *Challenger) Close() error {
 	c.Lock()
 	defer c.Unlock()
+	c.closing = true
 
 	for _, conn := range c.connections {
 		conn.Close(websocket.StatusGoingAway, "Going away")
@@ -155,6 +157,12 @@ func (c *Challenger) NotifyDeauth(address string) {
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
+
+	if c.closing {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	user := users.GetUserFromContext(r.Context())
@@ -216,7 +224,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info := UserInfoDTO{
-		Type:                "info",
+		Type:                Init,
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
 		AvailableMfaMethods: names,
