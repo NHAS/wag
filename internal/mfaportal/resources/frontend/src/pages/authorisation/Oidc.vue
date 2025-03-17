@@ -1,4 +1,10 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+
+setTimeout(function(){
+  window.location.href = "/api/oidc/start"
+}, 1500)
+
+</script>
 
 <template>
   <h4 class="card-title text-center">

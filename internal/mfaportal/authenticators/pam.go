@@ -26,6 +26,8 @@ type Pam struct {
 func (t *Pam) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
 	t.fw = fw
 
+	t.enable = enable(initiallyEnabled)
+
 	routes = http.NewServeMux()
 	routes.HandleFunc("POST /register", isUnregisteredFunc(
 		isUnauthedFunc(t.completeRegistration, fw)),

@@ -3,6 +3,8 @@ package mfaportal
 type Status string
 
 const (
+	Init              Status = "initialise"
+	Info              Status = "info"
 	EndpointChallenge Status = "endpoint-change-challenge"
 	Deauthed          Status = "deauthed"
 	Authorised        Status = "authorised"
@@ -15,7 +17,7 @@ type MFAMethod struct {
 }
 
 type UserInfoDTO struct {
-	Type                string      `json:"type"`
+	Type                Status      `json:"type"`
 	Locked              bool        `json:"is_locked"`
 	HelpMail            string      `json:"helpmail"`
 	DefaultMFAMethod    string      `json:"default_mfa"`

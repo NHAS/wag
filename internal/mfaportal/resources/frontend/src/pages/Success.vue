@@ -27,7 +27,7 @@ async function doLogout() {
 }
 
 
-watch(info, async (oldState, newState) => {
+watch(info, async (_, newState) => {
   if(!newState.isLoggedIn || !newState.isRegistered || !newState.state.isConnected) {
     router.push("/")
   }

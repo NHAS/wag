@@ -38,14 +38,24 @@ const router = createRouter({
       component: () => import("../pages/authorisation/Webauthn.vue"),
     },
     {
-      path: "/oidc",
-      name: "oidc",
-      component: () => import("../pages/Oidc.vue"),
+      path: "/register/oidc",
+      name: "oidc_register",
+      component: () => import("../pages/registration/Oidc.vue"),
+    },
+    {
+      path: "/authorise/oidc",
+      name: "oidc_auth",
+      component: () => import("../pages/authorisation/Oidc.vue"),
     },
     {
       path: "/success",
       name: "success",
       component: () => import("../pages/Success.vue"),
+    },
+    {
+      path: "/error",
+      name: "error",
+      component: () => import("../pages/Error.vue"),
     }
   ],
 });

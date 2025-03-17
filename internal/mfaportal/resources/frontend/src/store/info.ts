@@ -76,10 +76,15 @@ export const useWebSocketStore = defineStore("websocket", () => {
       console.log("got ", data)
 
       switch (data.type) {
-        case "info":
+        case "initialise":
           state.value.userInfo = data;
           state.value.connection?.send("{}")
           break;
+        case "info":
+          if(state.value.userInfo !== null) {
+            state.value.userInfo = data;
+          }
+          break
         case "deauthed":
             if( state.value.userInfo !== null) {
               // we are no longer authed, and there is no challenge to sent to auto re-auth, so make the user reauth

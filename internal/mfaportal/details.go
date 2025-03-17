@@ -188,7 +188,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		c.Lock()
 		if conn != nil {
-			conn.Close(websocket.StatusNormalClosure, "Connection Ended")
+			conn.CloseNow()
 		}
 		delete(c.connections, clientTunnelIp.String())
 		c.Unlock()
@@ -254,26 +254,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	innerClose := func(conn *websocket.Conn, address string) {
-		if conn != nil {
-			conn.CloseNow()
-		}
-
-		c.Lock()
-		// if the current record is still our conn and we are closing, remove it from the map and send a nice disconnect message
-		if current, ok := c.connections[address]; ok && conn == current {
-			c.disconnect(address, "Duplicate")
-		}
-		c.Unlock()
-	}
-
 	for {
 		ctx, cancel = context.WithTimeout(context.Background(), writeWait)
 		err := wsjson.Write(ctx, conn, Ping())
 		cancel()
 		if err != nil {
-			// if we fail writing here, its quite likely that our conn isnt the conn for this device anymore
-			innerClose(conn, clientTunnelIp.String())
 			return
 		}
 
@@ -282,7 +267,6 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		err = wsjson.Read(ctx, conn, &res)
 		cancel()
 		if err != nil {
-			innerClose(conn, clientTunnelIp.String())
 			return
 		}
 

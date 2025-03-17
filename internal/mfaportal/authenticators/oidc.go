@@ -37,6 +37,7 @@ type Oidc struct {
 func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
 
 	o.fw = fw
+	o.enable = enable(initiallyEnabled)
 
 	err = o.ReloadSettings()
 	if err != nil {
@@ -100,9 +101,8 @@ func (o *Oidc) ReloadSettings() error {
 		return err
 	}
 
-	u.Path = path.Join(u.Path, "/api/oidc/authorise/callback/")
+	u.Path = path.Join(u.Path, "/api/oidc/authorise/callback")
 	log.Println("OIDC callback: ", u.String())
-	log.Println("Connecting to OIDC provider: ", o.details.IssuerURL)
 
 	if len(o.details.Scopes) == 0 {
 		o.details.Scopes = []string{"openid"}
@@ -116,7 +116,7 @@ func (o *Oidc) ReloadSettings() error {
 		return err
 	}
 
-	log.Println("Connected!")
+	log.Println("Connected to OIDC provider: ", o.details.IssuerURL)
 	return nil
 }
 
@@ -134,7 +134,7 @@ func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
 	user := users.GetUserFromContext(r.Context())
 	if user.IsEnforcingMFA() {
 		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
@@ -148,7 +148,7 @@ func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
 	err := data.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
-		http.Error(w, "Server error", http.StatusInternalServerError)
+		http.Redirect(w, r, "/error", http.StatusSeeOther)
 		return
 	}
 
