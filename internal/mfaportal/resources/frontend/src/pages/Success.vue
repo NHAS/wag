@@ -2,10 +2,14 @@
 import { logout } from '@/api';
 import { useToastError } from '@/composables/useToastError';
 import router from '@/router';
+import { useWebSocketStore } from '@/store/info';
+import { watch } from 'vue';
 import { useToast } from 'vue-toastification';
 
 const toast = useToast()
 const { catcher } = useToastError();
+
+const info = useWebSocketStore()
 
 async function doLogout() {
   try {
@@ -21,6 +25,13 @@ async function doLogout() {
     catcher(e, "");
   }
 }
+
+
+watch(info, async (oldState, newState) => {
+  if(!newState.isLoggedIn || !newState.isRegistered || !newState.state.isConnected) {
+    router.push("/")
+  }
+})
 
 </script>
 

@@ -209,12 +209,12 @@ type mustBeUnregistered struct {
 }
 
 func (d *mustBeUnregistered) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	user := users.GetUserFromContext(r.Context())
 	if user.IsEnforcingMFA() {
 		http.NotFound(w, r)
 		return
 	}
+
 	d.next.ServeHTTP(w, r)
 
 }
@@ -233,11 +233,11 @@ type unauthed struct {
 }
 
 func (d *unauthed) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	if d.fw.IsAuthed(utils.GetIPFromRequest(r).String()) {
 		http.NotFound(w, r)
 		return
 	}
+
 	d.next.ServeHTTP(w, r)
 
 }

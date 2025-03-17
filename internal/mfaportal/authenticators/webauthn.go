@@ -42,8 +42,8 @@ func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (rout
 	routes = http.NewServeMux()
 
 	registrationEndpoints := http.NewServeMux()
-	registrationEndpoints.HandleFunc("POST /details", wa.getRegistrationDetails)
-	registrationEndpoints.HandleFunc("POST /complete", wa.completeRegistration)
+	registrationEndpoints.HandleFunc("GET /", wa.getRegistrationDetails)
+	registrationEndpoints.HandleFunc("POST /", wa.completeRegistration)
 
 	routes.Handle("/register/",
 		http.StripPrefix(
@@ -56,8 +56,8 @@ func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (rout
 	)
 
 	authorisationEndpoints := http.NewServeMux()
-	authorisationEndpoints.HandleFunc("GET /start", wa.startAuthorisation)
-	authorisationEndpoints.HandleFunc("GET /finish", wa.finishAuthorisation)
+	authorisationEndpoints.HandleFunc("GET /", wa.startAuthorisation)
+	authorisationEndpoints.HandleFunc("POST /", wa.finishAuthorisation)
 
 	routes.Handle("/authorise/",
 		http.StripPrefix(

@@ -55,7 +55,7 @@ async function register(code: string) {
 <template>
   <PageLoading v-if="isLoadingRegistrationDetails"></PageLoading>
   <template v-else>
-    <h3 class="text-2xl font-bold text-center mb-8">Set Up Two-Factor Authentication</h3>
+    <h3 class="text-2xl font-bold text-center mb-8">Register Two-Factor Authentication Code</h3>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Left side - Instructions -->
@@ -97,7 +97,7 @@ async function register(code: string) {
       </div>
     </div>
 
-    <DigitInput execution-name="Verify & Complete Setup" @submit="register"></DigitInput>
+    <DigitInput execution-name="Verify & Complete Registration" @submit="register"></DigitInput>
 
     <router-link to="/" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
       <button class="btn btn-outline w-full">Use Another Method</button>

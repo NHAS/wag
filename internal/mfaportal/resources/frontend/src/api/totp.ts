@@ -28,8 +28,6 @@ export function registerTotp(
     code: code,
   };
 
-
-
   return client.post("/api/totp/register/complete", data).then((res) => {
     return res.data
   }).catch(e => {
