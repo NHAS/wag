@@ -32,8 +32,6 @@ async function authorise() {
 
     const creds = credentialRequestOptions.data
 
-    console.log(creds)
-
     creds.publicKey.challenge = bufferDecode(creds.publicKey.challenge);
     creds.publicKey.allowCredentials.forEach(function (listItem: any) {
       listItem.id = bufferDecode(listItem.id);
@@ -49,8 +47,8 @@ async function authorise() {
     }
 
     const resp = await authoriseWebAuthn(newCreds)
-    if (resp.status !== undefined) {
-      toast.error(resp.error ?? "Failed");
+    if (resp.status === undefined) {
+      toast.error(resp.error ?? "Failed, unknown server response.");
       return;
     }
 
@@ -59,7 +57,6 @@ async function authorise() {
       return;
     }
 
-    router.push("/success")
   } catch (e: any) {
     console.log(e, e.lineNumber)
     catcher(e, "");

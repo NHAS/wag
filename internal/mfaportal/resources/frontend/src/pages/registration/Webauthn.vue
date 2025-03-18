@@ -31,9 +31,6 @@ async function register() {
     }
 
     const creds = credentialCreationOptions.data
-
-    console.log(creds)
-
     creds.publicKey.challenge = bufferDecode(creds.publicKey.challenge);
     creds.publicKey.user.id = bufferDecode(creds.publicKey.user.id);
     if (creds.publicKey.excludeCredentials) {
@@ -52,7 +49,7 @@ async function register() {
     }
 
     const resp = await finaliseWebauthnRegistration(newCreds)
-    if (resp.status !== undefined) {
+    if (resp.status === undefined) {
       toast.error(resp.error ?? "Failed");
       return;
     }
@@ -61,8 +58,6 @@ async function register() {
       toast.error(resp.error ?? "Failed");
       return;
     }
-
-    router.push("/success")
   } catch (e: any) {
     console.log(e, e.lineNumber)
     catcher(e, "");
@@ -71,5 +66,10 @@ async function register() {
 </script>
 
 <template>
-<WebAuthnInput @submit="register" :help-mail="infoStore.helpMail" title="Verify" button-label="Verify"></WebAuthnInput>
+  <WebAuthnInput @submit="register" :help-mail="infoStore.helpMail" title="Verify" button-label="Verify">
+  </WebAuthnInput>
+  <router-link to="/selection" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
+    <button class="btn btn-neutral btn-outline w-full">Use Another Method</button>
+  </router-link>
+
 </template>

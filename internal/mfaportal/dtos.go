@@ -17,8 +17,12 @@ type MFAMethod struct {
 }
 
 type UserInfoDTO struct {
-	Type                Status      `json:"type"`
-	Locked              bool        `json:"is_locked"`
+	Type          Status `json:"type"`
+	UserMFAMethod string `json:"user_mfa_method"`
+
+	AccountLocked bool `json:"account_locked"`
+	DeviceLocked  bool `json:"device_locked"`
+
 	HelpMail            string      `json:"helpmail"`
 	DefaultMFAMethod    string      `json:"default_mfa"`
 	AvailableMfaMethods []MFAMethod `json:"available_mfa_methods"`

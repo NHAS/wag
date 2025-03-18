@@ -162,7 +162,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		}
 
 		// If the authorisation state has changed and is not disabled
-		if current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode {
+		if data.HasDeviceAuthorised(current, previous) {
 			err := f.SetAuthorized(current.Address, current.AssociatedNode)
 			if err != nil {
 				return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)

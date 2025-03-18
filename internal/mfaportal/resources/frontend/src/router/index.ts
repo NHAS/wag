@@ -9,6 +9,11 @@ const router = createRouter({
       component: () => import("../pages/Index.vue"),
     },
     {
+      path: "/selection",
+      name: "selection",
+      component: () => import("../pages/Selection.vue"),
+    },
+    {
       path: "/register/totp",
       name: "totp_register",
       component: () => import("../pages/registration/Totp.vue"),
@@ -56,6 +61,11 @@ const router = createRouter({
       path: "/error",
       name: "error",
       component: () => import("../pages/Error.vue"),
+    },
+    {
+      path: "/locked",
+      name: "locked",
+      component: () => import("../pages/Locked.vue"),
     }
   ],
 });

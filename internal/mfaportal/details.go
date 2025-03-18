@@ -62,6 +62,11 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 				c.Challenge(current.Username, current.Address)
 			}
 		}
+
+		if data.HasDeviceAuthorised(current, previous) {
+			log.Println("device authorised, sending update")
+			c.NotifyOfAuth(current)
+		}
 	}
 	return nil
 
@@ -121,6 +126,59 @@ func (c *Challenger) Challenge(username, address string) {
 
 }
 
+func (c *Challenger) NotifyOfAuth(device data.Device) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[device.Address]
+	if !ok {
+		log.Println("device not found: ", device.Address, c.connections)
+		return
+	}
+
+	user, err := users.GetUser(device.Username)
+	if err != nil {
+		log.Println("failed to get user object from device: ", err)
+		c.disconnect(device.Address, "Bad user")
+		return
+	}
+
+	defaultMFAMethod, err := data.GetDefaultMfaMethod()
+	if err != nil {
+		log.Println("failed to get default MFA method for updating client: ", err)
+		return
+	}
+
+	lockout, err := data.GetLockout()
+	if err != nil {
+		log.Println("failed to get lockout for updating client: ", err)
+		return
+	}
+
+	info := UserInfoDTO{
+		Type:                Info,
+		UserMFAMethod:       user.GetMFAType(),
+		HelpMail:            data.GetHelpMail(),
+		DefaultMFAMethod:    defaultMFAMethod,
+		AvailableMfaMethods: c.getMfaMethods(),
+		AccountLocked:       user.Locked,
+		DeviceLocked:        device.Attempts > lockout,
+		Registered:          user.Enforcing,
+		Username:            device.Username,
+		Authorised:          true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+	err = wsjson.Write(ctx, conn, info)
+	cancel()
+	if err != nil {
+		conn.CloseNow()
+		delete(c.connections, device.Address)
+		return
+	}
+
+}
+
 func (c *Challenger) Disconnect(address, reason string) {
 	c.Lock()
 	defer c.Unlock()
@@ -156,6 +214,18 @@ func (c *Challenger) NotifyDeauth(address string) {
 	}
 }
 
+func (c *Challenger) getMfaMethods() []MFAMethod {
+	authenticators := authenticators.GetAllEnabledMethods()
+	names := []MFAMethod{}
+	for _, a := range authenticators {
+		names = append(names, MFAMethod{
+			FriendlyName: a.FriendlyName(),
+			Method:       a.Type(),
+		})
+	}
+	return names
+}
+
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	if c.closing {
@@ -166,6 +236,12 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	user := users.GetUserFromContext(r.Context())
+
+	device, err := data.GetDeviceByAddress(clientTunnelIp.String())
+	if err != nil {
+		log.Println("failed to get device: ", err)
+		return
+	}
 
 	defaultMFAMethod, err := data.GetDefaultMfaMethod()
 	if err != nil {
@@ -198,7 +274,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		if conn != nil {
 			conn.CloseNow()
 		}
-		delete(c.connections, clientTunnelIp.String())
+
+		// Check to make sure the entry we remove from the map is our entry and not some random entry
+		if entry, ok := c.connections[clientTunnelIp.String()]; ok && entry == conn {
+			delete(c.connections, clientTunnelIp.String())
+		}
 		c.Unlock()
 
 	}()
@@ -214,21 +294,20 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "established new challenge connection!")
 
-	authenticators := authenticators.GetAllEnabledMethods()
-	names := []MFAMethod{}
-	for _, a := range authenticators {
-		names = append(names, MFAMethod{
-			FriendlyName: a.FriendlyName(),
-			Method:       a.Type(),
-		})
+	lockout, err := data.GetLockout()
+	if err != nil {
+		log.Println("failed to get lockout for updating client: ", err)
+		return
 	}
 
 	info := UserInfoDTO{
 		Type:                Init,
+		UserMFAMethod:       user.GetMFAType(),
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
-		AvailableMfaMethods: names,
-		Locked:              user.Locked,
+		AvailableMfaMethods: c.getMfaMethods(),
+		AccountLocked:       user.Locked,
+		DeviceLocked:        device.Attempts > lockout,
 		Registered:          user.Enforcing,
 		Username:            user.Username,
 		Authorised:          Authed(r.Context()),
@@ -238,6 +317,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	err = wsjson.Write(ctx, conn, info)
 	cancel()
 	if err != nil {
+		log.Println("Failed to write initial data to client, closing connection. Err", err)
 		return
 	}
 
@@ -246,6 +326,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	err = wsjson.Read(ctx, conn, &potentialChallenge)
 	cancel()
 	if err != nil {
+		log.Println("Failed to read inital challenge")
 		return
 	}
 

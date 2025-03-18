@@ -2,17 +2,29 @@
 import { RouterView } from "vue-router";
 
 import { useWebSocketStore } from "./store/info";
-import { onBeforeUnmount, onMounted } from "vue";
+import { onBeforeMount, onBeforeUnmount, onMounted, watch } from "vue";
+import router from "./router";
 
 const infoStore = useWebSocketStore();
 
-onMounted( () => {
+onBeforeMount( () => {
   infoStore.connect();
 });
 
 onBeforeUnmount(() => {
   infoStore.cleanup();
 });
+
+
+watch(infoStore, (newState) => {
+  if(newState.isAuthorised) {
+    router.push("/success")
+  } else if(newState.isDeviceLocked || newState.isAccountLocked){
+    router.push("/locked")
+  } else {
+    router.push("/")
+  }
+})
 
 </script>
 

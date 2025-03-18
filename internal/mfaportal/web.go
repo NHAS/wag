@@ -3,7 +3,6 @@ package mfaportal
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -71,20 +70,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 	tunnel.HandleFunc("POST /api/logout", mfaPortal.logout)
 
 	tunnel.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-		if r.URL.Path == "/" {
-			file, err := resources.Static.Open("/index.html")
-			if err != nil {
-				panic(err)
-			}
-			defer file.Close()
-
-			w.Header().Set("Content-Type", "text/html")
-			io.Copy(w, file)
-			return
-		}
-
-		utils.EmbeddedStatic(resources.Static)(w, r)
+		resources.Assets(w, r)
 	})
 
 	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(fetchState(tunnel, mfaPortal.firewall))); err != nil {

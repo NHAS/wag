@@ -137,6 +137,15 @@ func GetDevice(username, id string) (device Device, err error) {
 	return
 }
 
+func HasDeviceAuthorised(current, previous Device) bool {
+	lockout, err := GetLockout()
+	if err != nil {
+		return false
+	}
+
+	return current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode
+}
+
 // Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) error {
 

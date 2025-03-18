@@ -16,7 +16,6 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/enrolment/resources"
-	styling "github.com/NHAS/wag/internal/mfaportal/resources"
 
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -311,7 +310,6 @@ func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, err
 	es.firewall = firewall
 
 	public := http.NewServeMux()
-	public.HandleFunc("GET /static/", utils.EmbeddedStatic(styling.Static))
 	public.HandleFunc("GET /reachability", es.reachability)
 	public.HandleFunc("GET /register_device", es.registerDevice)
 

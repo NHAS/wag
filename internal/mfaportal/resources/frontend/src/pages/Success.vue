@@ -18,17 +18,21 @@ async function doLogout() {
     if (!resp) {
       toast.error("Failed to logout");
       return;
-    } else {
-      router.push("/");
-    }
+    } 
+
+    router.push("/");
   } catch (e) {
     catcher(e, "");
   }
 }
 
 
-watch(info, async (_, newState) => {
-  if(!newState.isLoggedIn || !newState.isRegistered || !newState.state.isConnected) {
+if (!info.isLoggedIn || !info.isRegistered || !info.state.isConnected) {
+  router.push("/")
+}
+
+watch(info, async newState => {
+  if (!newState.isLoggedIn || !newState.isRegistered || !newState.state.isConnected) {
     router.push("/")
   }
 })
@@ -39,23 +43,11 @@ watch(info, async (_, newState) => {
   <h4 class="card-title w-full text-center justify-center">Authorised!</h4>
 
   <div class="max-w-[300px] min-w-[300px] w-full flex justify-center">
-    <div
-      class="w-32 h-32 bg-success rounded-full flex items-center justify-center mb-4 mt-4 checkmark"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="h-28 w-28 text-success-content"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1"
-          d="M5 13l4 4L19 7"
-          class="text-neutral-content"
-        />
+    <div class="w-32 h-32 bg-success rounded-full flex items-center justify-center mb-4 mt-4 checkmark">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-28 w-28 text-success-content" fill="none" viewBox="0 0 24 24"
+        stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 13l4 4L19 7"
+          class="text-neutral-content" />
       </svg>
     </div>
   </div>
@@ -71,6 +63,7 @@ watch(info, async (_, newState) => {
     transform: translateY(-100%);
     opacity: 0;
   }
+
   100% {
     transform: translateY(0);
     opacity: 1;
@@ -81,9 +74,11 @@ watch(info, async (_, newState) => {
   0% {
     transform: scale(0);
   }
+
   50% {
     transform: scale(1.2);
   }
+
   100% {
     transform: scale(1);
   }

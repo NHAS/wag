@@ -42,9 +42,7 @@ async function register(code: string) {
     if (!resp.status && resp.status == "error") {
       toast.error(resp.error ?? "Failed");
       return;
-    } else {
-      router.push("/success");
-    }
+    } 
   } catch (e) {
     catcher(e, "");
   }
@@ -99,8 +97,8 @@ async function register(code: string) {
 
     <DigitInput execution-name="Verify & Complete Registration" @submit="register"></DigitInput>
 
-    <router-link to="/" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
-      <button class="btn btn-outline w-full">Use Another Method</button>
+    <router-link to="/selection" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
+      <button class="btn btn-neutral btn-outline w-full">Use Another Method</button>
     </router-link>
   </template>
 </template>

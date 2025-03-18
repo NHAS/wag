@@ -168,9 +168,12 @@ export const useWebSocketStore = defineStore("websocket", () => {
   // Computed properties for easy access to user info
   const isLoggedIn = computed(() => state.value.userInfo?.is_authorized ?? false);
   const username = computed(() => state.value.userInfo?.username ?? "");
+  const selectedMFAMethod = computed(() => state.value.userInfo?.user_mfa_method ?? "unset");
   const availableMfaMethods = computed(() => state.value.userInfo?.available_mfa_methods ?? []);
   const defaultMFAMethod = computed(() => state.value.userInfo?.default_mfa ?? "");
-  const isLocked = computed(() => state.value.userInfo?.is_locked ?? false);
+  const isAccountLocked = computed(() => state.value.userInfo?.account_locked ?? false);
+  const isDeviceLocked = computed(() => state.value.userInfo?.device_locked ?? false); 
+  const isAuthorised = computed(() => state.value.userInfo?.is_authorized ?? false);
   const isRegistered = computed(() => state.value.userInfo?.has_registered ?? false);
   const helpMail = computed(() => state.value.userInfo?.helpmail ?? "");
 
@@ -186,9 +189,12 @@ export const useWebSocketStore = defineStore("websocket", () => {
     sendChallenge,
     isLoggedIn,
     username,
+    selectedMFAMethod,
     availableMfaMethods,
     defaultMFAMethod,
-    isLocked,
+    isDeviceLocked,
+    isAccountLocked,
+    isAuthorised,
     isRegistered,
     helpMail,
     cleanup

@@ -10,10 +10,14 @@ export interface MFAMethod {
 
 export interface UserInfoDTO {
   has_registered: boolean;
+  user_mfa_method: string;
   default_mfa: string;
   available_mfa_methods: MFAMethod[];
   username: string;
-  is_locked: boolean;
+  
+  account_locked: boolean;
+  device_locked: boolean;
+
   is_authorized: boolean;
   helpmail: string;
 }

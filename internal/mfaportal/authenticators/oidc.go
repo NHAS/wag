@@ -162,7 +162,7 @@ func (o *Oidc) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 
 	if o.fw.IsAuthed(clientTunnelIp.String()) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/success", http.StatusSeeOther)
 		return
 	}
 
@@ -268,7 +268,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(user.Username, clientTunnelIp, "authorised")
 
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/success", http.StatusSeeOther)
 	}
 
 	rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), o.provider)(w, r)
