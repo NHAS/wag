@@ -175,6 +175,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
   const isDeviceLocked = computed(() => state.value.userInfo?.device_locked ?? false); 
   const isAuthorised = computed(() => state.value.userInfo?.is_authorized ?? false);
   const isRegistered = computed(() => state.value.userInfo?.has_registered ?? false);
+  const isConnected = computed(() => state.value.isConnected);
   const helpMail = computed(() => state.value.userInfo?.helpmail ?? "");
 
   // Cleanup on unmount
@@ -187,6 +188,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
     connect,
     disconnect,
     sendChallenge,
+    isConnected,
     isLoggedIn,
     username,
     selectedMFAMethod,

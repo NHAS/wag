@@ -115,41 +115,43 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
 
-		if current.Endpoint.String() != previous.Endpoint.String() && f.IsAuthed(current.Address) {
+		if f.IsAuthed(current.Address) {
+			if current.Endpoint.String() != previous.Endpoint.String() {
 
-			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
+				log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
 
-			err := f.Deauthenticate(current.Address)
-			if err != nil {
-				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
+				err := f.Deauthenticate(current.Address)
+				if err != nil {
+					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
+				}
+
+				// Will set a record deleted after 30 seconds that a device can use to reauthenticate
+				err = current.SetChallenge()
+				if err != nil {
+					return fmt.Errorf("failed to set device challenge")
+				}
 			}
 
-			// Will set a record deleted after 30 seconds that a device can use to reauthenticate
-			err = current.SetChallenge()
-			if err != nil {
-				return fmt.Errorf("failed to set device challenge")
+			if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
+				current.Authorised.IsZero() { // If we've explicitly deauthorised a device
+
+				var reasons []string
+				if current.Attempts > lockout {
+					reasons = []string{fmt.Sprintf("exceeded lockout (%d)", current.Attempts)}
+				}
+
+				if current.Authorised.IsZero() {
+					reasons = append(reasons, "session terminated")
+				}
+
+				err := f.Deauthenticate(current.Address)
+				if err != nil {
+					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
+				}
+
+				log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
+
 			}
-		}
-
-		if f.IsAuthed(current.Address) && current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
-			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
-
-			var reasons []string
-			if current.Attempts > lockout {
-				reasons = []string{fmt.Sprintf("exceeded lockout (%d)", current.Attempts)}
-			}
-
-			if current.Authorised.IsZero() {
-				reasons = append(reasons, "session terminated")
-			}
-
-			err := f.Deauthenticate(current.Address)
-			if err != nil {
-				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
-			}
-
-			log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
-
 		}
 
 		if current.AssociatedNode != previous.AssociatedNode {

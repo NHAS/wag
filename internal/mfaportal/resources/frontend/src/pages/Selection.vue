@@ -5,7 +5,7 @@ const info = useWebSocketStore();
 </script>
 
 <template>
-  <template v-if="info.state.isConnected">
+  <template v-if="info.isConnected">
 
     <template v-if="info.availableMfaMethods.length == 0">
       <div>No MFA methods, configured and enabled.</div>

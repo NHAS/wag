@@ -36,11 +36,11 @@ function determinePath() {
   }
 }
 
-if (info.state.isConnected) {
+if (info.isConnected) {
   determinePath()
 } else {
   watch(info, async newState => {
-    if (newState.state.isConnected) {
+    if (newState.isConnected) {
       determinePath()
     }
   })
@@ -49,7 +49,7 @@ if (info.state.isConnected) {
 </script>
 
 <template>
-  <template v-if="!info.state.isConnected">
+  <template v-if="!info.isConnected">
     <div>
       <span class="flex items-center gap-4">Loading...
         <span class="loading loading-spinner loading-lg"></span></span>

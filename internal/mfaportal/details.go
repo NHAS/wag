@@ -64,7 +64,6 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 		}
 
 		if data.HasDeviceAuthorised(current, previous) {
-			log.Println("device authorised, sending update")
 			c.NotifyOfAuth(current)
 		}
 	}
