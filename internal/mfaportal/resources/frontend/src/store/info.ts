@@ -75,6 +75,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
         return
       }
 
+      console.log("got object", data)
+
       switch (data.type) {
         case "initialise":
           state.value.userInfo = data;
@@ -90,7 +92,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
           break;
         case "ping":
           state.value.connection?.send(JSON.stringify({
-            "pong": "true"
+            "type": "pong",
+            "pong": true
           }))
           console.log("got ping")
           break;
@@ -126,7 +129,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.isConnecting = false;
 
     
-    toast.error("Websocket connection closed, reason: "+ event.reason)
+    toast.error("Connection lost attempting to reconnect...")
     // Attempt to reconnect if not a normal closure
     if (event.code !== 1000 && state.value.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       const delay = Math.min(1000 * (state.value.reconnectAttempts + 1), 10000);

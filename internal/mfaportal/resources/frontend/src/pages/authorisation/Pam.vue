@@ -19,9 +19,7 @@ async function authorise(password: string) {
     if (!resp.status && resp.status == "error") {
       toast.error(resp.error ?? "Failed");
       return;
-    } else {
-      router.push("/success");
-    }
+    } 
   } catch (e) {
     catcher(e, "");
   }

@@ -48,7 +48,7 @@ func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err err
 
 	var mfaPortal MfaPortal
 	mfaPortal.firewall = firewall
-	mfaPortal.session, err = NewChallenger()
+	mfaPortal.session, err = NewChallenger(firewall)
 	if err != nil {
 		return nil, err
 	}
