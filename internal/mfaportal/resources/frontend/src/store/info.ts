@@ -7,6 +7,7 @@ export interface WebSocketState {
   connection: WebSocket | null;
   isConnected: boolean;
   isConnecting: boolean;
+  isClosed: boolean;
   reconnectAttempts: number;
   userInfo: UserInfoDTO | null;
   connectionError: string | null;
@@ -19,6 +20,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
     connection: null,
     isConnected: false,
     isConnecting: false,
+    isClosed: false,
     reconnectAttempts: 0,
 
     userInfo: null,
@@ -32,7 +34,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Connect to WebSocket
   const connect = () => {
-    if (state.value.isConnected || state.value.isConnecting) {
+    if (state.value.isConnected || state.value.isConnecting || state.value.isClosed) {
       return;
     }
 
@@ -128,6 +130,10 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.isConnected = false;
     state.value.isConnecting = false;
 
+    if(state.value.isClosed) {
+      return
+    }
+
     
     toast.error("Connection lost attempting to reconnect...")
     // Attempt to reconnect if not a normal closure
@@ -158,10 +164,12 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Disconnect WebSocket
   const disconnect = () => {
+    state.value.isClosed = true
+    state.value.isConnected = false;
+
     if (state.value.connection) {
       state.value.connection.close(1000, "Client disconnecting");
       state.value.connection = null;
-      state.value.isConnected = false;
     }
   };
 
