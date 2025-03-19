@@ -31,12 +31,15 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Maximum reconnection attempts
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const LOCAL_STORAGE_KEY = "wag-challenge-key";
 
   // Connect to WebSocket
   const connect = () => {
     if (state.value.isConnected || state.value.isConnecting || state.value.isClosed) {
       return;
     }
+
+    state.value.challenge = localStorage.getItem(LOCAL_STORAGE_KEY)
 
     state.value.isConnecting = true;
     state.value.connectionError = null;
@@ -80,10 +83,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
       console.log("got object", data)
 
       switch (data.type) {
-        case "initialise":
-          state.value.userInfo = data;
-          sendChallenge()
-          break;
         case "info":
           if(state.value.userInfo !== null) {
             state.value.userInfo = data;
@@ -103,6 +102,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
         case "authorised":
           const authorisationMessage = data as AuthorisationResponseDTO
           state.value.challenge = authorisationMessage.challenge
+          localStorage.setItem(LOCAL_STORAGE_KEY, authorisationMessage.challenge)
           state.value.userInfo = authorisationMessage.info
 
           console.log("got authorised message: ", data)

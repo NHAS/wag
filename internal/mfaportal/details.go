@@ -117,11 +117,9 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 }
 
 func (c *Challenger) Challenge(username, address string) {
-	c.Lock()
-	defer c.Unlock()
 
-	conn, ok := c.connections[address]
-	if !ok {
+	conn := c.getConnection(address)
+	if conn == nil {
 		return
 	}
 
@@ -129,17 +127,18 @@ func (c *Challenger) Challenge(username, address string) {
 	err := wsjson.Write(ctx, conn, Challenge())
 	cancel()
 	if err != nil {
-		c.disconnect(address, "Bad connection")
+		c.Disconnect(address, "Bad connection")
 		return
 	}
 
 	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
-		c.disconnect(address, "No challenge response")
+		c.Disconnect(address, "No challenge response")
 		return
 	}
 
-	if potentialChallenge.Challenge != "" {
+	// Lets make sure people cant auth if they're already authed and extend their session time for no reason
+	if potentialChallenge.Challenge != "" && !c.firewall.IsAuthed(address) {
 
 		err = data.ValidateChallenge(username, address, potentialChallenge.Challenge)
 		if err != nil {
@@ -166,7 +165,7 @@ func (c *Challenger) getMfaMethods() []MFAMethod {
 	return names
 }
 
-func (c *Challenger) createInfoDTO(typeMessage Status, address string) (UserInfoDTO, error) {
+func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 	device, err := data.GetDeviceByAddress(address)
 	if err != nil {
 		return UserInfoDTO{}, err
@@ -188,7 +187,7 @@ func (c *Challenger) createInfoDTO(typeMessage Status, address string) (UserInfo
 	}
 
 	info := UserInfoDTO{
-		Type:                typeMessage,
+		Type:                Info,
 		UserMFAMethod:       user.GetMFAType(),
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
@@ -203,17 +202,26 @@ func (c *Challenger) createInfoDTO(typeMessage Status, address string) (UserInfo
 	return info, nil
 }
 
-func (c *Challenger) NotifyOfAuth(challenge data.Device) {
-	c.Lock()
-	defer c.Unlock()
+func (c *Challenger) getConnection(address string) *websocket.Conn {
+	c.RLock()
+	defer c.RUnlock()
 
-	conn, ok := c.connections[challenge.Address]
+	conn, ok := c.connections[address]
 	if !ok {
-		log.Printf("associated device not found: %q", challenge.Address)
+		return nil
+	}
+
+	return conn
+}
+
+func (c *Challenger) NotifyOfAuth(challenge data.Device) {
+
+	conn := c.getConnection(challenge.Address)
+	if conn == nil {
 		return
 	}
 
-	info, err := c.createInfoDTO(Info, challenge.Address)
+	info, err := c.createInfoDTO(challenge.Address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", challenge.Address, err)
 		conn.CloseNow()
@@ -231,16 +239,13 @@ func (c *Challenger) NotifyOfAuth(challenge data.Device) {
 }
 
 func (c *Challenger) UpdateState(d data.Device) {
-	c.Lock()
-	defer c.Unlock()
 
-	conn, ok := c.connections[d.Address]
-	if !ok {
-		log.Printf("device not found: %q", d.Address)
+	conn := c.getConnection(d.Address)
+	if conn == nil {
 		return
 	}
 
-	info, err := c.createInfoDTO(Info, d.Address)
+	info, err := c.createInfoDTO(d.Address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", d.Address, err)
 		conn.CloseNow()
@@ -328,9 +333,9 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(user.Username, clientTunnelIp, "established new challenge connection!")
 
-	info, err := c.createInfoDTO(Init, clientTunnelIp.String())
+	info, err := c.createInfoDTO(clientTunnelIp.String())
 	if err != nil {
-		log.Println("failed to get initial state")
+		log.Println("failed to create initial state")
 		return
 	}
 
@@ -342,24 +347,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	potentialChallenge, err := ReadChallenge(conn, readWait)
-	if err != nil {
-		log.Println("failed to read challenge: ", err)
-		return
-	}
-
-	if potentialChallenge.Challenge != "" {
-
-		err = data.ValidateChallenge(user.Username, clientTunnelIp.String(), potentialChallenge.Challenge)
-		if err != nil {
-			log.Println("client failed challenge: ", err)
-		} else {
-			err = data.AuthoriseDevice(user.Username, clientTunnelIp.String())
-			if err != nil {
-				log.Println("User device had correct challenge, but failed to authorise: ", err)
-			}
-		}
-	}
+	c.Challenge(user.Username, clientTunnelIp.String())
 
 	for {
 
