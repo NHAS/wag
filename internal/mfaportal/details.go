@@ -214,23 +214,23 @@ func (c *Challenger) getConnection(address string) *websocket.Conn {
 	return conn
 }
 
-func (c *Challenger) NotifyOfAuth(challenge data.Device) {
+func (c *Challenger) NotifyOfAuth(device data.Device) {
 
-	conn := c.getConnection(challenge.Address)
+	conn := c.getConnection(device.Address)
 	if conn == nil {
 		return
 	}
 
-	info, err := c.createInfoDTO(challenge.Address)
+	info, err := c.createInfoDTO(device.Address)
 	if err != nil {
-		log.Printf("failed to get state update for device %q, err: %s", challenge.Address, err)
-		c.Disconnect(challenge.Address, "Failed to create dto", true)
+		log.Printf("failed to get state update for device %q, err: %s", device.Address, err)
+		c.Disconnect(device.Address, "Failed to create dto", true)
 		return
 	}
 
-	err = SendNotifyAuth(conn, challenge.Challenge, info, writeWait)
+	err = SendNotifyAuth(conn, device.Challenge, info, writeWait)
 	if err != nil {
-		c.Disconnect(challenge.Address, "Failed to write", true)
+		c.Disconnect(device.Address, "Failed to write", true)
 		return
 	}
 
