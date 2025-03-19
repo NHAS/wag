@@ -32,6 +32,7 @@ type registration struct {
 	groups       arrayFlags
 	groupsString string
 	overwrite    string
+	staticIp     string
 
 	uses int
 }
@@ -50,6 +51,7 @@ func Registration() *registration {
 	gc.fs.StringVar(&gc.socket, "socket", control.DefaultWagSocket, "Wag instance to act on")
 
 	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
+	gc.fs.StringVar(&gc.staticIp, "static_ip", "", "Add registration token with a specific ip address (do not dynamically allocate ip)")
 
 	gc.fs.IntVar(&gc.uses, "uses", 1, "Number of times a registration token can be used")
 
@@ -117,7 +119,7 @@ func (g *registration) Run() error {
 	switch g.action {
 	case "add":
 
-		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.uses, g.groups...)
+		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.staticIp, g.uses, g.groups...)
 		if err != nil {
 			return err
 		}

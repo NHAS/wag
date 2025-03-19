@@ -35,6 +35,7 @@ type RegistrationTokenRequestDTO struct {
 	Username   string
 	Token      string
 	Overwrites string
+	StaticIP   string `json:"static_ip"`
 	Groups     []string
 	Uses       int
 }
@@ -63,6 +64,7 @@ type TokensData struct {
 	Username   string   `json:"username"`
 	Groups     []string `json:"groups"`
 	Overwrites string   `json:"overwrites"`
+	StaticIP   string   `json:"static_ip"`
 	Uses       int      `json:"uses"`
 }
 

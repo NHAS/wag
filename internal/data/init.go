@@ -474,7 +474,7 @@ func migrateFromSql(database *sql.DB) error {
 		}
 
 		for _, token := range tokens {
-			err := AddRegistrationToken(token.Token, token.Username, token.Overwrites, token.Groups, token.NumUses)
+			err := AddRegistrationToken(token.Token, token.Username, token.Overwrites, "", token.Groups, token.NumUses)
 			if err != nil {
 				return err
 			}

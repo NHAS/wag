@@ -57,9 +57,9 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 	return device.PresharedKey, nil
 }
 
-func (u *user) AddDevice(publickey wgtypes.Key) (device data.Device, err error) {
+func (u *user) AddDevice(publickey wgtypes.Key, staticIp string) (device data.Device, err error) {
 
-	return data.AddDevice(u.Username, publickey.String())
+	return data.AddDevice(u.Username, publickey.String(), staticIp)
 }
 
 func (u *user) DeleteDevice(address string) (err error) {

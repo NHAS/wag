@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"time"
 
 	"go.etcd.io/etcd/client/pkg/v3/types"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
@@ -299,16 +301,19 @@ func GetAllDevicesAsMap() (devices map[string]Device, err error) {
 	return devices, nil
 }
 
-func AddDevice(username, publickey string) (Device, error) {
+func AddDevice(username, publickey, staticIp string) (Device, error) {
 
 	preshared_key, err := wgtypes.GenerateKey()
 	if err != nil {
 		return Device{}, err
 	}
 
-	address, err := getNextIP(config.Values.Wireguard.Address)
-	if err != nil {
-		return Device{}, err
+	address := staticIp
+	if _, err = netip.ParseAddr(staticIp); err != nil || staticIp == "" {
+		address, err = getNextIP(config.Values.Wireguard.Address)
+		if err != nil {
+			return Device{}, err
+		}
 	}
 
 	d := Device{
@@ -321,11 +326,15 @@ func AddDevice(username, publickey string) (Device, error) {
 	b, _ := json.Marshal(d)
 	key := deviceKey(username, address)
 
-	_, err = etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
+	response, err := etcd.Txn(context.Background()).If(clientv3util.KeyMissing(deviceRef+address)).Then(clientv3.OpPut(key, string(b)),
 		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
 		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key)).Commit()
 	if err != nil {
 		return Device{}, err
+	}
+
+	if !response.Succeeded {
+		return Device{}, fmt.Errorf("device with %q address already exists", address)
 	}
 
 	return d, err

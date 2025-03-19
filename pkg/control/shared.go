@@ -5,6 +5,7 @@ type RegistrationResult struct {
 	Username   string
 	Groups     []string
 	Overwrites string
+	StaticIP   string
 	NumUses    int
 }
 

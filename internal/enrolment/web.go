@@ -1,11 +1,8 @@
 package enrolment
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
 	"html/template"
-	"image/png"
 	"log"
 	"net"
 	"net/http"
@@ -21,8 +18,6 @@ import (
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/boombuler/barcode"
-	"github.com/boombuler/barcode/qr"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -49,7 +44,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	username, overwrites, groups, err := data.GetRegistrationToken(key)
+	username, overwrites, staticIp, groups, err := data.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
@@ -118,7 +113,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 
 		// Make sure not to accidentally shadow the global err here as we're using a defer to monitor failures to delete the device
 		var device data.Device
-		device, err = user.AddDevice(publickey)
+		device, err = user.AddDevice(publickey, staticIp)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to add device: ", err)
 
@@ -203,67 +198,16 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 
 	wireguardInterface.ServerAddress = externalAddress
 
-	if r.URL.Query().Get("type") == "mobile" {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.Header().Set("Content-Disposition", "attachment; filename="+data.GetWireguardConfigName())
 
-		var wireguardProfile bytes.Buffer
-		err = resources.RenderWithFuncs("interface.tmpl", &wireguardProfile, &wireguardInterface, template.FuncMap{
-			"StringsJoin": strings.Join,
-			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
-		})
-		if err != nil {
-			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		image, err := qr.Encode(wireguardProfile.String(), qr.M, qr.Auto)
-		if err != nil {
-			log.Println(username, remoteAddr, "failed to generate qr code:", err)
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		image, err = barcode.Scale(image, 400, 400)
-		if err != nil {
-			log.Println(username, remoteAddr, "failed to output barcode bytes:", err)
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		var buff bytes.Buffer
-		err = png.Encode(&buff, image)
-		if err != nil {
-			log.Println(user.Username, remoteAddr, "encoding mfa secret as png failed:", err)
-			http.Error(w, "Unknown error", http.StatusInternalServerError)
-			return
-		}
-
-		qrCodeBytes := resources.QrCodeEnrolmentDisplay{
-			ImageData: template.URL("data:image/png;base64, " + base64.StdEncoding.EncodeToString(buff.Bytes())),
-			Username:  username,
-		}
-
-		err = resources.Render("qrcode_enrolment.html", w, &qrCodeBytes)
-		if err != nil {
-			log.Println(username, remoteAddr, "failed to execute template to show qr code wireguard config:", err)
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
-
-	} else {
-
-		w.Header().Set("Content-Disposition", "attachment; filename="+data.GetWireguardConfigName())
-
-		err = resources.RenderWithFuncs("wgconf_enrolment.tmpl", w, &wireguardInterface, template.FuncMap{
-			"StringsJoin": strings.Join,
-			"Unescape":    func(s string) template.HTML { return template.HTML(s) },
-		})
-		if err != nil {
-			log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
-			http.Error(w, "Server Error", http.StatusInternalServerError)
-			return
-		}
+	err = resources.RenderWithFuncs("wgconf_enrolment.tmpl", w, &wireguardInterface, template.FuncMap{
+		"StringsJoin": strings.Join,
+		"Unescape":    func(s string) template.HTML { return template.HTML(s) },
+	})
+	if err != nil {
+		log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
 	}
 
 	//Finish registration process

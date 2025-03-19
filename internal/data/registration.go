@@ -18,7 +18,7 @@ func registrationKey(token string) string {
 	return fmt.Sprintf("tokens-%s", token)
 }
 
-func GetRegistrationToken(token string) (username, overwrites string, group []string, err error) {
+func GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, err error) {
 
 	minTime := time.After(1 * time.Second)
 
@@ -41,7 +41,7 @@ func GetRegistrationToken(token string) (username, overwrites string, group []st
 		return
 	}
 
-	return result.Username, result.Overwrites, result.Groups, nil
+	return result.Username, result.Overwrites, result.StaticIP, result.Groups, nil
 }
 
 // Returns list of tokens
@@ -110,18 +110,18 @@ func FinaliseRegistration(token string) error {
 }
 
 // Randomly generate a token for a specific username
-func GenerateToken(username, overwrite string, groups []string, uses int) (token string, err error) {
+func GenerateToken(username, overwrite, staticIp string, groups []string, uses int) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
 	}
 
-	err = AddRegistrationToken(token, username, overwrite, groups, uses)
+	err = AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func AddRegistrationToken(token, username, overwrite string, groups []string, uses int) error {
+func AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}
@@ -159,6 +159,7 @@ func AddRegistrationToken(token, username, overwrite string, groups []string, us
 		Token:      token,
 		Username:   username,
 		Overwrites: overwrite,
+		StaticIP:   staticIp,
 		Groups:     groups,
 		NumUses:    uses,
 	}

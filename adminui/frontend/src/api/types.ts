@@ -9,6 +9,7 @@ export interface RegistrationTokenRequestDTO {
   token: string
   username: string
   groups: string[]
+  static_ip: string
   overwrites: string
   uses: number
 }

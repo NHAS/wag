@@ -41,6 +41,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	token := r.FormValue("token")
 	username := r.FormValue("username")
 	overwrite := r.FormValue("overwrite")
+	staticIp := r.FormValue("static_ip")
 
 	groupsString := r.FormValue("groups")
 	usesString := r.FormValue("uses")
@@ -74,7 +75,14 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	resp := control.RegistrationResult{Token: token, Username: username, Groups: groups, NumUses: uses}
+	resp := control.RegistrationResult{
+		Token:      token,
+		Username:   username,
+		Groups:     groups,
+		NumUses:    uses,
+		Overwrites: overwrite,
+		StaticIP:   staticIp,
+	}
 
 	tokenType := "registration"
 	if overwrite != "" {
@@ -82,7 +90,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	}
 
 	if token != "" {
-		err := data.AddRegistrationToken(token, username, overwrite, groups, uses)
+		err := data.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -100,7 +108,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	token, err = data.GenerateToken(username, overwrite, groups, uses)
+	token, err = data.GenerateToken(username, overwrite, staticIp, groups, uses)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
