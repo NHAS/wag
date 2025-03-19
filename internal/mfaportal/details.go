@@ -63,7 +63,7 @@ func (c *Challenger) Close() error {
 	c.closing = true
 
 	for _, conn := range c.connections {
-		conn.Close(websocket.StatusGoingAway, "Going away")
+		go conn.Close(websocket.StatusGoingAway, "Going away")
 	}
 	clear(c.connections)
 
@@ -87,7 +87,7 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 
 	switch et {
 	case data.DELETED:
-		c.Disconnect(current.Address, "Device deleted.")
+		c.Disconnect(current.Address, "Device deleted.", true)
 	case data.MODIFIED:
 		if current.Endpoint.String() != previous.Endpoint.String() {
 			if err := current.ChallengeExists(); err != nil {
@@ -127,13 +127,13 @@ func (c *Challenger) Challenge(username, address string) {
 	err := wsjson.Write(ctx, conn, Challenge())
 	cancel()
 	if err != nil {
-		c.Disconnect(address, "Bad connection")
+		c.Disconnect(address, "Bad connection", false)
 		return
 	}
 
 	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
-		c.Disconnect(address, "No challenge response")
+		c.Disconnect(address, "No challenge response", false)
 		return
 	}
 
@@ -224,15 +224,13 @@ func (c *Challenger) NotifyOfAuth(challenge data.Device) {
 	info, err := c.createInfoDTO(challenge.Address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", challenge.Address, err)
-		conn.CloseNow()
-		delete(c.connections, challenge.Address)
+		c.Disconnect(challenge.Address, "Failed to create dto", true)
 		return
 	}
 
 	err = SendNotifyAuth(conn, challenge.Challenge, info, writeWait)
 	if err != nil {
-		conn.CloseNow()
-		delete(c.connections, challenge.Address)
+		c.Disconnect(challenge.Address, "Failed to write", true)
 		return
 	}
 
@@ -248,8 +246,7 @@ func (c *Challenger) UpdateState(d data.Device) {
 	info, err := c.createInfoDTO(d.Address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", d.Address, err)
-		conn.CloseNow()
-		delete(c.connections, d.Address)
+		c.Disconnect(d.Address, "Failed to create dto", true)
 		return
 	}
 
@@ -258,24 +255,27 @@ func (c *Challenger) UpdateState(d data.Device) {
 	cancel()
 	if err != nil {
 		log.Printf("failed to write state to %s, err: %s", d.Address, err)
+		c.Disconnect(d.Address, "Failed to write", true)
 		return
 	}
 }
 
-func (c *Challenger) Disconnect(address, reason string) {
+func (c *Challenger) Disconnect(address, reason string, force bool) {
+	conn := c.getConnection(address)
+	if conn == nil {
+		return
+	}
+
 	c.Lock()
-	defer c.Unlock()
+	delete(c.connections, address)
+	c.Unlock()
 
-	c.disconnect(address, reason)
-}
-
-func (c *Challenger) disconnect(address, reason string) {
-	conn, ok := c.connections[address]
-	if !ok {
+	if !force {
+		conn.Close(websocket.StatusNormalClosure, reason)
 		return
 	}
-	conn.Close(websocket.StatusNormalClosure, reason)
-	delete(c.connections, address)
+
+	conn.CloseNow()
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
@@ -304,16 +304,13 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
-	defer conn.CloseNow()
-
-	conn.SetReadLimit(maxMessageSize)
-
 	defer func() {
-		c.Lock()
+		// close now doesnt wait
 		if conn != nil {
 			conn.CloseNow()
 		}
 
+		c.Lock()
 		// Check to make sure the entry we remove from the map is our entry and not some random entry
 		if entry, ok := c.connections[clientTunnelIp.String()]; ok && entry == conn {
 			delete(c.connections, clientTunnelIp.String())
@@ -322,14 +319,19 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	}()
 
+	conn.SetReadLimit(maxMessageSize)
+
 	c.Lock()
-	if prev, ok := c.connections[clientTunnelIp.String()]; ok && prev != nil {
+	prev, ok := c.connections[clientTunnelIp.String()]
+	c.connections[clientTunnelIp.String()] = conn
+	c.Unlock()
+
+	// This looks a bit funky, but effectively, .Close here can wait for up to 5s for the client to respond.
+	// If we lock for 5 seconds we cant accept any clients for that duration which isnt great
+	if ok && prev != nil {
 		prev.Close(websocket.StatusAbnormalClosure, "Duplicate connection")
 		log.Println("Duplicate connection, closing previous")
 	}
-
-	c.connections[clientTunnelIp.String()] = conn
-	c.Unlock()
 
 	log.Println(user.Username, clientTunnelIp, "established new challenge connection!")
 
