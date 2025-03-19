@@ -2,6 +2,7 @@ package mfaportal
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -51,16 +52,27 @@ func NewChallenger() (*Challenger, error) {
 
 func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
 
+	lockout, err := data.GetLockout()
+	if err != nil {
+		return fmt.Errorf("cannot get lockout: %s", err)
+	}
+
 	switch et {
 	case data.DELETED:
 		c.Disconnect(current.Address, "Device deleted.")
 	case data.MODIFIED:
 		if current.Endpoint.String() != previous.Endpoint.String() {
-			if current.ChallengeExists() == nil {
-				c.NotifyDeauth(current.Address)
+			if err := current.ChallengeExists(); err != nil {
+				c.UpdateState(current.Address)
+
 			} else {
 				c.Challenge(current.Username, current.Address)
 			}
+		}
+
+		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
+			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
+			c.UpdateState(current.Address)
 		}
 
 		if data.HasDeviceAuthorised(current, previous) {
@@ -101,10 +113,7 @@ func (c *Challenger) Challenge(username, address string) {
 		return
 	}
 
-	var potentialChallenge ChallengeResponseDTO
-	ctx, cancel = context.WithTimeout(context.Background(), readWait)
-	err = wsjson.Read(ctx, conn, &potentialChallenge)
-	cancel()
+	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
 		c.disconnect(address, "No challenge response")
 		return
@@ -125,33 +134,37 @@ func (c *Challenger) Challenge(username, address string) {
 
 }
 
-func (c *Challenger) NotifyOfAuth(device data.Device) {
-	c.Lock()
-	defer c.Unlock()
+func (c *Challenger) getMfaMethods() []MFAMethod {
+	authenticators := authenticators.GetAllEnabledMethods()
+	names := []MFAMethod{}
+	for _, a := range authenticators {
+		names = append(names, MFAMethod{
+			FriendlyName: a.FriendlyName(),
+			Method:       a.Type(),
+		})
+	}
+	return names
+}
 
-	conn, ok := c.connections[device.Address]
-	if !ok {
-		log.Println("device not found: ", device.Address, c.connections)
-		return
+func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
+	device, err := data.GetDeviceByAddress(address)
+	if err != nil {
+		return UserInfoDTO{}, err
 	}
 
 	user, err := users.GetUser(device.Username)
 	if err != nil {
-		log.Println("failed to get user object from device: ", err)
-		c.disconnect(device.Address, "Bad user")
-		return
+		return UserInfoDTO{}, err
 	}
 
 	defaultMFAMethod, err := data.GetDefaultMfaMethod()
 	if err != nil {
-		log.Println("failed to get default MFA method for updating client: ", err)
-		return
+		return UserInfoDTO{}, err
 	}
 
 	lockout, err := data.GetLockout()
 	if err != nil {
-		log.Println("failed to get lockout for updating client: ", err)
-		return
+		return UserInfoDTO{}, fmt.Errorf("failed to get lockout for updating client: %w", err)
 	}
 
 	info := UserInfoDTO{
@@ -163,19 +176,65 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 		AccountLocked:       user.Locked,
 		DeviceLocked:        device.Attempts > lockout,
 		Registered:          user.Enforcing,
-		Username:            device.Username,
-		Authorised:          true,
+		Username:            user.Username,
+		Authorised:          false,
+	}
+
+	return info, nil
+}
+
+func (c *Challenger) NotifyOfAuth(challenge data.Device) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[challenge.Address]
+	if !ok {
+		log.Printf("associated device not found: %q", challenge.Address)
+		return
+	}
+
+	info, err := c.createInfoDTO(challenge.Address)
+	if err != nil {
+		log.Printf("failed to get state update for device %q, err: %s", challenge.Address, err)
+		conn.CloseNow()
+		delete(c.connections, challenge.Address)
+		return
+	}
+
+	err = SendNotifyAuth(conn, challenge.Challenge, info, writeWait)
+	if err != nil {
+		conn.CloseNow()
+		delete(c.connections, challenge.Address)
+		return
+	}
+
+}
+
+func (c *Challenger) UpdateState(address string) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, ok := c.connections[address]
+	if !ok {
+		log.Printf("device not found: %q", address)
+		return
+	}
+
+	info, err := c.createInfoDTO(address)
+	if err != nil {
+		log.Printf("failed to get state update for device %q, err: %s", address, err)
+		conn.CloseNow()
+		delete(c.connections, address)
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
 	err = wsjson.Write(ctx, conn, info)
 	cancel()
 	if err != nil {
-		conn.CloseNow()
-		delete(c.connections, device.Address)
+		log.Printf("failed to write state to %s, err: %s", address, err)
 		return
 	}
-
 }
 
 func (c *Challenger) Disconnect(address, reason string) {
@@ -192,37 +251,6 @@ func (c *Challenger) disconnect(address, reason string) {
 	}
 	conn.Close(websocket.StatusNormalClosure, reason)
 	delete(c.connections, address)
-}
-
-func (c *Challenger) NotifyDeauth(address string) {
-	c.Lock()
-	defer c.Unlock()
-
-	conn, ok := c.connections[address]
-	if !ok {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
-	err := wsjson.Write(ctx, conn, Deauth())
-	cancel()
-	if err != nil {
-		conn.CloseNow()
-		delete(c.connections, address)
-		return
-	}
-}
-
-func (c *Challenger) getMfaMethods() []MFAMethod {
-	authenticators := authenticators.GetAllEnabledMethods()
-	names := []MFAMethod{}
-	for _, a := range authenticators {
-		names = append(names, MFAMethod{
-			FriendlyName: a.FriendlyName(),
-			Method:       a.Type(),
-		})
-	}
-	return names
 }
 
 func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
@@ -320,12 +348,9 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var potentialChallenge ChallengeResponseDTO
-	ctx, cancel = context.WithTimeout(context.Background(), readWait)
-	err = wsjson.Read(ctx, conn, &potentialChallenge)
-	cancel()
+	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
-		log.Println("Failed to read inital challenge")
+		log.Println("failed to read challenge: ", err)
 		return
 	}
 
@@ -337,24 +362,16 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		} else {
 			err = data.AuthoriseDevice(info.Username, clientTunnelIp.String())
 			if err != nil {
-				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+				log.Println("User device had correct challenge, but failed to authorise: ", err)
 			}
 		}
 	}
 
 	for {
-		ctx, cancel = context.WithTimeout(context.Background(), writeWait)
-		err := wsjson.Write(ctx, conn, Ping())
-		cancel()
-		if err != nil {
-			return
-		}
 
-		ctx, cancel = context.WithTimeout(context.Background(), readWait)
-		var res PingResponseDTO
-		err = wsjson.Read(ctx, conn, &res)
-		cancel()
+		err := Ping(conn, readWait)
 		if err != nil {
+			log.Println("failed to ping", err)
 			return
 		}
 

@@ -39,6 +39,8 @@ const (
 
 const (
 	DevicesPrefix         = "devices-"
+	DeviceChallengePrefix = "devicechallenge-"
+
 	UsersPrefix           = "users-"
 	GroupMembershipPrefix = MembershipKey + "-"
 	AclsPrefix            = "wag-acls-"

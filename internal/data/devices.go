@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -18,58 +19,75 @@ import (
 )
 
 type Device struct {
-	Version      int
-	Address      string
-	Publickey    string
-	Username     string
-	PresharedKey string `sensitive:"yes"`
-	Endpoint     *net.UDPAddr
-	Attempts     int
-	Active       bool
-	Authorised   time.Time
-
+	Version        int
+	Address        string
+	Publickey      string
+	Username       string
+	PresharedKey   string `sensitive:"yes"`
+	Endpoint       *net.UDPAddr
+	Attempts       int
+	Active         bool
+	Authorised     time.Time
 	Challenge      string `sensitive:"yes"`
 	AssociatedNode types.ID
 }
 
+type DeviceChallenge struct {
+	Address   string
+	Username  string
+	Challenge string `sensitive:"yes"`
+}
+
 func ValidateChallenge(username, address, challenge string) error {
-
-	expectedChallenge, err := getString("devicechallenge-" + address)
+	dc, err := GetDeviceChallenge(username, address)
 	if err != nil {
 		return err
 	}
 
-	d, err := GetDeviceByAddress(address)
-	if err != nil {
-		return err
+	if dc.Address != address || dc.Username != username {
+		return errors.New("invalid contents of challenge")
 	}
 
-	if subtle.ConstantTimeCompare([]byte(d.Challenge), []byte(challenge)) != 0 {
+	if subtle.ConstantTimeCompare([]byte(dc.Challenge), []byte(challenge)) != 0 {
 		return errors.New("device challenge did not match stored challenge")
 	}
 
-	if subtle.ConstantTimeCompare([]byte(expectedChallenge), []byte(challenge)) != 0 {
-		return errors.New("challenge did not match stored challenge")
+	device, err := GetDevice(username, address)
+	if err != nil {
+		return errors.New("unable to find device for user (challenge)")
+	}
+
+	if subtle.ConstantTimeCompare([]byte(dc.Challenge), []byte(device.Challenge)) != 0 {
+		return errors.New("device challenge did not match device stored challenge")
 	}
 
 	return nil
 }
 
+func GetDeviceChallenge(username, address string) (DeviceChallenge, error) {
+	return getObject[DeviceChallenge](DeviceChallengePrefix + username + "-" + address)
+}
+
 func (d Device) ChallengeExists() error {
-	_, err := getString("devicechallenge-" + d.Address)
+	_, err := getObject[DeviceChallenge](DeviceChallengePrefix + d.Username + "-" + d.Address)
 	return err
 }
 
-func (d Device) SetChallenge() error {
+func (d Device) SetChallenge(device Device) error {
 
 	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 30)
 	if err != nil {
 		return err
 	}
 
-	b, _ := json.Marshal(d.Challenge)
+	var dc DeviceChallenge
+	dc.Challenge = device.Challenge
+	dc.Address = d.Address
+	dc.Username = d.Username
 
-	_, err = etcd.Put(context.Background(), "devicechallenge-"+d.Address, string(b), clientv3.WithLease(lease.ID))
+	b, _ := json.Marshal(dc)
+
+	_, err = etcd.Put(context.Background(), DeviceChallengePrefix+d.Username+"-"+d.Address, string(b), clientv3.WithLease(lease.ID))
 	return err
 }
 
@@ -110,6 +128,10 @@ func UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error 
 
 		device.Endpoint = endpoint
 		device.AssociatedNode = GetServerID()
+		device.Challenge, err = utils.GenerateRandomHex(32)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
+		}
 
 		b, _ := json.Marshal(device)
 
@@ -149,12 +171,7 @@ func HasDeviceAuthorised(current, previous Device) bool {
 // Set device as authorized and clear authentication attempts
 func AuthoriseDevice(username, address string) error {
 
-	challenge, err := utils.GenerateRandomHex(32)
-	if err != nil {
-		return fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
-	}
-
-	err = doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
+	err := doSafeUpdate(context.Background(), deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -178,7 +195,7 @@ func AuthoriseDevice(username, address string) error {
 		device.AssociatedNode = GetServerID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
-		device.Challenge = challenge
+		device.Challenge = ""
 
 		b, _ := json.Marshal(device)
 
@@ -243,7 +260,7 @@ func SetDeviceAuthenticationAttempts(username, address string, attempts int) err
 
 func GetAllDevices() (devices []Device, err error) {
 
-	response, err := etcd.Get(context.Background(), "devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +281,7 @@ func GetAllDevices() (devices []Device, err error) {
 func GetAllDevicesAsMap() (devices map[string]Device, err error) {
 
 	devices = make(map[string]Device)
-	response, err := etcd.Get(context.Background(), "devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -305,8 +322,8 @@ func AddDevice(username, publickey string) (Device, error) {
 	key := deviceKey(username, address)
 
 	_, err = etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
+		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
@@ -330,8 +347,8 @@ func SetDevice(username, address, publickey, preshared_key string) (Device, erro
 	key := deviceKey(username, address)
 
 	_, err := etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", address), key),
-		clientv3.OpPut(fmt.Sprintf("deviceref-%s", publickey), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
+		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key)).Commit()
 	if err != nil {
 		return Device{}, err
 	}
@@ -343,6 +360,9 @@ func deviceKey(username, address string) string {
 	return fmt.Sprintf("devices-%s-%s", username, address)
 }
 
+// DeleteDevice removes a single device from etcd
+// username is the users name obviously
+// id can be a public key, or ip address
 func DeleteDevice(username, id string) error {
 
 	refKey := deviceRef + id
@@ -367,22 +387,32 @@ func DeleteDevice(username, id string) error {
 		return err
 	}
 
-	otherReferenceKey := deviceRef + d.Publickey
-	if d.Publickey == id {
-		otherReferenceKey = deviceRef + d.Address
-	}
-
-	_, err = etcd.Txn(context.Background()).Then(clientv3.OpDelete(string(realKey.Kvs[0].Value)), clientv3.OpDelete(refKey), clientv3.OpDelete(otherReferenceKey), clientv3.OpDelete("allocated_ips/"+d.Address)).Commit()
-	if err != nil {
-		return err
-	}
+	_, err = etcd.Txn(context.Background()).Then(deleteDeviceOps(d)...).Commit()
 
 	return err
 }
 
+// Generate the operations to delete a device
+func deleteDeviceOps(d Device) []clientv3.Op {
+
+	key := deviceKey(d.Username, d.Address)
+	ipRef := deviceRef + d.Address
+	publicKeyRef := deviceRef + d.Publickey
+
+	challengeKey := DeviceChallengePrefix + d.Username + "-" + d.Address
+
+	return []clientv3.Op{
+		clientv3.OpDelete(key),
+		clientv3.OpDelete(ipRef),
+		clientv3.OpDelete(publicKeyRef),
+		clientv3.OpDelete("allocated_ips/" + d.Address),
+		clientv3.OpDelete(challengeKey),
+	}
+}
+
 func DeleteDevices(username string) error {
 
-	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("devices-%s-", username), clientv3.WithPrefix())
+	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("%s%s-", DevicesPrefix, username), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -393,10 +423,12 @@ func DeleteDevices(username string) error {
 		var d Device
 		err := json.Unmarshal(reference.Value, &d)
 		if err != nil {
-			return err
+			log.Printf("Failed to delete device for user %q, err: %s", username, err)
+			continue
 		}
 
-		ops = append(ops, clientv3.OpDelete("devicesref-"+d.Publickey), clientv3.OpDelete(deviceRef+d.Address), clientv3.OpDelete("allocated_ips/"+d.Address))
+		ops = append(ops, deleteDeviceOps(d)...)
+
 	}
 
 	_, err = etcd.Txn(context.Background()).Then(ops...).Commit()

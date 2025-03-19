@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { ChallengeAuthorisationDTO, UserInfoDTO } from "@/api/types";
+import type { AuthorisationResponseDTO, ChallengeAuthorisationRequestDTO, UserInfoDTO } from "@/api/types";
 import { useToast } from "vue-toastification";
 const toast = useToast();
 export interface WebSocketState {
@@ -10,7 +10,7 @@ export interface WebSocketState {
   reconnectAttempts: number;
   userInfo: UserInfoDTO | null;
   connectionError: string | null;
-  lastPingTime: number | null;
+  challenge: string | null;
 }
 
 export const useWebSocketStore = defineStore("websocket", () => {
@@ -20,9 +20,11 @@ export const useWebSocketStore = defineStore("websocket", () => {
     isConnected: false,
     isConnecting: false,
     reconnectAttempts: 0,
+
     userInfo: null,
     connectionError: null,
-    lastPingTime: null
+
+    challenge: null
   });
 
   // Maximum reconnection attempts
@@ -73,29 +75,18 @@ export const useWebSocketStore = defineStore("websocket", () => {
         return
       }
 
-      console.log("got ", data)
-
       switch (data.type) {
         case "initialise":
           state.value.userInfo = data;
-          state.value.connection?.send("{}")
+          sendChallenge()
           break;
         case "info":
           if(state.value.userInfo !== null) {
             state.value.userInfo = data;
           }
           break
-        case "deauthed":
-            if( state.value.userInfo !== null) {
-              // we are no longer authed, and there is no challenge to sent to auto re-auth, so make the user reauth
-              state.value.userInfo.is_authorized = false
-            }
-          break
         case "endpoint-change-challenge":
-          if( state.value.userInfo !== null) {
-            // we are no longer authed, and there is no challenge to sent to auto re-auth, so make the user reauth
-            state.value.userInfo.is_authorized = false
-          }
+          sendChallenge()
           break;
         case "ping":
           state.value.connection?.send(JSON.stringify({
@@ -105,6 +96,10 @@ export const useWebSocketStore = defineStore("websocket", () => {
           break;
 
         case "authorised":
+          const authorisationMessage = data as AuthorisationResponseDTO
+          state.value.challenge = authorisationMessage.challenge
+          state.value.userInfo = authorisationMessage.info
+
           console.log("got authorised message: ", data)
           break
         default:
@@ -145,13 +140,16 @@ export const useWebSocketStore = defineStore("websocket", () => {
   };
 
   // Send a challenge to the server
-  const sendChallenge = (challenge: string) => {
+  const sendChallenge = () => {
     if (!state.value.isConnected || !state.value.connection) {
       console.error("Cannot send challenge: WebSocket not connected");
       return;
     }
 
-    const challengeData: ChallengeAuthorisationDTO = { challenge };
+    const challengeData: ChallengeAuthorisationRequestDTO = {
+      type: "challenge-response" ,
+      challenge: state.value.challenge?? ""
+    };
     state.value.connection.send(JSON.stringify(challengeData));
   };
 
@@ -187,7 +185,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state,
     connect,
     disconnect,
-    sendChallenge,
     isConnected,
     isLoggedIn,
     username,

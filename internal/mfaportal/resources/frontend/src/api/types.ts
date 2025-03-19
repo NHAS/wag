@@ -22,9 +22,17 @@ export interface UserInfoDTO {
   helpmail: string;
 }
 
-export interface ChallengeAuthorisationDTO {
+export interface ChallengeAuthorisationRequestDTO {
+  type: string;
   challenge: string;
 }
+
+export interface AuthorisationResponseDTO {
+  type: string;
+  challenge: string;
+  info: UserInfoDTO;
+}
+
 
 export interface TOTPDetailsDTO {
   image_data: string;
