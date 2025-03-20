@@ -41,7 +41,6 @@ const emit = defineEmits(["submit"])
         </div>
 
         <button class="btn btn-primary w-full gap-2 text-base" autofocus @click="emit('submit')">
-            <font-awesome-icon :icon="['fa-solid', 'key']" class="animate-pulse" />
             {{ props.buttonLabel }}
             <span class="loading loading-spinner" v-if="loading"></span>
         </button>

@@ -32,8 +32,8 @@ async function register(password: string) {
 </script>
 
 <template>
-  <PamInput @submit="register" :help-mail="infoStore.helpMail"></PamInput>
+  <PamInput @submit="register" :help-mail="infoStore.helpMail" :loading="isLoading"></PamInput>
   <router-link to="/selection" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
-    <button class="btn btn-neutral btn-outline w-full">Use Another Method</button>
+    <button class="btn btn-neutral w-full">Use Another Method</button>
   </router-link>
 </template>

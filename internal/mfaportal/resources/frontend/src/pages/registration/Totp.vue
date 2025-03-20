@@ -10,9 +10,7 @@ import { useToastError } from "@/composables/useToastError";
 import {
   getTotpDetails,
   registerTotp,
-  type TOTPDetailsDTO,
 } from "@/api";
-import router from "@/router";
 import { useWebSocketStore } from "@/store/info";
 import DigitInput from "@/components/DigitInput.vue";
 
@@ -22,19 +20,10 @@ const { data: registration, isLoading: isLoadingTotpRegistrationDetails } = useA
   getTotpDetails(),
 );
 
-const isLoadingRegistrationDetails = computed(() => {
-  return isLoadingTotpRegistrationDetails.value;
-});
-
-const isLoading = ref(false)
-
-const totpDetails = computed(() => registration.value ?? ({} as TOTPDetailsDTO));
-
 const showManualEntry = ref(false)
-
-const toast = useToast();
 const { catcher } = useToastError();
 
+const isLoading = ref(false)
 async function register(code: string) {
   isLoading.value = true
   try {
@@ -52,7 +41,7 @@ async function register(code: string) {
 </script>
 
 <template>
-  <PageLoading v-if="isLoadingRegistrationDetails"></PageLoading>
+  <PageLoading v-if="isLoadingTotpRegistrationDetails"></PageLoading>
   <template v-else>
     <h3 class="text-2xl font-bold text-center mb-8">Register Two-Factor Authentication Code</h3>
 
@@ -71,7 +60,7 @@ async function register(code: string) {
       <!-- Right side - QR Code -->
       <div class="flex flex-col items-center justify-center md:mt-12">
         <div class="bg-white p-2 rounded-lg shadow-md">
-          <img class="w-[240px] h-[240px]" :src="totpDetails.image_data" alt="QR Code" />
+          <img class="w-[240px] h-[240px]" :src="registration?.image_data" alt="QR Code" />
         </div>
         <button class="btn btn-sm btn-ghost mt-2" @click="showManualEntry = !showManualEntry">
           {{ showManualEntry ? 'Hide Manual Entry' : 'Cant Scan?' }}
@@ -88,18 +77,18 @@ async function register(code: string) {
         <div>Time based</div>
 
         <div class="font-semibold">Account name:</div>
-        <div class="font-mono bg-base-300 px-2 py-1 rounded text-base-content">{{ totpDetails.account_name }}</div>
+        <div class="font-mono bg-base-300 px-2 py-1 rounded text-base-content">{{ registration?.account_name }}</div>
 
         <div class="font-semibold">Your key:</div>
-        <div class="font-mono bg-base-300 px-2 py-1 rounded overflow-x-auto text-base-content">{{ totpDetails.key }}
+        <div class="font-mono bg-base-300 px-2 py-1 rounded overflow-x-auto text-base-content">{{ registration?.key }}
         </div>
       </div>
     </div>
 
-    <DigitInput execution-name="Verify & Complete Registration" @submit="register"></DigitInput>
+    <DigitInput execution-name="Verify & Complete Registration" @submit="register" :loading="isLoading"></DigitInput>
 
     <router-link to="/selection" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
-      <button class="btn btn-neutral btn-outline w-full">Use Another Method</button>
+      <button class="btn btn-neutral w-full">Use Another Method</button>
     </router-link>
   </template>
 </template>

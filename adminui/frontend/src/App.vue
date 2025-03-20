@@ -9,10 +9,12 @@ import { type NotificationDTO } from './api'
 import { useAuthStore } from '@/stores/auth'
 import { useDevicesStore } from '@/stores/devices'
 import { useUsersStore } from '@/stores/users'
+import { useSessionsStore } from './stores/sessions'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const devicesStore = useDevicesStore()
+const sessionsStore = useSessionsStore()
 const usersStore = useUsersStore()
 
 const { hasCompletedAuth, hasTriedAuth, isLoggedIn } = storeToRefs(authStore)
@@ -59,6 +61,8 @@ onMounted(async () => {
 
 watch(hasCompletedAuth, (newHasCompletedAuth, prevHasCompletedAuth) => {
   if (newHasCompletedAuth && !prevHasCompletedAuth) {
+
+    sessionsStore.load(true)
     devicesStore.load(true)
     usersStore.load(true)
     connectNotificationsWebsocket()
