@@ -86,8 +86,6 @@ func (c *Challenger) Close() error {
 
 func (c *Challenger) sessionChanges(_ string, current, previous data.DeviceSession, et data.EventType) error {
 
-	log.Println(et, current)
-
 	switch et {
 	case data.DELETED:
 		c.UpdateState(current.Address)
@@ -370,7 +368,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	info, err := c.createInfoDTO(clientTunnelIp.String())
 	if err != nil {
-		log.Println("failed to create initial state")
+		log.Println("failed to create initial state. Err ", err)
 		return
 	}
 
@@ -384,7 +382,6 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	err = c.Challenge(user.Username, clientTunnelIp.String())
 	if err != nil {
-		log.Println("failed to request challenge: ", err)
 		return
 	}
 
@@ -392,7 +389,6 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 		err := Ping(conn, readWait)
 		if err != nil {
-			log.Println("failed to ping", err)
 			return
 		}
 

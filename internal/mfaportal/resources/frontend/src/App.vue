@@ -15,6 +15,40 @@ onBeforeUnmount(() => {
   info.cleanup();
 });
 
+
+function notify(title: string, message: string) {
+  if (!window.Notification) {
+    console.log('Browser does not support notifications.');
+  } else {
+
+    if(Notification.permission == 'denied') {
+      // user doesnt want notifications :(
+      return
+    }
+
+    // check if permission is already granted
+    if (Notification.permission === 'granted') {
+      new Notification(title, {
+        body: message,
+      });
+    } else {
+      // request permission from user
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') {
+          // show notification here
+          new Notification(title, {
+            body: message,
+          });
+        } else {
+          console.log('User blocked notifications.');
+        }
+      }).catch(function (err) {
+        console.error(err);
+      });
+    }
+  }
+}
+
 async function determinePath() {
   try {
     await nextTick()
@@ -22,15 +56,17 @@ async function determinePath() {
     if (info.isDeviceLocked || info.isAccountLocked) {
       console.log("detemined locked")
       router.push("/locked")
+      notify("VPN Locked", "Your device has been locked. Please contact help")
       return
     }
 
     if (info.isAuthorised) {
       console.log("detemined authed")
-
       router.push("/success")
       return
     }
+
+
 
     const path = info.isRegistered ? '/authorise/' : '/register/';
 
@@ -49,6 +85,13 @@ async function determinePath() {
       console.log("detemined selection")
       router.push("/selection")
     }
+
+    if(info.isRegistered) {
+      notify("VPN Authoirsation Required", "Please reauthenticate with the VPN")
+    } else {
+      notify("VPN Registration", "Please register an MFA method with the VPN")
+    }
+
   } catch (error) {
     console.error('Navigation error:', error);
   }
