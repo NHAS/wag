@@ -10,7 +10,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits<{
-  (e: 'submit', code: string): void
+    (e: 'submit', code: string): void
 }>()
 
 
@@ -19,27 +19,47 @@ const digits = ref(['', '', '', '', '', '']);
 
 const submitButton = ref<HTMLButtonElement>()
 
-function moveToNextInput(index: number): void {
-    digits.value[index] = digits.value[index].replace(/[^0-9]/g, '');
 
-    if (digits.value[index] && index < 5) {
+
+function handleInput(index: number, event: KeyboardEvent): void {
+    // Allow only numeric inputs and backspace
+    if (event.key === 'Backspace') {
+
         nextTick(() => {
-            digitInputs.value[index + 1]?.focus();
+
+            let currentInput = digitInputs.value[index]
+            if (currentInput == null) {
+                return
+            }
+            currentInput.value = ""
+
+            digits.value[index] = ""
+
+            if (index > 0) {
+                let input = digitInputs.value[index - 1]
+                if (input == null) {
+                    return
+                }
+
+                input.focus();
+            }
         });
-    } else {
+        event.preventDefault()
+
+    } else if (/\d/.test(event.key) && event.key.length === 1) { // Ensure only single-digit keys
+        digits.value[index] = event.key.toString(); // Direct assignment ensures only valid input
+
         nextTick(() => {
-            submitButton.value?.focus()
+            if (index < 5) {
+                digitInputs.value[index + 1]?.focus();
+            } else {
+                submitButton.value?.focus();
+            }
         });
+        event.preventDefault()
     }
 }
 
-function handleBackspace(index: number, event: KeyboardEvent): void {
-    if (!digits.value[index] && index > 0 && event.key === 'Backspace') {
-        nextTick(() => {
-            digitInputs.value[index - 1]?.focus();
-        });
-    }
-}
 
 function handlePaste(event: ClipboardEvent): void {
     event.preventDefault();
@@ -76,17 +96,17 @@ function handlePaste(event: ClipboardEvent): void {
                     <input type="text" :autofocus="index == 0"
                         class="input input-bordered text-neutral input-primary w-12 h-12 text-center text-lg font-mono"
                         maxlength="1" :ref="(el) => digitInputs[index] = (el as HTMLInputElement)"
-                        v-model="digits[index]" @input="moveToNextInput(index)" placeholder="0"
-                        @keydown.backspace="handleBackspace(index, $event)" @paste="handlePaste($event)" autocomplete="off"/>
+                        v-model="digits[index]" placeholder="0" @keydown="handleInput(index, $event)"
+                        @paste="handlePaste($event)" autocomplete="off" />
                 </template>
             </div>
         </div>
     </div>
 
     <div class="flex flex-col sm:flex-row gap-4">
-      <button class="btn btn-primary flex-1" @click="emit('submit', digits.join(''))" ref="submitButton">
-        {{ props.executionName }}
-        <span class="loading loading-spinner" v-if="loading"></span>
-      </button>
+        <button class="btn btn-primary flex-1" @click="emit('submit', digits.join(''))" ref="submitButton">
+            {{ props.executionName }}
+            <span class="loading loading-spinner" v-if="loading"></span>
+        </button>
     </div>
 </template>
