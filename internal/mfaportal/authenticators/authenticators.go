@@ -181,6 +181,7 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 
 		routes, err := handler.Initialise(firewall, isEnabled)
 		if err != nil {
+			handler.Disable()
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}

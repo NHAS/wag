@@ -239,15 +239,20 @@ func NewGeneralEvent(eType EventType, key string, currentState, previousState []
 }
 
 func RegisterClusterHealthListener(f func(status string)) (string, error) {
-	clusterHealthLck.Lock()
-	defer clusterHealthLck.Unlock()
 
 	key, err := utils.GenerateRandomHex(16)
 	if err != nil {
 		return "", err
 	}
 
+	clusterHealthLck.Lock()
 	clusterHealthListeners[key] = f
+	clusterHealthLck.Unlock()
+
+	if !etcdServer.Server.IsLearner() {
+		// The moment we've registered a new health listener, test the cluster so it gets a callback
+		testCluster()
+	}
 
 	return key, nil
 }

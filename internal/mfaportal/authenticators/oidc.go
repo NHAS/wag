@@ -39,6 +39,10 @@ func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *h
 	o.fw = fw
 	o.enable = enable(initiallyEnabled)
 
+	if !o.enable {
+		return nil, nil
+	}
+
 	err = o.ReloadSettings()
 	if err != nil {
 		return nil, err
