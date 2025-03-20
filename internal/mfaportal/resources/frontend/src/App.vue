@@ -66,8 +66,6 @@ async function determinePath() {
       return
     }
 
-
-
     const path = info.isRegistered ? '/authorise/' : '/register/';
 
     if (info.availableMfaMethods.length == 1) {

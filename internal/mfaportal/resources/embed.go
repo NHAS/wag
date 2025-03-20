@@ -1,7 +1,9 @@
 package resources
 
 import (
+	"crypto/sha1"
 	"embed"
+	"encoding/hex"
 	"io"
 	"io/fs"
 	"net/http"
@@ -20,6 +22,22 @@ func must(f fs.FS, err error) fs.FS {
 	}
 
 	return f
+}
+
+// dummys first versioning
+func Version() string {
+	file, err := Static.Open("index.html")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	hasher := sha1.New()
+	if _, err = io.Copy(hasher, file); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func Assets(w http.ResponseWriter, r *http.Request) {

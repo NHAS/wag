@@ -26,7 +26,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
     userInfo: null,
     connectionError: null,
 
-    challenge: null
+    challenge: null,
   });
 
   // Maximum reconnection attempts
@@ -72,6 +72,10 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Handle WebSocket messages
   const handleMessage = (event: MessageEvent) => {
+    if(state.value.isClosed) {
+      return
+    }
+
     try {
       const data = JSON.parse(event.data);
 
@@ -84,6 +88,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
       switch (data.type) {
         case "info":
+            updateState(data)
             state.value.userInfo = data;
           break
         case "endpoint-change-challenge":
@@ -99,9 +104,11 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
         case "authorised":
           const authorisationMessage = data as AuthorisationResponseDTO
+
           state.value.challenge = authorisationMessage.challenge
           localStorage.setItem(LOCAL_STORAGE_KEY, authorisationMessage.challenge)
-          state.value.userInfo = authorisationMessage.info
+
+          updateState(authorisationMessage.info)
 
           console.log("got authorised message: ", data)
           break
@@ -114,6 +121,26 @@ export const useWebSocketStore = defineStore("websocket", () => {
       console.error("Error parsing WebSocket message:", error);
     }
   };
+
+  const updateState = (newState: UserInfoDTO) => {
+    if(state.value.userInfo === null) {
+      state.value.userInfo = newState
+      return
+    }
+
+    if(state.value.userInfo.version !== null && state.value.userInfo.version != newState.version) {
+      
+      toast.info("New version of Wag is available, reloading...")
+      setTimeout(function(){
+        disconnect()
+        window.location.reload()
+      }, 2000*Math.random())
+
+      return
+    }
+
+    state.value.userInfo = newState
+  }
 
   // Handle WebSocket errors
   const handleError = (event: Event) => {

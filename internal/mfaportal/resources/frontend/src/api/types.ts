@@ -9,6 +9,8 @@ export interface MFAMethod {
 }
 
 export interface UserInfoDTO {
+  version: string
+
   has_registered: boolean;
   user_mfa_method: string;
   default_mfa: string;

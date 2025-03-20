@@ -11,6 +11,7 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
+	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -116,9 +117,10 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 			}
 		}
 
-		if current.Attempts > lockout || // If the device has become locked
-			current.Attempts < lockout || // if the device has become unlocked
-			current.Authorised.IsZero() { // If we've explicitly deauthorised a device (logout)
+		if current.Attempts != previous.Attempts && !current.Authorised.Equal(previous.Authorised) &&
+			(current.Attempts > lockout || // If the device has become locked
+				current.Attempts < lockout || // if the device has become unlocked
+				current.Authorised.IsZero()) { // If we've explicitly deauthorised a device (logout)
 
 			sendUpdate = true
 		}
@@ -211,6 +213,7 @@ func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 
 	info := UserInfoDTO{
 		Type:                Info,
+		Version:             resources.Version(),
 		UserMFAMethod:       user.GetMFAType(),
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,

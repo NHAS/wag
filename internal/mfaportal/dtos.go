@@ -32,6 +32,7 @@ type MFAMethod struct {
 
 type UserInfoDTO struct {
 	Type          Status `json:"type"`
+	Version       string `json:"version"`
 	UserMFAMethod string `json:"user_mfa_method"`
 
 	AccountLocked bool `json:"account_locked"`
