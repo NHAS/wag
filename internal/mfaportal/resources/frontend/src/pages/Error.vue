@@ -12,7 +12,8 @@ const props = defineProps<{
 }>();
 
 function goHome() {
-  router.push("/selection");
+  // dont use router here as we want pretty much every single move to be governed by App.vue
+  window.location.href = "/"
 }
 
 </script>

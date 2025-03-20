@@ -20,22 +20,10 @@ async function doLogout() {
       return;
     } 
 
-    router.push("/");
   } catch (e) {
     catcher(e, "");
   }
 }
-
-
-if (!info.isLoggedIn || !info.isRegistered || !info.isConnected) {
-  router.push("/")
-}
-
-watch(info, async newState => {
-  if (!newState.isLoggedIn || !newState.isRegistered || !newState.isConnected) {
-    router.push("/")
-  }
-})
 
 </script>
 
