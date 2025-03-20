@@ -29,14 +29,9 @@ type Webauthn struct {
 	fw *router.Firewall
 }
 
-func (wa *Webauthn) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
+func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	wa.fw = fw
-
-	err = wa.ReloadSettings()
-	if err != nil {
-		return nil, err
-	}
 
 	routes = http.NewServeMux()
 
@@ -77,7 +72,7 @@ func (wa *Webauthn) Initialise(fw *router.Firewall) (routes *http.ServeMux, err 
 	return routes, nil
 }
 
-func (wa *Webauthn) ReloadSettings() error {
+func (wa *Webauthn) Initialise() error {
 	d, err := data.GetWebauthn()
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import { Icons } from '@/util/icons'
 import { deleteUsers, editUser, UserEditActions, type EditUsersDTO, type UserDTO } from '@/api'
 
 const usersStore = useUsersStore()
-usersStore.load(false)
+usersStore.load(true)
 
 const route = useRoute()
 

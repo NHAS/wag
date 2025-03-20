@@ -3,39 +3,49 @@ import { useWebSocketStore } from "@/store/info";
 
 const info = useWebSocketStore();
 
+// Add some helper functions for better UX
+const getMethodIcon = (methodType: string) => {
+  switch (methodType.toLowerCase()) {
+    case 'totp':
+      return ['fas', 'mobile-screen'];
+    case 'oidc':
+      return ['fas', 'sign-in'];
+    case 'pam':
+      return ['fas', 'computer'];
+    case 'webauthn':
+      return ['fas', 'key'];
+    default:
+      return ['fas', 'shield-check'];
+  }
+};
+
+
 </script>
 
 <template>
   <template v-if="info.isConnected">
 
     <template v-if="info.availableMfaMethods.length == 0">
-      <div>No MFA methods, configured and enabled.</div>
+      <h4 class="mb-2 text-center">No MFA methods, configured and enabled.</h4>
+      <div>Please contact your administrator <a :href="'mailto:'+info.helpMail">{{ info.helpMail }}</a></div>
     </template>
 
     <template v-else>
-      <template v-if="!info.isRegistered">
-        <h4 class="text-2xl font-bold text-center mb-4">Register</h4>
-        <div v-for="method in info.availableMfaMethods" :key="'mfa-' + method.method">
-          <RouterLink :to="'/register/' + method.method">
-            <button class="btn btn-primary w-full">
-              {{ method.friendly_name }}
-            </button>
-          </RouterLink>
-        </div>
+      <h4 class="text-2xl font-bold text-center mb-4"> {{ !info.isRegistered ? 'Register Authentication Method' : 'Sign In' }}</h4>
 
-      </template>
-      <template v-else>
-        <h4 class="text-2xl font-bold text-center mb-4">Authorise</h4>
-        <div v-for="method in info.availableMfaMethods" :key="'mfa-' + method.method">
-          <RouterLink :to="'/authorise/' + method.method">
-            <button class="btn btn-primary w-full">
-              {{ method.friendly_name }}
-            </button>
-          </RouterLink>
-        </div>
-
-      </template>
-
+      <p class="text-gray-300 mb-2 text-center">
+        {{ !info.isRegistered
+          ? 'Please select a multi-factor authentication method'
+          : 'Choose an authentication method to continue' }}
+      </p>
+      <div v-for="method in info.availableMfaMethods" :key="'mfa-' + method.method" class="mt-2">
+        <RouterLink :to="(!info.isRegistered ? '/register/' : '/authorise/') + method.method">
+          <button class="btn btn-primary w-full">
+            <font-awesome-icon :icon="getMethodIcon(method.method)" />
+            {{ method.friendly_name }}
+          </button>
+        </RouterLink>
+      </div>
     </template>
 
   </template>

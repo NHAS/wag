@@ -1,6 +1,7 @@
 package authenticators
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -32,14 +33,14 @@ type Authenticator interface {
 	Enable()
 	Disable()
 
-	ReloadSettings() error
+	Initialise() error
 
 	Type() string
 
 	//FriendlyName is the name that is displayed in the MFA selection table
 	FriendlyName() string
 
-	Initialise(fw *router.Firewall) (routes *http.ServeMux, err error)
+	GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error)
 }
 
 func StringsToMFA(methods []string) (ret []types.MFA) {
@@ -64,6 +65,8 @@ func DisableMethods(method ...types.MFA) {
 	lck.Lock()
 	defer lck.Unlock()
 
+	log.Println("disabling: ", method)
+
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
 			a.Disable()
@@ -71,40 +74,66 @@ func DisableMethods(method ...types.MFA) {
 	}
 }
 
-func EnableMethods(method ...types.MFA) {
+func ReinitialiseMethod(method types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
-	for _, m := range method {
-		if a, ok := allMfa[m]; ok {
-			a.Enable()
+	if a, ok := allMfa[method]; ok {
+		if !a.IsEnabled() {
+			return nil
 		}
+
+		err := a.Initialise()
+		if err != nil {
+			a.Disable()
+			return err
+		}
+
+		return nil
 	}
+
+	return fmt.Errorf("method not found: %q", method)
 }
 
-func ReinitaliseMethods(method ...types.MFA) ([]types.MFA, error) {
+func enableMethod(method types.MFA) error {
+	if a, ok := allMfa[method]; ok {
+		// If the method is already enabled, dont re-enable it
+		if a.IsEnabled() {
+			return nil
+		}
+
+		err := a.Initialise()
+		if err != nil {
+			a.Disable()
+			return err
+		}
+		a.Enable()
+		return nil
+	}
+
+	return fmt.Errorf("mfa method %q not found", method)
+}
+
+func SetEnabledMethods(method ...types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
-	var out []types.MFA
-
-	var errRet error
+	enabledMfa := map[types.MFA]bool{}
 	for _, m := range method {
-		if a, ok := allMfa[m]; ok {
-			err := a.ReloadSettings()
-			if err != nil {
-				if errRet == nil {
-					errRet = fmt.Errorf("%s failed to init: %s", m, err)
-					continue
-				}
+		enabledMfa[m] = true
+	}
 
-				errRet = fmt.Errorf("%s failed to init: %s\n%s", m, err, errRet.Error())
+	var errRet []error
+	for m, handler := range allMfa {
+		handler.Disable()
+		if enabledMfa[m] {
+			if err := enableMethod(m); err != nil {
+				errRet = append(errRet, err)
 			}
-			out = append(out, m)
 		}
 	}
 
-	return out, errRet
+	return errors.Join(errRet...)
 }
 
 func NumberOfMethods() int {
@@ -180,19 +209,24 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 		prefix := "/api/" + string(method)
 
 		isEnabled := slices.Contains(enabledMethods, string(method))
-		if !isEnabled {
-			continue
-		}
 
-		routes, err := handler.Initialise(firewall)
+		routes, err := handler.GetRoutes(firewall)
 		if err != nil {
 
-			log.Println("failed to initialise method: ", method, "err: ", err)
+			log.Println("failed to get routes for mfa method: ", method, "err: ", err)
 			continue
 		}
 
-		handler.Enable()
+		err = handler.Initialise()
+		if err != nil {
+			handler.Disable()
+			log.Println("failed to initialise mfa method: ", method, "err: ", err)
+			continue
+		}
 
+		if isEnabled {
+			handler.Enable()
+		}
 		// Directly register each handler from routes to the main mux with the proper prefix
 		mux.Handle(prefix+"/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// First check if the method is enabled

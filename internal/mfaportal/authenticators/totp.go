@@ -38,7 +38,7 @@ type Totp struct {
 	fw *router.Firewall
 }
 
-func (t *Totp) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
+func (t *Totp) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	t.fw = fw
 	routes = http.NewServeMux()
@@ -62,7 +62,7 @@ func (t *Totp) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error
 	return routes, nil
 }
 
-func (t *Totp) ReloadSettings() error {
+func (t *Totp) Initialise() error {
 	return nil
 }
 

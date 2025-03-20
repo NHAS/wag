@@ -64,9 +64,7 @@ func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.Eve
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(types.Oidc)
-
-			return err
+			return authenticators.ReinitialiseMethod(types.Oidc)
 		}
 	}
 
@@ -84,9 +82,7 @@ func (mp *MfaPortal) domainChanged(_ string, _, _ data.WebserverConfiguration, e
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			_, err := authenticators.ReinitaliseMethods(types.Oidc)
-
-			return err
+			return authenticators.ReinitialiseMethod(types.Oidc)
 		}
 	}
 
@@ -98,19 +94,8 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string,
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
-	case data.CREATED:
-		var initdMethods []types.MFA
-
-		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
-		authenticators.EnableMethods(initdMethods...)
-
-	case data.MODIFIED:
-		var initdMethods []types.MFA
-
-		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
-		initdMethods, err = authenticators.ReinitaliseMethods(authenticators.StringsToMFA(current)...)
-
-		authenticators.EnableMethods(initdMethods...)
+	case data.CREATED, data.MODIFIED:
+		err = authenticators.SetEnabledMethods(authenticators.StringsToMFA(current)...)
 	}
 
 	return err
@@ -122,7 +107,20 @@ func (mp *MfaPortal) issuerKeyChanged(_ string, _, _ string, et data.EventType) 
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
 	case data.CREATED, data.MODIFIED:
-		_, err := authenticators.ReinitaliseMethods(types.Totp, types.Webauthn)
+		methods, err := data.GetEnabledAuthenticationMethods()
+		if err != nil {
+			log.Println("Couldnt get authenication methods to enable oidc: ", err)
+			return err
+		}
+
+		if slices.Contains(methods, string(types.Totp)) {
+			err = authenticators.ReinitialiseMethod(types.Totp)
+		}
+
+		if slices.Contains(methods, string(types.Webauthn)) {
+			err = authenticators.ReinitialiseMethod(types.Webauthn)
+		}
+
 		return err
 	}
 

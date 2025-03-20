@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -70,6 +71,12 @@ func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
 	}
 	r.listenerKeys = append(r.listenerKeys, usersKey)
 
+	mfaMethods, err := data.RegisterEventListener(data.MFAMethodsEnabledKey, false, r.mfaChanges)
+	if err != nil {
+		return nil, err
+	}
+	r.listenerKeys = append(r.listenerKeys, mfaMethods)
+
 	return r, nil
 }
 
@@ -93,6 +100,20 @@ func (c *Challenger) Close() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Challenger) mfaChanges(_ string, current, previous []string, et data.EventType) error {
+
+	switch et {
+
+	case data.MODIFIED:
+		if !slices.Equal(current, previous) {
+			c.UpdateAll()
+		}
+
+	}
+
+	return nil
 }
 
 func (c *Challenger) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
@@ -173,6 +194,29 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 
 	return nil
 
+}
+
+func (c *Challenger) UpdateAll() {
+	c.RLock()
+	defer c.RUnlock()
+
+	for address, conn := range c.connections {
+		go func(connection *websocket.Conn) {
+			info, err := c.createInfoDTO(address)
+			if err != nil {
+				log.Printf("failed to get state update for device %q, err: %s", address, err)
+				return
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+			err = wsjson.Write(ctx, connection, info)
+			cancel()
+			if err != nil {
+				log.Printf("failed to write state to %s, err: %s", address, err)
+				return
+			}
+		}(conn)
+	}
 }
 
 func (c *Challenger) UpdateUserState(username string) {

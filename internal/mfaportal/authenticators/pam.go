@@ -23,7 +23,7 @@ type Pam struct {
 	fw *router.Firewall
 }
 
-func (t *Pam) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
+func (t *Pam) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
 	t.fw = fw
 
 	routes = http.NewServeMux()
@@ -37,7 +37,7 @@ func (t *Pam) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error)
 	return routes, nil
 }
 
-func (t *Pam) ReloadSettings() error {
+func (t *Pam) Initialise() error {
 	return nil
 }
 

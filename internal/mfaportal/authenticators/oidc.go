@@ -34,13 +34,9 @@ type Oidc struct {
 	fw       *router.Firewall
 }
 
-func (o *Oidc) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
+func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	o.fw = fw
-	err = o.ReloadSettings()
-	if err != nil {
-		return nil, err
-	}
 
 	routes = http.NewServeMux()
 	routes.HandleFunc("GET /register", isUnauthedFunc(isUnregisteredFunc(o.register), fw))
@@ -65,7 +61,7 @@ func (o *Oidc) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error
 	return routes, nil
 }
 
-func (o *Oidc) ReloadSettings() error {
+func (o *Oidc) Initialise() error {
 
 	key, err := utils.GenerateRandom(32)
 	if err != nil {

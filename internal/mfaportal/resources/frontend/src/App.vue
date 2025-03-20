@@ -21,7 +21,7 @@ function notify(title: string, message: string) {
     console.log('Browser does not support notifications.');
   } else {
 
-    if(Notification.permission == 'denied') {
+    if (Notification.permission == 'denied') {
       // user doesnt want notifications :(
       return
     }
@@ -68,26 +68,37 @@ async function determinePath() {
 
     const path = info.isRegistered ? '/authorise/' : '/register/';
 
+    const methodsHasUserPref = (info.selectedMFAMethod !== "unset" && info.availableMfaMethods.some(x => x.method == info.selectedMFAMethod))
+    const methodsHasDefault = (info.defaultMFAMethod != "" && info.availableMfaMethods.some(x => x.method == info.defaultMFAMethod))
+
+
     if (info.availableMfaMethods.length == 1) {
       console.log("detemined", path + info.availableMfaMethods[0].method)
 
       router.push(path + info.availableMfaMethods[0].method)
-    } else if (info.selectedMFAMethod !== "unset") {
-      console.log("detemined", path + info.selectedMFAMethod)
+    } else if (methodsHasDefault || methodsHasUserPref) {
 
-      router.push(path + info.selectedMFAMethod)
-    } else if (info.defaultMFAMethod != "") {
-      console.log("default")
-      router.push(path + info.defaultMFAMethod)
+
+      let mfaMethod = info.selectedMFAMethod
+      if(methodsHasDefault) {
+        mfaMethod = info.defaultMFAMethod
+      }
+   
+      console.log("detemined", path + mfaMethod)
+
+      router.push(path + mfaMethod)
+
     } else {
       console.log("detemined selection")
       router.push("/selection")
     }
 
-    if(info.isRegistered) {
-      notify("VPN Authoirsation Required", "Please reauthenticate with the VPN")
-    } else {
-      notify("VPN Registration", "Please register an MFA method with the VPN")
+    if (info.availableMfaMethods.length > 0) {
+      if (info.isRegistered) {
+        notify("VPN Authoirsation Required", "Please reauthenticate with the VPN")
+      } else {
+        notify("VPN Registration", "Please register an MFA method with the VPN")
+      }
     }
 
   } catch (error) {
