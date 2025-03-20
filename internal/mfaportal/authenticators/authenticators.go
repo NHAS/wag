@@ -39,7 +39,7 @@ type Authenticator interface {
 	//FriendlyName is the name that is displayed in the MFA selection table
 	FriendlyName() string
 
-	Initialise(fw *router.Firewall, enabled bool) (routes *http.ServeMux, err error)
+	Initialise(fw *router.Firewall) (routes *http.ServeMux, err error)
 }
 
 func StringsToMFA(methods []string) (ret []types.MFA) {
@@ -175,16 +175,23 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 	mux.HandleFunc("/authorise/oidc", depreciatedMessage)
 
 	for method, handler := range allMfa {
+		handler.Disable()
+
 		prefix := "/api/" + string(method)
 
 		isEnabled := slices.Contains(enabledMethods, string(method))
+		if !isEnabled {
+			continue
+		}
 
-		routes, err := handler.Initialise(firewall, isEnabled)
+		routes, err := handler.Initialise(firewall)
 		if err != nil {
-			handler.Disable()
+
 			log.Println("failed to initialise method: ", method, "err: ", err)
 			continue
 		}
+
+		handler.Enable()
 
 		// Directly register each handler from routes to the main mux with the proper prefix
 		mux.Handle(prefix+"/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

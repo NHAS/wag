@@ -38,12 +38,9 @@ type Totp struct {
 	fw *router.Firewall
 }
 
-func (t *Totp) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
+func (t *Totp) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	t.fw = fw
-
-	t.enable = enable(initiallyEnabled)
-
 	routes = http.NewServeMux()
 
 	registrationEndpoints := http.NewServeMux()

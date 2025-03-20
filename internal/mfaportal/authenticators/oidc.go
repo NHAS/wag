@@ -34,15 +34,9 @@ type Oidc struct {
 	fw       *router.Firewall
 }
 
-func (o *Oidc) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
+func (o *Oidc) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	o.fw = fw
-	o.enable = enable(initiallyEnabled)
-
-	if !o.enable {
-		return nil, nil
-	}
-
 	err = o.ReloadSettings()
 	if err != nil {
 		return nil, err

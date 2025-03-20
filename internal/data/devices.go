@@ -168,7 +168,7 @@ func HasDeviceAuthorised(current, previous Device) bool {
 		return false
 	}
 
-	return current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && current.AssociatedNode == previous.AssociatedNode
+	return current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && (current.AssociatedNode == previous.AssociatedNode || previous.AssociatedNode == 0)
 }
 
 // Set device as authorized and clear authentication attempts

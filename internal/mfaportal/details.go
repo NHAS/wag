@@ -100,7 +100,11 @@ func (c *Challenger) userChanges(_ string, current, previous data.UserModel, et 
 	switch et {
 
 	case data.MODIFIED:
-		c.UpdateUserState(current.Username)
+		if current.Enforcing != previous.Enforcing ||
+			current.Locked != previous.Locked ||
+			current.Mfa != previous.Mfa {
+			c.UpdateUserState(current.Username)
+		}
 
 	case data.DELETED:
 		c.DisconnectAllDevices(current.Username, "Account deleted")

@@ -29,10 +29,9 @@ type Webauthn struct {
 	fw *router.Firewall
 }
 
-func (wa *Webauthn) Initialise(fw *router.Firewall, initiallyEnabled bool) (routes *http.ServeMux, err error) {
+func (wa *Webauthn) Initialise(fw *router.Firewall) (routes *http.ServeMux, err error) {
 
 	wa.fw = fw
-	wa.enable = enable(initiallyEnabled)
 
 	err = wa.ReloadSettings()
 	if err != nil {
@@ -225,7 +224,10 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	user := users.GetUserFromContext(r.Context())
 
 	if !user.IsEnforcingMFA() {
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		jsonResponse(w, AuthResponse{
+			Status: Error,
+			Error:  "This MFA method has not been registered to this user.",
+		}, http.StatusBadRequest)
 		return
 	}
 
