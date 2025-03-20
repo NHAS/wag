@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-
+import type {Ref, PropType} from 'vue';
 
 const props = defineProps({
     helpMail: String,
+    loading: Boolean,
 })
 
 const emit = defineEmits<{
@@ -46,6 +47,7 @@ const togglePasswordVisibility = () => {
 
     <div class="form-control mt-6">
       <button type="submit" class="btn btn-primary" >
+        <span class="loading loading-spinner" v-if="loading"></span>
         Verify Identity
       </button>
     </div>

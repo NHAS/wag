@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue';
+import type { PropType, Ref } from 'vue';
 
 
 const props = defineProps({
     executionName: String,
+    loading: Boolean,
+
 })
 
 const emit = defineEmits<{
@@ -83,6 +86,7 @@ function handlePaste(event: ClipboardEvent): void {
     <div class="flex flex-col sm:flex-row gap-4">
       <button class="btn btn-primary flex-1" @click="emit('submit', digits.join(''))" ref="submitButton">
         {{ props.executionName }}
+        <span class="loading loading-spinner" v-if="loading"></span>
       </button>
     </div>
 </template>

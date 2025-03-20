@@ -26,6 +26,8 @@ const isLoadingRegistrationDetails = computed(() => {
   return isLoadingTotpRegistrationDetails.value;
 });
 
+const isLoading = ref(false)
+
 const totpDetails = computed(() => registration.value ?? ({} as TOTPDetailsDTO));
 
 const showManualEntry = ref(false)
@@ -33,17 +35,16 @@ const showManualEntry = ref(false)
 const toast = useToast();
 const { catcher } = useToastError();
 
-
-
 async function register(code: string) {
+  isLoading.value = true
   try {
     const resp = await registerTotp(code);
 
     if (!resp.status && resp.status == "error") {
-      toast.error(resp.error ?? "Failed");
-      return;
+      throw new Error(resp.error ?? "Failed");
     } 
   } catch (e) {
+    isLoading.value = false
     catcher(e, "");
   }
 }

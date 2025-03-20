@@ -6,21 +6,24 @@ import { useToast } from "vue-toastification";
 import { authorisePam } from "@/api";
 import { useToastError } from "@/composables/useToastError";
 import { useWebSocketStore } from "@/store/info";
+import { ref } from "vue";
 
 const infoStore = useWebSocketStore();
 
-const toast = useToast();
 const { catcher } = useToastError();
 
+const isLoading = ref(false)
+
 async function authorise(password: string) {
+  isLoading.value = true
   try {
     const resp = await authorisePam(password);
 
     if (!resp.status && resp.status == "error") {
-      toast.error(resp.error ?? "Failed");
-      return;
+     throw new Error(resp.error ?? "Failed");
     } 
   } catch (e) {
+    isLoading.value = false
     catcher(e, "");
   }
 };
@@ -28,5 +31,5 @@ async function authorise(password: string) {
 </script>
 
 <template>
-  <PamInput @submit="authorise" :help-mail="infoStore.helpMail"></PamInput>
+  <PamInput @submit="authorise" :help-mail="infoStore.helpMail" :loading="isLoading"></PamInput>
 </template>

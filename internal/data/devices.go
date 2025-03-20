@@ -500,7 +500,7 @@ func deleteDeviceOps(d Device) []clientv3.Op {
 
 func DeleteDevices(username string) error {
 
-	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("%s%s-", DevicesPrefix, username), clientv3.WithPrefix())
+	deleted, err := etcd.Delete(context.Background(), fmt.Sprintf("%s%s-", DevicesPrefix, username), clientv3.WithPrefix(), clientv3.WithPrevKV())
 	if err != nil {
 		return err
 	}

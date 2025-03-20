@@ -8,22 +8,25 @@ import {
 import router from "@/router";
 import { useWebSocketStore } from "@/store/info";
 import DigitInput from "@/components/DigitInput.vue";
+import { ref } from "vue";
 
 const infoStore = useWebSocketStore();
 
-const toast = useToast();
 const { catcher } = useToastError();
+
+const isLoading = ref(false)
 
 
 async function authorise(code: string) {
+  isLoading.value = true
   try {
     const resp = await authoriseTotp(code);
 
     if (!resp.status && resp.status == "error") {
-      toast.error(resp.error ?? "Failed");
-      return;
+      throw new Error(resp.error ?? "Failed");
     } 
   } catch (e) {
+    isLoading.value = false
     catcher(e, "");
   }
 }
@@ -38,7 +41,7 @@ async function authorise(code: string) {
           Please enter your MFA code to access restricted resources. Having trouble?
           <a :href="'mailto:' + infoStore.helpMail" class="link link-primary">Contact support</a>.
         </p>
-        <DigitInput execution-name="Verify" @submit="authorise"></DigitInput>
+        <DigitInput execution-name="Verify" @submit="authorise" :loading="isLoading"></DigitInput>
       </div>
   </template>
 </template>

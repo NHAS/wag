@@ -2,6 +2,7 @@
 import { useWebSocketStore } from "@/store/info";
 
 const info = useWebSocketStore();
+
 </script>
 
 <template>

@@ -4,6 +4,7 @@ import WebAuthnInput from "@/components/WebAuthnInput.vue";
 import { useToastError } from "@/composables/useToastError";
 import router from "@/router";
 import { useWebSocketStore } from "@/store/info";
+import { ref } from "vue";
 import { useToast } from "vue-toastification";
 
 const infoStore = useWebSocketStore();
@@ -16,18 +17,19 @@ function bufferDecode(value: string) {
   return Uint8Array.from(atob(value.replace(/_/g, '/').replace(/-/g, '+')), c => c.charCodeAt(0));
 }
 
+const isLoading = ref(false)
+
 async function register() {
+  isLoading.value = true
   try {
     const credentialCreationOptions = await getRegistrationWebauthnDetails();
 
     if (credentialCreationOptions.status === undefined) {
-      toast.error(credentialCreationOptions.error ?? "Failed");
-      return;
+      throw new Error(credentialCreationOptions.error ?? "Failed");
     }
 
     if (credentialCreationOptions.status === "error") {
-      toast.error(credentialCreationOptions.error ?? "Failed");
-      return;
+      throw new Error(credentialCreationOptions.error ?? "Failed");
     }
 
     const creds = credentialCreationOptions.data
@@ -44,21 +46,21 @@ async function register() {
     }) as PublicKeyCredential
 
     if (newCreds == null) {
-      toast.error("Failed to get credentials from security key")
-      return
+      throw new Error("Failed to get credentials from security key")
     }
 
     const resp = await finaliseWebauthnRegistration(newCreds)
     if (resp.status === undefined) {
-      toast.error(resp.error ?? "Failed");
-      return;
+      throw new Error(resp.error ?? "Failed");
     }
 
     if (resp.status !== "success") {
-      toast.error(resp.error ?? "Failed");
-      return;
+      throw new Error(resp.error ?? "Failed");
     }
+
+    // if we get here we're effectively waiting on a notification from the backend that auth was a success, so load forever
   } catch (e: any) {
+    isLoading.value = false
     console.log(e, e.lineNumber)
     catcher(e, "");
   }
@@ -66,7 +68,7 @@ async function register() {
 </script>
 
 <template>
-  <WebAuthnInput @submit="register" :help-mail="infoStore.helpMail" title="Verify" button-label="Verify">
+  <WebAuthnInput @submit="register" :help-mail="infoStore.helpMail" title="Verify" button-label="Verify" :loading=isLoading>
   </WebAuthnInput>
   <router-link to="/selection" v-if="infoStore.availableMfaMethods.length > 1" class="flex-1">
     <button class="btn btn-neutral btn-outline w-full">Use Another Method</button>

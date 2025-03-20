@@ -4,6 +4,7 @@ import WebAuthnInput from "@/components/WebAuthnInput.vue";
 import { useToastError } from "@/composables/useToastError";
 import router from "@/router";
 import { useWebSocketStore } from "@/store/info";
+import { ref } from "vue";
 import { useToast } from "vue-toastification";
 
 const infoStore = useWebSocketStore();
@@ -11,23 +12,25 @@ const infoStore = useWebSocketStore();
 const toast = useToast();
 const { catcher } = useToastError();
 
+
+const isLoading = ref(false)
+
 // Base64 to ArrayBuffer
 function bufferDecode(value: string) {
   return Uint8Array.from(atob(value.replace(/_/g, '/').replace(/-/g, '+')), c => c.charCodeAt(0));
 }
 
 async function authorise() {
+  isLoading.value = true
   try {
     const credentialRequestOptions = await getAuthorisationWebauthnDetails();
 
     if (credentialRequestOptions.status === undefined) {
-      toast.error(credentialRequestOptions.error ?? "Failed");
-      return;
+      throw new Error(credentialRequestOptions.error ?? "Failed");
     }
 
     if (credentialRequestOptions.status === "error") {
-      toast.error(credentialRequestOptions.error ?? "Failed");
-      return;
+      throw new Error(credentialRequestOptions.error ?? "Failed");
     }
 
     const creds = credentialRequestOptions.data
@@ -42,22 +45,21 @@ async function authorise() {
     }) as PublicKeyCredential
 
     if (newCreds == null) {
-      toast.error("Failed to get credentials from security key")
-      return
+      throw new Error("Failed to get credentials from security key")
     }
 
     const resp = await authoriseWebAuthn(newCreds)
     if (resp.status === undefined) {
-      toast.error(resp.error ?? "Failed, unknown server response.");
-      return;
+      throw new Error(resp.error ?? "Failed, unknown server response.");
     }
 
     if (resp.status !== "success") {
-      toast.error(resp.error ?? "Failed");
-      return;
+      throw new Error(resp.error ?? "Failed");
     }
 
   } catch (e: any) {
+    isLoading.value = false
+
     console.log(e, e.lineNumber)
     catcher(e, "");
   }
@@ -65,6 +67,6 @@ async function authorise() {
 </script>
 
 <template>
-  <WebAuthnInput @submit="authorise" :help-mail="infoStore.helpMail" title="Verify Your Identity"
+  <WebAuthnInput @submit="authorise" :help-mail="infoStore.helpMail" title="Verify Your Identity" :loading=isLoading
     button-label="Verify with Security Key"></WebAuthnInput>
 </template>
