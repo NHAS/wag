@@ -243,6 +243,8 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	protectedRoutes.HandleFunc("PUT /api/management/devices", adminUI.editDevice)
 	protectedRoutes.HandleFunc("DELETE /api/management/devices", adminUI.deleteDevice)
 
+	protectedRoutes.HandleFunc("GET /api/management/sessions", adminUI.getSessions)
+
 	protectedRoutes.HandleFunc("GET /api/management/registration_tokens", adminUI.getAllRegistrationTokens)
 	protectedRoutes.HandleFunc("POST /api/management/registration_tokens", adminUI.createRegistrationToken)
 	protectedRoutes.HandleFunc("DELETE /api/management/registration_tokens", adminUI.deleteRegistrationTokens)

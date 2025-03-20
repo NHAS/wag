@@ -80,6 +80,29 @@ func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 	return
 }
 
+// ListSessions returns a list of active sessions across the whole cluster
+func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
+
+	response, err := c.httpClient.Get("http://unix/device/sessions")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, errors.New(string(result))
+	}
+
+	err = json.NewDecoder(response.Body).Decode(&d)
+
+	return
+}
+
 // Take device address to remove
 func (c *CtrlClient) DeleteDevice(address string) error {
 
@@ -290,24 +313,6 @@ func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 	}
 
 	return acl, nil
-}
-
-func (c *CtrlClient) Sessions() (out []string, err error) {
-
-	response, err := c.httpClient.Get("http://unix/device/sessions")
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	result, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(result, &out)
-
-	return
 }
 
 func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {

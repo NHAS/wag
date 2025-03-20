@@ -46,7 +46,7 @@ async function determinePath() {
       console.log("default")
       router.push(path + info.defaultMFAMethod)
     } else {
-      console.log("selection")
+      console.log("detemined selection")
       router.push("/selection")
     }
   } catch (error) {

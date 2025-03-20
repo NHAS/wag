@@ -44,10 +44,6 @@ func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	for i := range devices {
-		devices[i].Active = wsg.firewall.IsAuthed(devices[i].Address)
-	}
-
 	b, err := json.Marshal(devices)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,7 +122,7 @@ func (wsg *WagControlSocketServer) unlockDevice(w http.ResponseWriter, r *http.R
 func (wsg *WagControlSocketServer) sessions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	sessions, err := wsg.firewall.GetAllAuthorised()
+	sessions, err := data.GetAllSessions()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -10,6 +10,11 @@ import { useUsersStore } from '@/stores/users'
 import { useDevicesStore } from '@/stores/devices'
 import { useTokensStore } from '@/stores/registration_tokens'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
+import { useSessionsStore } from '@/stores/sessions'
+
+
+const sessionStore = useSessionsStore()
+sessionStore.load(false)
 
 const devicesStore = useDevicesStore()
 devicesStore.load(false)
@@ -67,12 +72,12 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
               <div>{{ lockedDevices.length + ' locked device' + (lockedDevices.length > 1 ? 's' : '') }}</div>
             </div>
           </router-link>
-          <router-link to="/management/devices" class="card-compact bg-base-100 shadow-xl border-l-4 border-primary">
+          <router-link to="/management/devices/active" class="card-compact bg-base-100 shadow-xl border-l-4 border-primary">
             <div class="card-body">
               <h5 class="card-title">View Active Sessions</h5>
               <div>
                 {{
-                  devicesStore.numActive() + ' active sessions'
+                  sessionStore.numSessions() + ' active sessions'
                 }}
               </div>
             </div>

@@ -29,6 +29,7 @@ export interface ChallengeAuthorisationRequestDTO {
 
 export interface AuthorisationResponseDTO {
   type: string;
+  authorisation_time: string
   challenge: string;
   info: UserInfoDTO;
 }

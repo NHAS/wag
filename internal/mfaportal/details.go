@@ -54,6 +54,12 @@ func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
 	}
 	r.listenerKeys = append(r.listenerKeys, deviceKey)
 
+	sessionsKey, err := data.RegisterEventListener(data.DeviceSessionPrefix, true, r.sessionChanges)
+	if err != nil {
+		return nil, err
+	}
+	r.listenerKeys = append(r.listenerKeys, sessionsKey)
+
 	return r, nil
 }
 
@@ -76,6 +82,18 @@ func (c *Challenger) Close() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Challenger) sessionChanges(_ string, current, previous data.DeviceSession, et data.EventType) error {
+
+	log.Println(et, current)
+
+	switch et {
+	case data.DELETED:
+		c.UpdateState(current.Address)
+	}
+
+	return nil
 }
 
 func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
@@ -235,7 +253,15 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 		return
 	}
 
-	err = SendNotifyAuth(conn, device.Challenge, info, writeWait)
+	challenge, err := device.GetSensitiveChallenge()
+	if err != nil {
+		log.Printf("failed to get challenge %q, err: %s", device.Address, err)
+		c.Disconnect(device.Address, "Failed to get challenge from device", true)
+		return
+	}
+
+	// The reason we dont use device.Challenge directly here is because it is taken from the event stream and Challenge is redacted :)
+	err = SendNotifyAuth(conn, challenge, info, device.Authorised, writeWait)
 	if err != nil {
 		c.Disconnect(device.Address, "Failed to write", true)
 		return

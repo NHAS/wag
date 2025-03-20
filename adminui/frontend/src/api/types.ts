@@ -17,12 +17,16 @@ export interface RegistrationTokenRequestDTO {
 export interface DeviceDTO {
   owner: string
   is_locked: boolean
-  active: boolean
   internal_ip: string
   public_key: string
   last_endpoint: string
 }
 
+export interface SessionDTO {
+  username: string
+  address: string
+  session_started: string
+}
 export interface EditDevicesDTO {
   action: DeviceEditActions
   addresses: string[]

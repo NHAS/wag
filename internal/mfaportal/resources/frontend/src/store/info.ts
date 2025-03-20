@@ -84,9 +84,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
       switch (data.type) {
         case "info":
-          if(state.value.userInfo !== null) {
             state.value.userInfo = data;
-          }
           break
         case "endpoint-change-challenge":
           sendChallenge()

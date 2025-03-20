@@ -94,10 +94,11 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 
 	controlMux := http.NewServeMux()
 
+	controlMux.HandleFunc("GET /device/sessions", srvSock.sessions)
+
 	controlMux.HandleFunc("GET /device/list", srvSock.listDevices)
 	controlMux.HandleFunc("POST /device/lock", srvSock.lockDevice)
 	controlMux.HandleFunc("POST /device/unlock", srvSock.unlockDevice)
-	controlMux.HandleFunc("GET /device/sessions", srvSock.sessions)
 	controlMux.HandleFunc("POST /device/delete", srvSock.deleteDevice)
 
 	controlMux.HandleFunc("GET /users/groups", srvSock.getUserGroups)

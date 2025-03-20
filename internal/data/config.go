@@ -171,8 +171,13 @@ func getObject[T any](key string) (ret T, err error) {
 		return ret, err
 	}
 
-	if len(resp.Kvs) != 1 {
-		return ret, fmt.Errorf("incorrect number of %s keys", key)
+	if len(resp.Kvs) == 0 {
+		return ret, fmt.Errorf("no %s keys", key)
+
+	}
+
+	if len(resp.Kvs) > 1 {
+		return ret, fmt.Errorf("incorrect number of %s keys (>1)", key)
 	}
 
 	b := bytes.NewBuffer(resp.Kvs[0].Value)
@@ -693,6 +698,7 @@ func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
 	return err
 }
 
+// If value is below 0 that means the max session is infinite (i.e disabled)
 func GetSessionLifetimeMinutes() (int, error) {
 	sessionLifeTime, err := getInt(SessionLifetimeKey)
 	if err != nil {

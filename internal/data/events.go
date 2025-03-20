@@ -40,6 +40,7 @@ const (
 const (
 	DevicesPrefix         = "devices-"
 	DeviceChallengePrefix = "devicechallenge-"
+	DeviceSessionPrefix   = "devicesession-"
 
 	UsersPrefix           = "users-"
 	GroupMembershipPrefix = MembershipKey + "-"
@@ -77,6 +78,9 @@ func DeregisterEventListener(key string) error {
 	return nil
 }
 
+// RegisterEventListener allows you to register a callback that will be fired when a key, or prefix is modified in etcd
+// This callback will be run in a gothread
+// Any structure elements that are marked with `sensitive:"yes"` will be zero'd
 func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
 
 	options := []clientv3.OpOption{
@@ -162,7 +166,7 @@ func redact[T any](input T) (redacted []byte) {
 
 	defer func() {
 		if e := recover(); e != nil {
-			log.Println("redacting paniced: ", e)
+			log.Println("redacting panicked: ", e)
 		}
 	}()
 

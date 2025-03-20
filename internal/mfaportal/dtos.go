@@ -129,16 +129,18 @@ func ReadChallenge(conn *websocket.Conn, duration time.Duration) (ChallengeRespo
 
 type AuthorisedDTO struct {
 	TypeDTO
-	Info      UserInfoDTO `json:"info"`
-	Challenge string      `json:"challenge"`
+	AuthorisationTime time.Time   `json:"authorisation_time"`
+	Info              UserInfoDTO `json:"info"`
+	Challenge         string      `json:"challenge"`
 }
 
-func SendNotifyAuth(conn *websocket.Conn, challenge string, info UserInfoDTO, duration time.Duration) error {
+func SendNotifyAuth(conn *websocket.Conn, challenge string, info UserInfoDTO, authTime time.Time, duration time.Duration) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	res := AuthorisedDTO{
-		Challenge: challenge,
-		Info:      info,
+		AuthorisationTime: authTime,
+		Challenge:         challenge,
+		Info:              info,
 	}
 	res.Type = Authorised
 

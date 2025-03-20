@@ -16,7 +16,11 @@ import { useDevicesStore } from '@/stores/devices'
 import { Icons } from '@/util/icons'
 
 import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
+import { useSessionsStore } from '@/stores/sessions'
 
+
+const sessionStore = useSessionsStore()
+sessionStore.load(true)
 
 const devicesStore = useDevicesStore()
 devicesStore.load(true)
@@ -31,7 +35,7 @@ const filterActive = ref(route.params.filter == 'active')
 const filterLocked = ref(route.params.filter == 'locked')
 
 const filteredDevices = computed(() => {
-  const arr = allDevices.value.filter(a => (a.active || !filterActive.value)).filter(a => a.is_locked || !filterLocked.value)
+  const arr = allDevices.value.filter(a => (sessionStore.deviceActive(a.internal_ip) || !filterActive.value)).filter(a => a.is_locked || !filterLocked.value)
 
   if (filterText.value == '') {
     return arr
@@ -53,7 +57,7 @@ const toast = useToast()
 const { catcher } = useToastError()
 
 async function updateDevices(addresses: string[], action: DeviceEditActions) {
-  if(addresses.length == 0) {
+  if (addresses.length == 0) {
     return
   }
 
@@ -78,7 +82,7 @@ async function updateDevices(addresses: string[], action: DeviceEditActions) {
 }
 
 async function tryDeleteDevices(rules: string[]) {
-  if(rules.length == 0) {
+  if (rules.length == 0) {
     return
   }
 
@@ -137,17 +141,17 @@ watch(selectAll, (newValue) => {
 })
 
 watch(selectedDevices, (newVal) => {
-  if(newVal.length == 0) {
+  if (newVal.length == 0) {
     selectAll.value = false
   }
 })
 
 const selectedDevicesHasLocked = computed(() => {
-  if(selectedDevices.value.length == 0) {
+  if (selectedDevices.value.length == 0) {
     return false
   }
 
-  return   allDevices.value.some(i => selectedDevices.value.includes(i.internal_ip) && i.is_locked)
+  return allDevices.value.some(i => selectedDevices.value.includes(i.internal_ip) && i.is_locked)
 })
 
 </script>
@@ -170,18 +174,22 @@ const selectedDevicesHasLocked = computed(() => {
                 <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
                   <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
-              <div class="tooltip" :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ')+selectedDevices.length+' devices'">
-                <button @click="updateDevices(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)" class="btn btn-ghost btn-primary">{{selectedDevicesHasLocked ? 'Unlock' : 'Lock'}} 
+              <div class="tooltip"
+                :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ') + selectedDevices.length + ' devices'">
+                <button
+                  @click="updateDevices(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
+                  class="btn btn-ghost btn-primary">{{ selectedDevicesHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
-              <div class="tooltip" :data-tip="'Delete '+selectedDevices.length+' devices'">
-                <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)" >
-                <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+              <div class="tooltip" :data-tip="'Delete ' + selectedDevices.length + ' devices'">
+                <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)">
+                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon
+                      :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>
 
-            
+
             <span class="flex">
               <label class="label cursor-pointer mr-4">
                 <span class="label-text mr-2">Locked</span>
@@ -200,10 +208,9 @@ const selectedDevicesHasLocked = computed(() => {
             <thead>
               <tr>
                 <th class="w-10">
-                    <input type="checkbox" class="checkbox" v-model="selectAll"/>
+                  <input type="checkbox" class="checkbox" v-model="selectAll" />
                 </th>
                 <th class="cursor-pointer" @click="sortDevices('owner')">Owner</th>
-                <th class="cursor-pointer" @click="sortDevices('active')">Active</th>
                 <th class="cursor-pointer" @click="sortDevices('internal_ip')">Address</th>
                 <th class="cursor-pointer" @click="sortDevices('public_key')">Public Key</th>
                 <th class="cursor-pointer" @click="sortDevices('last_endpoint')">Last Endpoint</th>
@@ -213,13 +220,10 @@ const selectedDevicesHasLocked = computed(() => {
             <tbody>
               <tr class="hover group" v-for="device in currentDevices" :key="device.internal_ip">
                 <th>
-                    <input type="checkbox" class="checkbox" v-model="selectedDevices" :value="device.internal_ip"/>
+                  <input type="checkbox" class="checkbox" v-model="selectedDevices" :value="device.internal_ip" />
                 </th>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.owner }}</div>
-                </td>
-                <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.active }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.internal_ip }}</div>

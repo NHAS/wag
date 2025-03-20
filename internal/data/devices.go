@@ -28,7 +28,6 @@ type Device struct {
 	PresharedKey   string `sensitive:"yes"`
 	Endpoint       *net.UDPAddr
 	Attempts       int
-	Active         bool
 	Authorised     time.Time
 	Challenge      string `sensitive:"yes"`
 	AssociatedNode types.ID
@@ -41,7 +40,7 @@ type DeviceChallenge struct {
 }
 
 func ValidateChallenge(username, address, challenge string) error {
-	dc, err := GetDeviceChallenge(username, address)
+	dc, err := getObject[DeviceChallenge](DeviceChallengePrefix + username + "-" + address)
 	if err != nil {
 		return err
 	}
@@ -66,16 +65,18 @@ func ValidateChallenge(username, address, challenge string) error {
 	return nil
 }
 
-func GetDeviceChallenge(username, address string) (DeviceChallenge, error) {
-	return getObject[DeviceChallenge](DeviceChallengePrefix + username + "-" + address)
-}
-
 func (d Device) ChallengeExists() error {
 	_, err := getObject[DeviceChallenge](DeviceChallengePrefix + d.Username + "-" + d.Address)
 	return err
 }
 
-func (d Device) SetChallenge(device Device) error {
+func (d Device) GetSensitiveChallenge() (string, error) {
+	deviceWithChallenge, err := getObject[Device](DevicesPrefix + d.Username + "-" + d.Address)
+
+	return deviceWithChallenge.Challenge, err
+}
+
+func (d Device) SetChallenge() error {
 
 	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 30)
 	if err != nil {
@@ -83,7 +84,7 @@ func (d Device) SetChallenge(device Device) error {
 	}
 
 	var dc DeviceChallenge
-	dc.Challenge = device.Challenge
+	dc.Challenge = d.Challenge
 	dc.Address = d.Address
 	dc.Username = d.Username
 
@@ -100,7 +101,7 @@ func (d Device) String() string {
 		authorised = d.Authorised.Format(time.DateTime)
 	}
 
-	return fmt.Sprintf("device[%s:%s:%s][active: %t, attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Active, d.Attempts, authorised)
+	return fmt.Sprintf("device[%s:%s:%s][attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Attempts, authorised)
 }
 
 // UpdateDeviceConnectionDetails updates the endpoint we are receiving packets from and the associated cluster node
@@ -197,7 +198,10 @@ func AuthoriseDevice(username, address string) error {
 		device.AssociatedNode = GetServerID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
-		device.Challenge = ""
+		device.Challenge, err = utils.GenerateRandomHex(32)
+		if err != nil {
+			return "", err
+		}
 
 		b, _ := json.Marshal(device)
 
@@ -207,7 +211,71 @@ func AuthoriseDevice(username, address string) error {
 		return fmt.Errorf("failed to update device authorisation state: %s", err)
 	}
 
-	return nil
+	return markDeviceSessionStarted(address, username)
+}
+
+type DeviceSession struct {
+	Address  string    `json:"address"`
+	Username string    `json:"username"`
+	Started  time.Time `json:"session_started"`
+}
+
+func GetAllSessions() (sessions []DeviceSession, err error) {
+
+	response, err := etcd.Get(context.Background(), DeviceSessionPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+
+	// otherwise json returns null
+	sessions = []DeviceSession{}
+	for _, res := range response.Kvs {
+		var session DeviceSession
+		err := json.Unmarshal(res.Value, &session)
+		if err != nil {
+			return nil, err
+		}
+
+		sessions = append(sessions, session)
+	}
+
+	return sessions, nil
+}
+
+func markDeviceSessionStarted(address, username string) error {
+
+	ops := []clientv3.OpOption{}
+
+	maxSession, err := GetSessionLifetimeMinutes()
+	if err != nil {
+		return err
+	}
+
+	// sessions are permanently active unless logged out if max Session is disabled
+	if maxSession > 0 {
+		// turn maxSession into seconds for etcd
+		lease, err := clientv3.NewLease(etcd).Grant(context.Background(), int64(maxSession)*60)
+		if err != nil {
+			return err
+		}
+
+		ops = append(ops, clientv3.WithLease(lease.ID))
+	}
+
+	var ds DeviceSession
+	ds.Address = address
+	ds.Username = username
+	ds.Started = time.Now()
+
+	b, _ := json.Marshal(ds)
+
+	_, err = etcd.Put(context.Background(), DeviceSessionPrefix+address, string(b), ops...)
+	return err
+}
+
+func markDeviceSessionEnded(address string) error {
+	_, err := etcd.Delete(context.Background(), DeviceSessionPrefix+address)
+	return err
 }
 
 func DeauthenticateDevice(address string) error {
@@ -221,7 +289,7 @@ func DeauthenticateDevice(address string) error {
 		return errors.New("device was not found")
 	}
 
-	return doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
+	err = doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("user device has multiple keys")
 		}
@@ -238,6 +306,11 @@ func DeauthenticateDevice(address string) error {
 
 		return string(b), err
 	})
+	if err != nil {
+		return err
+	}
+
+	return markDeviceSessionEnded(address)
 }
 
 func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
@@ -408,12 +481,18 @@ func deleteDeviceOps(d Device) []clientv3.Op {
 	ipRef := deviceRef + d.Address
 	publicKeyRef := deviceRef + d.Publickey
 
+	sessionRef := DeviceSessionPrefix + d.Address
+
 	challengeKey := DeviceChallengePrefix + d.Username + "-" + d.Address
 
 	return []clientv3.Op{
 		clientv3.OpDelete(key),
+
 		clientv3.OpDelete(ipRef),
 		clientv3.OpDelete(publicKeyRef),
+
+		clientv3.OpDelete(sessionRef),
+
 		clientv3.OpDelete("allocated_ips/" + d.Address),
 		clientv3.OpDelete(challengeKey),
 	}
