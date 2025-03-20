@@ -117,11 +117,18 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 			}
 		}
 
-		if current.Attempts != previous.Attempts && !current.Authorised.Equal(previous.Authorised) &&
-			(current.Attempts > lockout || // If the device has become locked
-				current.Attempts < lockout || // if the device has become unlocked
-				current.Authorised.IsZero()) { // If we've explicitly deauthorised a device (logout)
+		if current.Attempts != previous.Attempts &&
+			(
+			// If the device has become locked
+			current.Attempts > lockout ||
+				// if the device has become unlocked
+				current.Attempts < lockout) {
 
+			sendUpdate = true
+		}
+
+		// If we've explicitly deauthorised a device (logout)
+		if !current.Authorised.Equal(previous.Authorised) && current.Authorised.IsZero() {
 			sendUpdate = true
 		}
 
