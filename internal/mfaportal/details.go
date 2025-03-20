@@ -37,6 +37,8 @@ type Challenger struct {
 
 	connections map[string]*websocket.Conn
 
+	userToConnections map[string]map[string]bool
+
 	listenerKeys []string
 
 	firewall *router.Firewall
@@ -44,8 +46,9 @@ type Challenger struct {
 
 func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
 	r := &Challenger{
-		firewall:    firewall,
-		connections: make(map[string]*websocket.Conn),
+		firewall:          firewall,
+		connections:       make(map[string]*websocket.Conn),
+		userToConnections: make(map[string]map[string]bool),
 	}
 
 	var err error
@@ -61,6 +64,12 @@ func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
 	}
 	r.listenerKeys = append(r.listenerKeys, sessionsKey)
 
+	usersKey, err := data.RegisterEventListener(data.UsersPrefix, true, r.userChanges)
+	if err != nil {
+		return nil, err
+	}
+	r.listenerKeys = append(r.listenerKeys, usersKey)
+
 	return r, nil
 }
 
@@ -73,6 +82,7 @@ func (c *Challenger) Close() error {
 		go conn.Close(websocket.StatusGoingAway, "Going away")
 	}
 	clear(c.connections)
+	clear(c.userToConnections)
 
 	errs := []error{}
 	for _, l := range c.listenerKeys {
@@ -85,11 +95,25 @@ func (c *Challenger) Close() error {
 	return errors.Join(errs...)
 }
 
+func (c *Challenger) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
+
+	switch et {
+
+	case data.MODIFIED:
+		c.UpdateUserState(current.Username)
+
+	case data.DELETED:
+		c.DisconnectAllDevices(current.Username, "Account deleted")
+	}
+
+	return nil
+}
+
 func (c *Challenger) sessionChanges(_ string, current, previous data.DeviceSession, et data.EventType) error {
 
 	switch et {
 	case data.DELETED:
-		c.UpdateState(current.Address)
+		c.UpdateState(current.Username, current.Address)
 	}
 
 	return nil
@@ -106,7 +130,7 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 
 	switch et {
 	case data.DELETED:
-		c.Disconnect(current.Address, "Device deleted.", true)
+		c.Disconnect(current.Username, current.Address, "Device deleted.", true)
 	case data.MODIFIED:
 		// If the real world ip endpoint has changed
 		if current.Endpoint.String() != previous.Endpoint.String() {
@@ -140,10 +164,27 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 	}
 
 	if sendUpdate {
-		c.UpdateState(current.Address)
+		c.UpdateState(current.Username, current.Address)
 	}
 
 	return nil
+
+}
+
+func (c *Challenger) UpdateUserState(username string) {
+	addresses := c.getAlluserConnections(username)
+
+	for _, address := range addresses {
+		go c.UpdateState(username, address)
+	}
+}
+
+func (c *Challenger) DisconnectAllDevices(username string, reason string) {
+	addresses := c.getAlluserConnections(username)
+
+	for _, address := range addresses {
+		go c.Disconnect(username, address, reason, true)
+	}
 
 }
 
@@ -158,13 +199,13 @@ func (c *Challenger) Challenge(username, address string) error {
 	err := wsjson.Write(ctx, conn, Challenge())
 	cancel()
 	if err != nil {
-		c.Disconnect(address, "Bad connection", false)
+		c.Disconnect(username, address, "Bad connection", false)
 		return err
 	}
 
 	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
-		c.Disconnect(address, "No challenge response", false)
+		c.Disconnect(username, address, "No challenge response", false)
 		return err
 	}
 
@@ -246,6 +287,24 @@ func (c *Challenger) getConnection(address string) *websocket.Conn {
 	return conn
 }
 
+func (c *Challenger) getAlluserConnections(username string) []string {
+	c.RLock()
+	defer c.RUnlock()
+
+	var addresses []string
+
+	for address := range c.userToConnections[username] {
+		_, ok := c.connections[address]
+		if !ok {
+			continue
+		}
+
+		addresses = append(addresses, address)
+	}
+
+	return addresses
+}
+
 func (c *Challenger) NotifyOfAuth(device data.Device) {
 
 	conn := c.getConnection(device.Address)
@@ -256,27 +315,27 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 	info, err := c.createInfoDTO(device.Address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", device.Address, err)
-		c.Disconnect(device.Address, "Failed to create dto", true)
+		c.Disconnect(device.Username, device.Address, "Failed to create dto", true)
 		return
 	}
 
 	challenge, err := device.GetSensitiveChallenge()
 	if err != nil {
 		log.Printf("failed to get challenge %q, err: %s", device.Address, err)
-		c.Disconnect(device.Address, "Failed to get challenge from device", true)
+		c.Disconnect(device.Username, device.Address, "Failed to get challenge from device", true)
 		return
 	}
 
 	// The reason we dont use device.Challenge directly here is because it is taken from the event stream and Challenge is redacted :)
 	err = SendNotifyAuth(conn, challenge, info, device.Authorised, writeWait)
 	if err != nil {
-		c.Disconnect(device.Address, "Failed to write", true)
+		c.Disconnect(device.Username, device.Address, "Failed to write", true)
 		return
 	}
 
 }
 
-func (c *Challenger) UpdateState(address string) {
+func (c *Challenger) UpdateState(username, address string) {
 
 	conn := c.getConnection(address)
 	if conn == nil {
@@ -286,7 +345,7 @@ func (c *Challenger) UpdateState(address string) {
 	info, err := c.createInfoDTO(address)
 	if err != nil {
 		log.Printf("failed to get state update for device %q, err: %s", address, err)
-		c.Disconnect(address, "Failed to create dto", true)
+		c.Disconnect(username, address, "Failed to create dto", true)
 		return
 	}
 
@@ -295,12 +354,12 @@ func (c *Challenger) UpdateState(address string) {
 	cancel()
 	if err != nil {
 		log.Printf("failed to write state to %s, err: %s", address, err)
-		c.Disconnect(address, "Failed to write", true)
+		c.Disconnect(username, address, "Failed to write", true)
 		return
 	}
 }
 
-func (c *Challenger) Disconnect(address, reason string, force bool) {
+func (c *Challenger) Disconnect(username, address, reason string, force bool) {
 	conn := c.getConnection(address)
 	if conn == nil {
 		return
@@ -308,6 +367,10 @@ func (c *Challenger) Disconnect(address, reason string, force bool) {
 
 	c.Lock()
 	delete(c.connections, address)
+	u, ok := c.userToConnections[username]
+	if ok {
+		delete(u, address)
+	}
 	c.Unlock()
 
 	if !force {
@@ -355,6 +418,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		if entry, ok := c.connections[clientTunnelIp.String()]; ok && entry == conn {
 			delete(c.connections, clientTunnelIp.String())
 		}
+
+		if u, ok := c.userToConnections[user.Username]; ok {
+			delete(u, clientTunnelIp.String())
+		}
+
 		c.Unlock()
 
 	}()
@@ -362,8 +430,16 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(maxMessageSize)
 
 	c.Lock()
+	u, ok := c.userToConnections[user.Username]
+	if !ok {
+		u = make(map[string]bool)
+		c.userToConnections[user.Username] = u
+	}
+	u[clientTunnelIp.String()] = true
+
 	prev, ok := c.connections[clientTunnelIp.String()]
 	c.connections[clientTunnelIp.String()] = conn
+
 	c.Unlock()
 
 	// This looks a bit funky, but effectively, .Close here can wait for up to 5s for the client to respond.
