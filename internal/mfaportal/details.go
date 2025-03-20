@@ -172,9 +172,8 @@ func (c *Challenger) Challenge(username, address string) error {
 	if potentialChallenge.Challenge != "" && !c.firewall.IsAuthed(address) {
 
 		err = data.ValidateChallenge(username, address, potentialChallenge.Challenge)
-		if err != nil {
-			log.Println("client failed challenge: ", err)
-		} else {
+		// intentional == nil
+		if err == nil {
 			err = data.AuthoriseDevice(username, address)
 			if err != nil {
 				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
