@@ -85,42 +85,48 @@ func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et d
 		return fmt.Errorf("cannot get lockout: %s", err)
 	}
 
+	sendUpdate := false
+
 	switch et {
 	case data.DELETED:
 		c.Disconnect(current.Address, "Device deleted.", true)
 	case data.MODIFIED:
+		// If the real world ip endpoint has changed
 		if current.Endpoint.String() != previous.Endpoint.String() {
-			if err := current.ChallengeExists(); err != nil {
-				c.UpdateState(current)
-
-			} else {
+			sendUpdate = true
+			// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
+			if err := current.ChallengeExists(); err == nil {
 				c.Challenge(current.Username, current.Address)
 			}
 		}
 
-		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
-			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
-			c.UpdateState(current)
-		}
+		if current.Attempts > lockout || // If the device has become locked
+			current.Attempts < lockout || // if the device has become unlocked
+			current.Authorised.IsZero() { // If we've explicitly deauthorised a device (logout)
 
-		// give a notification when an device is unlocked as well
-		if current.Attempts < lockout {
-			c.UpdateState(current)
+			sendUpdate = true
 		}
 
 		if data.HasDeviceAuthorised(current, previous) {
 			c.NotifyOfAuth(current)
+			// Notify auth sends a state update with it
+			sendUpdate = false
 		}
 	}
+
+	if sendUpdate {
+		c.UpdateState(current.Address)
+	}
+
 	return nil
 
 }
 
-func (c *Challenger) Challenge(username, address string) {
+func (c *Challenger) Challenge(username, address string) error {
 
 	conn := c.getConnection(address)
 	if conn == nil {
-		return
+		return errors.New("connection wasnt found")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), writeWait)
@@ -128,13 +134,13 @@ func (c *Challenger) Challenge(username, address string) {
 	cancel()
 	if err != nil {
 		c.Disconnect(address, "Bad connection", false)
-		return
+		return err
 	}
 
 	potentialChallenge, err := ReadChallenge(conn, readWait)
 	if err != nil {
 		c.Disconnect(address, "No challenge response", false)
-		return
+		return err
 	}
 
 	// Lets make sure people cant auth if they're already authed and extend their session time for no reason
@@ -151,6 +157,7 @@ func (c *Challenger) Challenge(username, address string) {
 		}
 	}
 
+	return nil
 }
 
 func (c *Challenger) getMfaMethods() []MFAMethod {
@@ -236,17 +243,17 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 
 }
 
-func (c *Challenger) UpdateState(d data.Device) {
+func (c *Challenger) UpdateState(address string) {
 
-	conn := c.getConnection(d.Address)
+	conn := c.getConnection(address)
 	if conn == nil {
 		return
 	}
 
-	info, err := c.createInfoDTO(d.Address)
+	info, err := c.createInfoDTO(address)
 	if err != nil {
-		log.Printf("failed to get state update for device %q, err: %s", d.Address, err)
-		c.Disconnect(d.Address, "Failed to create dto", true)
+		log.Printf("failed to get state update for device %q, err: %s", address, err)
+		c.Disconnect(address, "Failed to create dto", true)
 		return
 	}
 
@@ -254,8 +261,8 @@ func (c *Challenger) UpdateState(d data.Device) {
 	err = wsjson.Write(ctx, conn, info)
 	cancel()
 	if err != nil {
-		log.Printf("failed to write state to %s, err: %s", d.Address, err)
-		c.Disconnect(d.Address, "Failed to write", true)
+		log.Printf("failed to write state to %s, err: %s", address, err)
+		c.Disconnect(address, "Failed to write", true)
 		return
 	}
 }
@@ -349,7 +356,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.Challenge(user.Username, clientTunnelIp.String())
+	err = c.Challenge(user.Username, clientTunnelIp.String())
+	if err != nil {
+		log.Println("failed to request challenge: ", err)
+		return
+	}
 
 	for {
 
