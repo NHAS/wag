@@ -65,7 +65,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
   // Handle WebSocket open event
   const handleOpen = () => {
     console.log("WebSocket connection established");
-    state.value.isConnected = true;
     state.value.isConnecting = false;
     state.value.reconnectAttempts = 0;
   };
@@ -90,6 +89,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
         case "info":
             updateState(data)
             state.value.userInfo = data;
+            state.value.isConnected = true;
           break
         case "endpoint-change-challenge":
           sendChallenge()
