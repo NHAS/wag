@@ -1062,7 +1062,23 @@ func BenchmarkFirewallEvaluate(b *testing.B) {
 	}
 }
 
-func addDevices(fw *Firewall) error {
+func addDevices() error {
+
+	c := make(chan bool)
+	numDevices := 0
+	key, err := data.RegisterEventListener(data.DevicesPrefix, true, func(key string, current, previous data.Device, et data.EventType) error {
+		switch et {
+		case data.CREATED:
+			numDevices++
+			if numDevices >= len(devices) {
+				c <- true
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
 
 	for _, device := range devices {
 
@@ -1076,6 +1092,10 @@ func addDevices(fw *Firewall) error {
 			return fmt.Errorf("unable to add peer: %s: err: %s", device.Address, err)
 		}
 	}
+	<-c
+	close(c)
+
+	data.DeleteRegistrationToken(key)
 	return nil
 }
 
@@ -1100,7 +1120,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = addDevices(testFw)
+	err = addDevices()
 	if err != nil {
 		log.Println("unable to add devices: ", err)
 		os.Exit(1)
