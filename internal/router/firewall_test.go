@@ -18,7 +18,6 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var (
@@ -1072,13 +1071,9 @@ func addDevices(fw *Firewall) error {
 			return fmt.Errorf("failed to create data account: %s", err)
 		}
 
-		k, err := wgtypes.ParseKey(device.Publickey)
+		_, err = data.AddDevice(device.Username, device.Publickey, device.Address)
 		if err != nil {
-			return fmt.Errorf("failed to parse key: %s, err %s", device.Publickey, err)
-		}
-		err = fw.AddPeer(k, device.Username, device.Address, device.PresharedKey, device.AssociatedNode)
-		if err != nil {
-			return fmt.Errorf("unable to create peer: %s: err: %s", device.Address, err)
+			return fmt.Errorf("unable to add peer: %s: err: %s", device.Address, err)
 		}
 	}
 	return nil
