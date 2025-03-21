@@ -26,6 +26,8 @@ import {
   getWebservers,
   editWebserver
 } from '@/api'
+import { Icons } from '@/util/icons'
+import { copyToClipboard } from '@/util/clipboard'
 
 const toast = useToast()
 const { catcher } = useToastError()
@@ -231,13 +233,35 @@ function doesTunnelHaveDomain() {
 function doesTunnelHaveTLS() {
   return webserversSettingsData.value.some(x => x.server_name == 'tunnel' && x.tls)
 }
+
+
+function makeSSOCallbackURL() {
+
+  let scheme = "http://"
+  if (doesTunnelHaveTLS()) {
+    scheme = "https://"
+  }
+
+  let tunnelWebServer = webserversSettingsData.value.find(x => x.server_name == "tunnel")
+  if (tunnelWebServer === undefined || tunnelWebServer === null) {
+    return "N/A"
+  }
+
+  let host = tunnelWebServer.domain
+  if (tunnelWebServer.domain == "") {
+    host = tunnelWebServer.listen_address
+  }
+
+  let path = scheme + host + "/api/oidc/authorise/callback"
+  return path
+}
+
 </script>
 
 <template>
   <main class="w-full p-4">
     <PageLoading
-      v-if="isLoadingGeneralSettings || isLoadingLoginSettings || isLoadingMFATypes || isLoadingAcmeSettings || isLoadingWebserverSettings"
-    />
+      v-if="isLoadingGeneralSettings || isLoadingLoginSettings || isLoadingMFATypes || isLoadingAcmeSettings || isLoadingWebserverSettings" />
 
     <div v-else>
       <h1 class="text-4xl font-bold">Settings</h1>
@@ -246,6 +270,8 @@ function doesTunnelHaveTLS() {
           <div class="card bg-base-100 shadow-xl min-w-[350px]">
             <div class="card-body">
               <h2 class="card-title">General</h2>
+
+
 
               <div class="form-control">
                 <label class="label font-bold">
@@ -265,17 +291,14 @@ function doesTunnelHaveTLS() {
                 <label class="label font-bold">
                   <span class="label-text">Wireguard Config Filename</span>
                 </label>
-                <input
-                  v-model="generalData.wireguard_config_filename"
-                  type="text"
-                  placeholder="hunter2"
-                  class="input input-bordered w-full"
-                />
+                <input v-model="generalData.wireguard_config_filename" type="text" placeholder="hunter2"
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label for="dns" class="block font-medium text-gray-900 pt-6">DNS</label>
-                <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="textValue"></textarea>
+                <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
+                  v-model="textValue"></textarea>
               </div>
 
               <div class="flex flex-grow"></div>
@@ -294,14 +317,16 @@ function doesTunnelHaveTLS() {
                 <label class="label font-bold">
                   <span class="label-text">Session Life Time (Minutes)</span>
                 </label>
-                <input v-model="loginSettingsData.max_session_lifetime_minutes" type="number" class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.max_session_lifetime_minutes" type="number"
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Inactivity Timeout (Minutes)</span>
                 </label>
-                <input v-model="loginSettingsData.session_inactivity_timeout_minutes" type="number" class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.session_inactivity_timeout_minutes" type="number"
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
@@ -313,18 +338,12 @@ function doesTunnelHaveTLS() {
 
               <div class="form-control w-full">
                 <label for="default_method" class="label font-bold">Default MFA Method</label>
-                <select
-                  class="select select-bordered"
-                  name="default_method"
+                <select class="select select-bordered" name="default_method"
                   v-model="loginSettingsData.default_mfa_method"
-                  :disabled="loginSettingsData.enabled_mfa_methods.length == 0"
-                >
-                  <option
-                    v-for="method in filterMfaMethods(loginSettingsData.enabled_mfa_methods, mfaTypes ?? [])"
-                    :selected="method.method == loginSettingsData.default_mfa_method"
-                    :value="method.method"
-                    :key="method.method"
-                  >
+                  :disabled="loginSettingsData.enabled_mfa_methods.length == 0">
+                  <option v-for="method in filterMfaMethods(loginSettingsData.enabled_mfa_methods, mfaTypes ?? [])"
+                    :selected="method.method == loginSettingsData.default_mfa_method" :value="method.method"
+                    :key="method.method">
                     {{ method.friendly_name }}
                   </option>
                 </select>
@@ -337,21 +356,11 @@ function doesTunnelHaveTLS() {
                     <span class="flex flex-grow"></span>
                     <span
                       v-if="method.method == loginSettingsData.default_mfa_method && loginSettingsData.enabled_mfa_methods.length > 0"
-                      class="text-gray-400 mr-4"
-                      >DEFAULT</span
-                    >
-                    <input
-                      :name="method.method"
-                      type="checkbox"
-                      class="toggle toggle-primary"
-                      :value="method.method"
-                      v-model="loginSettingsData.enabled_mfa_methods"
-                      :disabled="
-                        (!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')) ||
+                      class="text-gray-400 mr-4">DEFAULT</span>
+                    <input :name="method.method" type="checkbox" class="toggle toggle-primary" :value="method.method"
+                      v-model="loginSettingsData.enabled_mfa_methods" :disabled="(!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')) ||
                         (!doesTunnelHaveTLS() && method.method == 'webauthn')
-                      "
-                      :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1"
-                    />
+                        " :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1" />
                   </label>
                 </div>
               </div>
@@ -366,13 +375,10 @@ function doesTunnelHaveTLS() {
           </div>
 
           <div>
-            <div
-              v-if="
-                loginSettingsData.enabled_mfa_methods.indexOf('totp') != -1 ||
-                loginSettingsData.enabled_mfa_methods.indexOf('webauthn') != -1
-              "
-              class="card bg-base-100 shadow-xl min-w-[350px] h-max mb-4"
-            >
+            <div v-if="
+              loginSettingsData.enabled_mfa_methods.indexOf('totp') != -1 ||
+              loginSettingsData.enabled_mfa_methods.indexOf('webauthn') != -1
+            " class="card bg-base-100 shadow-xl min-w-[350px] h-max mb-4">
               <div class="card-body">
                 <h2 class="card-title">Login > General</h2>
 
@@ -385,7 +391,8 @@ function doesTunnelHaveTLS() {
               </div>
             </div>
 
-            <div v-if="loginSettingsData.enabled_mfa_methods.indexOf('pam') != -1" class="card bg-base-100 shadow-xl min-w-[350px] h-max">
+            <div v-if="loginSettingsData.enabled_mfa_methods.indexOf('pam') != -1"
+              class="card bg-base-100 shadow-xl min-w-[350px] h-max">
               <div class="card-body">
                 <h2 class="card-title">Login > System Login</h2>
 
@@ -393,61 +400,76 @@ function doesTunnelHaveTLS() {
                   <label class="label font-bold">
                     <span class="label-text">Service Name</span>
                   </label>
-                  <input v-model="loginSettingsData.pam.service_name" type="text" required class="input input-bordered w-full" />
+                  <input v-model="loginSettingsData.pam.service_name" type="text" required
+                    class="input input-bordered w-full" />
                 </div>
               </div>
             </div>
           </div>
 
-          <div v-if="loginSettingsData.enabled_mfa_methods.indexOf('oidc') != -1" class="card bg-base-100 shadow-xl min-w-[350px] h-max">
+          <div v-if="loginSettingsData.enabled_mfa_methods.indexOf('oidc') != -1"
+            class="card bg-base-100 shadow-xl min-w-[350px] max-w-[400px] h-max">
             <div class="card-body">
               <h2 class="card-title">Login > SSO Settings</h2>
+
+              <div class="relative">
+                <label class="label font-bold">
+                  <span class="label-text">Callback</span>
+                </label>
+                <div class="overflow-hidden text-ellipsis whitespace-nowrap mr-6">
+                  {{ makeSSOCallbackURL() }}
+                </div>
+                <button @click="copyToClipboard(makeSSOCallbackURL())" class="absolute right-0 top-9 opacity-100">
+                  <font-awesome-icon :icon="Icons.Clipboard" class="text-secondary" />
+                </button>
+              </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Provider URL</span>
                 </label>
-                <input v-model="loginSettingsData.oidc.issuer" type="text" required class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.oidc.issuer" type="text" required
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Client ID</span>
                 </label>
-                <input v-model="loginSettingsData.oidc.client_id" type="text" required class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.oidc.client_id" type="text" required
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Client Secret</span>
                 </label>
-                <input v-model="loginSettingsData.oidc.client_secret" type="password" required class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.oidc.client_secret" type="password" required
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Groups Claim Name</span>
                 </label>
-                <input v-model="loginSettingsData.oidc.group_claim_name" type="text" class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.oidc.group_claim_name" type="text"
+                  class="input input-bordered w-full" />
               </div>
 
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Device Username Claim</span>
                 </label>
-                <input v-model="loginSettingsData.oidc.device_username_claim" type="text" class="input input-bordered w-full" />
+                <input v-model="loginSettingsData.oidc.device_username_claim" type="text"
+                  class="input input-bordered w-full" />
               </div>
               <div class="form-control">
                 <label class="label font-bold">
                   <span class="label-text">Scopes</span>
                 </label>
-                <input 
-                  :value="loginSettingsData.oidc.scopes?.join(' ')" 
+                <input :value="loginSettingsData.oidc.scopes?.join(' ')"
                   @input="e => loginSettingsData.oidc.scopes = (e.target as HTMLInputElement).value.split(' ')"
-                  type="text" 
-                  class="input input-bordered w-full" 
-                  placeholder="Enter scopes separated by spaces"
-                />
+                  type="text" class="input input-bordered w-full" placeholder="Enter scopes separated by spaces" />
               </div>
             </div>
           </div>
@@ -488,14 +510,10 @@ function doesTunnelHaveTLS() {
               <div class="flex mb-2">
                 <p>TLS Method:</p>
                 <div class="flex flex-grow"></div>
-                <div
-                  class="tooltip"
-                  :data-tip="
-                    acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
-                      ? 'Acme settings have not been set'
-                      : 'ACME Method'
-                  "
-                >
+                <div class="tooltip" :data-tip="acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
+                  ? 'Acme settings have not been set'
+                  : 'ACME Method'
+                  ">
                   <p class="font-bold">
                     {{
                       acmeSettingsData.email.length == 0 || acmeSettingsData.provider_url.length == 0
@@ -510,14 +528,8 @@ function doesTunnelHaveTLS() {
               <div>
                 <div role="tablist" class="tabs tabs-bordered">
                   <template v-for="(server, index) in webserversSettingsData" :key="'webserver-' + server.server_name">
-                    <input
-                      type="radio"
-                      name="webserver-tabs"
-                      role="tab"
-                      class="tab"
-                      :aria-label="server.server_name"
-                      :checked="index == 0"
-                    />
+                    <input type="radio" name="webserver-tabs" role="tab" class="tab" :aria-label="server.server_name"
+                      :checked="index == 0" />
                     <div role="tabpanel" class="tab-content p-10">
                       <label class="label font-bold">
                         <span class="label-text">Domain</span>
@@ -528,17 +540,12 @@ function doesTunnelHaveTLS() {
                         <label class="label font-bold">
                           <span class="label-text">Port</span>
                         </label>
-                        <input
-                          :value="server.listen_address.split(':')[1] || ''"
-                          @input="
-                            (e: Event) => {
-                              const [host] = server.listen_address.split(':')
-                              server.listen_address = `${host}:${(e.target as HTMLInputElement).value}`
-                            }
-                          "
-                          type="number"
-                          class="input input-bordered w-full"
-                        />
+                        <input :value="server.listen_address.split(':')[1] || ''" @input="
+                          (e: Event) => {
+                            const [host] = server.listen_address.split(':')
+                            server.listen_address = `${host}:${(e.target as HTMLInputElement).value}`
+                          }
+                        " type="number" class="input input-bordered w-full" />
                       </template>
                       <template v-else>
                         <label class="label font-bold">
@@ -549,28 +556,19 @@ function doesTunnelHaveTLS() {
 
                       <label class="label font-bold">
                         <span class="label-text">TLS</span>
-                        <span
-                          :class="serverCanHaveTLS(server.domain) ? '' : 'tooltip'"
-                          data-tip="Domain name required and ACME configuration must be valid"
-                        >
-                          <input
-                            v-model="server.tls"
-                            type="checkbox"
-                            class="toggle toggle-primary"
-                            :disabled="!serverCanHaveTLS(server.domain) && !server.tls"
-                          />
+                        <span :class="serverCanHaveTLS(server.domain) ? '' : 'tooltip'"
+                          data-tip="Domain name required and ACME configuration must be valid">
+                          <input v-model="server.tls" type="checkbox" class="toggle toggle-primary"
+                            :disabled="!serverCanHaveTLS(server.domain) && !server.tls" />
                         </span>
                       </label>
                     </div>
                   </template>
                 </div>
               </div>
-              <ConfirmModal
-                v-if="getModifiedServers().some(s => s.server_name == 'management')"
-                @on-cancel="refreshWebservers"
-                @on-confirm="saveServerSettings"
-                body="Editing the management interface may stop you from being able to manage wag, are you sure you want to proceed?"
-              >
+              <ConfirmModal v-if="getModifiedServers().some(s => s.server_name == 'management')"
+                @on-cancel="refreshWebservers" @on-confirm="saveServerSettings"
+                body="Editing the management interface may stop you from being able to manage wag, are you sure you want to proceed?">
                 <button type="submit" class="btn btn-primary w-full">
                   <span class="loading loading-spinner loading-md" v-if="isLoadingWebserverSettings"></span>
                   Save
