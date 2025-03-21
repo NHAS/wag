@@ -7,7 +7,6 @@ import { ref, onMounted } from 'vue';
 
 const toast = useToast();
 const { catcher } = useToastError();
-const info = useWebSocketStore();
 
 const isLoggingOut = ref(false);
 
@@ -24,8 +23,7 @@ async function doLogout() {
     isLoggingOut.value = true;
     const resp = await logout();
     if (!resp) {
-      toast.error("Failed to logout");
-      isLoggingOut.value = false;
+      throw new Error("Failed to logout");
       return;
     }
     // Logout success logic would go here (like redirect)
@@ -37,40 +35,29 @@ async function doLogout() {
 </script>
 
 <template>
-    <div class="card-body items-center text-center">
-      <h2 class="card-title text-2xl font-bold mb-2">Welcome Back!</h2>
-      <p class="text-base-content/70 mb-6">You've been successfully authenticated</p>
-      
-      <div class="checkmark-container">
-        <div class="w-24 h-24 bg-success rounded-full flex items-center justify-center checkmark-circle">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-success-content" fill="none" viewBox="0 0 24 24"
-            stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
+
+    <h2 class="text-center text-2xl font-bold mb-2">Welcome</h2>
+    <p class="text-sm text-center mb-6">You have successfully authenticated</p>
+
+    <div class="checkmark-container flex items-center justify-center text-center">
+      <div class="w-24 h-24 bg-success items-center justify-center rounded-full flex checkmark-circle">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-success-content" fill="none" viewBox="0 0 24 24"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
       </div>
-      
-      <div class="user-info mt-6 mb-6">
-        <div class="badge badge-primary badge-lg">{{ info.username }}</div>
-        <p class="text-sm mt-2 text-base-content/70">Logged in successfully</p>
-      </div>
-      
-      <div class="card-actions justify-center mt-2">
-        <button 
-          class="btn btn-primary btn-wide" 
-          @click="doLogout"
-          :disabled="isLoggingOut"
-        >
-          <span v-if="isLoggingOut" class="loading loading-spinner loading-xs mr-2"></span>
-          {{ isLoggingOut ? 'Logging Out...' : 'Logout' }}
-        </button>
-      </div>
+    </div>
+
+    <div class="card-actions justify-center mt-2">
+      <button class="btn btn-primary w-full" @click="doLogout" :disabled="isLoggingOut">
+        <span v-if="isLoggingOut" class="loading loading-spinner loading-xs mr-2"></span>
+        {{ isLoggingOut ? 'Logging Out...' : 'Logout' }}
+      </button>
     </div>
 
 </template>
 
 <style scoped>
-
 .checkmark-container {
   opacity: 0;
   transform: scale(0.8);
@@ -97,15 +84,4 @@ async function doLogout() {
   z-index: -1;
 }
 
-.user-info {
-  transition: all 0.3s ease;
-}
-
-.user-info:hover {
-  transform: translateY(-2px);
-}
-
-.btn-wide {
-  min-width: 12rem;
-}
 </style>
