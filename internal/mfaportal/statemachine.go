@@ -51,11 +51,16 @@ func (mp *MfaPortal) deregisterListeners() {
 }
 
 // OidcDetailsKey = "wag-config-authentication-oidc"
-func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.EventType) error {
+func (mp *MfaPortal) oidcChanges(_ string, current data.OIDC, previous data.OIDC, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Oidc)
 	case data.CREATED, data.MODIFIED:
+
+		if current.Equals(&previous) {
+			return nil
+		}
+
 		// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
 		methods, err := data.GetEnabledAuthenticationMethods()
 		if err != nil {
@@ -71,18 +76,20 @@ func (mp *MfaPortal) oidcChanges(_ string, _ data.OIDC, _ data.OIDC, et data.Eve
 	return nil
 }
 
-func (mp *MfaPortal) domainChanged(_ string, _, _ data.WebserverConfiguration, et data.EventType) error {
+func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverConfiguration, et data.EventType) error {
 	switch et {
 	case data.MODIFIED:
+		if !current.Equals(&previous) {
 
-		methods, err := data.GetEnabledAuthenticationMethods()
-		if err != nil {
-			log.Println("Couldnt get authenication methods to enable oidc: ", err)
-			return err
-		}
+			methods, err := data.GetEnabledAuthenticationMethods()
+			if err != nil {
+				log.Println("Couldnt get authenication methods to enable oidc: ", err)
+				return err
+			}
 
-		if slices.Contains(methods, string(types.Oidc)) {
-			return authenticators.ReinitialiseMethod(types.Oidc)
+			if slices.Contains(methods, string(types.Oidc)) {
+				return authenticators.ReinitialiseMethod(types.Oidc)
+			}
 		}
 	}
 
@@ -95,18 +102,24 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string,
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
 	case data.CREATED, data.MODIFIED:
-		err = authenticators.SetEnabledMethods(authenticators.StringsToMFA(current)...)
+		if !slices.Equal(current, previous) {
+			err = authenticators.SetEnabledMethods(authenticators.StringsToMFA(current)...)
+		}
 	}
 
 	return err
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
-func (mp *MfaPortal) issuerKeyChanged(_ string, _, _ string, et data.EventType) error {
+func (mp *MfaPortal) issuerKeyChanged(_ string, current, previous string, et data.EventType) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
 	case data.CREATED, data.MODIFIED:
+		if current == previous {
+			return nil
+		}
+
 		methods, err := data.GetEnabledAuthenticationMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)

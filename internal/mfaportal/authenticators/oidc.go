@@ -96,7 +96,7 @@ func (o *Oidc) Initialise() error {
 	}
 
 	u.Path = path.Join(u.Path, "/api/oidc/authorise/callback")
-	log.Println("OIDC callback: ", u.String())
+	log.Println("[PORTAL] OIDC callback: ", u.String())
 
 	if len(o.details.Scopes) == 0 {
 		o.details.Scopes = []string{"openid"}
@@ -110,7 +110,7 @@ func (o *Oidc) Initialise() error {
 		return err
 	}
 
-	log.Println("Connected to OIDC provider: ", o.details.IssuerURL)
+	log.Println("[PORTAL] Connected to OIDC provider: ", o.details.IssuerURL)
 	return nil
 }
 

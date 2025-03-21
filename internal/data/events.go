@@ -12,7 +12,6 @@ import (
 
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/queue"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -135,25 +134,22 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					}
 				}
 
-				go func(key []byte, prevKv *mvccpb.KeyValue) {
-					if err := f(string(key), currentValue, previousValue, state); err != nil {
-						log.Println("applying event failed: ", string(key), state, currentValue, "err:", err)
-						err = RaiseError(err, value)
-						if err != nil {
-							log.Println("failed to raise error with cluster: ", err)
-							return
-						}
+				if err := f(string(key), currentValue, previousValue, state); err != nil {
+					log.Println("applying event failed: ", string(key), state, currentValue, "err:", err)
+					err = RaiseError(err, value)
+					if err != nil {
+						log.Println("failed to raise error with cluster: ", err)
 						return
 					}
+					return
+				}
 
-					previous := []byte{}
-					if event.PrevKv != nil {
-						previous = redact(previousValue)
-					}
+				previous := []byte{}
+				if event.PrevKv != nil {
+					previous = redact(previousValue)
+				}
 
-					EventsQueue.Write(NewGeneralEvent(state, string(key), redact(currentValue), previous))
-
-				}(event.Kv.Key, event.PrevKv)
+				EventsQueue.Write(NewGeneralEvent(state, string(key), redact(currentValue), previous))
 
 			}
 		}

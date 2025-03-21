@@ -67,14 +67,16 @@ func (f *Firewall) deregisterEventHandlers() {
 	}
 }
 
-func (f *Firewall) inactivityTimeoutChanges(_ string, current, _ int, et data.EventType) error {
+func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int, et data.EventType) error {
 
 	switch et {
 	case data.MODIFIED, data.CREATED:
-		if err := f.SetInactivityTimeout(current); err != nil {
-			return fmt.Errorf("unable to set inactivity timeout: %s", err)
+		if current != previous {
+			if err := f.SetInactivityTimeout(current); err != nil {
+				return fmt.Errorf("unable to set inactivity timeout: %s", err)
+			}
+			log.Println("inactivity timeout changed")
 		}
-		log.Println("inactivity timeout changed")
 	}
 
 	return nil

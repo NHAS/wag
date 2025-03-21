@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -20,6 +21,18 @@ type OIDC struct {
 	GroupsClaimName     string   `json:"group_claim_name"`
 	DeviceUsernameClaim string   `json:"device_username_claim"`
 	Scopes              []string `json:"scopes"`
+}
+
+func (o *OIDC) Equals(b *OIDC) bool {
+	if o == b {
+		return true
+	}
+
+	if o == nil {
+		return false
+	}
+
+	return o.IssuerURL == b.IssuerURL && o.ClientSecret == b.ClientSecret && o.ClientID == b.ClientID && o.DeviceUsernameClaim == b.DeviceUsernameClaim && slices.Equal(o.Scopes, b.Scopes)
 }
 
 type PAM struct {
@@ -77,6 +90,18 @@ type WebserverConfiguration struct {
 	ListenAddress string `json:"listen_address"`
 	Domain        string `json:"domain"`
 	TLS           bool   `json:"tls"`
+}
+
+func (a *WebserverConfiguration) Equals(b *WebserverConfiguration) bool {
+	if a == b {
+		return true
+	}
+
+	if a == nil {
+		return false
+	}
+
+	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress
 }
 
 func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {

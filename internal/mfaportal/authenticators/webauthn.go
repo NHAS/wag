@@ -67,7 +67,6 @@ func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err e
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialise cookie storage for webauth: %w", err)
 	}
-	log.Println("Webauthn provider initialised!")
 
 	return routes, nil
 }
