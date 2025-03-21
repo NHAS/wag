@@ -217,7 +217,7 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 			continue
 		}
 
-		log.Printf("[PORTAL] %s registered", method)
+		log.Printf("[PORTAL] MFA %s registered", method)
 
 		err = handler.Initialise()
 		if err != nil {
