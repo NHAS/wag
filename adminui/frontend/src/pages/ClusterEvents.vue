@@ -176,12 +176,12 @@ function openEventInspectionModal(error: GeneralEvent) {
             <table class="table table-fixed">
               <tbody>
                 <tr
-                  class="hover"
+                  class="hover group" 
                   v-for="(event, index) in currentEvents"
                   :key="'cluster-events-' + index"
                   v-on:dblclick="openEventInspectionModal(event)"
                 >
-                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[145px]">
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[120px]">
                     {{
                       new Date(event.time).toLocaleString(undefined, {
                         weekday: 'short',
@@ -193,8 +193,8 @@ function openEventInspectionModal(error: GeneralEvent) {
                   <td class="overflow-hidden text-ellipsis whitespace-nowrap">
                     <div class="font-medium">{{ event.key }}</div>
                   </td>
-                  <td class="relative overflow-hidden text-ellipsis whitespace-nowrap">
-                    <div class="font-medium">{{ event.type }}</div>
+                  <td class="relative overflow-hidden text-ellipsis whitespace-nowrap w-[140px]">
+                    <div class="font-medium mr-6">{{ event.type }}</div>
                     <button
                       @click="openEventInspectionModal(event)"
                       class="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -228,7 +228,7 @@ function openEventInspectionModal(error: GeneralEvent) {
                   v-on:dblclick="openErrorInspectionModal(error)"
                 >
                   <!-- Time -->
-                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[145px]">
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[120px]">
                     {{
                       new Date(error.time).toLocaleString(undefined, {
                         weekday: 'short',
@@ -237,11 +237,8 @@ function openEventInspectionModal(error: GeneralEvent) {
                       })
                     }}
                   </td>
-                  <td class="overflow-hidden text-ellipsis whitespace-nowrap">
-                    <div class="font-medium">{{ error.node_id }}</div>
-                  </td>
-                  <td class="relative overflow-hidden text-ellipsis whitespace-nowrap">
-                    <div class="font-medium">{{ error.error }}</div>
+                  <td class="relative">
+                    <div class="font-medium mr-12 overflow-hidden text-ellipsis whitespace-nowrap">{{ error.error }}</div>
                     <button
                       @click="openErrorInspectionModal(error)"
                       class="absolute right-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
