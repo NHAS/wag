@@ -253,6 +253,7 @@ func markDeviceSessionStarted(address, username string) error {
 
 	// sessions are permanently active unless logged out if max Session is disabled
 	if maxSession > 0 {
+		log.Println("creating with lease for: ", maxSession*60)
 		// turn maxSession into seconds for etcd
 		lease, err := clientv3.NewLease(etcd).Grant(context.Background(), int64(maxSession)*60)
 		if err != nil {
@@ -273,7 +274,7 @@ func markDeviceSessionStarted(address, username string) error {
 	return err
 }
 
-func markDeviceSessionEnded(address string) error {
+func MarkDeviceSessionEnded(address string) error {
 	_, err := etcd.Delete(context.Background(), DeviceSessionPrefix+address)
 	return err
 }
@@ -310,7 +311,7 @@ func DeauthenticateDevice(address string) error {
 		return err
 	}
 
-	return markDeviceSessionEnded(address)
+	return MarkDeviceSessionEnded(address)
 }
 
 func SetDeviceAuthenticationAttempts(username, address string, attempts int) error {

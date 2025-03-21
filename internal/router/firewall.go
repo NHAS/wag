@@ -230,6 +230,12 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 		return fmt.Errorf("device %q was not found", address)
 	}
 
+	if device.AssociatedNode == data.GetServerID() {
+		// TODO figure out a better way of doing this
+		// when a client shifts over to us, make sure we set the last packet time to something they can actually use
+		d.lastPacketTime = time.Now()
+	}
+
 	d.associatedNode = device.AssociatedNode
 
 	return nil
@@ -457,6 +463,7 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 
 	// If the device has been inactive
 	if f.inactivityTimeout > 0 && device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
+		data.MarkDeviceSessionEnded(addr.String())
 		return false
 	}
 
