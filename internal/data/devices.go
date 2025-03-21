@@ -253,7 +253,6 @@ func markDeviceSessionStarted(address, username string) error {
 
 	// sessions are permanently active unless logged out if max Session is disabled
 	if maxSession > 0 {
-		log.Println("creating with lease for: ", maxSession*60)
 		// turn maxSession into seconds for etcd
 		lease, err := clientv3.NewLease(etcd).Grant(context.Background(), int64(maxSession)*60)
 		if err != nil {
