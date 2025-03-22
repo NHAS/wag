@@ -25,7 +25,12 @@ const getMethodIcon = (methodType: string) => {
 <template>
   <template v-if="info.isConnected">
 
-    <template v-if="info.availableMfaMethods.length == 0">
+    <template v-if="info.isRegistered && !info.availableMfaMethods.some((x) => x.method === info.state.userInfo?.user_mfa_method)">
+      <h4 class="mb-2 text-center">Your registered MFA method has been disabled.</h4>
+      <div>Please contact your administrator <a :href="'mailto:'+info.helpMail">{{ info.helpMail }}</a></div>
+    </template>
+
+    <template v-else-if="info.availableMfaMethods.length == 0">
       <h4 class="mb-2 text-center">No MFA methods, configured and enabled.</h4>
       <div>Please contact your administrator <a :href="'mailto:'+info.helpMail">{{ info.helpMail }}</a></div>
     </template>

@@ -4,8 +4,11 @@ import { RouterView } from "vue-router";
 import { useWebSocketStore } from "./store/info";
 import { onBeforeMount, onBeforeUnmount, watch, nextTick } from "vue";
 import router from "./router";
+import type { UserInfoDTO } from "./api";
 
 const info = useWebSocketStore();
+
+let previousState: UserInfoDTO | null = null;
 
 onBeforeMount(() => {
   info.connect();
@@ -49,7 +52,36 @@ function notify(title: string, message: string) {
   }
 }
 
-async function determinePath() {
+function getMFAPath(): string {
+  const path = info.isRegistered ? '/authorise/' : '/register/';
+
+  const methodsHasUserPref = (info.selectedMFAMethod !== "unset" && info.availableMfaMethods.some(x => x.method == info.selectedMFAMethod))
+  const methodsHasDefault = (info.defaultMFAMethod != "" && info.availableMfaMethods.some(x => x.method == info.defaultMFAMethod))
+
+
+  if (info.availableMfaMethods.length == 1) {
+    console.log("detemined", path + info.availableMfaMethods[0].method)
+
+    return path + info.availableMfaMethods[0].method
+  } 
+  
+  if (methodsHasDefault || methodsHasUserPref) {
+
+    let mfaMethod = info.selectedMFAMethod
+    if (methodsHasDefault) {
+      mfaMethod = info.defaultMFAMethod
+    }
+
+    console.log("detemined", path + mfaMethod)
+
+    return path + mfaMethod
+  } 
+
+  console.log("detemined selection")
+  return "/selection"
+}
+
+async function initialRouting() {
   try {
     await nextTick()
 
@@ -66,32 +98,7 @@ async function determinePath() {
       return
     }
 
-    const path = info.isRegistered ? '/authorise/' : '/register/';
-
-    const methodsHasUserPref = (info.selectedMFAMethod !== "unset" && info.availableMfaMethods.some(x => x.method == info.selectedMFAMethod))
-    const methodsHasDefault = (info.defaultMFAMethod != "" && info.availableMfaMethods.some(x => x.method == info.defaultMFAMethod))
-
-
-    if (info.availableMfaMethods.length == 1) {
-      console.log("detemined", path + info.availableMfaMethods[0].method)
-
-      router.push(path + info.availableMfaMethods[0].method)
-    } else if (methodsHasDefault || methodsHasUserPref) {
-
-
-      let mfaMethod = info.selectedMFAMethod
-      if(methodsHasDefault) {
-        mfaMethod = info.defaultMFAMethod
-      }
-   
-      console.log("detemined", path + mfaMethod)
-
-      router.push(path + mfaMethod)
-
-    } else {
-      console.log("detemined selection")
-      router.push("/selection")
-    }
+    router.push(getMFAPath())
 
     if (info.availableMfaMethods.length > 0) {
       if (info.isRegistered) {
@@ -103,19 +110,93 @@ async function determinePath() {
 
   } catch (error) {
     console.error('Navigation error:', error);
+  } finally {
+    previousState = info.state.userInfo
+  }
+}
+
+async function stateUpdate() {
+  try {
+    await nextTick()
+
+
+    let currentState = info.state.userInfo
+    if (currentState == null) {
+      return
+    }
+
+    if (previousState === null) {
+      return
+    }
+
+
+    const isLocked = currentState.account_locked || currentState.device_locked
+    if (currentState.account_locked != previousState.account_locked || currentState.device_locked != previousState.device_locked) {
+      //if we have become locked
+      if(isLocked) {
+        notify("VPN Locked", "Your device has been locked. Please contact help")
+        router.push("/locked");
+        return
+      }
+    
+      // we have become unlocked
+      router.push(getMFAPath())
+      return
+    }
+
+    const isAuthorised = currentState.is_authorized && currentState.has_registered
+    if (currentState.is_authorized != previousState.is_authorized) {
+      //we have authorised
+      if(isAuthorised) {
+        router.push("/success")
+        return
+      }
+
+      notify("VPN Authoirsation Required", "Please authenticate with the VPN")
+      // we have had a session expire, or logged out
+      router.push(getMFAPath())
+      return
+    }
+
+    if(router.currentRoute.value.name != null) {
+
+      const currentRouteName = router.currentRoute.value.name.toString()
+      const isAuthPage = currentRouteName.includes("auth") || currentRouteName.includes("register")
+
+      if(isAuthPage) {
+        const currentMethods = new Map(currentState.available_mfa_methods.map((o) => [o.method, true]));
+
+        // If we are on an mfa method page (registration/authorisation) that has been disabled
+        if(!currentMethods.has(currentRouteName.replace("_auth", "").replace("_register", ""))) {
+          router.push(getMFAPath())
+          return
+        }
+      }
+
+    }
+
+
+  } catch (error) {
+    console.error('Navigation error:', error);
+  } finally {
+    previousState = info.state.userInfo
   }
 }
 
 // if we've already magically connected 
 if (info.isConnected) {
-  determinePath()
+  initialRouting()
 }
 
 // Set a watch to change the application state on any new updates
 watch(info, async newState => {
   if (newState.isConnected) {
-    console.log("state changed: ", newState.state)
-    determinePath()
+    console.log("state update: ", previousState == null, newState.state)
+    if (previousState == null) {
+      initialRouting()
+    } else {
+      stateUpdate()
+    }
   }
 })
 

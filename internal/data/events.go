@@ -134,7 +134,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					}
 				}
 
-				if err := f(string(key), currentValue, previousValue, state); err != nil {
+				if err := f(string(event.Kv.Key), currentValue, previousValue, state); err != nil {
 					log.Println("applying event failed: ", string(key), state, currentValue, "err:", err)
 					err = RaiseError(err, value)
 					if err != nil {
@@ -149,7 +149,7 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 					previous = redact(previousValue)
 				}
 
-				EventsQueue.Write(NewGeneralEvent(state, string(key), redact(currentValue), previous))
+				go EventsQueue.Write(NewGeneralEvent(state, string(event.Kv.Key), redact(currentValue), previous))
 
 			}
 		}

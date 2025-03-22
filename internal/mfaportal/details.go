@@ -220,7 +220,7 @@ func (c *Challenger) UpdateAll() {
 
 func (c *Challenger) UpdateUserState(username string) {
 	addresses := c.getAlluserConnections(username)
-
+	log.Println("Updating addresses: ", addresses, username, c.userToConnections)
 	for _, address := range addresses {
 		go c.UpdateState(username, address)
 	}
@@ -386,6 +386,7 @@ func (c *Challenger) UpdateState(username, address string) {
 
 	conn := c.getConnection(address)
 	if conn == nil {
+		log.Println("coult not get connection: ", address)
 		return
 	}
 
@@ -404,6 +405,8 @@ func (c *Challenger) UpdateState(username, address string) {
 		c.Disconnect(username, address, "Failed to write", true)
 		return
 	}
+
+	log.Println("Send state: ", info)
 }
 
 func (c *Challenger) Disconnect(username, address, reason string, force bool) {
