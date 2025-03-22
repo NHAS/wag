@@ -463,7 +463,6 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 
 	// If the device has been inactive
 	if f.inactivityTimeout > 0 && device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
-		data.MarkDeviceSessionEnded(addr.String())
 		return false
 	}
 

@@ -158,6 +158,11 @@ async function stateUpdate() {
       return
     }
 
+    if (currentState.has_registered != previousState.has_registered) {
+      router.push(getMFAPath())
+      return
+    }
+
     if(router.currentRoute.value.name != null) {
 
       const currentRouteName = router.currentRoute.value.name.toString()

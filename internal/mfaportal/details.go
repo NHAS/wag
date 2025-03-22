@@ -220,7 +220,6 @@ func (c *Challenger) UpdateAll() {
 
 func (c *Challenger) UpdateUserState(username string) {
 	addresses := c.getAlluserConnections(username)
-	log.Println("Updating addresses: ", addresses, username, c.userToConnections)
 	for _, address := range addresses {
 		go c.UpdateState(username, address)
 	}
@@ -406,7 +405,6 @@ func (c *Challenger) UpdateState(username, address string) {
 		return
 	}
 
-	log.Println("Send state: ", info)
 }
 
 func (c *Challenger) Disconnect(username, address, reason string, force bool) {
@@ -467,10 +465,9 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		// Check to make sure the entry we remove from the map is our entry and not some random entry
 		if entry, ok := c.connections[clientTunnelIp.String()]; ok && entry == conn {
 			delete(c.connections, clientTunnelIp.String())
-		}
-
-		if u, ok := c.userToConnections[user.Username]; ok {
-			delete(u, clientTunnelIp.String())
+			if u, ok := c.userToConnections[user.Username]; ok {
+				delete(u, clientTunnelIp.String())
+			}
 		}
 
 		c.Unlock()
