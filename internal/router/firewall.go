@@ -3,6 +3,7 @@ package router
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/netip"
@@ -45,16 +46,7 @@ type Firewall struct {
 
 	nodeID types.ID
 
-	listenerKeys struct {
-		Device     string
-		Membership string
-
-		Users string
-		Acls  string
-
-		Groups  string
-		Timeout string
-	}
+	watchers []io.Closer
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
@@ -242,6 +234,7 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 }
 
 func (f *Firewall) SetAuthorized(address string, node types.ID) error {
+
 	f.Lock()
 	defer f.Unlock()
 

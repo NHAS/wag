@@ -39,6 +39,7 @@ type AdminUI struct {
 
 	listenerEvents struct {
 		clusterHealth string
+		watchers      []io.Closer
 	}
 
 	clusterState   string
@@ -275,7 +276,14 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	notifications := make(chan NotificationDTO, 1)
 	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
-	data.RegisterEventListener(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
+
+	errorNotf, err := data.Watch(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
+	if err == nil {
+		adminUI.listenerEvents.watchers = append(adminUI.listenerEvents.watchers, errorNotf)
+	} else {
+		log.Println("failed to register websockets listener: ", err)
+	}
+
 	go adminUI.monitorClusterMembers(notifications)
 
 	should, err := data.ShouldCheckUpdates()

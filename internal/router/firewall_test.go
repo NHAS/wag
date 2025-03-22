@@ -1066,7 +1066,7 @@ func addDevices() error {
 
 	c := make(chan bool)
 	numDevices := 0
-	key, err := data.RegisterEventListener(data.DevicesPrefix, true, func(key string, current, previous data.Device, et data.EventType) error {
+	w, err := data.Watch(data.DevicesPrefix, true, func(key string, et data.EventType, current, previous data.Device) error {
 		switch et {
 		case data.CREATED:
 			numDevices++
@@ -1095,7 +1095,7 @@ func addDevices() error {
 	<-c
 	close(c)
 
-	data.DeleteRegistrationToken(key)
+	w.Close()
 	return nil
 }
 

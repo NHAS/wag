@@ -12,28 +12,8 @@ import (
 
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/queue"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
-)
-
-type EventType int
-
-func (ev EventType) String() string {
-	switch ev {
-	case CREATED:
-		return "created"
-	case DELETED:
-		return "deleted"
-	case MODIFIED:
-		return "modified"
-	}
-
-	return "unknown event type"
-}
-
-const (
-	CREATED = EventType(iota)
-	DELETED
-	MODIFIED
 )
 
 const (
@@ -62,7 +42,7 @@ var (
 	exit        = make(chan bool)
 )
 
-func DeregisterEventListener(key string) error {
+func deregisterEventListener(key string) error {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()
 	cancelFunc, ok := contextMaps[key]
@@ -80,11 +60,9 @@ func DeregisterEventListener(key string) error {
 // RegisterEventListener allows you to register a callback that will be fired when a key, or prefix is modified in etcd
 // This callback will be run in a gothread
 // Any structure elements that are marked with `sensitive:"yes"` will be zero'd
-func RegisterEventListener[T any](path string, isPrefix bool, f func(key string, current, previous T, et EventType) error) (string, error) {
+func registerEventListener[T any](path string, isPrefix bool, f func(key string, et mvccpb.Event_EventType, empty, modified bool, state T) error) (string, error) {
 
-	options := []clientv3.OpOption{
-		clientv3.WithPrevKV(),
-	}
+	options := []clientv3.OpOption{}
 
 	if isPrefix {
 		options = append(options, clientv3.WithPrefix())
@@ -100,56 +78,78 @@ func RegisterEventListener[T any](path string, isPrefix bool, f func(key string,
 	contextMaps[key] = cancel
 	lck.Unlock()
 
-	wc := etcd.Watch(ctx, path, options...)
-	go func(wc clientv3.WatchChan) {
-		defer cancel()
-		for watchEvent := range wc {
-			for _, event := range watchEvent.Events {
+	type Notification struct {
+		state     T
+		key       string
+		eventType mvccpb.Event_EventType
+		empty     bool
+		modified  bool
+	}
 
-				var (
-					value = event.Kv.Value
-					state EventType
-				)
-				if event.Type == clientv3.EventTypeDelete {
-					state = DELETED
-					value = event.PrevKv.Value
-				} else if event.PrevKv == nil {
-					state = CREATED
-				} else {
-					state = MODIFIED
+	output := make(chan Notification, 1)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			case current, ok := <-output:
+				if !ok {
+					return
 				}
 
-				var currentValue, previousValue T
-				err := json.Unmarshal(value, &currentValue)
-				if err != nil {
-					log.Println("unable to unmarshal current type: ", path, string(value), err)
-					continue
-				}
-
-				if event.PrevKv != nil {
-					err = json.Unmarshal(event.PrevKv.Value, &previousValue)
+				if err := f(current.key, current.eventType, current.empty, current.modified, current.state); err != nil {
+					log.Println("applying event failed: ", current.eventType, string(current.key), current.state, "err:", err)
+					value, _ := json.Marshal(current.state)
+					err = RaiseError(err, value)
 					if err != nil {
-						log.Println("unable to unmarshal previous type: ", err)
+						log.Println("failed to raise error with cluster: ", err)
 						continue
 					}
 				}
 
-				if err := f(string(event.Kv.Key), currentValue, previousValue, state); err != nil {
-					log.Println("applying event failed: ", string(key), state, currentValue, "err:", err)
-					err = RaiseError(err, value)
-					if err != nil {
-						log.Println("failed to raise error with cluster: ", err)
-						return
+			}
+
+		}
+	}()
+
+	wc := etcd.Watch(ctx, path, options...)
+	go func(wc clientv3.WatchChan) {
+		defer cancel()
+		for watchEvent := range wc {
+
+			if err := watchEvent.Err(); err != nil {
+				log.Println("got watch error: ", err, path)
+				return
+			}
+
+			for _, event := range watchEvent.Events {
+
+				go func() {
+					var n Notification
+					n.key = string(event.Kv.Key)
+					n.empty = true
+					n.eventType = event.Type
+					n.modified = event.IsModify()
+
+					if event.Type != mvccpb.DELETE {
+						err := json.Unmarshal(event.Kv.Value, &n.state)
+						if err != nil {
+							log.Println("unable to unmarshal current type: ", path, string(event.Kv.Value), err)
+							return
+						}
+
+						n.empty = false
 					}
-					return
-				}
 
-				previous := []byte{}
-				if event.PrevKv != nil {
-					previous = redact(previousValue)
-				}
+					select {
+					case <-ctx.Done():
+						return
+					case output <- n:
+					default:
+					}
 
-				go EventsQueue.Write(NewGeneralEvent(state, string(event.Kv.Key), redact(currentValue), previous))
+				}()
 
 			}
 		}
@@ -219,7 +219,7 @@ type GeneralEvent struct {
 	} `json:"state"`
 }
 
-func NewGeneralEvent(eType EventType, key string, currentState, previousState []byte) GeneralEvent {
+func NewGeneralEvent(eType mvccpb.Event_EventType, key string, currentState, previousState []byte) GeneralEvent {
 	return GeneralEvent{
 		Type: eType.String(),
 		Key:  key,

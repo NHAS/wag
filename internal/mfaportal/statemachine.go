@@ -10,48 +10,36 @@ import (
 )
 
 func (mp *MfaPortal) registerListeners() error {
-	var err error
 
-	mp.listenerKeys.Oidc, err = data.RegisterEventListener(data.OidcDetailsKey, false, mp.oidcChanges)
+	o, err := data.Watch(data.OidcDetailsKey, false, mp.oidcChanges)
 	if err != nil {
 		return err
 	}
+	mp.watchers = append(mp.watchers, o)
 
-	mp.listenerKeys.Domain, err = data.RegisterEventListener(data.TunnelWebServerConfigKey, false, mp.domainChanged)
+	d, err := data.Watch(data.TunnelWebServerConfigKey, false, mp.domainChanged)
 	if err != nil {
 		return err
 	}
+	mp.watchers = append(mp.watchers, d)
 
-	mp.listenerKeys.MFAMethods, err = data.RegisterEventListener(data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
+	m, err := data.Watch(data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
 	if err != nil {
 		return err
 	}
+	mp.watchers = append(mp.watchers, m)
 
-	mp.listenerKeys.Issuer, err = data.RegisterEventListener(data.IssuerKey, false, mp.issuerKeyChanged)
+	i, err := data.Watch(data.IssuerKey, false, mp.issuerKeyChanged)
 	if err != nil {
 		return err
 	}
+	mp.watchers = append(mp.watchers, i)
+
 	return nil
 }
 
-func (mp *MfaPortal) deregisterListeners() {
-	eventKeys := []string{
-		mp.listenerKeys.Oidc,
-		mp.listenerKeys.Domain,
-		mp.listenerKeys.MFAMethods,
-		mp.listenerKeys.Issuer,
-	}
-
-	for _, key := range eventKeys {
-		err := data.DeregisterEventListener(key)
-		if err != nil {
-			log.Println("failed to deregister: ", err)
-		}
-	}
-}
-
 // OidcDetailsKey = "wag-config-authentication-oidc"
-func (mp *MfaPortal) oidcChanges(_ string, current data.OIDC, previous data.OIDC, et data.EventType) error {
+func (mp *MfaPortal) oidcChanges(_ string, et data.EventType, current data.OIDC, previous data.OIDC) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Oidc)
@@ -76,7 +64,7 @@ func (mp *MfaPortal) oidcChanges(_ string, current data.OIDC, previous data.OIDC
 	return nil
 }
 
-func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverConfiguration, et data.EventType) error {
+func (mp *MfaPortal) domainChanged(_ string, et data.EventType, current, previous data.WebserverConfiguration) error {
 	switch et {
 	case data.MODIFIED:
 		if !current.Equals(&previous) {
@@ -97,7 +85,7 @@ func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverCon
 }
 
 // MethodsEnabledKey    = "wag-config-authentication-methods"
-func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string, et data.EventType) (err error) {
+func (mp *MfaPortal) enabledMethodsChanged(_ string, et data.EventType, current, previous []string) (err error) {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
@@ -111,7 +99,7 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, current, previous []string,
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
-func (mp *MfaPortal) issuerKeyChanged(_ string, current, previous string, et data.EventType) error {
+func (mp *MfaPortal) issuerKeyChanged(_ string, et data.EventType, current, previous string) error {
 	switch et {
 	case data.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)

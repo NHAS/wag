@@ -129,9 +129,9 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 	}()
 }
 
-func (au *AdminUI) receiveErrorNotifications(notifications chan<- NotificationDTO) func(key string, current, previous data.EventError, et data.EventType) error {
+func (au *AdminUI) receiveErrorNotifications(notifications chan<- NotificationDTO) func(key string, et data.EventType, current, previous data.EventError) error {
 
-	return func(key string, current, previous data.EventError, et data.EventType) error {
+	return func(key string, et data.EventType, current, previous data.EventError) error {
 		switch et {
 		case data.CREATED:
 

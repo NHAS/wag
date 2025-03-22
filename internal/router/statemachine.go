@@ -12,62 +12,48 @@ import (
 )
 
 func (f *Firewall) handleEvents() error {
-	var err error
 
-	f.listenerKeys.Device, err = data.RegisterEventListener(data.DevicesPrefix, true, f.deviceChanges)
+	d, err := data.Watch(data.DevicesPrefix, true, f.deviceChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, d)
 
-	f.listenerKeys.Membership, err = data.RegisterEventListener(data.GroupMembershipPrefix, true, f.membershipChanges)
+	mp, err := data.Watch(data.GroupMembershipPrefix, true, f.membershipChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, mp)
 
-	f.listenerKeys.Users, err = data.RegisterEventListener(data.UsersPrefix, true, f.userChanges)
+	u, err := data.Watch(data.UsersPrefix, true, f.userChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, u)
 
-	f.listenerKeys.Acls, err = data.RegisterEventListener(data.AclsPrefix, true, f.aclsChanges)
+	a, err := data.Watch(data.AclsPrefix, true, f.aclsChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, a)
 
-	f.listenerKeys.Groups, err = data.RegisterEventListener(data.GroupsPrefix, true, f.groupChanges)
+	g, err := data.Watch(data.GroupsPrefix, true, f.groupChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, g)
 
-	f.listenerKeys.Timeout, err = data.RegisterEventListener(data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
+	t, err := data.Watch(data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
 	if err != nil {
 		return err
 	}
+	f.watchers = append(f.watchers, t)
 
 	return nil
 
 }
 
-func (f *Firewall) deregisterEventHandlers() {
-
-	eventKeys := []string{
-		f.listenerKeys.Device,
-		f.listenerKeys.Membership,
-		f.listenerKeys.Users,
-		f.listenerKeys.Acls,
-		f.listenerKeys.Groups,
-		f.listenerKeys.Timeout,
-	}
-
-	for _, key := range eventKeys {
-		err := data.DeregisterEventListener(key)
-		if err != nil {
-			log.Println("failed to deregister: ", err)
-		}
-	}
-}
-
-func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int, et data.EventType) error {
+func (f *Firewall) inactivityTimeoutChanges(_ string, et data.EventType, current, previous int) error {
 
 	switch et {
 	case data.MODIFIED, data.CREATED:
@@ -82,10 +68,10 @@ func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int, et 
 	return nil
 }
 
-func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
-
+func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous data.Device) error {
 	switch et {
 	case data.DELETED:
+
 		err := f.RemovePeer(current.Publickey, current.Address)
 		if err != nil {
 			return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
@@ -103,6 +89,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		log.Println("added peer: ", current.Address)
 
 	case data.MODIFIED:
+
 		if current.Publickey != previous.Publickey {
 			key, _ := wgtypes.ParseKey(current.Publickey)
 			err := f.ReplacePeer(previous, key)
@@ -168,6 +155,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 		// If the authorisation state has changed and is not disabled
 		if data.HasDeviceAuthorised(current, previous) {
 			err := f.SetAuthorized(current.Address, current.AssociatedNode)
+
 			if err != nil {
 				return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 			}
@@ -182,7 +170,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device, et dat
 	return nil
 }
 
-func (f *Firewall) membershipChanges(key string, _, _ []string, et data.EventType) error {
+func (f *Firewall) membershipChanges(key string, et data.EventType, _, _ []string) error {
 	username := strings.TrimPrefix(key, data.GroupMembershipPrefix)
 
 	switch et {
@@ -198,7 +186,7 @@ func (f *Firewall) membershipChanges(key string, _, _ []string, et data.EventTyp
 	return nil
 }
 
-func (f *Firewall) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
+func (f *Firewall) userChanges(_ string, et data.EventType, current, previous data.UserModel) error {
 	switch et {
 	case data.CREATED:
 		err := f.AddUser(current.Username)
@@ -239,7 +227,7 @@ func (f *Firewall) userChanges(_ string, current, previous data.UserModel, et da
 	return nil
 }
 
-func (f *Firewall) aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error {
+func (f *Firewall) aclsChanges(_ string, et data.EventType, _, _ acls.Acl) error {
 	// TODO refresh the users that the acl applies to as a potential performance improvement
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
@@ -253,7 +241,7 @@ func (f *Firewall) aclsChanges(_ string, _, _ acls.Acl, et data.EventType) error
 	return nil
 }
 
-func (f *Firewall) groupChanges(_ string, current, _ []string, et data.EventType) error {
+func (f *Firewall) groupChanges(_ string, et data.EventType, current, _ []string) error {
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"slices"
@@ -40,7 +41,7 @@ type Challenger struct {
 
 	userToConnections map[string]map[string]bool
 
-	listenerKeys []string
+	watchers []io.Closer
 
 	firewall *router.Firewall
 }
@@ -53,29 +54,29 @@ func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
 	}
 
 	var err error
-	deviceKey, err := data.RegisterEventListener(data.DevicesPrefix, true, r.deviceChanges)
+	w, err := data.Watch(data.DevicesPrefix, true, r.deviceChanges)
 	if err != nil {
 		return nil, err
 	}
-	r.listenerKeys = append(r.listenerKeys, deviceKey)
+	r.watchers = append(r.watchers, w)
 
-	sessionsKey, err := data.RegisterEventListener(data.DeviceSessionPrefix, true, r.sessionChanges)
+	s, err := data.Watch(data.DeviceSessionPrefix, true, r.sessionChanges)
 	if err != nil {
 		return nil, err
 	}
-	r.listenerKeys = append(r.listenerKeys, sessionsKey)
+	r.watchers = append(r.watchers, s)
 
-	usersKey, err := data.RegisterEventListener(data.UsersPrefix, true, r.userChanges)
+	u, err := data.Watch(data.UsersPrefix, true, r.userChanges)
 	if err != nil {
 		return nil, err
 	}
-	r.listenerKeys = append(r.listenerKeys, usersKey)
+	r.watchers = append(r.watchers, u)
 
-	mfaMethods, err := data.RegisterEventListener(data.MFAMethodsEnabledKey, false, r.mfaChanges)
+	m, err := data.Watch(data.MFAMethodsEnabledKey, false, r.mfaChanges)
 	if err != nil {
 		return nil, err
 	}
-	r.listenerKeys = append(r.listenerKeys, mfaMethods)
+	r.watchers = append(r.watchers, m)
 
 	return r, nil
 }
@@ -91,18 +92,14 @@ func (c *Challenger) Close() error {
 	clear(c.connections)
 	clear(c.userToConnections)
 
-	errs := []error{}
-	for _, l := range c.listenerKeys {
-		err := data.DeregisterEventListener(l)
-		if err != nil {
-			errs = append(errs, err)
-		}
+	for _, w := range c.watchers {
+		w.Close()
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
-func (c *Challenger) mfaChanges(_ string, current, previous []string, et data.EventType) error {
+func (c *Challenger) mfaChanges(_ string, et data.EventType, current, previous []string) error {
 
 	switch et {
 
@@ -116,7 +113,7 @@ func (c *Challenger) mfaChanges(_ string, current, previous []string, et data.Ev
 	return nil
 }
 
-func (c *Challenger) userChanges(_ string, current, previous data.UserModel, et data.EventType) error {
+func (c *Challenger) userChanges(_ string, et data.EventType, current, previous data.UserModel) error {
 
 	switch et {
 
@@ -134,7 +131,7 @@ func (c *Challenger) userChanges(_ string, current, previous data.UserModel, et 
 	return nil
 }
 
-func (c *Challenger) sessionChanges(_ string, current, previous data.DeviceSession, et data.EventType) error {
+func (c *Challenger) sessionChanges(_ string, et data.EventType, current, previous data.DeviceSession) error {
 	switch et {
 	case data.DELETED:
 		c.UpdateState(current.Username, current.Address)
@@ -143,7 +140,7 @@ func (c *Challenger) sessionChanges(_ string, current, previous data.DeviceSessi
 	return nil
 }
 
-func (c *Challenger) deviceChanges(_ string, current, previous data.Device, et data.EventType) error {
+func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previous data.Device) error {
 
 	lockout, err := data.GetLockout()
 	if err != nil {

@@ -148,7 +148,7 @@ func (a *AutoTLS) HalfClose(what data.Webserver) {
 
 func (a *AutoTLS) registerEventListeners() error {
 
-	_, err := data.RegisterEventListener(data.AcmeDNS01CloudflareAPIToken, false, func(_ string, current, previous data.CloudflareToken, ev data.EventType) error {
+	_, err := data.Watch(data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
 		if ev == data.DELETED || current.APIToken == "" {
 			a.issuer.DNS01Solver = nil
 		} else {
@@ -167,7 +167,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.AcmeEmailKey, false, func(_, current, previous string, ev data.EventType) error {
+	_, err = data.Watch(data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.Email = current
 		if ev == data.DELETED {
@@ -180,7 +180,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = data.RegisterEventListener(data.AcmeProviderKey, false, func(_, current, previous string, ev data.EventType) error {
+	_, err = data.Watch(data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.CA = current
 		if ev == data.DELETED {
@@ -193,7 +193,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	webserverEventsFunc := func(key string, current, previous data.WebserverConfiguration, ev data.EventType) error {
+	webserverEventsFunc := func(key string, ev data.EventType, current, previous data.WebserverConfiguration) error {
 
 		webserverTarget := data.Webserver(strings.TrimPrefix(key, data.WebServerConfigKey))
 		a.RLock()
@@ -221,22 +221,14 @@ func (a *AutoTLS) registerEventListeners() error {
 		return preserveError
 	}
 
-	_, err = data.RegisterEventListener(data.TunnelWebServerConfigKey, false, webserverEventsFunc)
-	if err != nil {
-		return err
-	}
+	_, err = data.WatchMulti([]string{
+		data.TunnelWebServerConfigKey,
+		data.PublicWebServerConfigKey,
+		data.ManagementWebServerConfigKey,
+	}, false,
+		webserverEventsFunc)
 
-	_, err = data.RegisterEventListener(data.PublicWebServerConfigKey, false, webserverEventsFunc)
-	if err != nil {
-		return err
-	}
-
-	_, err = data.RegisterEventListener(data.ManagementWebServerConfigKey, false, webserverEventsFunc)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, details *data.WebserverConfiguration) error {
