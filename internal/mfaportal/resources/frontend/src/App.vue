@@ -60,24 +60,24 @@ function getMFAPath(): string {
 
 
   if (info.availableMfaMethods.length == 1) {
-    console.log("detemined", path + info.availableMfaMethods[0].method)
+    console.log(info.availableMfaMethods.length)
+    console.log("determined", path + info.availableMfaMethods[0].method)
 
     return path + info.availableMfaMethods[0].method
   } 
+
+
+  if(methodsHasUserPref && info.isRegistered) {
+    console.log("determined user pref")
+    return path + info.selectedMFAMethod 
+  }
   
-  if (methodsHasDefault || methodsHasUserPref) {
-
-    let mfaMethod = info.selectedMFAMethod
-    if (methodsHasDefault) {
-      mfaMethod = info.defaultMFAMethod
-    }
-
-    console.log("detemined", path + mfaMethod)
-
-    return path + mfaMethod
+  if (methodsHasDefault) {
+    console.log("determined default")
+    return path + info.defaultMFAMethod
   } 
 
-  console.log("detemined selection")
+  console.log("determined selection")
   return "/selection"
 }
 
@@ -86,14 +86,14 @@ async function initialRouting() {
     await nextTick()
 
     if (info.isDeviceLocked || info.isAccountLocked) {
-      console.log("detemined locked")
+      console.log("determined locked")
       router.push("/locked")
       notify("VPN Locked", "Your device has been locked. Please contact help")
       return
     }
 
     if (info.isAuthorised) {
-      console.log("detemined authed")
+      console.log("determined authed")
       router.push("/success")
       return
     }
