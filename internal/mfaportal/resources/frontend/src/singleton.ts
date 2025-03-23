@@ -34,7 +34,7 @@ export class SingleInstanceManager {
             case 'instance-active':
                 this.channel.close();
                 this.vueApplication.unmount()
-                document.body.innerHTML = '<div>Application is already running in another tab. Please use that tab instead.</div>'
+                document.body.innerHTML = '<div>Application is running in another tab. Please reload this page, or use that instance.</div>'
                 break;
             default:
                 console.log("unknown broadcast event ", type, "ignoring")
