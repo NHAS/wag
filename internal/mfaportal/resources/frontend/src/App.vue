@@ -129,7 +129,6 @@ async function stateUpdate() {
       return
     }
 
-
     const isLocked = currentState.account_locked || currentState.device_locked
     if (currentState.account_locked != previousState.account_locked || currentState.device_locked != previousState.device_locked) {
       //if we have become locked
@@ -202,6 +201,8 @@ watch(info, async newState => {
     } else {
       stateUpdate()
     }
+  } else {
+    router.push("/")
   }
 })
 
