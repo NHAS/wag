@@ -134,8 +134,8 @@ func Watch[T any](
 }
 
 func (s *Watcher[T]) Close() error {
-	lck.Lock()
-	defer lck.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	clear(s.states)
 

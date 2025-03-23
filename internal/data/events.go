@@ -47,7 +47,7 @@ func deregisterEventListener(key string) error {
 	defer clusterHealthLck.Unlock()
 	cancelFunc, ok := contextMaps[key]
 	if !ok {
-		return fmt.Errorf("even listener was not found: %s", key)
+		return fmt.Errorf("event listener was not found: %s", key)
 	}
 
 	cancelFunc()
@@ -115,7 +115,10 @@ func registerEventListener[T any](path string, isPrefix bool, f func(key string,
 
 	wc := etcd.Watch(ctx, path, options...)
 	go func(wc clientv3.WatchChan) {
-		defer cancel()
+		defer func() {
+			cancel()
+			close(output)
+		}()
 		for watchEvent := range wc {
 
 			if err := watchEvent.Err(); err != nil {
