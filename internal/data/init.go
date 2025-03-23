@@ -132,7 +132,7 @@ func Load(path, joinToken string, testing bool) error {
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 	cfg.AutoCompactionMode = "periodic"
 	cfg.AutoCompactionRetention = "1h"
-	//cfg.SnapshotCount = 10000
+	cfg.SnapshotCount = 50000
 
 	cfg.PeerTLSInfo.ClientCertAuth = true
 	cfg.PeerTLSInfo.TrustedCAFile = TLSManager.GetCACertPath()
@@ -196,31 +196,9 @@ func Load(path, joinToken string, testing bool) error {
 
 	}
 
-	go collectEvents()
 	go checkClusterHealth()
 
 	return nil
-}
-
-func collectEvents() {
-
-	// wc := etcd.Watch(context.Background(), "", clientv3.WithPrefix())
-	// for watchEvent := range wc {
-
-	// 	if err := watchEvent.Err(); err != nil {
-	// 		log.Println("got watch error: ", err)
-	// 		return
-	// 	}
-
-	// 	for _, event := range watchEvent.Events {
-	// 		previous := []byte{}
-	// 		if event.PrevKv != nil {
-	// 			previous = event.PrevKv.Value
-	// 		}
-
-	// 		go EventsQueue.Write(NewGeneralEvent(event.Type, string(event.Kv.Key), event.Kv.Value, previous))
-	// 	}
-	// }
 }
 
 func loadInitialSettings() error {

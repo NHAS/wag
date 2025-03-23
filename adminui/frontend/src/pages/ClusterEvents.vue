@@ -106,10 +106,11 @@ function openEventInspectionModal(error: GeneralEvent) {
           </p>
 
           <label for="members" class="block font-medium text-gray-900 pt-6">Error:</label>
-          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" v-model="inspectedError.error"></textarea>
+          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" disabled v-model="inspectedError.error"></textarea>
 
           <label for="members" class="block font-medium text-gray-900 pt-6">Event JSON:</label>
           <textarea
+            disabled
             class="disabled textarea textarea-bordered w-full font-mono"
             rows="3"
             v-model="inspectedError.failed_event_data"
@@ -181,7 +182,7 @@ function openEventInspectionModal(error: GeneralEvent) {
                   :key="'cluster-events-' + index"
                   v-on:dblclick="openEventInspectionModal(event)"
                 >
-                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[120px]">
+                  <td class="overflow-hidden text-ellipsis whitespace-nowrap w-[130px]">
                     {{
                       new Date(event.time).toLocaleString(undefined, {
                         weekday: 'short',

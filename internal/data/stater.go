@@ -98,6 +98,13 @@ func WatchMulti[T any](
 				}
 			}
 
+			go func() {
+				p := &previous
+				if !hasPrevious {
+					p = nil
+				}
+				EventsQueue.Write(NewGeneralEvent(eventType, key, &state, p))
+			}()
 			err := ResolverFunc(key, eventType, state, previous)
 
 			s.states[key] = state

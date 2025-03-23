@@ -382,7 +382,6 @@ func (c *Challenger) UpdateState(username, address string) {
 
 	conn := c.getConnection(address)
 	if conn == nil {
-		log.Println("coult not get connection: ", address)
 		return
 	}
 

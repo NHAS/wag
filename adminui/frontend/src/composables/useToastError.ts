@@ -1,3 +1,4 @@
+import router from '@/router'
 import { AxiosError } from 'axios'
 import { useToast } from 'vue-toastification'
 
@@ -7,11 +8,16 @@ export function useToastError() {
   const catcher = (e: any, prefixString: string = '', messageProperty: string = 'message') => {
     let errorString = 'Unknown Error'
     if (e instanceof AxiosError) {
-      const potentialString = e.response?.data
-      if (potentialString == null) {
-        errorString = e.message
+      if(e.status == 401) {
+        errorString = "Logged out."
+        router.push("/")
       } else {
-        errorString = potentialString[messageProperty]
+        const potentialString = e.response?.data
+        if (potentialString == null) {
+          errorString = e.message
+        } else {
+          errorString = potentialString[messageProperty]
+        }
       }
     } else if (e instanceof Error) {
       errorString = e.message

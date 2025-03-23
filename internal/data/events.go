@@ -201,7 +201,7 @@ func redact[T any](input T) (redacted []byte) {
 		}
 	}
 
-	b, err := json.Marshal(copied.Interface())
+	b, err := json.MarshalIndent(copied.Interface(), "", "    ")
 	if err != nil {
 		log.Println("could not marshal: ", err)
 	}
@@ -219,7 +219,8 @@ type GeneralEvent struct {
 	} `json:"state"`
 }
 
-func NewGeneralEvent(eType mvccpb.Event_EventType, key string, currentState, previousState []byte) GeneralEvent {
+func NewGeneralEvent[T any](eType EventType, key string, currentState, previousState *T) GeneralEvent {
+
 	return GeneralEvent{
 		Type: eType.String(),
 		Key:  key,
@@ -228,8 +229,8 @@ func NewGeneralEvent(eType mvccpb.Event_EventType, key string, currentState, pre
 			Current  string `json:"current"`
 			Previous string `json:"previous"`
 		}{
-			Current:  string(currentState),
-			Previous: string(previousState),
+			Current:  string(redact(currentState)),
+			Previous: string(redact(previousState)),
 		},
 	}
 }
