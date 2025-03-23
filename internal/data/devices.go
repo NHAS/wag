@@ -274,7 +274,6 @@ func markDeviceSessionStarted(address, username string) error {
 }
 
 func MarkDeviceSessionEnded(address string) error {
-	log.Println("manually deleted")
 	_, err := etcd.Delete(context.Background(), DeviceSessionPrefix+address)
 	return err
 }
