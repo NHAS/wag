@@ -323,6 +323,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 }
 
 func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Server, error) {
+	// this is only to be used within the critical section
 	ctx := context.Background()
 
 	host, port, err := net.SplitHostPort(httpsServerListenAddr)
