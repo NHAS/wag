@@ -30,7 +30,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
   });
 
   // Maximum reconnection attempts
-  const MAX_RECONNECT_ATTEMPTS = 5;
   const LOCAL_STORAGE_KEY = "wag-challenge-key";
 
   // Connect to WebSocket
@@ -131,7 +130,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
       
       toast.info("New version of Wag is available, reloading...")
       setTimeout(function(){
-        disconnect()
+        close()
         window.location.reload()
       }, 2000*Math.random())
 
@@ -195,9 +194,14 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.connection.send(JSON.stringify(challengeData));
   };
 
+  const close = () => {
+    state.value.isClosed = true
+    disconnect()
+  }
+
   // Disconnect WebSocket
   const disconnect = () => {
-    state.value.isClosed = true
+    state.value.isConnecting = false;
     state.value.isConnected = false;
 
     if (state.value.connection) {
@@ -222,7 +226,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Cleanup on unmount
   const cleanup = () => {
-    disconnect();
+    close();
   };
 
   return {
