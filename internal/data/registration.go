@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -136,6 +137,10 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 
 	if username == "" {
 		return errors.New("usernames cannot be empty")
+	}
+
+	if _, err := netip.ParseAddr(staticIp); err != nil && staticIp != "" {
+		return fmt.Errorf("static ip was not parsable as an ip address: %w", err)
 	}
 
 	var err error

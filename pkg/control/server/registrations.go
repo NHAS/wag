@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 )
@@ -71,7 +73,12 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	}
 
 	if uses <= 0 {
-		http.Error(w, "invalid number of uses for registration token: "+usesString, 400)
+		http.Error(w, "invalid number of uses for registration token: "+usesString, http.StatusBadRequest)
+		return
+	}
+
+	if ip := net.ParseIP(staticIp); staticIp != "" && ip != nil && !config.Values.Wireguard.Range.Contains(ip) {
+		http.Error(w, "static ip address is not within vpn range", http.StatusBadRequest)
 		return
 	}
 
