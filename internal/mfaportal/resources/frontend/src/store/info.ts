@@ -158,18 +158,27 @@ export const useWebSocketStore = defineStore("websocket", () => {
       return
     }
 
+    let message = "Connection lost attempting to reconnect..."
     
-    toast.error("Connection lost attempting to reconnect...")
+   
     // Attempt to reconnect if not a normal closure
-    if (event.code !== 1000 && state.value.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      const delay = Math.min(1000 * (state.value.reconnectAttempts + 1), 10000);
-      state.value.reconnectAttempts++;
+    if (event.code !== 1000) {
+      const delay = Math.min((1000 * (state.value.reconnectAttempts + 1))*Math.random(), 10000);
+      
+      if(state.value.reconnectAttempts < 20) {
+        message = `Reconnecting, attempt ${state.value.reconnectAttempts}...`
+        state.value.reconnectAttempts++;
+      } else {
+        message = `Connection lost attempting to reconnect... (Waiting ${delay/1000} seconds)`
+      }
 
       setTimeout(() => {
-        console.log(`Attempting to reconnect (${state.value.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+        console.log(`Attempting to reconnect...`);
         connect();
       }, delay);
     }
+
+    toast.error(message)
   };
 
   // Send a challenge to the server
