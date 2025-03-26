@@ -158,7 +158,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
       return
     }
 
-    let message = "Connection lost attempting to reconnect..."
+    let message = "Disconnected."
     
    
     // Attempt to reconnect if not a normal closure
@@ -166,8 +166,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
       const delay = Math.min((1000 * (state.value.reconnectAttempts + 1))*Math.random(), 10000);
       
       if(state.value.reconnectAttempts < 20) {
-        message = `Reconnecting, attempt ${state.value.reconnectAttempts}...`
         state.value.reconnectAttempts++;
+        message = `Reconnecting, attempt ${state.value.reconnectAttempts}...`
       } else {
         message = `Connection lost attempting to reconnect... (Waiting ${delay/1000} seconds)`
       }

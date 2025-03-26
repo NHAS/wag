@@ -202,6 +202,7 @@ watch(info, async newState => {
       stateUpdate()
     }
   } else {
+    previousState = null
     router.push("/")
   }
 })
