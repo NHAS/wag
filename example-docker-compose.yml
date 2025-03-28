@@ -3,10 +3,6 @@ services:
     wag-docker:
         image: wagvpn/wag
         container_name: wag
-        env_file:
-          - .env
-        build:
-          context: .
         ports:
           - '4433:4433/tcp'
           - '7080:7080/tcp'
@@ -14,16 +10,8 @@ services:
           - '443:443/tcp'
         cap_add:
           - NET_ADMIN
-          - NET_RAW
-          - SYS_ADMIN
-        ulimits:
-# see PR #1
-          memlock: -1
-          nofile:
-            soft: "65536"
-            hard: "65536"
-# tests with complete reg/auth didn't require privileged, so it is optional
-#        privileged: true
+        devices:
+           - /dev/net/tun:/dev/net/tun
         volumes:
           - './cfg:/cfg:z'
           - './data:/data:z'
