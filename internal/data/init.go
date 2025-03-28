@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -324,15 +325,13 @@ func loadInitialSettings() error {
 	}
 
 	tunnelWebserverConfig := WebserverConfiguration{
-		Domain: config.Values.Webserver.Tunnel.Domain,
-		TLS:    config.Values.Webserver.Tunnel.TLS,
+		ListenAddress:  net.JoinHostPort(config.Values.Wireguard.ServerAddress.String(), config.Values.Webserver.Tunnel.Port),
+		Domain:         config.Values.Webserver.Tunnel.Domain,
+		TLS:            config.Values.Webserver.Tunnel.TLS,
+		Acme:           config.Values.Webserver.Tunnel.Acme,
+		CertificatePEM: config.Values.Webserver.Tunnel.CertificatePEM,
+		PrivateKeyPEM:  config.Values.Webserver.Tunnel.PrivateKeyPEM,
 	}
-
-	tunnelWebserverConfig.ListenAddress = config.Values.Wireguard.ServerAddress.String()
-	if config.Values.Wireguard.ServerAddress.To4() == nil && config.Values.Wireguard.ServerAddress.To16() != nil {
-		tunnelWebserverConfig.ListenAddress = "[" + tunnelWebserverConfig.ListenAddress + "]"
-	}
-	tunnelWebserverConfig.ListenAddress += ":" + config.Values.Webserver.Tunnel.Port
 
 	err = putIfNotFound(TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
 	if err != nil {
@@ -340,9 +339,12 @@ func loadInitialSettings() error {
 	}
 
 	publicWebserverConfig := WebserverConfiguration{
-		Domain:        config.Values.Webserver.Public.Domain,
-		TLS:           config.Values.Webserver.Public.TLS,
-		ListenAddress: config.Values.Webserver.Public.ListenAddress,
+		Domain:         config.Values.Webserver.Public.Domain,
+		TLS:            config.Values.Webserver.Public.TLS,
+		ListenAddress:  config.Values.Webserver.Public.ListenAddress,
+		Acme:           config.Values.Webserver.Public.Acme,
+		CertificatePEM: config.Values.Webserver.Public.CertificatePEM,
+		PrivateKeyPEM:  config.Values.Webserver.Public.PrivateKeyPEM,
 	}
 
 	err = putIfNotFound(PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
@@ -351,9 +353,12 @@ func loadInitialSettings() error {
 	}
 
 	managementWebserverConfig := WebserverConfiguration{
-		Domain:        config.Values.Webserver.Management.Domain,
-		TLS:           config.Values.Webserver.Management.TLS,
-		ListenAddress: config.Values.Webserver.Management.ListenAddress,
+		Domain:         config.Values.Webserver.Management.Domain,
+		TLS:            config.Values.Webserver.Management.TLS,
+		ListenAddress:  config.Values.Webserver.Management.ListenAddress,
+		Acme:           config.Values.Webserver.Management.Acme,
+		CertificatePEM: config.Values.Webserver.Management.CertificatePEM,
+		PrivateKeyPEM:  config.Values.Webserver.Management.PrivateKeyPEM,
 	}
 
 	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")

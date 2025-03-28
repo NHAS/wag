@@ -21,9 +21,12 @@ import (
 var Version string
 
 type webserverDetails struct {
-	ListenAddress string
-	Domain        string
-	TLS           bool
+	ListenAddress  string
+	Domain         string
+	TLS            bool
+	Acme           bool
+	CertificatePEM []byte
+	PrivateKeyPEM  []byte
 }
 
 type Acls struct {
@@ -75,9 +78,12 @@ type Config struct {
 		Lockout int
 
 		Tunnel struct {
-			Port   string
-			Domain string
-			TLS    bool
+			Port           string
+			Domain         string
+			TLS            bool
+			Acme           bool
+			CertificatePEM []byte
+			PrivateKeyPEM  []byte
 
 			HelpMail string
 
