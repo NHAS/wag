@@ -27,10 +27,6 @@ This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Au
 
 # Requirements
 
-
-`iptables` and `libpam` must be installed.  
-Wag must be run as root, to manage `iptables` and the `wireguard` device.  
-   
 Forwarding must be enabled in `sysctl`.  
   
 ```sh
@@ -41,25 +37,47 @@ sysctl -w net.ipv6.conf.all.forwarding=1
 sysctl -w net.ipv6.conf.all.accept_ra=2
 sysctl -w net.ipv6.conf.all.accept_redirects=1
 sysctl -w net.ipv6.conf.all.accept_source_route=1
-
 ```
-
-Wag does not need `wg-quick` or other equalivent as long as the kernel supports wireguard.  
 
 # Setup instructions
 
-Both options require a kernel newer than 5.9+
-  
-Binary release (requires glibc 2.31+):  
+## Docker Compose
+
+Please find the docker compose here:
+
+```yaml
+---
+services:
+  wag:
+    image: wagvpn/wag:latest # ghcr.io/nhas/wag:unstable # Unstable branch
+    container_name: wag
+    restart: always
+    ports:
+      - 11371:11371/udp
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./wag/config/:/cfg/:z
+      - ./wag/data/:/data:z
+    devices:
+      - /dev/net/tun:/dev/net/tun
 ```
+
+
+## Manual
+
+`iptables` and `libpam` must be installed.  
+Wag must be run as root, to manage `iptables` and the `wireguard` device.  
+
+Binary release (requires glibc 2.31+):  
+```sh
 curl -L $(curl -s https://api.github.com/repos/NHAS/wag/releases/latest | jq -M -r '.assets[0].browser_download_url') -o wag
-sudo ./wag gen-config
 
 sudo ./wag start -config <generated_config_name>
 ```
   
 From source (will require `go1.23.1`, `npm`):  
-```
+```sh
 git clone git@github.com:NHAS/wag.git
 cd wag
 make
@@ -73,16 +91,22 @@ If running behind a reverse proxy, `X-Forwarded-For` must be set.
 
 # Management
 
+## UI
+
+After you have set up wag and enabled the administrative user interface, it will create the first admin for you. Then you can log in and manage users there.  
+
+## CLI
+
 The root user is able to manage the wag server with the following command:
   
-```
+```sh
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`, `gen-config`
+Supported commands: `start`, `cleanup`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`
   
 `start`: starts the wag server  
-```
+```sh
 Usage of start:
   Start wag server (does not daemonise)
   -join string
@@ -96,7 +120,7 @@ Usage of start:
 `version`: Display the version of wag
 
 `firewall`: Get firewall rules
-```  
+```sh
 Usage of firewall:
   -list
         List firewall rules
@@ -106,7 +130,7 @@ Usage of firewall:
 ``` 
 
 `registration`:  Deals with creating, deleting and listing the registration tokens
-```
+```sh
 Usage of registration:
   -add
         Create a new enrolment token
@@ -129,7 +153,7 @@ Usage of registration:
 ```  
 
 `devices`: Manages devices  
-```
+```sh
 Usage of devices:
   -address string
         Address of device
@@ -150,7 +174,7 @@ Usage of devices:
 ```
   
 `users`: Manages users MFA and can delete all users devices
-```
+```sh
 Usage of users:
   -del
         Delete user and all associated devices
@@ -169,7 +193,7 @@ Usage of users:
 ```
 
 `webadmin`: Manages the administrative users for the web UI
-```
+```sh
 Usage of webadmin:
   -add
         Add web administrator user (requires -password)
@@ -191,7 +215,7 @@ Usage of webadmin:
 
 # User guide
 
-## Installing wag
+## Manual installation of Wag
 
 1. Copy `wag`, `config.json` to `/opt/wag`
 2. Generate a wireguard private key with `wg genkey` set `PrivateKey` in the example config to it
@@ -200,19 +224,19 @@ Usage of webadmin:
 ## Creating new registration tokens
 
 First generate a token.  
-```
+```sh
 # ./wag registration -add -username tester
 token,username
 e83253fd9962c68f73aa5088604f3f425d58a963bfb5c0889cca54d63a34b2e3,tester
 ```
 
 Then curl said token.  
-```
+```sh
 curl http://public.server.address:8080/register_device?key=e83253fd9962c68f73aa5088604f3f425d58a963bfb5c0889cca54d63a34b2e3
 ```
 
 The service will return a fully templated response:
-```
+```ini
 [Interface]
 PrivateKey = <omitted>
 Address = 192.168.1.1
@@ -233,9 +257,9 @@ The configuration file specifies how long a session can live for, before expirin
 
 ## Signing in to the Management console
 
-Make sure that you have `ManagementUI.Enabled` set as `true`, then do the following from the console:
+Make sure that you have `Webserver.Management.Enabled` set as `true`, then do the following from the console:
 
-```
+```sh
 sudo ./wag webadmin -add -username <your_username> -password <your-password-here>
 ```
 Then browse to your management listening address and enter your credentials.
@@ -245,22 +269,17 @@ The web interface itself cannot add administrative users.
 
 # Configuration file reference
   
-`NumberProxies`: The number of trusted reverse proxies before the client, makes wag respect the `X-Forward-For` directive and parses the client IP from it correctly
-`HelpMail`: The email address that is shown on the prompt page  
-`Lockout`: Number of times a person can attempt mfa authentication before their account locks  
+`NumberProxies`: The number of trusted reverse proxies before the client, makes wag respect the `X-Forward-For` directive and parses the client IP from it correctly  
+
+`Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
+`GID`: The group ID that the wag control socket (`/tmp/wag*`) should be set to  
+
 `NAT`: Turn on or off masquerading  
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp", "100-200/udp" ]  
-`CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to api.github.com   
+`CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to `api.github.com`   
 `MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory  
-`DownloadConfigFileName`: The filename of the wireguard config that is downloaded, defaults to `wg0.conf` 
-  
-`ExternalAddress`: The public address of the server, the place where wireguard is listening to the internet, and where clients can reach the `/register_device` endpoint    
-  
-`MaxSessionLifetimeMinutes`: After authenticating, a device will be allowed to talk to privileged routes for this many minutes, if -1, timeout is disabled  
-`SessionInactivityTimeoutMinutes`: If a device has not sent data in `n` minutes, it will be required to reauthenticate, if -1 timeout is disabled  
-  
+
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
-`Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes, this is only respected on first run, use the web UI to edit them during runtime.  
 `Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
 `Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
@@ -269,25 +288,48 @@ The web interface itself cannot add administrative users.
   
 `Webserver`: Object that contains the public and tunnel listening addresses of the webserver  
 
-`WebServer.Public.ListenAddress`: Listen address for endpoint  
+`WebServer.Acme`: Object to contain the ACME details, such as email and CA provider
+`WebServer.Acme.CAProvider`: The provider for your ACME certs, defaults to `https://acme-staging-v02.api.letsencrypt.org/directory`  
+`WebServer.Acme.CloudflareDNSToken`: The cloudflare DNS token to do DNS-01 ACME, optional, if not defined then HTTP-01 will be used. You'll have to define your DNS A/AAAA records to point to the public web address.
+  
+`Webserver.Lockout`: Number of times a person can attempt mfa authentication before their account locks  
+  
+`WebServer.Public.ListenAddress`: Listen address for the public registration endpoint
+`WebServer.Public.ExternalAddress`: External address to be baked in to generated wireguard configs, i.e where your wireguard connections connect to.  
+`WebServer.Public.DownloadConfigFileName`: The config name to serve toe clients, defaults to `wg0.conf`
+
+`WebServer.Tunnel`: Object that contains configurations for the MFA portal and the MFA methods wag provides  
 `WebServer.Tunnel.Port`: Port for in-vpn-tunnel webserver, this does not take a full IP address, as the tunnel listener should *never* be outside the wireguard device
+`WebServer.Tunnel.Domain`: The domain of your MFA portal  
+`WebServer.Tunnel.MaxSessionLifetimeMinutes`: How long a session can last, if -1, timeout is disabled   
+`WebServer.Tunnel.SessionInactivityTimeoutMinutes`: How long a device can be idle before it has to reauthenticate, if -1 timeout is disabled  
+`WebServer.Tunnel.HelpMail`: Help mail to display on the UI  
+`WebServer.Tunnel.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`, `pam`)    
+`WebServer.Tunnel.Issuer`: OTP issuer, the name that will get added to the TOTP app or Webauthn device
+`WebServer.Tunnel.Methods`: String array, enabled authentication methods, e.g `["totp","webauthn","oidc", "pam"]`. 
 
-`WebServer.<endpoint>.CertPath`: TLS Certificate path for endpoint  
-`WebServer.<endpoint>.KeyPath`: TLS key for endpoint  
-  
-`Authenticators`: Object that contains configurations for the authentication methods wag provides  
-`Authenticators.Issuer`: TOTP issuer, the name that will get added to the TOTP app  
-`Authenticators.DomainURL`: Full url of the vpn authentication endpoint, required for `webauthn` and `oidc`
-`Authenticators.DefaultMethod`: String, default method the user will be presented, if not specified a list of methods is displayed to the user (possible values: `webauth`, `totp`, `oidc`, `pam`)    
-`Authenticators.Methods`: String array, enabled authentication methods, e.g `["totp","webauthn","oidc", "pam"]`. 
+`WebServer.Tunnel.OIDC`: Object that stores the OIDC settings  
+`WebServer.Tunnel.OIDC.IssuerURL`: The URL of your identity provider , e.g `http://localhost:8080/realms/account`  
+`WebServer.Tunnel.OIDC.ClientID`: OIDC identifier for application  
+`WebServer.Tunnel.OIDC.ClientSecret`: OIDC client secret  
+`WebServer.Tunnel.OIDC.DeviceUsernameClaim`: The claim within the oidc token that contains the users device name  
+`WebServer.Tunnel.OIDC.Scopes`: Array of scopes to request from your identity provider, defaults to `openid`  
+`WebServer.Tunnel.OIDC.GroupsClaimName`: Claim that contains user groups to map into wag groups  
 
-`Authenticators.OIDC`: Object that contains `OIDC` specific configuration options
-`Authenticators.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`
-`Authenticators.OIDC.ClientID`:  OIDC identifier for application
-`Authenticators.OIDC.ClientSecret`: OIDC secret
-`Authenticators.OIDC.GroupsClaimName`: Claim that contains user groups to map into wag groups  
+`WebServer.Tunnel.PAM`:  Object that stores the PAM settings
+`WebServer.Tunnel.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`  will default to `/etc/pam.d/login` if unset or empty  
   
-`Authenticators.PAM.ServiceName`: Name of PAM-Auth file in `/etc/pam.d/`  will default to `/etc/pam.d/login` if unset or empty  
+`WebServer.Management`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  
+`WebServer.Management.Enabled`: Enable the web UI  
+`WebServer.Management.ListenAddress`: Listen address to expose the management UI on  
+`WebServer.Management.Password`: Object that contains password authentication configuration options for the admin login.  
+`WebServer.Management.Password.Enabled`: Boolean, enable password login (defaults to true).  
+`WebServer.Management.OIDC`: Object that contains `OIDC` specific configuration options for the admin login.
+`WebServer.Management.OIDC.Enabled`: Boolean to enable OIDC login on the admin page.  
+`WebServer.Management.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`  
+`WebServer.Management.OIDC.ClientID`:  OIDC identifier for application  
+`WebServer.Management.OIDC.ClientSecret`: OIDC secret  
+`WebServer.Management.OIDC.IssuerURL`: The administrative page domain  
   
 `Clustering`: Object containing the clustering details  
 `Clustering.ClusterState`: Same as the etcd cluster state setting, can be either `new`, create a new cluster, or `existing`. If you are joining an existing cluster, use `start -join` rather than this  
@@ -303,133 +345,145 @@ The web interface itself cannot add administrative users.
 `Wireguard.MTU`: Maximum transmissible unit defaults to 1420 if not set for IPv4 over Ethernet  
 `Wireguard.DNS`: An array of DNS servers that will be automatically used, and set as "Allowed" (no MFA)  
    
-`ManagementUI`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  
-`ManagementUI.Enabled`: Enable the web UI  
-`ManagementUI.ListenAddress`: Listen address to expose the management UI on  
-`ManagementUI.CertPath`: TLS Certificate path for management endpoint  
-`ManagementUI.KeyPath`: TLS key for the management endpoint  
-`ManagementUI.Password`: Object that contains password authentication configuration options for the admin login.  
-`ManagementUI.Password.Enabled`: Boolean, enable password login (defaults to true).  
-`ManagementUI.OIDC`: Object that contains `OIDC` specific configuration options for the admin login.
-`ManagementUI.OIDC.Enabled`: Boolean to enable OIDC login on the admin page.  
-`ManagementUI.OIDC.IssuerURL`: Identity provider endpoint, e.g `http://localhost:8080/realms/account`  
-`ManagementUI.OIDC.ClientID`:  OIDC identifier for application  
-`ManagementUI.OIDC.ClientSecret`: OIDC secret  
-`ManagementUI.OIDC.AdminDomainURL`: The administrative page domain  
-
   
 Full config example
 ```json
 {
-    "Proxied": true,
+    "Socket": "/tmp/wag.sock",
+    "NumberProxies": 0,
     "ExposePorts": [
         "443/tcp",
         "100-200/udp"
      ],
-    "CheckUpdates": true,
-    "Lockout": 5,
     "NAT": true,
-    "HelpMail": "help@example.com",
-    "MaxSessionLifetimeMinutes": 2,
-    "SessionInactivityTimeoutMinutes": 1,
-    "ExternalAddress": "81.80.79.78",
-    "DatabaseLocation": "devices.db",
-    "Socket":"/tmp/wag.sock",
     "Webserver": {
-        "Public": {
-            "ListenAddress": "192.168.121.61:8080",
-            "CertPath": "/etc/example/cert/path",
-            "KeyPath": "/etc/ssl/private/somecert.key"
-        },
+        "Lockout": 5,
+
         "Tunnel": {
-            "Port": "8080"
-        }
-    },
-    "ManagementUI": {
-        "ListenAddress": "127.0.0.1:4433",
-        "CertPath": "/etc/example/cert/path",
-        "KeyPath": "/etc/ssl/private/somecert.key",
-        "Enabled": true,
-        "Password": {
-            "Enabled": true
+            "Domain": "http://vpn.test:8080",
+            "Port": "8080",
+
+            "MaxSessionLifetimeMinutes": 2,
+            "SessionInactivityTimeoutMinutes": 1,
+
+            "HelpMail": "help@example.com",
+
+            "DefaultMethod": "totp",
+            "Issuer": "vpn.test",
+            "Methods": [
+                "totp"
+            ],
+            "OIDC": {
+                "IssuerURL": "",
+                "ClientSecret": "",
+                "ClientID": "",
+                "GroupsClaimName": "",
+                "DeviceUsernameClaim": "",
+                "Scopes": []
+            },
+            "PAM": {
+                "ServiceName": ""
+            }
         },
-        "OIDC": {
+
+        "Public": {
+            "ListenAddress": ":8081",
+         
+
+            "ExternalAddress": "192.168.121.61",
+            "DownloadConfigFileName": "wg0.conf"
+
+        },
+        "Management": {
             "Enabled": true,
-            "IssuerURL": "http://localhost:8080/",
-            "AdminDomainURL":"http://localhost:4433/",
-            "ClientSecret": "<OMITTED>",
-            "ClientID": "test"
+            "ListenAddress": "127.0.0.1:4433",
+            "Password": {
+                "Enabled": true
+            },
+            "OIDC": {
+                "IssuerURL": "",
+                "ClientSecret": "",
+                "ClientID": "",
+                "Enabled": false
+            }
         }
     },
-    "Authenticators": {
-        "Issuer": "vpn.test",
-        "DomainURL": "https://vpn.test:8080",
-        "DefaultMethod":"webauthn",
-        "Methods":["totp","webauthn", "oidc", "pam"],
-        "OIDC": {
-            "IssuerURL": "http://localhost:8080/",
-            "ClientSecret": "<OMITTED>",
-            "ClientID": "account",
-            "GroupsClaimName": "groups",
-            "DeviceUsernameClaim": "",
-            "Scopes": []
-        }
+
+    "Wireguard": {
+        "DevName": "wg1",
+        "ListenPort": 53230,
+        "PrivateKey": "uP2iyvfBFkz7Ks6yZmXbTN2PDSOaLb0zKTziMhBYs0E=",
+        "Address": "192.168.122.1/24",
+        "ServerPersistentKeepAlive": 0
     },
     "Clustering": {
         "ClusterState": "new",
         "ETCDLogLevel": "error",
-        "Witness": false,
-        "TLSManagerListenURL": "https://wag.server:3434"
-    },
-    "Wireguard": {
-        "DevName": "wg0",
-        "ListenPort": 53230,
-        "PrivateKey": "AN EXAMPLE KEY",
-        "Address": "192.168.1.1/24",
-        "MTU": 1420,
-        "DNS": ["1.1.1.1"]
+        "ListenAddresses": [
+            "https://127.0.0.1:2380"
+        ],
+        "TLSManagerListenURL": "https://127.0.0.1:3434"
     },
     "Acls": {
         "Groups": {
+            "group:administrators": [
+                "toaster",
+                "tester"
+            ],
             "group:nerds": [
-                "daviv.test",
-                "franky.someone",
-                "any_username"
+                "toaster",
+                "tester",
+                "abc"
             ]
         },
         "Policies": {
             "*": {
                 "Mfa": [
-                     "10.0.0.2/32 8080/any"
+                    "1.1.1.1",
+                    "12.2.3.2",
+                    "22.22.22.2",
+                    "33.33.33.33",
+                    "4.4.5.5",
+                    "5.5.5.5"
                 ],
                 "Allow": [
-                    "10.7.7.7/32",
+                    "7.7.7.7",
                     "google.com"
                 ]
             },
-            "username": { 
+            "group:administrators": {
                 "Mfa": [
-                     "someinternal.service 9100/tcp"
-                ],
-                "Allow":[ "10.0.0.1/32"]
+                    "8.8.8.8"
+                ]
             },
             "group:nerds": {
                 "Mfa": [
-                    "192.168.3.4/32",
-                    "10.0.0.0/24",
-                    "thing.internal 443/tcp icmp"
+                    "192.168.3.4/32"
                 ],
                 "Allow": [
                     "192.168.3.5/32"
+                ]
+            },
+            "tester": {
+                "Mfa": [
+                    "192.168.3.0/24",
+                    "192.168.5.0/24"
                 ],
-                "Deny": [
-                    "10.0.0.5/32"
-                 ]
+                "Allow": [
+                    "4.3.3.3/32"
+                ]
+            },
+            "toaster": {
+                "Allow": [
+                    "1.1.1.1/32"
+                ]
             }
         }
     }
 }
+
 ```
+
    
 ## Defining ACL rules
   
@@ -447,7 +501,7 @@ For example:
                 ]
             },
 ```
-Users will be able to access 10.0.1.1 **without** MFA as the match is more specific. This change occured in v6.0.0, previously MFA routes would always take precedence.   
+Users will be able to access `10.0.1.1` **without** MFA as the match is more specific. This change occured in v6.0.0, previously MFA routes would always take precedence.   
   
   
 Additionally if multiple policies are defined for a single route they are composed with MFA rules taking preference.  
@@ -533,7 +587,7 @@ When no other rules are defined or the `any` keyword is used wag will allow all 
 
 Example: 
 
-```
+```sh
 "1.1.1.1": Allows all ports and protocols to 1.1.1.1/32
 "1.1.1.1 54/any": Allows both tcp and udp to 1.1.1.1/32
 ```
@@ -541,7 +595,7 @@ Example:
 ### Single Service
 
 Example:
-```
+```sh
 192.168.1.1 22/tcp 53/udp: Fairly self explanatory, allows you to hit 22/tcp and 53/udp on a host
 1.1.1.1 icmp: As icmp doesnt have ports really you dont need it either
 ```
@@ -550,7 +604,7 @@ Example:
 You can also define a range of ports with a protocol. wag requires that the lower port is first. 
 
 Example:
-```
+```sh
 192.168.1.1 22-1024/tcp 23-53/any: Format is low port-high port/service
 ```
 
@@ -562,39 +616,10 @@ Example:
 
 # Development 
 
-## Custom templates
-
-With the introduction of the `MFATemplatesDirectory` option, you can now specify a directory that contains template files for customising the MFA entry, registration and wireguard config file.  
-An example of all these files can be found in the embedded variants here: `internal/webserver/resources/templates`.  
-
-When the option is set, you must define *all* the files this guide is a brief description of what each file is:  
-`interface.tmpl`: The wireguard configuration file that is served to clients  
-`oidc_error.html`: If a users login to the oidc provider as some issue (i.e user isnt registered for the device)  
-`prompt_mfa_totp.html`: Page for taking TOTP code entry  
-`prompt_mfa_webauthn.html`: Page for webauthn entry  
-`qrcode_registration.html`: When a client registers with the `?type=mobile` option set, shows a QR code for the wireguard app on android/ios to simply registration  
-`register_mfa_totp.html`: Registration for TOTP that should show a QR code  
-`register_mfa_webauth.html`: Page to do webauthn registration  
-`register_mfa.html`: If multiple MFA methods are registered this page is displayed giving the user an option of what method to use  
-`success.html`: This page is not a template, and is displayed when a user is successfully authed, or if they attempt to access the authorisation endpoint while being authorised   
-
-
 ## Testing
 ```sh
 cd internal/router
 sudo go test -v .
-```
-
-## Building a release
-
-
-If you havent build the release docker image (used because it has a stable version of glibc) do the following:
-```
-cd release_builder
-sudo docker build -t wag_builder .
-cd ..
-
-make docker
 ```
 
 ## External contributions
