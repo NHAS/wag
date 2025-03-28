@@ -23,7 +23,7 @@ RUN microdnf update -y && \
 WORKDIR /app/wag
 
 COPY --from=builder /app/wag /usr/bin/wag
-COPY --chmod=0777 docker_entrypoint.sh /
+COPY --chmod=0770 docker_entrypoint.sh /
 
 VOLUME /data
 VOLUME /cfg
