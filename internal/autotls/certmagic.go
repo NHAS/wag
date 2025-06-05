@@ -356,7 +356,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 		} else {
 
-			if len(a.Issuers) != 0 {
+			if len(a.Issuers) == 0 {
 				return fmt.Errorf("no issuers were setup for ACME TLS provider")
 			}
 			err := a.Config.ManageSync(ctx, []string{w.details.Domain})
