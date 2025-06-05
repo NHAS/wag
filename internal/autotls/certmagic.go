@@ -320,7 +320,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 
 	} else if w.details.TLS {
 
-		cert, err := tls.X509KeyPair(w.details.CertificatePEM, w.details.PrivateKeyPEM)
+		cert, err := tls.X509KeyPair([]byte(w.details.CertificatePEM), []byte(w.details.PrivateKeyPEM))
 		if err != nil {
 			return err
 		}

@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,9 +17,7 @@ import (
 
 	"github.com/NHAS/autoetcdtls/manager"
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data/migrations"
 	"github.com/NHAS/wag/internal/utils"
-	"github.com/NHAS/wag/pkg/fsops"
 	_ "github.com/mattn/go-sqlite3"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
@@ -48,38 +45,6 @@ func parseUrls(values ...string) []url.URL {
 }
 
 func Load(path, joinToken string, testing bool) error {
-
-	doMigration := true
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		doMigration = false
-	}
-
-	var db *sql.DB
-	if doMigration {
-		db, _ = sql.Open("sqlite3", path)
-
-		defer db.Close()
-
-		can, err := migrations.Can(db)
-		if err != nil {
-			return err
-		}
-
-		if can && !strings.HasPrefix(path, "file::memory:") && !strings.Contains(path, "mode=memory") {
-			backupPath := path + "." + time.Now().Format("20060102150405") + ".bak"
-			log.Println("can do migrations, backing up database to ", backupPath)
-
-			err := fsops.CopyFile(path, backupPath)
-			if err != nil {
-				return err
-			}
-		}
-
-		err = migrations.Do(db)
-		if err != nil {
-			return err
-		}
-	}
 
 	var err error
 
@@ -178,17 +143,6 @@ func Load(path, joinToken string, testing bool) error {
 	log.Println("Successfully connected to etcd")
 
 	if !etcdServer.Server.IsLearner() {
-
-		if doMigration {
-			// This will be kept for 2 major releases with reduced support.
-			// It is a no-op if a migration has already taken place
-			err = migrateFromSql(db)
-			if err != nil {
-				return err
-			}
-		}
-
-		// This will stay, so that the config can be used to easily spin up a new wag instance.
 		// After first run this will be a no-op
 		err = loadInitialSettings()
 		if err != nil {
@@ -325,12 +279,15 @@ func loadInitialSettings() error {
 	}
 
 	tunnelWebserverConfig := WebserverConfiguration{
-		ListenAddress:  net.JoinHostPort(config.Values.Wireguard.ServerAddress.String(), config.Values.Webserver.Tunnel.Port),
-		Domain:         config.Values.Webserver.Tunnel.Domain,
-		TLS:            config.Values.Webserver.Tunnel.TLS,
-		Acme:           config.Values.Webserver.Tunnel.Acme,
-		CertificatePEM: config.Values.Webserver.Tunnel.CertificatePEM,
-		PrivateKeyPEM:  config.Values.Webserver.Tunnel.PrivateKeyPEM,
+		ListenAddress: net.JoinHostPort(config.Values.Wireguard.ServerAddress.String(), config.Values.Webserver.Tunnel.Port),
+		Domain:        config.Values.Webserver.Tunnel.Domain,
+		TLS:           config.Values.Webserver.Tunnel.TLS,
+		Acme:          config.Values.Webserver.Tunnel.Acme,
+	}
+
+	tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
+	if err != nil {
+		log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
 	}
 
 	err = putIfNotFound(TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
@@ -339,12 +296,15 @@ func loadInitialSettings() error {
 	}
 
 	publicWebserverConfig := WebserverConfiguration{
-		Domain:         config.Values.Webserver.Public.Domain,
-		TLS:            config.Values.Webserver.Public.TLS,
-		ListenAddress:  config.Values.Webserver.Public.ListenAddress,
-		Acme:           config.Values.Webserver.Public.Acme,
-		CertificatePEM: config.Values.Webserver.Public.CertificatePEM,
-		PrivateKeyPEM:  config.Values.Webserver.Public.PrivateKeyPEM,
+		Domain:        config.Values.Webserver.Public.Domain,
+		TLS:           config.Values.Webserver.Public.TLS,
+		ListenAddress: config.Values.Webserver.Public.ListenAddress,
+		Acme:          config.Values.Webserver.Public.Acme,
+	}
+
+	publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
+	if err != nil {
+		log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 	}
 
 	err = putIfNotFound(PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
@@ -353,12 +313,15 @@ func loadInitialSettings() error {
 	}
 
 	managementWebserverConfig := WebserverConfiguration{
-		Domain:         config.Values.Webserver.Management.Domain,
-		TLS:            config.Values.Webserver.Management.TLS,
-		ListenAddress:  config.Values.Webserver.Management.ListenAddress,
-		Acme:           config.Values.Webserver.Management.Acme,
-		CertificatePEM: config.Values.Webserver.Management.CertificatePEM,
-		PrivateKeyPEM:  config.Values.Webserver.Management.PrivateKeyPEM,
+		Domain:        config.Values.Webserver.Management.Domain,
+		TLS:           config.Values.Webserver.Management.TLS,
+		ListenAddress: config.Values.Webserver.Management.ListenAddress,
+		Acme:          config.Values.Webserver.Management.Acme,
+	}
+
+	managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
+	if err != nil {
+		log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 	}
 
 	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
@@ -367,6 +330,21 @@ func loadInitialSettings() error {
 	}
 
 	return nil
+}
+
+func readTLSPems(cert, key string) (string, string, error) {
+
+	certBytes, err := os.ReadFile(cert)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to read certificate file at path %q, %w", cert, err)
+	}
+
+	keyBytes, err := os.ReadFile(key)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to read certificate file at path %q, %w", key, err)
+	}
+
+	return string(certBytes), string(keyBytes), nil
 }
 
 func putIfNotFound[T any](key string, value T, set string) error {
@@ -384,114 +362,6 @@ func putIfNotFound[T any](key string, value T, set string) error {
 
 	if resp.Succeeded {
 		log.Printf("setting %s from json, importing from .json file (from this point the json file will be ignored)", set)
-	}
-
-	return nil
-}
-
-func migrateFromSql(database *sql.DB) error {
-	response, err := etcd.Get(context.Background(), "wag-migrated-sql")
-	if err != nil {
-		return err
-	}
-
-	if len(response.Kvs) == 0 {
-
-		log.Println("Doing migration to etcd from sqlite3")
-
-		devices, err := sqlGetAllDevices(database)
-		if err != nil {
-			return err
-		}
-
-		for _, device := range devices {
-			_, err := SetDevice(device.Username, device.Address, device.Publickey, device.PresharedKey)
-			if err != nil {
-				return err
-			}
-		}
-		log.Println("Migrated", len(devices), "devices")
-
-		adminUsers, err := sqlgetAllAdminUsers(database)
-		if err != nil {
-			return err
-		}
-
-		for _, admin := range adminUsers {
-			err := CreateLocalAdminUser(admin.Username, "aaaaaaaaaaaaaaaaaaa", false)
-			if err != nil {
-				return err
-			}
-
-			err = setAdminHash(admin.Username, admin.Hash)
-			if err != nil {
-				return err
-			}
-
-			if admin.Attempts > 5 {
-				err := SetAdminUserLock(admin.Username)
-				if err != nil {
-					return err
-				}
-			}
-
-		}
-		log.Println("Migrated", len(adminUsers), "admin users")
-
-		users, err := sqlGetAllUsers(database)
-		if err != nil {
-			return err
-		}
-
-		for _, user := range users {
-			_, err := CreateUserDataAccount(user.Username)
-			if err != nil {
-				return err
-			}
-
-			if user.Locked {
-				err = SetUserLock(user.Username)
-				if err != nil {
-					return err
-				}
-			}
-
-			err = SetUserMfa(user.Username, user.Mfa, user.MfaType)
-			if err != nil {
-				return err
-			}
-
-			if user.Enforcing {
-				err = SetEnforceMFAOn(user.Username)
-			} else {
-				err = SetEnforceMFAOff(user.Username)
-			}
-			if err != nil {
-				return err
-			}
-
-		}
-		log.Println("Migrated", len(users), "users")
-
-		tokens, err := sqlGetRegistrationTokens(database)
-		if err != nil {
-			return err
-		}
-
-		for _, token := range tokens {
-			err := AddRegistrationToken(token.Token, token.Username, token.Overwrites, "", token.Groups, token.NumUses)
-			if err != nil {
-				return err
-			}
-		}
-
-		_, err = etcd.Put(context.Background(), "wag-migrated-sql", "done!")
-		if err != nil {
-			return err
-		}
-
-		log.Println("Migrated", len(tokens), "registration tokens")
-
 	}
 
 	return nil

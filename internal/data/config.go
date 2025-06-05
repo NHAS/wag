@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -94,8 +93,8 @@ type WebserverConfiguration struct {
 	Acme          bool   `json:"acme"`
 
 	// These are the user supplied certs, not the ones given by certmagic, which are managed internally
-	CertificatePEM []byte `json:"certificate"`
-	PrivateKeyPEM  []byte `json:"private_key" sensitive:"yes"`
+	CertificatePEM string `json:"certificate"`
+	PrivateKeyPEM  string `json:"private_key" sensitive:"yes"`
 }
 
 func (a *WebserverConfiguration) Equals(b *WebserverConfiguration) bool {
@@ -107,7 +106,7 @@ func (a *WebserverConfiguration) Equals(b *WebserverConfiguration) bool {
 		return false
 	}
 
-	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.Acme == b.Acme && bytes.Equal(a.CertificatePEM, b.CertificatePEM) && bytes.Equal(a.PrivateKeyPEM, b.PrivateKeyPEM)
+	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.Acme == b.Acme && a.CertificatePEM == b.CertificatePEM && a.PrivateKeyPEM == b.PrivateKeyPEM
 }
 
 func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {
