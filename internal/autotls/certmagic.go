@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
@@ -28,7 +29,8 @@ type AutoTLS struct {
 
 	sync.RWMutex
 
-	webServers map[data.Webserver]*webserver
+	rollbackCount atomic.Int32
+	webServers    map[data.Webserver]*webserver
 
 	ourHttpServers map[string]bool
 
@@ -214,11 +216,22 @@ func (a *AutoTLS) registerEventListeners() error {
 		// nil means we keep the established mux
 		preserveError := a.refreshListeners(webserverTarget, nil, &current)
 		if preserveError != nil {
-			data.SetWebserverConfig(webserverTarget, previous)
-			data.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
-			log.Printf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError)
+			a.rollbackCount.Add(1)
+
+			if a.rollbackCount.Load() < 2 {
+				data.SetWebserverConfig(webserverTarget, previous)
+				data.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
+				log.Printf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError)
+			} else {
+				data.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
+				log.Printf("failed to roll back to previous configuration, rollback counter exceeded")
+			}
+			return preserveError
 		}
-		return preserveError
+
+		a.rollbackCount.Store(0)
+
+		return nil
 	}
 
 	_, err = data.WatchMulti([]string{
@@ -257,7 +270,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 	// TODO the below code is quite repetitious, we should seperate these out into functions to reduce duplication. Future me, away!
 	// if we have no domain, or tls is explicitly disabled ( or acme provider hasnt been configured )
 	// open an http only port on whatever the listen address is
-	if w.details.Domain == "" || !w.details.TLS || len(a.Issuers) == 0 {
+	if w.details.Domain == "" || !w.details.TLS {
 
 		httpServer := &http.Server{
 			ReadHeaderTimeout: 10 * time.Second,
@@ -268,10 +281,11 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 			BaseContext:       func(listener net.Listener) context.Context { return ctx },
 		}
 
-		if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
-			httpServer.Handler = am.HTTPChallengeHandler(w.mux)
+		if len(a.Issuers) > 0 {
+			if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
+				httpServer.Handler = am.HTTPChallengeHandler(w.mux)
+			}
 		}
-
 		for _, s := range w.listeners {
 			s.Close()
 		}
@@ -283,96 +297,103 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 		}
 
 		go a.runHttpServer(httpServer, httpListener)
-	} else if w.details.TLS && w.details.Acme && len(a.Issuers) != 0 {
-		err := a.Config.ManageSync(ctx, []string{w.details.Domain})
-		if err != nil {
-			return err
-		}
-
-		tlsConfig := a.Config.TLSConfig()
-		tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
-
-		httpsServer := &http.Server{
-			ReadHeaderTimeout: 10 * time.Second,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      2 * time.Minute,
-			IdleTimeout:       5 * time.Minute,
-			Handler:           w.mux,
-			BaseContext:       func(listener net.Listener) context.Context { return ctx },
-		}
-		for _, s := range w.listeners {
-			s.Close()
-		}
-		w.listeners = []*http.Server{}
-
-		httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
-		if err == nil {
-			w.listeners = append(w.listeners, httpRedirectServer)
-		}
-
-		w.listeners = append(w.listeners, httpsServer)
-
-		httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
-		if err != nil {
-			return err
-		}
-		go httpsServer.Serve(httpsLn)
-
 	} else if w.details.TLS {
 
-		cert, err := tls.X509KeyPair([]byte(w.details.CertificatePEM), []byte(w.details.PrivateKeyPEM))
-		if err != nil {
-			return err
-		}
+		if w.details.StaticCerts {
+			cert, err := tls.X509KeyPair([]byte(w.details.CertificatePEM), []byte(w.details.PrivateKeyPEM))
+			if err != nil {
+				return fmt.Errorf("x509 keypair was bad, either custom certificate or custom key was bad: %w", err)
+			}
 
-		// this is effectively just copied from cert magic
-		tlsConfig := &tls.Config{
-			GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				return &cert, nil
-			},
+			// this is effectively just copied from cert magic
+			tlsConfig := &tls.Config{
+				GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+					return &cert, nil
+				},
 
-			// the rest recommended for modern TLS servers
-			MinVersion: tls.VersionTLS12,
-			CurvePreferences: []tls.CurveID{
-				tls.X25519,
-				tls.CurveP256,
-			},
-			CipherSuites: []uint16{
-				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			},
-			PreferServerCipherSuites: true,
-		}
+				// the rest recommended for modern TLS servers
+				MinVersion: tls.VersionTLS12,
+				CurvePreferences: []tls.CurveID{
+					tls.X25519,
+					tls.CurveP256,
+				},
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				},
+				PreferServerCipherSuites: true,
+			}
 
-		httpsServer := &http.Server{
-			ReadHeaderTimeout: 10 * time.Second,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      2 * time.Minute,
-			IdleTimeout:       5 * time.Minute,
-			Handler:           w.mux,
-			BaseContext:       func(listener net.Listener) context.Context { return ctx },
-		}
-		for _, s := range w.listeners {
-			s.Close()
-		}
-		clear(w.listeners)
+			httpsServer := &http.Server{
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      2 * time.Minute,
+				IdleTimeout:       5 * time.Minute,
+				Handler:           w.mux,
+				BaseContext:       func(listener net.Listener) context.Context { return ctx },
+			}
+			for _, s := range w.listeners {
+				s.Close()
+			}
+			w.listeners = []*http.Server{}
 
-		httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
-		if err == nil {
-			w.listeners = append(w.listeners, httpRedirectServer)
-		}
+			httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
+			if err == nil {
+				w.listeners = append(w.listeners, httpRedirectServer)
+			}
 
-		w.listeners = append(w.listeners, httpsServer)
+			w.listeners = append(w.listeners, httpsServer)
 
-		httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
-		if err != nil {
-			return err
+			httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
+			if err != nil {
+				return err
+			}
+			go httpsServer.Serve(httpsLn)
+
+		} else {
+
+			if len(a.Issuers) != 0 {
+				return fmt.Errorf("no issuers were setup for ACME TLS provider")
+			}
+			err := a.Config.ManageSync(ctx, []string{w.details.Domain})
+			if err != nil {
+				return err
+			}
+
+			tlsConfig := a.Config.TLSConfig()
+			tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
+
+			httpsServer := &http.Server{
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      2 * time.Minute,
+				IdleTimeout:       5 * time.Minute,
+				Handler:           w.mux,
+				BaseContext:       func(listener net.Listener) context.Context { return ctx },
+			}
+			for _, s := range w.listeners {
+				s.Close()
+			}
+			w.listeners = []*http.Server{}
+
+			httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
+			if err == nil {
+				w.listeners = append(w.listeners, httpRedirectServer)
+			}
+
+			w.listeners = append(w.listeners, httpsServer)
+
+			httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
+			if err != nil {
+				return err
+			}
+			go httpsServer.Serve(httpsLn)
+
 		}
-		go httpsServer.Serve(httpsLn)
 	}
 
 	return nil

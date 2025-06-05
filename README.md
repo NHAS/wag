@@ -620,6 +620,14 @@ Example:
 
 # Development 
 
+## Running vite
+
+```sh
+export DEV_API_URL=http://127.0.0.1:4433
+make debug
+sudo ./wag start -config docker-test-config.json
+```
+
 ## Testing
 ```sh
 cd internal/router

@@ -24,7 +24,6 @@ type webserverDetails struct {
 	ListenAddress   string
 	Domain          string
 	TLS             bool
-	Acme            bool
 	CertificatePath string
 	PrivateKeyPath  string
 }
@@ -81,7 +80,6 @@ type Config struct {
 			Port   string
 			Domain string
 			TLS    bool
-			Acme   bool
 
 			CertificatePath string
 			PrivateKeyPath  string

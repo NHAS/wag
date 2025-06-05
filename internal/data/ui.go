@@ -300,29 +300,6 @@ func SetAdminPassword(username, password string) error {
 
 }
 
-func setAdminHash(username, hash string) error {
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
-
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("invalid number of admin users")
-		}
-
-		var admin admin
-		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
-		if err != nil {
-			return "", err
-		}
-
-		admin.Change = false
-		admin.Hash = hash
-
-		b, _ := json.Marshal(admin)
-
-		return string(b), nil
-
-	})
-}
-
 func SetLastLoginInformation(username, ip string) error {
 	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 

@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -282,12 +283,13 @@ func loadInitialSettings() error {
 		ListenAddress: net.JoinHostPort(config.Values.Wireguard.ServerAddress.String(), config.Values.Webserver.Tunnel.Port),
 		Domain:        config.Values.Webserver.Tunnel.Domain,
 		TLS:           config.Values.Webserver.Tunnel.TLS,
-		Acme:          config.Values.Webserver.Tunnel.Acme,
 	}
 
-	tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
-	if err != nil {
-		log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
+	if config.Values.Webserver.Tunnel.CertificatePath != "" {
+		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
+		if err != nil {
+			log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
+		}
 	}
 
 	err = putIfNotFound(TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
@@ -299,12 +301,13 @@ func loadInitialSettings() error {
 		Domain:        config.Values.Webserver.Public.Domain,
 		TLS:           config.Values.Webserver.Public.TLS,
 		ListenAddress: config.Values.Webserver.Public.ListenAddress,
-		Acme:          config.Values.Webserver.Public.Acme,
 	}
 
-	publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
-	if err != nil {
-		log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+	if config.Values.Webserver.Public.CertificatePath != "" {
+		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
+		if err != nil {
+			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+		}
 	}
 
 	err = putIfNotFound(PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
@@ -316,12 +319,14 @@ func loadInitialSettings() error {
 		Domain:        config.Values.Webserver.Management.Domain,
 		TLS:           config.Values.Webserver.Management.TLS,
 		ListenAddress: config.Values.Webserver.Management.ListenAddress,
-		Acme:          config.Values.Webserver.Management.Acme,
 	}
 
-	managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
-	if err != nil {
-		log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+	if config.Values.Webserver.Management.CertificatePath != "" {
+
+		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
+		if err != nil {
+			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+		}
 	}
 
 	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
@@ -339,9 +344,19 @@ func readTLSPems(cert, key string) (string, string, error) {
 		return "", "", fmt.Errorf("unable to read certificate file at path %q, %w", cert, err)
 	}
 
+	p, _ := pem.Decode(certBytes)
+	if p == nil {
+		return "", "", fmt.Errorf("failed to to decode certificate %q bytes", cert)
+	}
+
 	keyBytes, err := os.ReadFile(key)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to read certificate file at path %q, %w", key, err)
+	}
+
+	p, _ = pem.Decode(keyBytes)
+	if p == nil {
+		return "", "", fmt.Errorf("failed to to decode key %q bytes", cert)
 	}
 
 	return string(certBytes), string(keyBytes), nil

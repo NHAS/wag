@@ -202,8 +202,33 @@ type ConfigResponseDTO struct {
 }
 
 type WebServerConfigDTO struct {
-	ServerName string `json:"server_name"`
-	data.WebserverConfiguration
+	ServerName    string `json:"server_name"`
+	ListenAddress string `json:"listen_address"`
+	Domain        string `json:"domain"`
+	TLS           bool   `json:"tls"`
+
+	StaticCerts bool `json:"static_certificates"`
+
+	CertificatePEM string `json:"certificate"`
+	PrivateKeyPEM  string `json:"private_key"`
+}
+
+func CreateWebServerConfigDTO(serverName string, config data.WebserverConfiguration) WebServerConfigDTO {
+	var output WebServerConfigDTO
+	output.ServerName = serverName
+	output.ListenAddress = config.ListenAddress
+	output.Domain = config.Domain
+	output.TLS = config.TLS
+
+	output.StaticCerts = config.StaticCerts
+	output.CertificatePEM = config.CertificatePEM
+
+	output.PrivateKeyPEM = ""
+	if config.PrivateKeyPEM != "" {
+		output.PrivateKeyPEM = "Valid"
+	}
+
+	return output
 }
 
 type AcmeDetailsResponseDTO struct {

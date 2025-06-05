@@ -1,6 +1,7 @@
 package adminui
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -118,7 +119,7 @@ func (au *AdminUI) getAllWebserverConfigs(w http.ResponseWriter, _ *http.Request
 	var results []WebServerConfigDTO
 
 	for name, conf := range confs {
-		results = append(results, WebServerConfigDTO{ServerName: name, WebserverConfiguration: conf})
+		results = append(results, CreateWebServerConfigDTO(name, conf))
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -151,17 +152,17 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	details, err := data.GetWebserverConfig(data.Webserver(s.ServerName))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		err = fmt.Errorf("unable to get tunnel webserver configuration to check ip: %w", err)
+		return
+	}
+
 	if s.ServerName == string(data.Tunnel) {
 		var (
-			details    data.WebserverConfiguration
 			storedHost string
 		)
-		details, err = data.GetWebserverConfig(data.Tunnel)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			err = fmt.Errorf("unable to get tunnel webserver configuration to check ip: %w", err)
-			return
-		}
 
 		storedHost, _, err = net.SplitHostPort(details.ListenAddress)
 		if err != nil {
@@ -179,7 +180,31 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	err = data.SetWebserverConfig(data.Webserver(s.ServerName), s.WebserverConfiguration)
+	if s.PrivateKeyPEM == "Valid" {
+		s.PrivateKeyPEM = details.PrivateKeyPEM
+	}
+
+	if s.CertificatePEM != "" || s.PrivateKeyPEM != "" || s.StaticCerts {
+		_, err = tls.X509KeyPair([]byte(s.CertificatePEM), []byte(s.PrivateKeyPEM))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			err = fmt.Errorf("invalid custom certificate and key, %w", err)
+			return
+		}
+	}
+
+	serverUpdate := data.WebserverConfiguration{
+		ListenAddress: s.ListenAddress,
+		Domain:        s.Domain,
+		TLS:           s.TLS,
+
+		StaticCerts: s.StaticCerts,
+
+		CertificatePEM: s.CertificatePEM,
+		PrivateKeyPEM:  s.PrivateKeyPEM,
+	}
+
+	err = data.SetWebserverConfig(data.Webserver(s.ServerName), serverUpdate)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

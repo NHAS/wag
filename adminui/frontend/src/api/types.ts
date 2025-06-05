@@ -303,4 +303,8 @@ export interface WebServerConfigDTO {
   listen_address: string
   domain: string
   tls: boolean
+
+  static_certificates: boolean
+  certificate: string
+  private_key: string
 }

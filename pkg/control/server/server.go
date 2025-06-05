@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/router"
@@ -73,9 +74,23 @@ func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error
 	var srvSock WagControlSocketServer
 	srvSock.firewall = firewall
 
+	if _, err := os.Stat(config.Values.Socket); err == nil {
+
+		conn, err := net.DialTimeout("unix", config.Values.Socket, 200*time.Millisecond)
+		if err != nil {
+			err = os.Remove(config.Values.Socket)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create unix socket %q for control server: %w", config.Values.Socket, err)
+			}
+		} else {
+			conn.Close()
+			return nil, fmt.Errorf("failed to create unix socket %q for control server, Wag is already running", config.Values.Socket)
+		}
+	}
+
 	l, err := net.Listen("unix", config.Values.Socket)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create unix socket %q for control server: %s", config.Values.Socket, err)
+		return nil, fmt.Errorf("failed to create unix socket %q for control server: %w", config.Values.Socket, err)
 	}
 	srvSock.socket = l
 

@@ -90,7 +90,8 @@ type WebserverConfiguration struct {
 	ListenAddress string `json:"listen_address"`
 	Domain        string `json:"domain"`
 	TLS           bool   `json:"tls"`
-	Acme          bool   `json:"acme"`
+
+	StaticCerts bool `json:"static_certificates"`
 
 	// These are the user supplied certs, not the ones given by certmagic, which are managed internally
 	CertificatePEM string `json:"certificate"`
@@ -106,7 +107,7 @@ func (a *WebserverConfiguration) Equals(b *WebserverConfiguration) bool {
 		return false
 	}
 
-	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.Acme == b.Acme && a.CertificatePEM == b.CertificatePEM && a.PrivateKeyPEM == b.PrivateKeyPEM
+	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.CertificatePEM == b.CertificatePEM && a.PrivateKeyPEM == b.PrivateKeyPEM
 }
 
 func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {

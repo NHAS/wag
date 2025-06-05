@@ -217,16 +217,16 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 			continue
 		}
 
-		log.Printf("[PORTAL] MFA %s registered", method)
-
-		err = handler.Initialise()
-		if err != nil {
-			handler.Disable()
-			log.Println("failed to initialise mfa method: ", method, "err: ", err)
-			continue
-		}
+		log.Printf("[PORTAL] MFA %s registered (enabled: %t)", method, isEnabled)
 
 		if isEnabled {
+			err = handler.Initialise()
+			if err != nil {
+				handler.Disable()
+				log.Println("failed to initialise mfa method: ", method, "err: ", err)
+				continue
+			}
+
 			handler.Enable()
 		}
 		// Directly register each handler from routes to the main mux with the proper prefix
