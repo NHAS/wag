@@ -143,23 +143,7 @@ func UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error 
 }
 
 func GetDevice(username, id string) (device Device, err error) {
-
-	response, err := etcd.Get(context.Background(), deviceKey(username, id))
-	if err != nil {
-		return Device{}, err
-	}
-
-	if response.Count == 0 {
-		return Device{}, errors.New("device was not found")
-	}
-
-	if len(response.Kvs) != 1 {
-		return Device{}, errors.New("user device has multiple keys")
-	}
-
-	err = json.Unmarshal(response.Kvs[0].Value, &device)
-
-	return
+	return get[Device](deviceKey(username, id))
 }
 
 func HasDeviceAuthorised(current, previous Device) bool {

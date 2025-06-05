@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -23,18 +22,7 @@ func GetRegistrationToken(token string) (username, overwrites, staticIP string, 
 
 	minTime := time.After(1 * time.Second)
 
-	response, err := etcd.Get(context.Background(), registrationKey(token))
-	if err != nil {
-		return
-	}
-
-	if len(response.Kvs) != 1 {
-		err = errors.New("invalid token")
-		return
-	}
-
-	var result control.RegistrationResult
-	err = json.Unmarshal(response.Kvs[0].Value, &result)
+	result, err := get[control.RegistrationResult](registrationKey(token))
 
 	<-minTime
 
@@ -48,7 +36,7 @@ func GetRegistrationToken(token string) (username, overwrites, staticIP string, 
 // Returns list of tokens
 func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 
-	response, err := etcd.Get(context.Background(), "tokens-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := etcd.Get(context.Background(), tokensKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +56,6 @@ func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 
 func DeleteRegistrationToken(identifier string) error {
 	_, err := etcd.Delete(context.Background(), registrationKey(identifier))
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -80,7 +64,7 @@ func FinaliseRegistration(token string) error {
 
 	errVal := errors.New("registration token has expired")
 
-	err := doSafeUpdate(context.Background(), "tokens-"+token, false, func(gr *clientv3.GetResponse) (string, error) {
+	err := doSafeUpdate(context.Background(), tokensKey+token, false, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result control.RegistrationResult
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -143,7 +127,6 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 		return fmt.Errorf("static ip was not parsable as an ip address: %w", err)
 	}
 
-	var err error
 	if overwrite != "" {
 
 		response, err := etcd.Get(context.Background(), deviceRef+overwrite)
@@ -155,8 +138,13 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 			return errors.New("no device with that ip")
 		}
 
-		if !bytes.Contains(response.Kvs[0].Value, []byte(username)) {
-			return errors.New("could not find device that this token is intended to overwrite")
+		device, err := get[Device](deviceRef + overwrite)
+		if err != nil {
+			return fmt.Errorf("could not find device that this token is intended to overwrite: %w", err)
+		}
+
+		if device.Username != username {
+			return fmt.Errorf("device cannot be overwritten to different user: %w", err)
 		}
 	}
 
@@ -169,9 +157,6 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 		NumUses:    uses,
 	}
 
-	b, _ := json.Marshal(result)
+	return set(tokensKey+token, false, result)
 
-	_, err = etcd.Put(context.Background(), "tokens-"+token, string(b))
-
-	return err
 }

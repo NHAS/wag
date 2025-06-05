@@ -345,10 +345,7 @@ func RaiseError(raisedError error, value []byte) (err error) {
 		return err
 	}
 
-	eventErrorBytes, _ := json.Marshal(ee)
-	_, err = etcd.Put(context.Background(), path.Join(NodeErrors, ee.ErrorID), string(eventErrorBytes))
-
-	return err
+	return set(path.Join(NodeErrors, ee.ErrorID), false, ee)
 
 }
 

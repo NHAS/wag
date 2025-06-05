@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -15,7 +14,6 @@ import (
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/clientv3util"
 	"golang.org/x/exp/maps"
 )
 
@@ -25,28 +23,7 @@ func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 		return err
 	}
 
-	policyJson, _ := json.Marshal(policy)
-
-	if overwrite {
-
-		_, err := etcd.Put(context.Background(), AclsPrefix+effects, string(policyJson))
-		return err
-	}
-
-	txn := etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyMissing(AclsPrefix + effects))
-	txn.Then(clientv3.OpPut(AclsPrefix+effects, string(policyJson)))
-
-	resp, err := txn.Commit()
-	if err != nil {
-		return err
-	}
-
-	if !resp.Succeeded {
-		return errors.New("acl already exists")
-	}
-
-	return err
+	return set(AclsPrefix+effects, false, policy)
 }
 
 func GetPolicies() (result []control.PolicyData, err error) {

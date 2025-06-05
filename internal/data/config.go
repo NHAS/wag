@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"slices"
 	"strings"
@@ -80,6 +79,8 @@ const (
 
 	deviceRef = "deviceref-"
 
+	tokensKey = "tokens-"
+
 	WebServerConfigKey           = ConfigKey + "webserver-"
 	TunnelWebServerConfigKey     = WebServerConfigKey + string(Tunnel)
 	PublicWebServerConfigKey     = WebServerConfigKey + string(Public)
@@ -131,18 +132,7 @@ func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err er
 }
 
 func GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
-
-	response, err := etcd.Get(context.Background(), WebServerConfigKey+string(forWhat))
-	if err != nil {
-		return WebserverConfiguration{}, err
-	}
-
-	if len(response.Kvs) == 0 {
-		return WebserverConfiguration{}, errors.New("no web server settings found")
-	}
-
-	err = json.Unmarshal(response.Kvs[0].Value, &details)
-	return
+	return get[WebserverConfiguration](WebServerConfigKey + string(forWhat))
 }
 
 func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
@@ -153,27 +143,11 @@ func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err 
 		return errors.New("unsupported webserver")
 	}
 
-	b, err := json.Marshal(details)
-	if err != nil {
-		return err
-	}
-	_, err = etcd.Put(context.Background(), WebServerConfigKey+string(forWhat), string(b))
-	return err
+	return set(WebServerConfigKey+string(forWhat), true, details)
 }
 
 func GetPAM() (details PAM, err error) {
-
-	response, err := etcd.Get(context.Background(), PamDetailsKey)
-	if err != nil {
-		return PAM{}, err
-	}
-
-	if len(response.Kvs) == 0 {
-		return PAM{}, errors.New("no PAM settings found")
-	}
-
-	err = json.Unmarshal(response.Kvs[0].Value, &details)
-	return
+	return get[PAM](PamDetailsKey)
 }
 
 func GetOidc() (details OIDC, err error) {
@@ -256,11 +230,7 @@ func GetWireguardConfigName() string {
 }
 
 func SetDefaultMfaMethod(method string) error {
-
-	data, _ := json.Marshal(method)
-
-	_, err := etcd.Put(context.Background(), DefaultMFAMethodKey, string(data))
-	return err
+	return set(DefaultMFAMethodKey, true, method)
 }
 
 func GetDefaultMfaMethod() (string, error) {
@@ -268,49 +238,15 @@ func GetDefaultMfaMethod() (string, error) {
 }
 
 func SetAuthenticationMethods(methods []string) error {
-	data, _ := json.Marshal(methods)
-	_, err := etcd.Put(context.Background(), MFAMethodsEnabledKey, string(data))
-	return err
+	return set(MFAMethodsEnabledKey, true, methods)
 }
 
 func GetEnabledAuthenticationMethods() (result []string, err error) {
-
-	resp, err := etcd.Get(context.Background(), MFAMethodsEnabledKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("incorrect number of %s keys", MFAMethodsEnabledKey)
-	}
-
-	err = json.Unmarshal(resp.Kvs[0].Value, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	return
+	return get[[]string](MFAMethodsEnabledKey)
 }
 
 func ShouldCheckUpdates() (bool, error) {
-
-	resp, err := etcd.Get(context.Background(), checkUpdatesKey)
-	if err != nil {
-		return false, err
-	}
-
-	var ret bool
-
-	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
-	if err != nil {
-		return false, err
-	}
-
-	if len(resp.Kvs) != 1 {
-		return false, fmt.Errorf("incorrect number of %s keys", checkUpdatesKey)
-	}
-
-	return ret, nil
+	return get[bool](MFAMethodsEnabledKey)
 }
 
 func GetTunnelDomainUrl() (string, error) {
@@ -339,9 +275,7 @@ func GetTunnelDomainUrl() (string, error) {
 }
 
 func SetIssuer(issuer string) error {
-	data, _ := json.Marshal(issuer)
-	_, err := etcd.Put(context.Background(), IssuerKey, string(data))
-	return err
+	return set(IssuerKey, true, issuer)
 }
 
 func GetIssuer() (string, error) {
@@ -349,9 +283,7 @@ func GetIssuer() (string, error) {
 }
 
 func SetHelpMail(helpMail string) error {
-	data, _ := json.Marshal(helpMail)
-	_, err := etcd.Put(context.Background(), helpMailKey, string(data))
-	return err
+	return set(helpMailKey, true, helpMail)
 }
 
 func GetHelpMail() string {
@@ -369,28 +301,11 @@ func GetExternalAddress() (string, error) {
 }
 
 func SetDNS(dns []string) error {
-	jsonData, _ := json.Marshal(dns)
-	_, err := etcd.Put(context.Background(), dnsKey, string(jsonData))
-	return err
+	return set(dnsKey, true, dns)
 }
 
 func GetDNS() ([]string, error) {
-	resp, err := etcd.Get(context.Background(), dnsKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("incorrect number of %s keys", dnsKey)
-	}
-
-	var servers []string
-	err = json.Unmarshal(resp.Kvs[0].Value, &servers)
-	if err != nil {
-		return nil, err
-	}
-
-	return servers, nil
+	return get[[]string](dnsKey)
 }
 
 type LoginSettings struct {
@@ -643,43 +558,23 @@ func SetGeneralSettings(generalSettings GeneralSettings) error {
 }
 
 func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
-	data, _ := json.Marshal(lifetimeMinutes)
-	_, err := etcd.Put(context.Background(), SessionLifetimeKey, string(data))
-	return err
+	return set(SessionLifetimeKey, true, lifetimeMinutes)
 }
 
 // If value is below 0 that means the max session is infinite (i.e disabled)
 func GetSessionLifetimeMinutes() (int, error) {
-	sessionLifeTime, err := get[int](SessionLifetimeKey)
-	if err != nil {
-		return 0, err
-	}
-
-	return sessionLifeTime, nil
+	return get[int](SessionLifetimeKey)
 }
 
-func SetSessionInactivityTimeoutMinutes(InactivityTimeout int) error {
-	data, _ := json.Marshal(InactivityTimeout)
-
-	_, err := etcd.Put(context.Background(), InactivityTimeoutKey, string(data))
-	return err
+func SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
+	return set(InactivityTimeoutKey, true, inactivityTimeout)
 }
 
 func GetSessionInactivityTimeoutMinutes() (int, error) {
-	inactivityTimeout, err := get[int](InactivityTimeoutKey)
-	if err != nil {
-		return 0, err
-	}
-
-	return inactivityTimeout, nil
+	return get[int](InactivityTimeoutKey)
 }
 
 // Get account lockout threshold setting
 func GetLockout() (int, error) {
-	lockout, err := get[int](LockoutKey)
-	if err != nil {
-		return 0, err
-	}
-
-	return lockout, nil
+	return get[int](LockoutKey)
 }

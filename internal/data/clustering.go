@@ -108,9 +108,7 @@ func GetVersion(idHex string) (string, error) {
 }
 
 func SetVersion() error {
-	d, _ := json.Marshal(config.Version)
-	_, err := etcd.Put(context.Background(), path.Join(NodeInfo, GetServerID().String(), "version"), string(d))
-	return err
+	return set(path.Join(NodeInfo, GetServerID().String(), "version"), true, config.Version)
 }
 
 func SetDrained(idHex string, on bool) error {

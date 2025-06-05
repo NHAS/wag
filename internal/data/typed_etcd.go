@@ -5,16 +5,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func set[T any](key string, data T) (err error) {
+func set[T any](key string, overwrite bool, data T) (err error) {
 
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal as json into etcd: %w", err)
 	}
 
-	_, err = etcd.Put(context.Background(), key, string(b))
+	if overwrite {
+
+		_, err := etcd.Put(context.Background(), key, string(b))
+		return err
+	}
+
+	txn := etcd.Txn(context.Background())
+	txn.If(clientv3util.KeyMissing(key))
+	txn.Then(clientv3.OpPut(key, string(b)))
+
+	resp, err := txn.Commit()
+	if err != nil {
+		return err
+	}
+
+	if !resp.Succeeded {
+		return fmt.Errorf("%q already exists, and overwrite = false", key)
+	}
+
 	return
 }
 
@@ -25,12 +46,12 @@ func get[T any](key string) (ret T, err error) {
 	}
 
 	if len(resp.Kvs) == 0 {
-		return ret, fmt.Errorf("no %s keys", key)
+		return ret, fmt.Errorf("no data for %q ", key)
 
 	}
 
 	if len(resp.Kvs) > 1 {
-		return ret, fmt.Errorf("incorrect number of %s keys (>1)", key)
+		return ret, fmt.Errorf("incorrect number of values/keys  for %q (>1)", key)
 	}
 
 	b := bytes.NewBuffer(resp.Kvs[0].Value)

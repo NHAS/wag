@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -37,7 +36,7 @@ func SetAcmeDNS01CloudflareToken(token string) error {
 	var newToken CloudflareToken
 	newToken.APIToken = token
 
-	return set(AcmeDNS01CloudflareAPIToken, newToken)
+	return set(AcmeDNS01CloudflareAPIToken, true, newToken)
 }
 
 func GetAcmeEmail() (string, error) {
@@ -54,11 +53,7 @@ func SetAcmeEmail(email string) error {
 		}
 	}
 
-	data, _ := json.Marshal(email)
-
-	_, err := etcd.Put(context.Background(), AcmeEmailKey, string(data))
-
-	return err
+	return set(AcmeEmailKey, true, email)
 }
 
 func SetAcmeProvider(providerURL string) error {
@@ -79,10 +74,7 @@ func SetAcmeProvider(providerURL string) error {
 		}
 	}
 
-	data, _ := json.Marshal(providerURL)
-
-	_, err := etcd.Put(context.Background(), AcmeProviderKey, string(data))
-	return err
+	return set(AcmeProviderKey, true, providerURL)
 }
 
 func GetAcmeProvider() (string, error) {

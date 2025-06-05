@@ -9,7 +9,6 @@ import (
 
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 type UserModel struct {
@@ -53,7 +52,7 @@ func IncrementAuthenticationAttempt(username, device string) error {
 func GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
 	txn := etcd.Txn(context.Background())
-	resp, err := txn.Then(clientv3.OpGet("users-"+username+"-"), clientv3.OpGet("devices-"+username+"-"+device)).Commit()
+	resp, err := txn.Then(clientv3.OpGet(UsersPrefix+username+"-"), clientv3.OpGet("devices-"+username+"-"+device)).Commit()
 	if err != nil {
 		return
 	}
@@ -95,7 +94,7 @@ func GetAuthenticationDetails(username, device string) (mfa, mfaType string, att
 
 // Disable authentication for user
 func SetUserLock(username string) error {
-	err := doSafeUpdate(context.Background(), "users-"+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	err := doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -117,7 +116,7 @@ func SetUserLock(username string) error {
 }
 
 func SetUserUnlock(username string) error {
-	err := doSafeUpdate(context.Background(), "users-"+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	err := doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -140,7 +139,7 @@ func SetUserUnlock(username string) error {
 
 // Has the user recorded their MFA details. Always read the latest value from the DB
 func IsEnforcingMFA(username string) bool {
-	userResponse, err := etcd.Get(context.Background(), "users-"+username+"-")
+	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
 	if err != nil {
 		// Fail closed rather than allowing a user to re-register their mfa on db error
 		return true
@@ -162,7 +161,7 @@ func IsEnforcingMFA(username string) bool {
 // Stop displaying MFA secrets for user
 func SetEnforceMFAOn(username string) error {
 
-	return doSafeUpdate(context.Background(), "users-"+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -179,7 +178,7 @@ func SetEnforceMFAOn(username string) error {
 }
 
 func SetEnforceMFAOff(username string) error {
-	return doSafeUpdate(context.Background(), "users-"+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -197,19 +196,10 @@ func SetEnforceMFAOff(username string) error {
 }
 
 func GetMFASecret(username string) (string, error) {
-	userResponse, err := etcd.Get(context.Background(), "users-"+username+"-")
-	if err != nil {
-		return "", err
-	}
 
-	if len(userResponse.Kvs) != 1 {
-		return "", errors.New("invalid number of users for entry")
-	}
-
-	var user UserModel
-	err = json.Unmarshal(userResponse.Kvs[0].Value, &user)
+	user, err := get[UserModel](UsersPrefix + username + "-")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
 
 	// The webauthn "secret" needs to be used, but isnt returned to the client
@@ -222,19 +212,9 @@ func GetMFASecret(username string) (string, error) {
 
 func GetMFAType(username string) (string, error) {
 
-	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
+	user, err := get[UserModel](UsersPrefix + username + "-")
 	if err != nil {
-		return "", err
-	}
-
-	if len(userResponse.Kvs) != 1 {
-		return "", errors.New("invalid number of users for entry")
-	}
-
-	var user UserModel
-	err = json.Unmarshal(userResponse.Kvs[0].Value, &user)
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
 
 	return user.MfaType, nil
@@ -251,24 +231,7 @@ func DeleteUser(username string) error {
 }
 
 func GetUserData(username string) (u UserModel, err error) {
-
-	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
-	if err != nil {
-		return
-	}
-
-	if len(userResponse.Kvs) != 1 {
-		err = errors.New("invalid number of users for entry")
-		return
-	}
-
-	var user UserModel
-	err = json.Unmarshal(userResponse.Kvs[0].Value, &user)
-	if err != nil {
-		return
-	}
-
-	return user, err
+	return get[UserModel](UsersPrefix + username + "-")
 }
 
 func GetUserDataFromAddress(address string) (u UserModel, err error) {
@@ -323,29 +286,15 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 		Mfa:      string(types.Unset),
 		MfaType:  string(types.Unset),
 	}
-	b, _ := json.Marshal(&newUser)
 
-	emptyGroups := []string{}
-
-	groups, _ := json.Marshal(emptyGroups)
-
-	txn := etcd.Txn(context.Background())
-
-	txn.If(clientv3util.KeyMissing(UsersPrefix + username + "-"))
-	txn.Then(clientv3.OpPut(UsersPrefix+username+"-", string(b)))
-
-	res, err := txn.Commit()
+	err := set(UsersPrefix+username+"-", false, newUser)
 	if err != nil {
-		return UserModel{}, err
+		return UserModel{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	if !res.Succeeded {
-		return UserModel{}, errors.New("user " + username + " exists")
-	}
-
-	_, err = etcd.Put(context.Background(), MembershipKey+"-"+username, string(groups))
+	err = set(MembershipKey+"-"+username, false, []string{})
 	if err != nil {
-		return UserModel{}, fmt.Errorf("failed to create membership key: %q, err: %s", MembershipKey+"-"+username, err)
+		return UserModel{}, fmt.Errorf("failed to create membership key: %q, err: %w", MembershipKey+"-"+username, err)
 	}
 
 	return newUser, err
