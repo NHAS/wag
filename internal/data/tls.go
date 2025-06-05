@@ -30,18 +30,18 @@ type CloudflareToken struct {
 }
 
 func GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
-	return getObject[CloudflareToken](AcmeDNS01CloudflareAPIToken)
+	return get[CloudflareToken](AcmeDNS01CloudflareAPIToken)
 }
 
 func SetAcmeDNS01CloudflareToken(token string) error {
 	var newToken CloudflareToken
 	newToken.APIToken = token
 
-	return setObject(AcmeDNS01CloudflareAPIToken, newToken)
+	return set(AcmeDNS01CloudflareAPIToken, newToken)
 }
 
 func GetAcmeEmail() (string, error) {
-	return getString(AcmeEmailKey)
+	return get[string](AcmeEmailKey)
 }
 
 func SetAcmeEmail(email string) error {
@@ -86,7 +86,7 @@ func SetAcmeProvider(providerURL string) error {
 }
 
 func GetAcmeProvider() (string, error) {
-	return getString(AcmeProviderKey)
+	return get[string](AcmeProviderKey)
 }
 
 type CertMagicStore struct {

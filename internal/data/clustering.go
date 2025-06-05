@@ -104,8 +104,7 @@ func GetVersion(idHex string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
-
-	return getString(path.Join(NodeInfo, idHex, "version"))
+	return get[string](path.Join(NodeInfo, idHex, "version"))
 }
 
 func SetVersion() error {

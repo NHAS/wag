@@ -40,7 +40,7 @@ type DeviceChallenge struct {
 }
 
 func ValidateChallenge(username, address, challenge string) error {
-	dc, err := getObject[DeviceChallenge](DeviceChallengePrefix + username + "-" + address)
+	dc, err := get[DeviceChallenge](DeviceChallengePrefix + username + "-" + address)
 	if err != nil {
 		return err
 	}
@@ -66,12 +66,12 @@ func ValidateChallenge(username, address, challenge string) error {
 }
 
 func (d Device) ChallengeExists() error {
-	_, err := getObject[DeviceChallenge](DeviceChallengePrefix + d.Username + "-" + d.Address)
+	_, err := get[DeviceChallenge](DeviceChallengePrefix + d.Username + "-" + d.Address)
 	return err
 }
 
 func (d Device) GetSensitiveChallenge() (string, error) {
-	deviceWithChallenge, err := getObject[Device](DevicesPrefix + d.Username + "-" + d.Address)
+	deviceWithChallenge, err := get[Device](DevicesPrefix + d.Username + "-" + d.Address)
 
 	return deviceWithChallenge.Challenge, err
 }

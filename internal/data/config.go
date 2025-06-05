@@ -161,86 +161,6 @@ func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err 
 	return err
 }
 
-func getString(key string) (ret string, err error) {
-	resp, err := etcd.Get(context.Background(), key)
-	if err != nil {
-		return "", err
-	}
-
-	if len(resp.Kvs) != 1 {
-		return "", fmt.Errorf("incorrect number of %s keys", key)
-	}
-
-	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
-	if err != nil {
-		return "", err
-	}
-
-	return ret, nil
-}
-
-func setObject[T any](key string, obj T) (err error) {
-
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	_, err = etcd.Put(context.Background(), key, string(b))
-	if err != nil {
-		return err
-	}
-
-	return
-}
-
-func getObject[T any](key string) (ret T, err error) {
-
-	resp, err := etcd.Get(context.Background(), key)
-	if err != nil {
-		return ret, err
-	}
-
-	if len(resp.Kvs) == 0 {
-		return ret, fmt.Errorf("no %s keys", key)
-
-	}
-
-	if len(resp.Kvs) > 1 {
-		return ret, fmt.Errorf("incorrect number of %s keys (>1)", key)
-	}
-
-	b := bytes.NewBuffer(resp.Kvs[0].Value)
-
-	dec := json.NewDecoder(b)
-	dec.DisallowUnknownFields()
-
-	err = dec.Decode(&ret)
-	if err != nil {
-		return ret, err
-	}
-
-	return
-}
-
-func getInt(key string) (ret int, err error) {
-	resp, err := etcd.Get(context.Background(), key)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(resp.Kvs) != 1 {
-		return 0, fmt.Errorf("incorrect number of %s keys", key)
-	}
-
-	err = json.Unmarshal(resp.Kvs[0].Value, &ret)
-	if err != nil {
-		return 0, err
-	}
-
-	return ret, nil
-}
-
 func GetPAM() (details PAM, err error) {
 
 	response, err := etcd.Get(context.Background(), PamDetailsKey)
@@ -323,7 +243,7 @@ func GetWebauthn() (wba Webauthn, err error) {
 }
 
 func GetWireguardConfigName() string {
-	k, err := getString(defaultWGFileNameKey)
+	k, err := get[string](defaultWGFileNameKey)
 	if err != nil {
 		return "wg0.conf"
 	}
@@ -344,7 +264,7 @@ func SetDefaultMfaMethod(method string) error {
 }
 
 func GetDefaultMfaMethod() (string, error) {
-	return getString(DefaultMFAMethodKey)
+	return get[string](DefaultMFAMethodKey)
 }
 
 func SetAuthenticationMethods(methods []string) error {
@@ -425,7 +345,7 @@ func SetIssuer(issuer string) error {
 }
 
 func GetIssuer() (string, error) {
-	return getString(IssuerKey)
+	return get[string](IssuerKey)
 }
 
 func SetHelpMail(helpMail string) error {
@@ -436,7 +356,7 @@ func SetHelpMail(helpMail string) error {
 
 func GetHelpMail() string {
 
-	mail, err := getString(helpMailKey)
+	mail, err := get[string](helpMailKey)
 	if err != nil {
 		return "Server Error"
 	}
@@ -445,7 +365,7 @@ func GetHelpMail() string {
 }
 
 func GetExternalAddress() (string, error) {
-	return getString(externalAddressKey)
+	return get[string](externalAddressKey)
 }
 
 func SetDNS(dns []string) error {
@@ -730,7 +650,7 @@ func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
 
 // If value is below 0 that means the max session is infinite (i.e disabled)
 func GetSessionLifetimeMinutes() (int, error) {
-	sessionLifeTime, err := getInt(SessionLifetimeKey)
+	sessionLifeTime, err := get[int](SessionLifetimeKey)
 	if err != nil {
 		return 0, err
 	}
@@ -746,7 +666,7 @@ func SetSessionInactivityTimeoutMinutes(InactivityTimeout int) error {
 }
 
 func GetSessionInactivityTimeoutMinutes() (int, error) {
-	inactivityTimeout, err := getInt(InactivityTimeoutKey)
+	inactivityTimeout, err := get[int](InactivityTimeoutKey)
 	if err != nil {
 		return 0, err
 	}
@@ -756,7 +676,7 @@ func GetSessionInactivityTimeoutMinutes() (int, error) {
 
 // Get account lockout threshold setting
 func GetLockout() (int, error) {
-	lockout, err := getInt(LockoutKey)
+	lockout, err := get[int](LockoutKey)
 	if err != nil {
 		return 0, err
 	}
