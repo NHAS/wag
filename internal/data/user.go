@@ -292,7 +292,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 		return UserModel{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	err = set(MembershipKey+"-"+username, false, []string{})
+	err = set(MembershipKey+"-"+username, true, []string{})
 	if err != nil {
 		return UserModel{}, fmt.Errorf("failed to create membership key: %q, err: %w", MembershipKey+"-"+username, err)
 	}

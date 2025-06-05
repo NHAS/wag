@@ -331,6 +331,13 @@ type EventError struct {
 	Time            time.Time `json:"time"`
 }
 
+// RaiseError creates an entry in the etcd database that will be presented to the user as a notification
+// Parameters:
+//   - raisedError: The error text to present
+//   - value: The data that caused the error
+//
+// Returns:
+//   - error: Will error if it cannot generate a unique ID or add it to the etcd db
 func RaiseError(raisedError error, value []byte) (err error) {
 
 	ee := EventError{

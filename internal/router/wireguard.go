@@ -104,6 +104,7 @@ func (t *Wrapper) Close() error {
 	var err error
 	t.closeOnce.Do(func() {
 		err = t.Device.Close()
+		close(t.closed)
 	})
 	return err
 }
@@ -172,7 +173,8 @@ func (f *Firewall) endpointChange(e device.Event) {
 
 		k, err := wgtypes.NewKey(e.Pk[:])
 		if err != nil {
-			panic(err)
+			log.Println("[BUG]: KEY WAS NOT WIREGUARD KEY: ", err)
+			return
 		}
 
 		device, ok := f.pubkeyToDevice[k.String()]
@@ -449,7 +451,7 @@ func (f *Firewall) setUp(c *netlink.Conn, interfaceName string) error {
 	case netlink.Error:
 		errCode := binary.LittleEndian.Uint32(resp[0].Data)
 		if errCode != 0 {
-			return errors.New("got netlink error: " + fmt.Sprintf("%d", errCode))
+			return fmt.Errorf("failed to set tunnel up, got netlink error: %d", errCode)
 		}
 
 	}
