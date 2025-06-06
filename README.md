@@ -364,7 +364,7 @@ Full config example
         "Lockout": 5,
 
         "Tunnel": {
-            "Domain": "http://vpn.test:8080",
+            "Domain": "vpn.test",
             "Port": "8080",
 
             "MaxSessionLifetimeMinutes": 2,

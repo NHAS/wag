@@ -178,7 +178,7 @@ const selectedUsersHasLocked = computed(() => {
                 </button>
               </div>
               <div class="tooltip" :data-tip="'Delete ' + selectedUsers.length + ' users'">
-                <ConfirmModal @on-confirm="() => deleteUsers(selectedUsers)">
+                <ConfirmModal @on-confirm="() => tryDeleteUsers(selectedUsers)">
                   <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
