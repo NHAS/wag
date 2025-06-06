@@ -71,14 +71,20 @@ func (au *AdminUI) notificationsWS(notifications <-chan NotificationDTO) func(w 
 		mapLck.Unlock()
 
 		for notf := range connectionChan {
-			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-
-			err := conn.WriteJSON(notf)
+			err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err != nil {
 				return
 			}
 
-			conn.SetWriteDeadline(time.Time{})
+			err = conn.WriteJSON(notf)
+			if err != nil {
+				return
+			}
+
+			err = conn.SetWriteDeadline(time.Time{})
+			if err != nil {
+				return
+			}
 		}
 
 	}

@@ -435,7 +435,10 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(info.PreferredUsername, info.Subject, r.RemoteAddr, "oidc admin logged in")
 
-		data.SetLastLoginInformation(info.Subject, r.RemoteAddr)
+		err = data.SetLastLoginInformation(info.Subject, r.RemoteAddr)
+		if err != nil {
+			log.Println("Failed to set last log in information: ", err)
+		}
 
 		au.sessionManager.StartSession(w, r, adminLogin, nil)
 		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
