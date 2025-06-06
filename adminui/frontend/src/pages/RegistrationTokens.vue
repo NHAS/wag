@@ -13,6 +13,7 @@ import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 
 import { useTokensStore } from '@/stores/registration_tokens'
+import { copyToClipboard } from '@/util/clipboard'
 
 import { Icons } from '@/util/icons'
 
@@ -86,14 +87,11 @@ watch(selectedTokens, newVal => {
 
 <template>
   <main class="w-full p-4">
-    <RegistrationToken
-      v-model:isOpen="isCreateTokenModalOpen"
-      v-on:success="
-        () => {
-          tokensStore.load(true)
-        }
-      "
-    ></RegistrationToken>
+    <RegistrationToken v-model:isOpen="isCreateTokenModalOpen" v-on:success="
+      () => {
+        tokensStore.load(true)
+      }
+    "></RegistrationToken>
 
     <h1 class="text-4xl font-bold mb-4">Registration Tokens</h1>
     <p>Create or delete new registration tokens</p>
@@ -109,7 +107,8 @@ watch(selectedTokens, newVal => {
               </div>
               <div class="tooltip" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
                 <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)">
-                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon
+                      :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>
@@ -139,13 +138,23 @@ watch(selectedTokens, newVal => {
                   <input type="checkbox" class="checkbox" v-model="selectedTokens" :value="token.token" />
                 </th>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.token }}</div>
+                  <div class="flex items-center gap-1">
+
+                    <div class="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
+                      {{ token.token }}
+                    </div>
+                    <button @click="copyToClipboard(token.token)">
+                      <font-awesome-icon :icon="Icons.Clipboard" class="text-secondary" />
+                    </button>
+                  </div>
+
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.username }}</div>
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}</div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}
+                  </div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.overwrites }}</div>
@@ -154,8 +163,7 @@ watch(selectedTokens, newVal => {
                   <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
                   <ConfirmModal @on-confirm="() => deleteTokens([token.token])">
                     <button
-                      class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    >
+                      class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
                     </button>
                   </ConfirmModal>
@@ -167,7 +175,8 @@ watch(selectedTokens, newVal => {
           <EmptyTable v-if="tokens.length != 0 && tokens.length == 0" text="No matching tokens" />
 
           <div class="mt-2 w-full text-center">
-            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
+            <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
+              :total-pages="totalPages" />
           </div>
         </div>
       </div>

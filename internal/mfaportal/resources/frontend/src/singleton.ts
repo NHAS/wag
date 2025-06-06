@@ -6,7 +6,12 @@ export class SingleInstanceManager {
     private vueApplication: App;
 
     constructor(app: App, channelName: string = 'wag-single-instance') {
-        this.instanceId = crypto.randomUUID()
+
+        this.instanceId = Math.random().toString()
+        if(crypto.randomUUID !== undefined) {
+            this.instanceId = crypto.randomUUID()
+        }
+        
         this.channel = new BroadcastChannel(channelName);
         this.vueApplication = app;
 
