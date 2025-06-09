@@ -23,10 +23,6 @@ type MembershipInfo struct {
 	Joined int64
 }
 
-func migrateGroups() {
-
-}
-
 // joined is a unix timestamp
 func generateOpsForGroupAddition(joined int64, group string, usernames []string) []clientv3.Op {
 
@@ -279,7 +275,7 @@ func AddUserToGroups(usernames []string, groups []string) error {
 	addition := time.Now().Unix()
 
 	ops := []clientv3.Op{}
-	// Ugh O(N^2)
+	// Ugh O(NxM)
 	for _, group := range groups {
 		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames)...)
 	}
