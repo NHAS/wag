@@ -1,7 +1,6 @@
 package authenticators
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/msteinert/pam"
 )
 
@@ -117,7 +117,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 
 		clientTunnelIp := utils.GetIPFromRequest(r)
 
-		dec := json.NewDecoder(r.Body)
+		dec := safedecoder.Decoder(r.Body)
 		dec.DisallowUnknownFields()
 
 		var suppliedDetails PAMRequestDTO

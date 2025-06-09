@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -83,7 +84,7 @@ func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	err = json.NewDecoder(r.Body).Decode(&req)
+	err = safedecoder.Decoder(r.Body).Decode(&req)
 	if err != nil {
 		log.Println("decoding json failed: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -112,9 +113,10 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respondSuccess(err, decision, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&t)
+	err = safedecoder.Decoder(r.Body).Decode(&t)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		log.Println("firewallCheckTest unknown json field: ", err)
 		return
 	}
 
@@ -151,7 +153,7 @@ func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&t)
+	err = safedecoder.Decoder(r.Body).Decode(&t)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

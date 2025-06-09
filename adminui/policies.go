@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) getAllPolicies(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +35,7 @@ func (au *AdminUI) editPolicy(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&group)
+	err = safedecoder.Decoder(r.Body).Decode(&group)
 	if err != nil {
 		log.Println("error decoding policy data to edit new group/s: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -56,7 +57,7 @@ func (au *AdminUI) createPolicy(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&policy)
+	err = safedecoder.Decoder(r.Body).Decode(&policy)
 	if err != nil {
 		log.Println("error decoding group data to add new group: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -79,7 +80,7 @@ func (au *AdminUI) deletePolices(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&policiesToRemove)
+	err = safedecoder.Decoder(r.Body).Decode(&policiesToRemove)
 	if err != nil {
 		log.Println("error decoding policy names to remove: ", err)
 		w.WriteHeader(http.StatusBadRequest)

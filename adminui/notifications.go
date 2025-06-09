@@ -1,7 +1,6 @@
 package adminui
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/gorilla/websocket"
 )
 
@@ -114,7 +114,7 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 			}
 
 			var gr githubResponse
-			err = json.NewDecoder(resp.Body).Decode(&gr)
+			err = safedecoder.Decoder(resp.Body).Decode(&gr)
 			resp.Body.Close()
 			if err != nil {
 				log.Println("unable to parse update json: ", err)

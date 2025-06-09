@@ -25,6 +25,7 @@ const (
 	GroupMembershipPrefix = MembershipKey + "-"
 	AclsPrefix            = "wag-acls-"
 	GroupsPrefix          = "wag-groups-"
+	GroupsIndexPrefix     = "wag-index-groups-"
 	ConfigPrefix          = "wag-config-"
 	AuthenticationPrefix  = "wag-config-authentication-"
 	NodeInfo              = "wag/node/"
@@ -95,6 +96,7 @@ func registerEventListener[T any](path string, isPrefix bool, f func(key string,
 
 			case current, ok := <-output:
 				if !ok {
+					log.Println("Channel was closed on ", path)
 					return
 				}
 
@@ -131,6 +133,7 @@ func registerEventListener[T any](path string, isPrefix bool, f func(key string,
 				go func() {
 					var n Notification
 					n.key = string(event.Kv.Key)
+
 					n.empty = true
 					n.eventType = event.Type
 					n.modified = event.IsModify()
@@ -149,7 +152,9 @@ func registerEventListener[T any](path string, isPrefix bool, f func(key string,
 					case <-ctx.Done():
 						return
 					case output <- n:
-					default:
+					case <-time.After(5 * time.Second):
+						RaiseError(fmt.Errorf("WARNING %q watcher is hung system is potentially experiencing high load", path), []byte(""))
+						log.Printf("WARNING %q watcher is hung system is potentially experiencing high load", path)
 					}
 
 				}()

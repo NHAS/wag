@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) getAllDevices(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +49,7 @@ func (au *AdminUI) editDevice(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&action)
+	err = safedecoder.Decoder(r.Body).Decode(&action)
 	if err != nil {
 		http.Error(w, "Bad request", 400)
 		return
@@ -85,7 +87,7 @@ func (au *AdminUI) deleteDevice(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&addresses)
+	err = safedecoder.Decoder(r.Body).Decode(&addresses)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

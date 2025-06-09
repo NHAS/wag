@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/NHAS/wag/pkg/safedecoder"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
@@ -56,7 +57,7 @@ func get[T any](key string) (ret T, err error) {
 
 	b := bytes.NewBuffer(resp.Kvs[0].Value)
 
-	dec := json.NewDecoder(b)
+	dec := safedecoder.Decoder(b)
 	dec.DisallowUnknownFields()
 
 	err = dec.Decode(&ret)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +47,7 @@ func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&generalSettings)
+	err = safedecoder.Decoder(r.Body).Decode(&generalSettings)
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -81,7 +82,7 @@ func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&loginSettings)
+	err = safedecoder.Decoder(r.Body).Decode(&loginSettings)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -138,7 +139,7 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&s)
+	err = safedecoder.Decoder(r.Body).Decode(&s)
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -238,7 +239,7 @@ func (au *AdminUI) editAcmeEmail(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&email)
+	err = safedecoder.Decoder(r.Body).Decode(&email)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -261,7 +262,7 @@ func (au *AdminUI) editAcmeProvider(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&provider)
+	err = safedecoder.Decoder(r.Body).Decode(&provider)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -284,7 +285,7 @@ func (au *AdminUI) editCloudflareApiToken(w http.ResponseWriter, r *http.Request
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&token)
+	err = safedecoder.Decoder(r.Body).Decode(&token)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

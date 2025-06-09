@@ -3,7 +3,6 @@ package authenticators
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image/png"
@@ -17,6 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
@@ -180,7 +180,7 @@ func (t *Totp) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authe
 	return func(mfaSecret, username string) error {
 		defer r.Body.Close()
 
-		dec := json.NewDecoder(r.Body)
+		dec := safedecoder.Decoder(r.Body)
 		dec.DisallowUnknownFields()
 
 		var totpDetails TOTPRequestDTO

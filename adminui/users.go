@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +54,7 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&action)
+	err = safedecoder.Decoder(r.Body).Decode(&action)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -99,7 +101,7 @@ func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&usernames)
+	err = safedecoder.Decoder(r.Body).Decode(&usernames)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

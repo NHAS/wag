@@ -66,6 +66,17 @@ export interface GroupDTO {
   members: string[]
 }
 
+export interface GroupCreateDTO {
+  group: string
+  added: string[]
+}
+
+export interface GroupEditDTO {
+  group: string
+  added: string[]
+  removed: string[]
+}
+
 export interface AdminUserDTO {
   user_type: string
   username: string

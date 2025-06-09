@@ -71,6 +71,7 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 
 	err = fw.setupUsers(initialUsers)
 	if err != nil {
+		log.Println(initialUsers, fw.userIsLocked)
 		return nil, fmt.Errorf("failed to setup users: %s", err)
 	}
 
@@ -91,7 +92,7 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 
 		err := fw.setupIptables()
 		if err != nil {
-			return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
+			return nil, fmt.Errorf("failed to initialise iptables: %s", err)
 		}
 	}
 

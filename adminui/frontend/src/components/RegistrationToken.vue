@@ -91,7 +91,12 @@ async function createToken() {
 
         <div class="form-group">
           <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
-          <input type="text" id="groups" class="input input-bordered input-sm w-full" v-model="newToken.groups" placeholder="(Optional)" />
+          <input type="text" id="groups" class="input input-bordered input-sm w-full" @input="(e: Event) => {
+             let target = e.target as HTMLInputElement
+            
+              newToken.groups =  target.value.split(' ')
+
+          }" placeholder="(Optional)" />
         </div>
 
         <div class="form-group">

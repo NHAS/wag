@@ -19,12 +19,6 @@ func (f *Firewall) handleEvents() error {
 	}
 	f.watchers = append(f.watchers, d)
 
-	mp, err := data.Watch(data.GroupMembershipPrefix, true, f.membershipChanges)
-	if err != nil {
-		return err
-	}
-	f.watchers = append(f.watchers, mp)
-
 	u, err := data.Watch(data.UsersPrefix, true, f.userChanges)
 	if err != nil {
 		return err
@@ -37,7 +31,7 @@ func (f *Firewall) handleEvents() error {
 	}
 	f.watchers = append(f.watchers, a)
 
-	g, err := data.Watch(data.GroupsPrefix, true, f.groupChanges)
+	g, err := data.Watch(data.GroupMembershipPrefix, true, f.groupChanges)
 	if err != nil {
 		return err
 	}
@@ -170,22 +164,6 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 	return nil
 }
 
-func (f *Firewall) membershipChanges(key string, et data.EventType, _, _ []string) error {
-	username := strings.TrimPrefix(key, data.GroupMembershipPrefix)
-
-	switch et {
-	case data.CREATED, data.MODIFIED:
-		err := f.RefreshUserAcls(username)
-		if err != nil {
-			return fmt.Errorf("could not refresh acls: %s", err)
-		}
-
-		log.Printf("refreshed acls for user %q", username)
-	}
-
-	return nil
-}
-
 func (f *Firewall) userChanges(_ string, et data.EventType, current, previous data.UserModel) error {
 	switch et {
 	case data.CREATED:
@@ -241,18 +219,24 @@ func (f *Firewall) aclsChanges(_ string, et data.EventType, _, _ acls.Acl) error
 	return nil
 }
 
-func (f *Firewall) groupChanges(_ string, et data.EventType, current, _ []string) error {
+func (f *Firewall) groupChanges(key string, et data.EventType, _, _ any) error {
+
+	keyParts, err := data.SplitKey(2, data.GroupMembershipPrefix, key)
+	if err != nil {
+		return fmt.Errorf("key was incorrect, this is a bug: %w", err)
+	}
+
+	username := keyParts[0]
+
 	switch et {
 	case data.CREATED, data.DELETED, data.MODIFIED:
 
-		for _, username := range current {
-			err := f.RefreshUserAcls(username)
-			if err != nil {
-				return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
-			}
+		err := f.RefreshUserAcls(username)
+		if err != nil {
+			return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
 		}
 
-		log.Printf("refreshed acls for %d users", len(current))
+		log.Printf("refreshed acls for %q user", username)
 
 	}
 	return nil

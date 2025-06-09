@@ -22,6 +22,7 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control/wagctl"
 	"github.com/NHAS/wag/pkg/queue"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v3/pkg/http"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
@@ -365,7 +366,7 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 		loginResponse LoginResponsetDTO
 	)
 
-	err := json.NewDecoder(r.Body).Decode(&loginDetails)
+	err := safedecoder.Decoder(r.Body).Decode(&loginDetails)
 	if err != nil {
 		log.Println("bad json value: ", err)
 		http.Error(w, "Error", http.StatusInternalServerError)
@@ -476,7 +477,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 	defer func() { au.respond(err, w) }()
 
 	var req ChangePasswordRequestDTO
-	err = json.NewDecoder(r.Body).Decode(&req)
+	err = safedecoder.Decoder(r.Body).Decode(&req)
 	r.Body.Close()
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)

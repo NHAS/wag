@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"github.com/NHAS/wag/internal/data/validators"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -156,7 +156,7 @@ func load(path string) (c Config, err error) {
 	if err != nil {
 		return c, fmt.Errorf("unable to load configuration file from %s: %v", path, err)
 	}
-	dec := json.NewDecoder(configFile)
+	dec := safedecoder.Decoder(configFile)
 	dec.DisallowUnknownFields()
 
 	err = dec.Decode(&c)

@@ -21,6 +21,16 @@ type GroupData struct {
 	Members []string `json:"members"`
 }
 
+type GroupCreateData struct {
+	Group        string   `json:"group"`
+	AddedMembers []string `json:"added"`
+}
+
+type GroupEditData struct {
+	GroupCreateData
+	RemovedMembers []string `json:"removed"`
+}
+
 type PutReq struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`

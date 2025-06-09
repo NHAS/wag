@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
@@ -97,9 +98,10 @@ func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(newNodeResp)
 	}()
 
-	err = json.NewDecoder(r.Body).Decode(&newNodeReq)
+	err = safedecoder.Decoder(r.Body).Decode(&newNodeReq)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+
 		return
 	}
 
@@ -145,7 +147,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&ncR)
+	err = safedecoder.Decoder(r.Body).Decode(&ncR)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -212,7 +214,7 @@ func (au *AdminUI) clusterEventsAcknowledge(w http.ResponseWriter, r *http.Reque
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&acknowledgeError)
+	err = safedecoder.Decoder(r.Body).Decode(&acknowledgeError)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

@@ -8,6 +8,7 @@ import (
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (wsg *WagControlSocketServer) policies(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +28,7 @@ func (wsg *WagControlSocketServer) newPolicy(w http.ResponseWriter, r *http.Requ
 
 	var acl control.PolicyData
 
-	if err := json.NewDecoder(r.Body).Decode(&acl); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&acl); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
@@ -47,7 +48,7 @@ func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Req
 
 	var polciyData control.PolicyData
 
-	if err := json.NewDecoder(r.Body).Decode(&polciyData); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&polciyData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -64,7 +65,7 @@ func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Req
 
 func (wsg *WagControlSocketServer) deletePolicies(w http.ResponseWriter, r *http.Request) {
 	var policyNames []string
-	if err := json.NewDecoder(r.Body).Decode(&policyNames); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&policyNames); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
@@ -98,15 +99,15 @@ func (wsg *WagControlSocketServer) groups(w http.ResponseWriter, r *http.Request
 
 func (wsg *WagControlSocketServer) newGroup(w http.ResponseWriter, r *http.Request) {
 
-	var gData control.GroupData
+	var gData control.GroupCreateData
 
-	if err := json.NewDecoder(r.Body).Decode(&gData); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&gData); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
 	}
 
-	if err := data.SetGroup(gData.Group, gData.Members, false); err != nil {
+	if err := data.CreateGroup(gData.Group, gData.AddedMembers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -118,15 +119,19 @@ func (wsg *WagControlSocketServer) newGroup(w http.ResponseWriter, r *http.Reque
 
 func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Request) {
 
-	var gdata control.GroupData
+	var gdata control.GroupEditData
 
-	if err := json.NewDecoder(r.Body).Decode(&gdata); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&gdata); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-
 	}
 
-	if err := data.SetGroup(gdata.Group, gdata.Members, true); err != nil {
+	if err := data.RemoveUserFromGroup(gdata.RemovedMembers, gdata.Group); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := data.AddUserToGroups(gdata.AddedMembers, []string{gdata.Group}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -139,7 +144,7 @@ func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Requ
 func (wsg *WagControlSocketServer) deleteGroup(w http.ResponseWriter, r *http.Request) {
 
 	var groupNames []string
-	if err := json.NewDecoder(r.Body).Decode(&groupNames); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&groupNames); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 
@@ -161,7 +166,7 @@ func (wsg *WagControlSocketServer) getDBKey(w http.ResponseWriter, r *http.Reque
 
 	var key string
 
-	if err := json.NewDecoder(r.Body).Decode(&key); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&key); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -184,7 +189,7 @@ func (wsg *WagControlSocketServer) putDBKey(w http.ResponseWriter, r *http.Reque
 
 	var toWrite control.PutReq
 
-	if err := json.NewDecoder(r.Body).Decode(&toWrite); err != nil {
+	if err := safedecoder.Decoder(r.Body).Decode(&toWrite); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

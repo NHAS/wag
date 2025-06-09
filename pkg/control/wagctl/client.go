@@ -17,6 +17,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
@@ -75,7 +76,7 @@ func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&d)
+	err = safedecoder.Decoder(response.Body).Decode(&d)
 
 	return
 }
@@ -98,7 +99,7 @@ func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&d)
+	err = safedecoder.Decoder(response.Body).Decode(&d)
 
 	return
 }
@@ -146,7 +147,7 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO,
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&users)
+	err = safedecoder.Decoder(response.Body).Decode(&users)
 
 	return
 }
@@ -210,7 +211,7 @@ func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err err
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&users)
+	err = safedecoder.Decoder(response.Body).Decode(&users)
 
 	return
 }
@@ -232,7 +233,7 @@ func (c *CtrlClient) ListAllGroups() (groups []control.GroupData, err error) {
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&groups)
+	err = safedecoder.Decoder(response.Body).Decode(&groups)
 
 	return
 }
@@ -254,7 +255,7 @@ func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error
 		return nil, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&userGroups)
+	err = safedecoder.Decoder(response.Body).Decode(&userGroups)
 
 	return
 }
@@ -307,7 +308,7 @@ func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 		return acls.Acl{}, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&acl)
+	err = safedecoder.Decoder(response.Body).Decode(&acl)
 	if err != nil {
 		return acls.Acl{}, err
 	}
@@ -332,7 +333,7 @@ func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err
 		return rules, errors.New("Error: " + string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&rules)
+	err = safedecoder.Decoder(response.Body).Decode(&rules)
 	if err != nil {
 		return rules, err
 	}
@@ -348,7 +349,7 @@ func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 	}
 	defer response.Body.Close()
 
-	err = json.NewDecoder(response.Body).Decode(&result)
+	err = safedecoder.Decoder(response.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +439,7 @@ func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
 	}
 	defer response.Body.Close()
 
-	err = json.NewDecoder(response.Body).Decode(&result)
+	err = safedecoder.Decoder(response.Body).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +448,7 @@ func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
 }
 
 // Add wag group/s
-func (c *CtrlClient) AddGroup(group control.GroupData) error {
+func (c *CtrlClient) AddGroup(group control.GroupCreateData) error {
 
 	groupData, err := json.Marshal(group)
 	if err != nil {
@@ -476,7 +477,7 @@ func (c *CtrlClient) AddGroup(group control.GroupData) error {
 }
 
 // Edit wag group members
-func (c *CtrlClient) EditGroup(group control.GroupData) error {
+func (c *CtrlClient) EditGroup(group control.GroupEditData) error {
 
 	groupData, err := json.Marshal(group)
 	if err != nil {
@@ -544,7 +545,7 @@ func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err
 		return allSettings, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&allSettings)
+	err = safedecoder.Decoder(response.Body).Decode(&allSettings)
 	if err != nil {
 		return allSettings, err
 	}
@@ -568,7 +569,7 @@ func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err err
 		return allSettings, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&allSettings)
+	err = safedecoder.Decoder(response.Body).Decode(&allSettings)
 	if err != nil {
 		return allSettings, err
 	}
@@ -592,7 +593,7 @@ func (c *CtrlClient) GetLockout() (lockout int, err error) {
 		return 0, errors.New(string(result))
 	}
 
-	err = json.NewDecoder(response.Body).Decode(&lockout)
+	err = safedecoder.Decoder(response.Body).Decode(&lockout)
 	if err != nil {
 		return 0, err
 	}
@@ -633,7 +634,7 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 		return nil, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+	if err := safedecoder.Decoder(response.Body).Decode(&result); err != nil {
 		return nil, errors.New("unable to decode json: " + err.Error())
 	}
 
@@ -654,9 +655,9 @@ func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string
 	form.Add("overwrite", overwrite)
 	form.Add("uses", fmt.Sprintf("%d", uses))
 
-	for _, group := range groups {
-		if !strings.HasPrefix(group, "group:") {
-			return r, errors.New("group does not have 'group:' prefix: " + group)
+	for i := range groups {
+		if !strings.HasPrefix(groups[i], "group:") {
+			groups[i] = "group:" + groups[i]
 		}
 	}
 
@@ -682,7 +683,7 @@ func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string
 		return control.RegistrationResult{}, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&r); err != nil {
+	if err := safedecoder.Decoder(response.Body).Decode(&r); err != nil {
 		return control.RegistrationResult{}, err
 	}
 
@@ -721,7 +722,7 @@ func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err er
 		return nil, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&clusterErrors); err != nil {
+	if err := safedecoder.Decoder(response.Body).Decode(&clusterErrors); err != nil {
 		return nil, errors.New("unable to decode json: " + err.Error())
 	}
 
@@ -744,7 +745,7 @@ func (c *CtrlClient) GetClusterMembers() (clusterMembers []*membership.Member, e
 		return nil, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&clusterMembers); err != nil {
+	if err := safedecoder.Decoder(response.Body).Decode(&clusterMembers); err != nil {
 		return nil, errors.New("unable to decode json: " + err.Error())
 	}
 
@@ -767,7 +768,7 @@ func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error
 		return t, errors.New(string(result))
 	}
 
-	if err := json.NewDecoder(response.Body).Decode(&t); err != nil {
+	if err := safedecoder.Decoder(response.Body).Decode(&t); err != nil {
 		return t, errors.New("unable to decode json: " + err.Error())
 	}
 

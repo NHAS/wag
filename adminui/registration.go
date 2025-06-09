@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +46,7 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 
 	defer func() { au.respondSuccess(err, successMsg, w) }()
 	defer r.Body.Close()
-	err = json.NewDecoder(r.Body).Decode(&req)
+	err = safedecoder.Decoder(r.Body).Decode(&req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -77,7 +78,7 @@ func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Reque
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&tokens)
+	err = safedecoder.Decoder(r.Body).Decode(&tokens)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

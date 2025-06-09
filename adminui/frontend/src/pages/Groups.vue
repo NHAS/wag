@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 
 import Modal from '@/components/Modal.vue'
@@ -11,11 +11,10 @@ import EmptyTable from '@/components/EmptyTable.vue'
 import { useApi } from '@/composables/useApi'
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
-import { useTextareaInput } from '@/composables/useTextareaInput'
 
 import { Icons } from '@/util/icons'
 
-import { getAllGroups, type GroupDTO, editGroup, createGroup, deleteGroups } from '@/api'
+import { getAllGroups, type GroupDTO, type GroupEditDTO, editGroup, createGroup, deleteGroups, type GroupCreateDTO } from '@/api'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -47,22 +46,40 @@ const groupModalTitle = ref('')
 const toast = useToast()
 const { catcher } = useToastError()
 
-const { Input: GroupMembers, Arr: GroupMembersArr } = useTextareaInput()
+// New member input and management
+const newMemberInput = ref('')
+const currentMembers = ref<string[]>([])
+const originalMembers = ref<string[]>([])
 
 type GroupType = {
-  is_edit: boolean
   group: string
+  is_edit: boolean
 }
 
 const Effects = ref<GroupType>({
+  group: '',
   is_edit: false,
-  group: ''
+})
+
+// Computed properties to track changes
+const addedMembers = computed(() => {
+  return currentMembers.value.filter(member => !originalMembers.value.includes(member))
+})
+
+const removedMembers = computed(() => {
+  return originalMembers.value.filter(member => !currentMembers.value.includes(member))
+})
+
+const hasChanges = computed(() => {
+  return addedMembers.value.length > 0 || removedMembers.value.length > 0
 })
 
 function openAddGroup() {
-  groupModalTitle.value = 'Add Rule'
+  groupModalTitle.value = 'Add Group'
 
-  GroupMembers.value = ''
+  newMemberInput.value = ''
+  currentMembers.value = []
+  originalMembers.value = []
   Effects.value.group = ''
   Effects.value.is_edit = false
 
@@ -70,14 +87,71 @@ function openAddGroup() {
 }
 
 function openEditGroup(group: GroupDTO) {
-  groupModalTitle.value = 'Edit Rule'
+  groupModalTitle.value = 'Edit Group'
 
-  GroupMembers.value = group.members?.join('\n') ?? ''
+  newMemberInput.value = ''
+  currentMembers.value = [...(group.members ?? [])]
+  originalMembers.value = [...(group.members ?? [])]
+
+    Effects.value.is_edit = true
+
 
   Effects.value.group = group.group
-  Effects.value.is_edit = true
-
   isGroupModalOpen.value = true
+}
+
+function addMember() {
+  const member = newMemberInput.value.trim()
+  if (member && !currentMembers.value.includes(member)) {
+    currentMembers.value.push(member)
+    newMemberInput.value = ''
+  }
+}
+
+function removeMember(member: string) {
+  const index = currentMembers.value.indexOf(member)
+  if (index > -1) {
+    currentMembers.value.splice(index, 1)
+  }
+}
+
+function handleMemberInputKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    addMember()
+  }
+}
+
+async function createGroupUI() {
+  if (Effects.value.group == '') {
+    toast.error('Empty group names are not allowed')
+    return
+  }
+
+  try {
+    let data: GroupCreateDTO = {
+      group: Effects.value.group.lastIndexOf('group:', 0) !== 0 ? 'group:' + Effects.value?.group : Effects.value?.group,
+      added: [],
+    }
+
+    // For new groups, send all members as additions
+    data.added = currentMembers.value
+
+    let resp = await createGroup(data)
+
+    refreshGroups()
+
+    if (!resp.success) {
+      toast.error(resp.message ?? 'Failed')
+      return
+    }
+
+    toast.success(Effects.value.group + ' updated!')
+    isGroupModalOpen.value = false
+
+  } catch (e) {
+    catcher(e, 'failed to apply group change: ')
+  }
 }
 
 async function updateGroup() {
@@ -87,27 +161,34 @@ async function updateGroup() {
   }
 
   try {
-    let data: GroupDTO = {
+    let data: GroupEditDTO = {
       group: Effects.value.group.lastIndexOf('group:', 0) !== 0 ? 'group:' + Effects.value?.group : Effects.value?.group,
-      members: GroupMembersArr.value ?? []
+      added: [],
+      removed: [],
     }
 
-    let resp = null
-    if (Effects.value.is_edit) {
-      resp = await editGroup(data)
-    } else {
-      resp = await createGroup(data)
+
+    // For edits, send discrete changes
+    if (addedMembers.value.length > 0) {
+      data.added = addedMembers.value
     }
+    if (removedMembers.value.length > 0) {
+      data.removed = removedMembers.value
+    }
+
+
+    let resp = await editGroup(data)
 
     refreshGroups()
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
-    } else {
-      toast.success(Effects.value.group + ' edited!')
-      isGroupModalOpen.value = false
     }
+
+    toast.success(Effects.value.group + ' updated!')
+    isGroupModalOpen.value = false
+
   } catch (e) {
     catcher(e, 'failed to apply group change: ')
   }
@@ -135,30 +216,68 @@ async function tryDeleteGroups(groups: string[]) {
   <Modal v-model:isOpen="isGroupModalOpen">
     <div class="w-screen max-w-[600px]">
       <h3 class="text-lg font-bold">{{ groupModalTitle }}</h3>
-      <div class="mt-8">
-        <p>Make changes to your group.</p>
-
+      <div class="mt-4">
         <div class="form-group">
-          <label for="group" class="block font-medium text-gray-900 pt-6">Group:</label>
-          <input
-            type="text"
-            id="group"
-            class="input input-bordered input-sm w-full"
-            required
-            v-model="Effects.group"
-            :disabled="Effects.is_edit"
-          />
+          <label for="group" class="block font-medium text-gray-900 pb-2">Group Name:</label>
+          <input type="text" id="group" class="input input-bordered w-full" required v-model="Effects.group"
+            :disabled="Effects.is_edit" />
         </div>
 
-        <label for="members" class="block font-medium text-gray-900 pt-6">Members:</label>
-        <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="GroupMembers"></textarea>
+        <div class="pt-2">
+          <label class="block font-medium text-gray-900 mb-2">Members:</label>
 
-        <span class="mt-4 flex">
-          <button class="btn btn-primary" @click="() => updateGroup()">Apply</button>
+          <!-- Add member input -->
+          <div class="flex gap-2 mb-4">
+            <input type="text" v-model="newMemberInput" @keydown="handleMemberInputKeydown"
+              placeholder="Type username and press Enter..." class="input input-bordered flex-1" />
+            <button type="button" @click="addMember" class="btn btn-primary"
+              :disabled="!newMemberInput.trim() || currentMembers.includes(newMemberInput.trim())">
+              Add
+            </button>
+          </div>
+
+          <!-- Members badges -->
+          <div class="min-h-[80px] p-3 border border-gray-300 rounded-lg bg-gray-50">
+            <div v-if="currentMembers.length === 0" class="text-gray-500 text-sm">
+              No members added yet
+            </div>
+            <div v-else class="flex flex-wrap gap-2">
+              <div v-for="member in currentMembers" :key="member" class="badge badge-primary py-3" :class="{
+                'badge-success': addedMembers.includes(member) && Effects.is_edit,
+                'badge-error': false
+              }">
+                <span class="font-mono pr-2 max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"> {{ member }}
+                </span>
+                <button @click="removeMember(member)" class="btn btn-xs btn-circle btn-ghost hover:btn-error"
+                  type="button">
+                  <font-awesome-icon :icon="Icons.Close || 'times'" class="text-xs" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Change summary for edits -->
+          <div v-if="Effects.is_edit && hasChanges" class="mt-4 p-3 bg-info bg-opacity-10 rounded-lg">
+            <h4 class="font-semibold text-sm mb-2">Changes:</h4>
+            <div v-if="addedMembers.length > 0" class="text-sm text-success mb-1">
+              <strong>Added: </strong><span>{{ addedMembers.slice(0, 10).join(", ") }}</span><span
+                v-if="addedMembers.length > 10"> and {{ addedMembers.length - 10 }} more additions.</span>
+            </div>
+            <div v-if="removedMembers.length > 0" class="text-sm text-error">
+              <strong>Removed: </strong><span>{{ removedMembers.slice(0, 10).join(", ") }}</span><span
+                v-if="removedMembers.length > 10"> and {{ removedMembers.length - 10 }} more removals.</span>
+            </div>
+          </div>
+        </div>
+
+        <span class="mt-6 flex">
+          <button class="btn btn-primary" @click="Effects.is_edit ? updateGroup() : createGroupUI()" :disabled="Effects.is_edit && !hasChanges">
+            Apply
+          </button>
 
           <div class="flex flex-grow"></div>
 
-          <button class="btn btn-secondary" @click="() => (isGroupModalOpen = false)">Cancel</button>
+          <button class="btn btn-secondary" @click="isGroupModalOpen = false">Cancel</button>
         </span>
       </div>
     </div>
@@ -167,18 +286,20 @@ async function tryDeleteGroups(groups: string[]) {
   <main class="w-full p-4">
     <PageLoading v-if="isLoading" />
     <div v-else>
-      <h1 class="text-4xl font-bold mb-4">Rules</h1>
+      <h1 class="text-4xl font-bold mb-4">Groups</h1>
       <p>View, create and delete groups</p>
       <div class="mt-6 flex flex-wrap gap-6">
         <div class="card w-full bg-base-100 shadow-xl min-w-[800px]">
           <div class="card-body">
             <div class="flex flex-row justify-between">
-              <div class="tooltip" data-tip="Add rule">
-                <button class="btn btn-ghost btn-primary" @click="openAddGroup">Add Group <font-awesome-icon :icon="Icons.Add" /></button>
+              <div class="tooltip" data-tip="Add group">
+                <button class="btn btn-ghost btn-primary" @click="openAddGroup">Add Group <font-awesome-icon
+                    :icon="Icons.Add" /></button>
               </div>
               <div class="form-control">
                 <label class="label">
-                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
+                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..."
+                    v-model="filterText" />
                 </label>
               </div>
             </div>
@@ -191,23 +312,33 @@ async function tryDeleteGroups(groups: string[]) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover group" v-for="group in currentGroups" :key="group.group" v-on:dblclick="openEditGroup(group)">
+                <tr class="hover group" v-for="group in currentGroups" :key="group.group"
+                  v-on:dblclick="openEditGroup(group)">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.group }}</div>
                   </td>
-                  <td class="font-mono relative">
-                    <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.members?.join(', ') || '-' }}</div>
+                  <td class="relative">
+                    <div class="flex flex-wrap gap-1">
+                      <template v-if="group.members">
+                        <div v-for="member in group.members.slice(0, 10)" :key="member"
+                          class="badge badge-primary font-mono">
+                          {{ member.length > 12 ? member.slice(0, 12) + "..." : member }}
+                        </div>
+                        <div v-if="group.members.length > 10">... {{ group.members.length - 10 }} more</div>
+                      </template>
+                      <div v-if="!group.members || group.members.length === 0" class="text-gray-500">
+                        No members
+                      </div>
+                    </div>
                     <div
-                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    >
+                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button class="mr-3" @click="openEditGroup(group)">
                         <font-awesome-icon :icon="Icons.Edit" class="text-secondary hover:text-secondary-focus" />
                       </button>
                     </div>
                     <ConfirmModal @on-confirm="() => tryDeleteGroups([group.group])">
                       <button
-                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      >
+                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
                       </button>
                     </ConfirmModal>
@@ -216,10 +347,11 @@ async function tryDeleteGroups(groups: string[]) {
               </tbody>
             </table>
             <EmptyTable v-if="allGroups.length == 0" text="No groups" />
-            <EmptyTable v-if="allGroups.length != 0 && allGroups.length == 0" text="No matching groups" />
+            <EmptyTable v-if="allGroups.length != 0 && filteredGroups.length == 0" text="No matching groups" />
 
             <div class="mt-2 w-full text-center">
-              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
+              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
+                :total-pages="totalPages" />
             </div>
           </div>
         </div>

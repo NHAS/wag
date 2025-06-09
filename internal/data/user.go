@@ -222,12 +222,24 @@ func GetMFAType(username string) (string, error) {
 
 func DeleteUser(username string) error {
 
+	var errs []error
+
 	_, err := etcd.Delete(context.Background(), UsersPrefix+username+"-", clientv3.WithPrefix())
 	if err != nil {
-		return err
+		errs = append(errs, fmt.Errorf("failed to delete user from db: %w", err))
 	}
 
-	return DeleteDevices(username)
+	err = RemoveUserAllGroups(username)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = DeleteDevices(username)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 func GetUserData(username string) (u UserModel, err error) {
@@ -290,11 +302,6 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	err := set(UsersPrefix+username+"-", false, newUser)
 	if err != nil {
 		return UserModel{}, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	err = set(MembershipKey+"-"+username, true, []string{})
-	if err != nil {
-		return UserModel{}, fmt.Errorf("failed to create membership key: %q, err: %w", MembershipKey+"-"+username, err)
 	}
 
 	return newUser, err

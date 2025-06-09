@@ -184,7 +184,7 @@ func loadInitialSettings() error {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
 		for groupName, members := range config.Values.Acls.Groups {
-			if err := SetGroup(groupName, members, true); err != nil {
+			if err := CreateGroup(groupName, members); err != nil {
 				return err
 			}
 		}
@@ -468,14 +468,15 @@ func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(
 
 func GetInitialData() (users []UserModel, devices []Device, err error) {
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet("users-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
-		clientv3.OpGet("devices-", clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
+	txn.Then(clientv3.OpGet(UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
+		clientv3.OpGet(DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
 
 	resp, err := txn.Commit()
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// users
 	for _, res := range resp.Responses[0].GetResponseRange().Kvs {
 		var user UserModel
 		err := json.Unmarshal(res.Value, &user)
@@ -483,9 +484,12 @@ func GetInitialData() (users []UserModel, devices []Device, err error) {
 			return nil, nil, err
 		}
 
+		log.Println("from db: ", string(res.Value))
+
 		users = append(users, user)
 	}
 
+	//devices
 	for _, res := range resp.Responses[1].GetResponseRange().Kvs {
 		var device Device
 		err := json.Unmarshal(res.Value, &device)
@@ -520,4 +524,13 @@ func Put(key, value string) error {
 	cancel()
 
 	return err
+}
+
+func SplitKey(expected int, prefix, key string) ([]string, error) {
+	parts := strings.SplitN(strings.TrimPrefix(key, prefix), "-", expected)
+	if len(parts) != expected {
+		return nil, fmt.Errorf("unexpected number of arguments, expected %d, got %d for key %q", expected, len(parts), key)
+	}
+
+	return parts, nil
 }

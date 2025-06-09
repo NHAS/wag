@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) getAllGroups(w http.ResponseWriter, r *http.Request) {
@@ -23,12 +24,12 @@ func (au *AdminUI) getAllGroups(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
 	var (
-		group control.GroupData
+		group control.GroupEditData
 		err   error
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&group)
+	err = safedecoder.Decoder(r.Body).Decode(&group)
 	if err != nil {
 		log.Println("error decoding group data to edit new group/s: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -45,13 +46,13 @@ func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) createGroup(w http.ResponseWriter, r *http.Request) {
 	var (
-		group control.GroupData
+		group control.GroupCreateData
 		err   error
 	)
 
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&group)
+	err = safedecoder.Decoder(r.Body).Decode(&group)
 	if err != nil {
 		log.Println("error decoding group data to add new group: ", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -73,7 +74,7 @@ func (au *AdminUI) deleteGroups(w http.ResponseWriter, r *http.Request) {
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = json.NewDecoder(r.Body).Decode(&groupsToRemove)
+	err = safedecoder.Decoder(r.Body).Decode(&groupsToRemove)
 	if err != nil {
 		log.Println("error decoding group names to remove: ", err)
 		w.WriteHeader(http.StatusBadRequest)
