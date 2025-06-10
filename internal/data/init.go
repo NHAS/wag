@@ -484,8 +484,6 @@ func GetInitialData() (users []UserModel, devices []Device, err error) {
 			return nil, nil, err
 		}
 
-		log.Println("from db: ", string(res.Value))
-
 		users = append(users, user)
 	}
 
