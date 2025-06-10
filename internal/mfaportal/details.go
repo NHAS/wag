@@ -485,10 +485,10 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	c.Unlock()
 
-	// This looks a bit funky, but effectively, .Close here can wait for up to 5s for the client to respond.
+	// This looks a bit funky  as its outside the lock, but effectively, .Close here can wait for up to 5s for the client to respond.
 	// If we lock for 5 seconds we cant accept any clients for that duration which isnt great
 	if ok && prev != nil {
-		prev.Close(websocket.StatusAbnormalClosure, "Duplicate connection")
+		prev.Close(websocket.StatusNormalClosure, "Duplicate connection, you may have wag open in two separate browsers")
 		log.Println("Duplicate connection, closing previous")
 	}
 

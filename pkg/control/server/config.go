@@ -131,7 +131,7 @@ func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := data.AddUserToGroups(gdata.AddedMembers, []string{gdata.Group}); err != nil {
+	if err := data.AddUserToGroups(gdata.AddedMembers, []string{gdata.Group}, false); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -157,11 +157,10 @@ export const useWebSocketStore = defineStore("websocket", () => {
       return
     }
 
-    let message = "Disconnected."
-    
-   
-    // Attempt to reconnect if not a normal closure
-    if (event.code !== 1000) {
+    let message = event.reason != null && event.reason != "" ? event.reason : "Disconnected."
+
+    // Attempt to reconnect if not a normal closure or a going away message
+    if (event.code !== 1000 && event.code !== 1001) {
       const delay = Math.min((1000 * (state.value.reconnectAttempts + 1))*Math.random(), 10000);
       
       if(state.value.reconnectAttempts < 20) {

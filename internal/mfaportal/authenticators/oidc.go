@@ -182,7 +182,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 		groupsIntf, ok := tokens.IDTokenClaims.Claims[o.details.GroupsClaimName].([]interface{})
 		if !ok {
 			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
-			http.Redirect(w, r, "/error", http.StatusSeeOther)
+			http.Redirect(w, r, "/error?m="+url.QueryEscape("Server configuration error"), http.StatusSeeOther)
 			return
 		}
 
@@ -193,7 +193,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 			deviceUsernameClaim, ok := tokens.IDTokenClaims.Claims[o.details.DeviceUsernameClaim].(string)
 			if !ok {
 				log.Println("Error, Device Username Claim set but idP has not set attribute in users token")
-				http.Redirect(w, r, "/error", http.StatusSeeOther)
+				http.Redirect(w, r, "/error?m="+url.QueryEscape("Server configuration error"), http.StatusSeeOther)
 				return
 			}
 
@@ -207,7 +207,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 			conv, ok := groupsIntf[i].(string)
 			if !ok {
 				log.Println("Error, could not convert group claim to string, probably mistake in your OIDC idP configuration")
-				http.Redirect(w, r, "/error", http.StatusSeeOther)
+				http.Redirect(w, r, "/error?m="+url.QueryEscape("Server configuration error"), http.StatusSeeOther)
 				return
 			}
 			groups = append(groups, "group:"+conv)
@@ -249,12 +249,12 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 				return errors.New("user is not associated with device")
 			}
 
-			return data.SetUserGroupMembership(username, groups)
+			return data.SetUserGroupMembership(username, groups, true)
 		})
 
 		if err != nil {
 			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
-			http.Redirect(w, r, "/error", http.StatusSeeOther)
+			http.Redirect(w, r, "/error?m="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 			return
 		}
 

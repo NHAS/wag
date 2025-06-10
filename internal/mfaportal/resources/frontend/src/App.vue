@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { RouterView } from "vue-router";
+import { RouterView, useRoute } from "vue-router";
 
 import { useWebSocketStore } from "./store/info";
 import { onBeforeMount, onBeforeUnmount, watch, nextTick } from "vue";
 import router from "./router";
 import type { UserInfoDTO } from "./api";
 
+
 const info = useWebSocketStore();
+const route = useRoute();
 
 let previousState: UserInfoDTO | null = null;
 
@@ -64,18 +66,18 @@ function getMFAPath(): string {
     console.log("determined", path + info.availableMfaMethods[0].method)
 
     return path + info.availableMfaMethods[0].method
-  } 
-
-
-  if(methodsHasUserPref && info.isRegistered) {
-    console.log("determined user pref")
-    return path + info.selectedMFAMethod 
   }
-  
+
+
+  if (methodsHasUserPref && info.isRegistered) {
+    console.log("determined user pref")
+    return path + info.selectedMFAMethod
+  }
+
   if (methodsHasDefault) {
     console.log("determined default")
     return path + info.defaultMFAMethod
-  } 
+  }
 
   console.log("determined selection")
   return "/selection"
@@ -132,12 +134,12 @@ async function stateUpdate() {
     const isLocked = currentState.account_locked || currentState.device_locked
     if (currentState.account_locked != previousState.account_locked || currentState.device_locked != previousState.device_locked) {
       //if we have become locked
-      if(isLocked) {
+      if (isLocked) {
         notify("VPN Locked", "Your device has been locked. Please contact help")
         router.push("/locked");
         return
       }
-    
+
       // we have become unlocked
       router.push(getMFAPath())
       return
@@ -146,12 +148,12 @@ async function stateUpdate() {
     const isAuthorised = currentState.is_authorized && currentState.has_registered
     if (currentState.is_authorized != previousState.is_authorized) {
       //we have authorised
-      if(isAuthorised) {
+      if (isAuthorised) {
         router.push("/success")
         return
       }
 
-      notify("VPN Authoirsation Required", "Please authenticate with the VPN")
+      notify("VPN Authorisation Required", "Please authenticate with the VPN")
       // we have had a session expire, or logged out
       router.push(getMFAPath())
       return
@@ -162,16 +164,16 @@ async function stateUpdate() {
       return
     }
 
-    if(router.currentRoute.value.name != null) {
+    if (router.currentRoute.value.name != null) {
 
       const currentRouteName = router.currentRoute.value.name.toString()
       const isAuthPage = currentRouteName.includes("auth") || currentRouteName.includes("register")
 
-      if(isAuthPage) {
+      if (isAuthPage) {
         const currentMethods = new Map(currentState.available_mfa_methods.map((o) => [o.method, true]));
 
         // If we are on an mfa method page (registration/authorisation) that has been disabled
-        if(!currentMethods.has(currentRouteName.replace("_auth", "").replace("_register", ""))) {
+        if (!currentMethods.has(currentRouteName.replace("_auth", "").replace("_register", ""))) {
           router.push(getMFAPath())
           return
         }
@@ -187,25 +189,29 @@ async function stateUpdate() {
   }
 }
 
-// if we've already magically connected 
-if (info.isConnected) {
-  initialRouting()
+
+if (window.location.pathname !== "/error") {
+  // if we've already magically connected 
+  if (info.isConnected) {
+    initialRouting()
+  }
+
+  // Set a watch to change the application state on any new updates
+  watch(info, async newState => {
+    if (newState.isConnected) {
+      console.log("state update: ", previousState == null, newState.state)
+      if (previousState == null) {
+        initialRouting()
+      } else {
+        stateUpdate()
+      }
+    } else {
+      previousState = null
+      router.push("/")
+    }
+  })
 }
 
-// Set a watch to change the application state on any new updates
-watch(info, async newState => {
-  if (newState.isConnected) {
-    console.log("state update: ", previousState == null, newState.state)
-    if (previousState == null) {
-      initialRouting()
-    } else {
-      stateUpdate()
-    }
-  } else {
-    previousState = null
-    router.push("/")
-  }
-})
 
 </script>
 

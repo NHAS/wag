@@ -63,7 +63,13 @@ export interface EditUsersDTO {
 
 export interface GroupDTO {
   group: string
-  members: string[]
+  members: MemberInfo[]
+}
+
+export interface MemberInfo {
+  name: string
+  sso: boolean
+  joined: number
 }
 
 export interface GroupCreateDTO {

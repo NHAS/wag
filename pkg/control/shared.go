@@ -17,8 +17,14 @@ type PolicyData struct {
 }
 
 type GroupData struct {
-	Group   string   `json:"group"`
-	Members []string `json:"members"`
+	Group   string       `json:"group"`
+	Members []MemberInfo `json:"members"`
+}
+
+type MemberInfo struct {
+	SSO    bool   `json:"sso"`
+	Name   string `json:"name"`
+	Joined int64  `json:"joined"`
 }
 
 type GroupCreateData struct {

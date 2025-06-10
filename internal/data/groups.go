@@ -21,13 +21,15 @@ type GroupInfo struct {
 
 type MembershipInfo struct {
 	Joined int64
+	SSO    bool
 }
 
 // joined is a unix timestamp
-func generateOpsForGroupAddition(joined int64, group string, usernames []string) []clientv3.Op {
+func generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool) []clientv3.Op {
 
 	membership := MembershipInfo{
 		Joined: joined,
+		SSO:    sso,
 	}
 
 	membershipInfoBytes, _ := json.Marshal(membership)
@@ -62,7 +64,7 @@ func CreateGroup(group string, initialMembers []string) error {
 		clientv3.OpPut(fmt.Sprintf("%s%s", GroupsPrefix, group), string(groupInfoBytes)),
 	}
 
-	operations = append(operations, generateOpsForGroupAddition(info.Created, group, initialMembers)...)
+	operations = append(operations, generateOpsForGroupAddition(info.Created, group, initialMembers, false)...)
 
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing(GroupsPrefix + group))
@@ -103,7 +105,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 		groups[groupName] = group
 		result = append(result, group)
 
-		ops = append(ops, clientv3.OpGet(fmt.Sprintf("%s%s-members-", GroupsPrefix, groupName), clientv3.WithPrefix(), clientv3.WithKeysOnly()))
+		ops = append(ops, clientv3.OpGet(fmt.Sprintf("%s%s-members-", GroupsPrefix, groupName), clientv3.WithPrefix()))
 	}
 
 	txn := etcd.Txn(context.Background())
@@ -124,10 +126,22 @@ func GetGroups() (result []*control.GroupData, err error) {
 			}
 			// 1 = -members-
 
+			var info MembershipInfo
+			err = json.Unmarshal(kv.Value, &info)
+			if err != nil {
+				RaiseError(fmt.Errorf("failed to unmarshal membership info from %s: %w", kv.Key, err), []byte(""))
+				continue
+			}
+
 			// 0 = groupName
 			// 2 = username
 			if gd, ok := groups[resultParts[0]]; ok {
-				gd.Members = append(gd.Members, resultParts[2])
+
+				gd.Members = append(gd.Members, control.MemberInfo{
+					Name:   resultParts[2],
+					SSO:    info.SSO,
+					Joined: info.Joined,
+				})
 			}
 		}
 
@@ -270,14 +284,14 @@ func RemoveUserFromGroup(usernames []string, group string) error {
 	return nil
 }
 
-func AddUserToGroups(usernames []string, groups []string) error {
+func AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
 
 	addition := time.Now().Unix()
 
 	ops := []clientv3.Op{}
 	// Ugh O(NxM)
 	for _, group := range groups {
-		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames)...)
+		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames, fromSSO)...)
 	}
 
 	txn := etcd.Txn(context.Background())
@@ -291,12 +305,12 @@ func AddUserToGroups(usernames []string, groups []string) error {
 	return nil
 }
 
-func SetUserGroupMembership(username string, newGroups []string) error {
+func SetUserGroupMembership(username string, newGroups []string, fromSSO bool) error {
 
 	err := RemoveUserAllGroups(username)
 	if err != nil {
 		return fmt.Errorf("failed to remove user groups to set them to specific list: %w", err)
 	}
 
-	return AddUserToGroups([]string{username}, newGroups)
+	return AddUserToGroups([]string{username}, newGroups, fromSSO)
 }
