@@ -60,6 +60,11 @@ function getMFAPath(): string {
   const methodsHasUserPref = (info.selectedMFAMethod !== "unset" && info.availableMfaMethods.some(x => x.method == info.selectedMFAMethod))
   const methodsHasDefault = (info.defaultMFAMethod != "" && info.availableMfaMethods.some(x => x.method == info.defaultMFAMethod))
 
+  if(info.isRegistered && !methodsHasUserPref) {
+    console.log("determined /error, user mfa method is disabled")
+    return "/error?m="+encodeURIComponent("User MFA method has been disabled, contact your administrator") 
+  }
+
 
   if (info.availableMfaMethods.length == 1) {
     console.log(info.availableMfaMethods.length)
@@ -69,8 +74,8 @@ function getMFAPath(): string {
   }
 
 
-  if (methodsHasUserPref && info.isRegistered) {
-    console.log("determined user pref")
+  if (info.isRegistered) {
+    console.log("determined user mfa")
     return path + info.selectedMFAMethod
   }
 
@@ -198,16 +203,19 @@ if (window.location.pathname !== "/error") {
 
   // Set a watch to change the application state on any new updates
   watch(info, async newState => {
-    if (newState.isConnected) {
-      console.log("state update: ", previousState == null, newState.state)
-      if (previousState == null) {
-        initialRouting()
+
+    if (route.path != "/error") {
+      if (newState.isConnected) {
+        console.log("state update: ", previousState == null, newState.state)
+        if (previousState == null) {
+          initialRouting()
+        } else {
+          stateUpdate()
+        }
       } else {
-        stateUpdate()
+        previousState = null
+        router.push("/")
       }
-    } else {
-      previousState = null
-      router.push("/")
     }
   })
 }
