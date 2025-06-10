@@ -221,13 +221,13 @@ const selectedUsersHasLocked = computed(() => {
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.username }}</div>
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.groups?.join(', ') }}</div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.groups?.length }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.devices }}</div>
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.mfa_type }}</div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap"><span class="badge min-w-[100px]" :class="{'badge-primary': user.mfa_type != 'unset'}">{{ user.mfa_type }}</span></div>
                 </td>
                 <td class="font-mono relative">
                   <div>
