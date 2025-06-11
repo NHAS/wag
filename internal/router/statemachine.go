@@ -184,6 +184,8 @@ func (f *Firewall) userChanges(_ string, et data.EventType, current, previous da
 
 		if current.Locked != previous.Locked || current.Locked {
 
+			log.Printf("locked %t user: %q", current.Locked, current.Username)
+
 			err := f.SetLockAccount(current.Username, current.Locked)
 			if err != nil {
 				return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
@@ -192,13 +194,14 @@ func (f *Firewall) userChanges(_ string, et data.EventType, current, previous da
 
 		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType ||
 			!current.Enforcing || types.MFA(current.MfaType) == types.Unset {
+
+			log.Printf("deauthenticated user: %q", current.Username)
+
 			err := f.DeauthenticateAllDevices(current.Username)
 			if err != nil {
 				return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
 			}
 		}
-
-		log.Printf("modified user: %q", current.Username)
 
 	}
 

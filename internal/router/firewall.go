@@ -56,10 +56,16 @@ func (f *Firewall) GetRoutes(username string) ([]string, error) {
 	f.RLock()
 	defer f.RUnlock()
 
-	result := make([]string, 0, f.userPolicies[username].policies.Size())
-	if _, ok := f.userPolicies[username]; !ok {
-		return result, fmt.Errorf("user not found: %q", username)
+	user, ok := f.userPolicies[username]
+	if !ok {
+		return []string{}, fmt.Errorf("user not found: %q", username)
 	}
+
+	if user.policies == nil {
+		return []string{}, fmt.Errorf("user policies map was nil")
+	}
+
+	result := make([]string, 0, user.policies.Size())
 
 	f.userPolicies[username].policies.All()(func(pfx netip.Prefix, val *[]routetypes.Policy) bool {
 		result = append(result, pfx.String())
@@ -112,7 +118,7 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 	}
 
 	// Clear lpm trie
-	f.userPolicies[username].policies = &bart.Table[*[]routetypes.Policy]{}
+	currentUserPolicies.policies = &bart.Table[*[]routetypes.Policy]{}
 
 	for _, rule := range rules {
 		for i := range rule.Keys {
@@ -338,7 +344,9 @@ func (f *Firewall) AddUser(username string) error {
 
 	// New users are obviously unlocked
 	f.userIsLocked[username] = false
-	f.userPolicies[username] = new(Policies)
+	f.userPolicies[username] = &Policies{
+		policies: &bart.Table[*[]routetypes.Policy]{},
+	}
 
 	f.userToDevices[username] = make(map[string]*FirewallDevice)
 
@@ -401,16 +409,23 @@ func (f *Firewall) RemoveUser(username string) error {
 		return errors.New("firewall instance has been closed")
 	}
 
-	delete(f.userIsLocked, username)
-	delete(f.userPolicies, username)
-
 	errs := []error{}
 	for _, d := range f.userToDevices[username] {
 		errs = append(errs, f._removePeer(d.public.String(), d.address.String()))
 	}
+
+	err := errors.Join(errs...)
+	if err != nil {
+		// make sure that traffic cannot pass through the firewall if we attempted to remove a user and failed
+		f.userIsLocked[username] = true
+		return err
+	}
+
+	delete(f.userIsLocked, username)
+	delete(f.userPolicies, username)
 	delete(f.userToDevices, username)
 
-	return errors.Join(errs...)
+	return nil
 }
 
 func (f *Firewall) GetAllAuthorised() ([]string, error) {
@@ -483,7 +498,9 @@ func (f *Firewall) SetLockAccount(username string, locked bool) error {
 	f.userIsLocked[username] = locked
 	if locked {
 		for _, device := range f.userToDevices[username] {
+			device.Lock()
 			device.sessionExpiry = time.Time{}
+			device.Unlock()
 		}
 	}
 	return nil
