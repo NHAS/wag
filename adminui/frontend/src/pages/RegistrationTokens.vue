@@ -101,14 +101,14 @@ watch(selectedTokens, newVal => {
           <div class="flex flex-row justify-between">
             <span class="flex">
               <div class="tooltip" data-tip="Add rule">
-                <button class="btn btn-ghost btn-primary" @click="() => (isCreateTokenModalOpen = true)">
+                <button class="btn btn-ghost" @click="() => (isCreateTokenModalOpen = true)">
                   Add Token <font-awesome-icon :icon="Icons.Add" />
                 </button>
               </div>
-              <div class="tooltip" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
+              <div :class="selectedTokens.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
                 <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)">
-                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon
-                      :icon="Icons.Delete" /></button>
+                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedTokens.length == 0">Bulk Delete<font-awesome-icon
+                      :icon="Icons.Delete"/></button>
                 </ConfirmModal>
               </div>
             </span>

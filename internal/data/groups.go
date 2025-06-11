@@ -25,7 +25,7 @@ type MembershipInfo struct {
 }
 
 // joined is a unix timestamp
-func generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool) []clientv3.Op {
+func generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool, groupIsNew bool) clientv3.Op {
 
 	membership := MembershipInfo{
 		Joined: joined,
@@ -36,14 +36,23 @@ func generateOpsForGroupAddition(joined int64, group string, usernames []string,
 
 	c := string(membershipInfoBytes)
 
-	operations := []clientv3.Op{}
+	operations := make([]clientv3.Op, 0, len(usernames)*2)
 	for _, username := range usernames {
 
-		operations = append(operations, clientv3.OpPut(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, username, group), c))
-		operations = append(operations, clientv3.OpPut(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username), c))
+		membershipOps := []clientv3.Op{
+			clientv3.OpPut(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, username, group), c),
+			clientv3.OpPut(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username), c),
+		}
+
+		operations = append(operations, membershipOps...)
 	}
 
-	return operations
+	checks := []clientv3.Cmp{}
+	if !groupIsNew {
+		checks = []clientv3.Cmp{clientv3util.KeyExists(GroupsPrefix + group)}
+	}
+
+	return clientv3.OpTxn(checks, operations, nil)
 }
 
 func CreateGroup(group string, initialMembers []string) error {
@@ -64,7 +73,7 @@ func CreateGroup(group string, initialMembers []string) error {
 		clientv3.OpPut(fmt.Sprintf("%s%s", GroupsPrefix, group), string(groupInfoBytes)),
 	}
 
-	operations = append(operations, generateOpsForGroupAddition(info.Created, group, initialMembers, false)...)
+	operations = append(operations, generateOpsForGroupAddition(info.Created, group, initialMembers, false, true))
 
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing(GroupsPrefix + group))
@@ -291,7 +300,7 @@ func AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
 	ops := []clientv3.Op{}
 	// Ugh O(NxM)
 	for _, group := range groups {
-		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames, fromSSO)...)
+		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames, fromSSO, false))
 	}
 
 	txn := etcd.Txn(context.Background())

@@ -12,6 +12,7 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 func registrationKey(token string) string {
@@ -145,6 +146,25 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 
 		if device.Username != username {
 			return fmt.Errorf("device cannot be overwritten to different user: %w", err)
+		}
+	}
+
+	if len(groups) > 0 {
+		checks := []clientv3.Cmp{}
+		for _, group := range groups {
+			checks = append(checks, clientv3util.KeyExists(GroupsPrefix+group))
+		}
+
+		txn := etcd.Txn(context.Background())
+		txn.If(checks...)
+
+		resp, err := txn.Commit()
+		if err != nil {
+			return fmt.Errorf("failed to check that groups exist: %w", err)
+		}
+
+		if !resp.Succeeded {
+			return fmt.Errorf("groups %v do not all exist", groups)
 		}
 	}
 

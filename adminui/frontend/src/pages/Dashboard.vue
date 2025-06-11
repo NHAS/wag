@@ -20,7 +20,7 @@ const devicesStore = useDevicesStore()
 devicesStore.load(false)
 
 const registrationTokensStore = useTokensStore()
-registrationTokensStore.load(false)
+registrationTokensStore.load(true)
 
 const instanceDetails = useInstanceDetailsStore()
 instanceDetails.load(true)
