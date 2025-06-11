@@ -124,7 +124,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 		return nil, fmt.Errorf("failed to get group members")
 	}
 
-	// yet another O(N^2), pain
+	// yet another O(MxN), pain
 	for _, resp := range response.Responses {
 		kvs := resp.GetResponseRange().Kvs
 		for _, kv := range kvs {

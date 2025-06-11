@@ -524,8 +524,8 @@ func Put(key, value string) error {
 	return err
 }
 
-func SplitKey(expected int, prefix, key string) ([]string, error) {
-	parts := strings.SplitN(strings.TrimPrefix(key, prefix), "-", expected)
+func SplitKey(expected int, stripPrefix, key string) ([]string, error) {
+	parts := strings.SplitN(strings.TrimPrefix(key, stripPrefix), "-", expected)
 	if len(parts) != expected {
 		return nil, fmt.Errorf("unexpected number of arguments, expected %d, got %d for key %q", expected, len(parts), key)
 	}

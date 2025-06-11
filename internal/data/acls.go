@@ -83,8 +83,15 @@ func GetEffectiveAcl(username string) acls.Acl {
 
 	insertMap(allowSet, hostIPWithMask(config.Values.Wireguard.ServerAddress))
 
+	userMembershipKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
+
 	txn := etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet(AclsPrefix+"*"), clientv3.OpGet(AclsPrefix+username), clientv3.OpGet(MembershipKey+"-"+username), clientv3.OpGet(dnsKey))
+	txn.Then(
+		clientv3.OpGet(AclsPrefix+"*"),
+		clientv3.OpGet(AclsPrefix+username),
+		clientv3.OpGet(userMembershipKey, clientv3.WithKeysOnly(), clientv3.WithPrefix()),
+		clientv3.OpGet(dnsKey),
+	)
 	resp, err := txn.Commit()
 	if err != nil {
 		log.Println("failed to get policy data for user", username, "err:", err)
@@ -125,44 +132,45 @@ func GetEffectiveAcl(username string) acls.Acl {
 	}
 
 	// Membership map for finding all the other policies
-	if resp.Responses[2].GetResponseRange().GetCount() != 0 {
-		var userGroups []string
+	if membership := resp.Responses[2].GetResponseRange(); membership.GetCount() != 0 {
 
-		err = json.Unmarshal(resp.Responses[2].GetResponseRange().Kvs[0].Value, &userGroups)
-		if err == nil {
-			txn := etcd.Txn(context.Background())
+		var ops []clientv3.Op
+		for _, kv := range membership.Kvs {
 
-			//If the user belongs to a series of groups, grab those, and add their rules
-			var ops []clientv3.Op
-			for _, group := range userGroups {
-				ops = append(ops, clientv3.OpGet(AclsPrefix+group))
-			}
-
-			resp, err := txn.Then(ops...).Commit()
+			// strips [wag-membership-username-]groupnames
+			resultParts, err := SplitKey(1, userMembershipKey, string(kv.Key))
 			if err != nil {
-				log.Println("failed to get acls for groups: ", err)
-				RaiseError(err, []byte("failed to determine acls from groups"))
-				return acls.Acl{}
+				log.Println("failed to get group membership: ", err)
+				continue
 			}
 
-			for m := range resp.Responses {
-				r := resp.Responses[m].GetResponseRange()
-				if r.Count > 0 {
-
-					var acl acls.Acl
-
-					err := json.Unmarshal(r.Kvs[0].Value, &acl)
-					if err != nil {
-						log.Println("failed to unmarshal acl from response: ", err, string(r.Kvs[0].Value))
-						continue
-					}
-					addAcls(acl)
-				}
-			}
-
-		} else {
-			log.Println("failed to decode reverse group mapping: ", err)
+			group := resultParts[0]
+			ops = append(ops, clientv3.OpGet(AclsPrefix+group))
 		}
+
+		txn := etcd.Txn(context.Background())
+		resp, err := txn.Then(ops...).Commit()
+		if err != nil {
+			log.Println("failed to fetch acls from db groups: ", err)
+			RaiseError(err, []byte("failed to fetch acls from db groups"))
+			return acls.Acl{}
+		}
+
+		for m := range resp.Responses {
+			r := resp.Responses[m].GetResponseRange()
+			if r.Count > 0 {
+
+				var acl acls.Acl
+
+				err := json.Unmarshal(r.Kvs[0].Value, &acl)
+				if err != nil {
+					log.Println("failed to unmarshal acl from response: ", err, string(r.Kvs[0].Value))
+					continue
+				}
+				addAcls(acl)
+			}
+		}
+
 	}
 
 	// Add dns servers if defined
