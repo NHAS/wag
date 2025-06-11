@@ -171,19 +171,20 @@ const selectedDevicesHasLocked = computed(() => {
           <div class="flex flex-row justify-between">
             <span class="flex">
               <div class="tooltip" data-tip="Create Registration Token">
-                <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">Add Device
+                <button class="btn btn-ghost" @click="isCreateTokenModalOpen = true">Add Device
                   <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
-              <div class="tooltip"
+              <div :class="selectedDevices.length > 0 ? 'tooltip' : null"
                 :data-tip="(selectedDevicesHasLocked ? 'Unlock ' : 'Lock ') + selectedDevices.length + ' devices'">
                 <button
+                :disabled="selectedDevices.length == 0"
                   @click="updateDevices(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
-                  class="btn btn-ghost btn-primary">{{ selectedDevicesHasLocked ? 'Unlock' : 'Lock' }}
+                  class="btn btn-ghost disabled:bg-white ">{{ selectedDevicesHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
-              <div class="tooltip" :data-tip="'Delete ' + selectedDevices.length + ' devices'">
+              <div :class="selectedDevices.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedDevices.length + ' devices'">
                 <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)">
-                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon
+                  <button :disabled="selectedDevices.length == 0" class="btn btn-ghost disabled:bg-white">Bulk Delete<font-awesome-icon
                       :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>

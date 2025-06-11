@@ -159,27 +159,27 @@ const selectedUsersHasLocked = computed(() => {
           <div class="flex flex-row justify-between">
             <span class="flex">
               <div class="tooltip" data-tip="Create Registration Token">
-                <button class="btn btn-ghost btn-primary" @click="isCreateTokenModalOpen = true">
+                <button class="btn btn-ghost" @click="isCreateTokenModalOpen = true">
                   Add User <font-awesome-icon :icon="Icons.Add" />
                 </button>
               </div>
-              <div class="tooltip" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'">
+              <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'">
                 <button
                   @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)"
-                  class="btn btn-ghost btn-primary"
+                  class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0"
                 >
                   {{ selectedUsersHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" />
                 </button>
               </div>
-              <div class="tooltip" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost btn-primary">
+              <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
+                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">
                   Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
                 </button>
               </div>
-              <div class="tooltip" :data-tip="'Delete ' + selectedUsers.length + ' users'">
+              <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedUsers.length + ' users'">
                 <ConfirmModal @on-confirm="() => tryDeleteUsers(selectedUsers)">
-                  <button class="btn btn-ghost btn-primary">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>
