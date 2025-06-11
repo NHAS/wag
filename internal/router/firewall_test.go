@@ -94,7 +94,7 @@ func TestAddNewDevices(t *testing.T) {
 
 	for address, device := range testFw.addressToDevice {
 
-		if !device.inactive || !device.sessionExpiry.IsZero() {
+		if device.inactive || !device.sessionExpiry.IsZero() {
 			t.Fatal("timers were not 0 immediately after device add")
 		}
 		found[address.String()] = true

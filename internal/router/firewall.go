@@ -598,8 +598,6 @@ func (fwd *FirewallDevice) SetActive(duration time.Duration) {
 	}
 
 	if fwd.inactiveTimer == nil {
-		log.Println("creating: timer")
-
 		fwd.inactiveTimer = time.AfterFunc(duration, fwd.timeout)
 		return
 	}
