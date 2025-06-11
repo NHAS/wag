@@ -600,6 +600,9 @@ func (f *Firewall) _removePeer(publickey, address string) error {
 		return nil
 	}
 
+	// stops the inactivity timer
+	deviceToRemove.SetInactive()
+
 	delete(f.pubkeyToDevice, deviceToRemove.public.String())
 
 	delete(f.addressToPolicies, deviceToRemove.address)
@@ -763,9 +766,9 @@ func (f *Firewall) _addPeerToMaps(public wgtypes.Key, username, address string, 
 		address:        addressNetAddr,
 		associatedNode: node,
 		username:       username,
-		lastPacketTime: time.Time{},
+		inactive:       false,
+		inactiveTimer:  nil,
 		sessionExpiry:  time.Time{}, // Todo take this from db
-
 	}
 
 	addressesMap[address] = &device

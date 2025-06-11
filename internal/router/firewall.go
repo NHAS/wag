@@ -163,8 +163,8 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	// It doesnt matter if this gets race conditioned
 	device := f.addressToDevice[deviceAddr.Addr()]
-	if device != nil && (f.inactivityTimeout == -1 || time.Since(device.lastPacketTime) < f.inactivityTimeout) {
-		device.lastPacketTime = time.Now()
+	if device != nil && (f.inactivityTimeout == -1 || !device.inactive) {
+		device.SetActive(f.inactivityTimeout)
 	} else {
 		authorized = false
 	}
@@ -232,7 +232,7 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 	if device.AssociatedNode == data.GetServerID() {
 		// TODO figure out a better way of doing this
 		// when a client shifts over to us, make sure we set the last packet time to something they can actually use
-		d.lastPacketTime = time.Now()
+		d.SetActive(f.inactivityTimeout)
 	}
 
 	d.associatedNode = device.AssociatedNode
@@ -268,13 +268,14 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 
 	timeToSet := maxSession
 	if !device.disableSessionExpiry {
-		// when the session expiry is set, it doesnt matter what we set this to, it just cant be the time.Time{} zero value ( as that indicates unauthed)
+		// when the session expiry is disabled, it doesnt matter what we set this to, it just cant be the time.Time{} zero value ( as that indicates unauthed)
 		timeToSet = 1
 	}
 
 	device.sessionExpiry = time.Now().Add(time.Duration(timeToSet) * time.Minute)
 
-	device.lastPacketTime = time.Now()
+	device.SetActive(f.inactivityTimeout)
+
 	device.associatedNode = node
 
 	return nil
@@ -306,7 +307,8 @@ func (f *Firewall) _deauthenticate(address netip.Addr) error {
 	}
 
 	device.sessionExpiry = time.Time{}
-	device.lastPacketTime = time.Time{}
+
+	device.SetInactive()
 
 	return nil
 }
@@ -475,7 +477,7 @@ func (f *Firewall) isAuthed(addr netip.Addr) bool {
 	}
 
 	// If the device has been inactive
-	if f.inactivityTimeout > 0 && device.lastPacketTime.Add(f.inactivityTimeout).Before(time.Now()) {
+	if f.inactivityTimeout > 0 && device.inactive {
 		return false
 	}
 
@@ -508,11 +510,11 @@ func (f *Firewall) SetLockAccount(username string, locked bool) error {
 }
 
 type fwDevice struct {
-	LastPacketTimestamp time.Time `json:"last_packet_timestamp"`
-	Expiry              time.Time `json:"expiry"`
-	IP                  string    `json:"policies"`
-	Authorized          bool      `json:"authorized"`
-	AssociatedNode      string    `json:"associated_node"`
+	Inactive       bool      `json:"inactive"`
+	Expiry         time.Time `json:"expiry"`
+	IP             string    `json:"address"`
+	Authorized     bool      `json:"authorized"`
+	AssociatedNode string    `json:"associated_node"`
 }
 
 type FirewallRules struct {
@@ -567,7 +569,9 @@ type FirewallDevice struct {
 	// The internal vpn address the device occupies
 	address netip.Addr
 
-	lastPacketTime time.Time
+	inactive bool
+
+	inactiveTimer *time.Timer
 
 	disableSessionExpiry bool
 	sessionExpiry        time.Time
@@ -577,12 +581,46 @@ type FirewallDevice struct {
 	username string
 }
 
+func (fwd *FirewallDevice) timeout() {
+	fwd.inactive = true
+	err := data.DeauthenticateDevice(fwd.address.String())
+	if err != nil {
+		log.Println("failed to deauthenticate device on inactivity timeout: ", err)
+	}
+}
+
+func (fwd *FirewallDevice) SetActive(duration time.Duration) {
+	fwd.inactive = false
+
+	if duration == -1 {
+		// if the inacitivity duration is -1 that means its disabled, thus dont start a timer or reset a timer
+		return
+	}
+
+	if fwd.inactiveTimer == nil {
+		log.Println("creating: timer")
+
+		fwd.inactiveTimer = time.AfterFunc(duration, fwd.timeout)
+		return
+	}
+
+	fwd.inactiveTimer.Reset(duration)
+}
+
+func (fwd *FirewallDevice) SetInactive() {
+	fwd.inactive = true
+	if fwd.inactiveTimer != nil {
+		fwd.inactiveTimer.Stop()
+		return
+	}
+}
+
 func (fwd *FirewallDevice) toDTO() fwDevice {
 	return fwDevice{
-		LastPacketTimestamp: fwd.lastPacketTime,
-		Expiry:              fwd.sessionExpiry,
-		AssociatedNode:      fwd.associatedNode.String(),
-		IP:                  fwd.address.String(),
+		Inactive:       fwd.inactive,
+		Expiry:         fwd.sessionExpiry,
+		AssociatedNode: fwd.associatedNode.String(),
+		IP:             fwd.address.String(),
 	}
 }
 

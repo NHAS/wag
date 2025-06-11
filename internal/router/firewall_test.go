@@ -94,7 +94,7 @@ func TestAddNewDevices(t *testing.T) {
 
 	for address, device := range testFw.addressToDevice {
 
-		if !device.lastPacketTime.IsZero() || !device.sessionExpiry.IsZero() {
+		if !device.inactive || !device.sessionExpiry.IsZero() {
 			t.Fatal("timers were not 0 immediately after device add")
 		}
 		found[address.String()] = true
@@ -460,20 +460,6 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testerIp, err := netip.ParseAddr(devices["tester"].Address)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testerDevice, ok := testFw.addressToDevice[testerIp]
-	if !ok {
-		t.Fatal("could not get tester device using ip")
-	}
-
-	var (
-		beforeLastPacketTime = testerDevice.lastPacketTime
-	)
-
 	difference := uint64(config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes) * 60000000000
 	if testFw.inactivityTimeout != time.Duration(difference) {
 		t.Fatal("timeout retrieved from ebpf program does not match json")
@@ -481,19 +467,6 @@ func TestSlidingWindow(t *testing.T) {
 
 	if !testFw.Test(packet) {
 		t.Fatalf("program did not pass packet instead dropped it")
-	}
-
-	testerDevice, ok = testFw.addressToDevice[testerIp]
-	if !ok {
-		t.Fatal("could not get tester device using ip (after testing packet?)")
-	}
-
-	if testerDevice.lastPacketTime.Equal(beforeLastPacketTime) {
-		t.Fatal("sending a packet did not change sliding window timeout")
-	}
-
-	if testerDevice.lastPacketTime.Before(beforeLastPacketTime) {
-		t.Fatal("the resulting update must be closer in time")
 	}
 
 	t.Logf("Now doing timing test for sliding window waiting %d+10seconds", config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes)
