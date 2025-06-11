@@ -111,7 +111,7 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 				// Will set a record deleted after 30 seconds that a device can use to reauthenticate
 				err = current.SetChallenge()
 				if err != nil {
-					return fmt.Errorf("failed to set device challenge")
+					return fmt.Errorf("failed to set device challenge: %w", err)
 				}
 			}
 
@@ -158,7 +158,7 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 		}
 
 	default:
-		panic("unknown state")
+		return fmt.Errorf("unknown event type: %v", et)
 	}
 
 	return nil
