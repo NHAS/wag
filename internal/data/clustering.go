@@ -19,7 +19,7 @@ import (
 )
 
 func GetServerID() types.ID {
-	return etcdServer.Server.ID()
+	return etcdServer.Server.MemberID()
 }
 
 func GetLeader() types.ID {
@@ -36,7 +36,7 @@ func IsLearner() bool {
 
 // StepDown when called on a leader node, to transfer ownership to another node (demoted)
 func StepDown() error {
-	return etcdServer.Server.TransferLeadership()
+	return etcdServer.Server.TryTransferLeadershipOnShutdown()
 }
 
 func GetMembers() []*membership.Member {
