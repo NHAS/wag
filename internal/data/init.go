@@ -25,6 +25,10 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
+const (
+	dbMigrations = "wag-db-migrations"
+)
+
 var (
 	etcd                   *clientv3.Client
 	etcdServer             *embed.Etcd
@@ -180,6 +184,8 @@ func loadInitialSettings() error {
 		return err
 	}
 
+	latestMigrationKey := fmt.Sprintf("%s-%q", dbMigrations, "9.0.0")
+
 	if len(response.Kvs) == 0 {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
@@ -189,6 +195,55 @@ func loadInitialSettings() error {
 			}
 		}
 
+		set(latestMigrationKey, false, latestMigrationKey)
+
+	} else {
+		txn := etcd.Txn(context.Background())
+		txn.If(clientv3util.KeyMissing(latestMigrationKey))
+		txn.Then(clientv3.OpPut(latestMigrationKey, config.Version), clientv3.OpDelete(GroupMembershipPrefix, clientv3.WithPrefix(), clientv3.WithPrevKV()))
+
+		resp, err := txn.Commit()
+		if err != nil {
+			return fmt.Errorf("failed to apply migration: %w", err)
+		}
+
+		if resp.Succeeded {
+
+			if len(resp.Responses) != 2 {
+				return fmt.Errorf("doing migrations failed as the number of responses from the db wasnt correct: %d", len(resp.Responses))
+			}
+
+			ops := []clientv3.Op{}
+			deleteResp := resp.Responses[1].GetResponseDeleteRange()
+			for _, kv := range deleteResp.PrevKvs {
+				key := string(kv.Key)
+				log.Printf("Migrating user(%q) membership to new group layout", key)
+				var memberCurrentGroups []string
+				err = json.Unmarshal(kv.Value, &memberCurrentGroups)
+				if err != nil {
+					log.Println("FAILED TO migrate group: ", key, err)
+					continue
+				}
+
+				parts, err := SplitKey(1, GroupMembershipPrefix, key)
+				if err != nil {
+					log.Println("FAILED TO migrate group: ", key, err)
+					continue
+				}
+
+				// should now be left with <username>
+				for _, group := range memberCurrentGroups {
+					ops = append(ops, generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
+				}
+			}
+
+			txn = etcd.Txn(context.Background())
+			txn.Then(ops...)
+			_, err = txn.Commit()
+			if err != nil {
+				return fmt.Errorf("failed to commit migration to db: %w")
+			}
+		}
 	}
 
 	configData, _ := json.Marshal(config.Values)
