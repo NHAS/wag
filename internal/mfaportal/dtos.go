@@ -30,10 +30,15 @@ type MFAMethod struct {
 	FriendlyName string `json:"friendly_name"`
 }
 
+type Versions struct {
+	Web string `json:"web"`
+	Wag string `json:"wag"`
+}
+
 type UserInfoDTO struct {
-	Type          Status `json:"type"`
-	Version       string `json:"version"`
-	UserMFAMethod string `json:"user_mfa_method"`
+	Type          Status   `json:"type"`
+	Versions      Versions `json:"versions"`
+	UserMFAMethod string   `json:"user_mfa_method"`
 
 	AccountLocked bool `json:"account_locked"`
 	DeviceLocked  bool `json:"device_locked"`

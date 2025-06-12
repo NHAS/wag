@@ -2,6 +2,7 @@ import axios from "axios";
 
 export const client = axios.create();
 
+export * from "./server";
 export * from "./types";
 export * from "./totp";
 export * from "./webauthn";

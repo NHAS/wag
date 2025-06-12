@@ -11,7 +11,7 @@ export interface WebSocketState {
   reconnectAttempts: number;
   userInfo: UserInfoDTO | null;
   connectionError: string | null;
-  challenge: string | null;
+  challenge: string | null;  
 }
 
 export const useWebSocketStore = defineStore("websocket", () => {
@@ -102,7 +102,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
         case "authorised":
           const authorisationMessage = data as AuthorisationResponseDTO
-
           state.value.challenge = authorisationMessage.challenge
           localStorage.setItem(LOCAL_STORAGE_KEY, authorisationMessage.challenge)
 
@@ -126,7 +125,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
       return
     }
 
-    if(state.value.userInfo.version !== null && state.value.userInfo.version != newState.version) {
+    if(state.value.userInfo.versions !== null && state.value.userInfo.versions.web != newState.versions.web) {
       
       toast.info("New version of Wag is available, reloading...")
       setTimeout(function(){

@@ -8,8 +8,13 @@ export interface MFAMethod {
 	friendly_name: string
 }
 
+export interface VersionsDTO  {
+	web: string
+	wag: string
+}
+
 export interface UserInfoDTO {
-  version: string
+  versions: VersionsDTO
 
   has_registered: boolean;
   user_mfa_method: string;
@@ -55,4 +60,13 @@ export interface AuthResponse {
 
 export interface PamAuthRequestDTO {
   password: string
+}
+
+
+export interface  StatusDTO {
+	IsAuthorised: boolean
+
+	MFA:    string[]
+	Public: string[]
+	Deny:   string[]
 }

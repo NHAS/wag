@@ -267,7 +267,7 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 	device.disableSessionExpiry = maxSession < 0
 
 	timeToSet := maxSession
-	if !device.disableSessionExpiry {
+	if device.disableSessionExpiry {
 		// when the session expiry is disabled, it doesnt matter what we set this to, it just cant be the time.Time{} zero value ( as that indicates unauthed)
 		timeToSet = 1
 	}
@@ -529,7 +529,7 @@ func (f *Firewall) GetRules() (map[string]FirewallRules, error) {
 
 	users, err := data.GetAllUsers()
 	if err != nil {
-		return nil, errors.New("fw rule get all users: " + err.Error())
+		return nil, fmt.Errorf("failed to get all users from db: %w", err)
 	}
 
 	result := make(map[string]FirewallRules)
@@ -587,6 +587,7 @@ func (fwd *FirewallDevice) timeout() {
 	if err != nil {
 		log.Println("failed to deauthenticate device on inactivity timeout: ", err)
 	}
+	log.Println("Device %q %q became inactive", fwd.username, fwd.address)
 }
 
 func (fwd *FirewallDevice) SetActive(duration time.Duration) {
@@ -626,8 +627,7 @@ func (d *FirewallDevice) isAuthed() bool {
 	t := time.Now()
 
 	return !d.sessionExpiry.Equal(time.Time{}) &&
-		(t.Before(d.sessionExpiry) || d.disableSessionExpiry)
-
+		(d.disableSessionExpiry || t.Before(d.sessionExpiry))
 }
 
 type Policies struct {

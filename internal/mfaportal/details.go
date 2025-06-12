@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
@@ -302,8 +303,11 @@ func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 	}
 
 	info := UserInfoDTO{
-		Type:                Info,
-		Version:             resources.Version(),
+		Type: Info,
+		Versions: Versions{
+			Web: resources.Version(),
+			Wag: config.Version,
+		},
 		UserMFAMethod:       user.GetMFAType(),
 		HelpMail:            data.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
