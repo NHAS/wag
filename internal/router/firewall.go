@@ -587,7 +587,7 @@ func (fwd *FirewallDevice) timeout() {
 	if err != nil {
 		log.Println("failed to deauthenticate device on inactivity timeout: ", err)
 	}
-	log.Println("Device %q %q became inactive", fwd.username, fwd.address)
+	log.Printf("Device %q %q became inactive", fwd.username, fwd.address)
 }
 
 func (fwd *FirewallDevice) SetActive(duration time.Duration) {
