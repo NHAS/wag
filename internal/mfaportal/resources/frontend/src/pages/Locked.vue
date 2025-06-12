@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
 import { useWebSocketStore } from '@/store/info';
 
 const info = useWebSocketStore();
