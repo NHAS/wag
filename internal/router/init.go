@@ -38,6 +38,15 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 		hasIptables:             iptables,
 	}
 
+	ip, ok := netip.AddrFromSlice(config.Values.Wireguard.Range.IP)
+	if !ok {
+		return nil, fmt.Errorf("configured wireguard range was not a valid ip: %s", config.Values.Wireguard.Range.IP)
+	}
+
+	_, bits := config.Values.Wireguard.Range.Mask.Size()
+
+	fw.vpnPrefix = netip.PrefixFrom(ip, bits)
+
 	inactivityTimeoutInt, err := data.GetSessionInactivityTimeoutMinutes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session inactivity timeout: %s", err)

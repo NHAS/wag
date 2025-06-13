@@ -50,6 +50,8 @@ type Firewall struct {
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
+
+	vpnPrefix netip.Prefix
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -139,18 +141,30 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
 	f.RLock()
-	targetAddr := &dst
-	deviceAddr := &src
-	policies, ok := f.addressToPolicies[src.Addr()]
-	if !ok || policies == nil {
-		policies, ok = f.addressToPolicies[dst.Addr()]
-		if !ok || policies == nil {
-			f.RUnlock()
-			return false
-		}
+	var (
+		targetAddr *netip.AddrPort
+		deviceAddr *netip.AddrPort
+	)
 
-		deviceAddr = &dst
+	if f.vpnPrefix.Contains(src.Addr()) {
+
+		targetAddr = &dst
+		deviceAddr = &src
+
+	} else if f.vpnPrefix.Contains(dst.Addr()) {
+		// if the destination is our user device
 		targetAddr = &src
+		deviceAddr = &dst
+
+	} else {
+		//if neither direction is within the subnet, dump it
+		f.RUnlock()
+		return false
+	}
+
+	policies, ok := f.addressToPolicies[deviceAddr.Addr()]
+	if !ok || policies == nil {
+		return false
 	}
 
 	policy := policies.tableLookup(targetAddr.Addr())
@@ -161,9 +175,13 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	authorized := f.isAuthed(deviceAddr.Addr())
 
-	// It doesnt matter if this gets race conditioned
-	device := f.addressToDevice[deviceAddr.Addr()]
-	if device != nil && (f.inactivityTimeout == -1 || !device.inactive) {
+	device, ok := f.addressToDevice[deviceAddr.Addr()]
+	if !ok || device == nil {
+		return false
+	}
+
+	if f.inactivityTimeout == -1 || !device.inactive {
+		// It doesnt matter if this gets race conditioned
 		device.SetActive(f.inactivityTimeout)
 	} else {
 		authorized = false
