@@ -474,6 +474,12 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	}()
 
+	uniqueKey := r.URL.Query().Get("key")
+	if uniqueKey == "" || len(uniqueKey) > 36 {
+		conn.Close(websocket.StatusNormalClosure, "Invalid unique key specified")
+		return
+	}
+
 	conn.SetReadLimit(maxMessageSize)
 
 	c.Lock()
@@ -492,8 +498,9 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	// This looks a bit funky  as its outside the lock, but effectively, .Close here can wait for up to 5s for the client to respond.
 	// If we lock for 5 seconds we cant accept any clients for that duration which isnt great
 	if ok && prev != nil {
-		prev.Close(websocket.StatusNormalClosure, "Duplicate connection, you may have wag open in two separate browsers")
-		log.Println("Duplicate connection, closing previous")
+		prev.Close(websocket.StatusNormalClosure, "Duplicate connection, you may have Wag open in two separate browsers. "+uniqueKey)
+
+		log.Printf("Duplicate connection for device %s, closing previous", clientTunnelIp.String())
 	}
 
 	log.Println(user.Username, clientTunnelIp, "established new challenge connection!")

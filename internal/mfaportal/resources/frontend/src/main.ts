@@ -18,6 +18,7 @@ const app = createApp(App);
 const instanceManager = new SingleInstanceManager(app);
 instanceManager.initialize();
 
+
 library.add(fas);
 
 app.component("font-awesome-icon", FontAwesomeIcon);

@@ -1,7 +1,9 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, inject } from "vue";
 import type { AuthorisationResponseDTO, ChallengeAuthorisationRequestDTO, UserInfoDTO } from "@/api/types";
 import { useToast } from "vue-toastification";
+import type { ToastOptions } from "vue-toastification/dist/types/types";
+import { globalInstanceManager, type SingleInstanceManager } from "@/singleton";
 const toast = useToast();
 export interface WebSocketState {
   connection: WebSocket | null;
@@ -11,8 +13,10 @@ export interface WebSocketState {
   reconnectAttempts: number;
   userInfo: UserInfoDTO | null;
   connectionError: string | null;
-  challenge: string | null;  
+  challenge: string | null;
 }
+
+
 
 export const useWebSocketStore = defineStore("websocket", () => {
   // State
@@ -34,6 +38,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Connect to WebSocket
   const connect = () => {
+
     if (state.value.isConnected || state.value.isConnecting || state.value.isClosed) {
       return;
     }
@@ -46,7 +51,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
     try {
       // Get the WebSocket URL from environment or configuration
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/api/session`;
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/session?key=${globalInstanceManager?.getId()}`;
 
       const ws = new WebSocket(wsUrl);
 
@@ -70,7 +75,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Handle WebSocket messages
   const handleMessage = (event: MessageEvent) => {
-    if(state.value.isClosed) {
+    if (state.value.isClosed) {
       return
     }
 
@@ -86,8 +91,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
       switch (data.type) {
         case "info":
-            updateState(data)
-            state.value.isConnected = true;
+          updateState(data)
+          state.value.isConnected = true;
           break
         case "endpoint-change-challenge":
           sendChallenge()
@@ -120,18 +125,18 @@ export const useWebSocketStore = defineStore("websocket", () => {
   };
 
   const updateState = (newState: UserInfoDTO) => {
-    if(state.value.userInfo === null) {
+    if (state.value.userInfo === null) {
       state.value.userInfo = newState
       return
     }
 
-    if(state.value.userInfo.versions !== null && state.value.userInfo.versions.web != newState.versions.web) {
-      
+    if (state.value.userInfo.versions !== null && state.value.userInfo.versions.web != newState.versions.web) {
+
       toast.info("New version of Wag is available, reloading...")
-      setTimeout(function(){
+      setTimeout(function () {
         close()
         window.location.reload()
-      }, 2000*Math.random())
+      }, 2000 * Math.random())
 
       return
     }
@@ -152,21 +157,28 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.isConnected = false;
     state.value.isConnecting = false;
 
-    if(state.value.isClosed) {
+    if (state.value.isClosed) {
       return
     }
 
     let message = event.reason != null && event.reason != "" ? event.reason : "Disconnected."
 
+    let settings: ToastOptions & { type?: undefined } = {
+      timeout: undefined,
+      closeOnClick: false,
+      draggable: false
+    }
     // Attempt to reconnect if not a normal closure or a going away message
     if (event.code !== 1000 && event.code !== 1001) {
-      const delay = Math.min((1000 * (state.value.reconnectAttempts + 1))*Math.random(), 10000);
-      
-      if(state.value.reconnectAttempts < 20) {
+      // 5 -> 7 seconds random delay
+      const delay = (state.value.reconnectAttempts == 0) ? 2 + Math.random() : 1000 * 5 + (2 * Math.random());
+
+      if (state.value.reconnectAttempts < 20) {
         state.value.reconnectAttempts++;
-        message = `Reconnecting, attempt ${state.value.reconnectAttempts}...`
+        message = `Reconnecting, attempt ${state.value.reconnectAttempts}/20...`
       } else {
-        message = `Connection lost attempting to reconnect... (Waiting ${delay/1000} seconds)`
+        message = `Failed to reconnect to server. Please reload page.`
+        settings.timeout = false
       }
 
       setTimeout(() => {
@@ -175,7 +187,23 @@ export const useWebSocketStore = defineStore("websocket", () => {
       }, delay);
     }
 
-    toast.error(message)
+    if (message.includes("Duplicate")) {
+      settings.timeout = false
+
+      if (message.includes(globalInstanceManager?.getId() as string)) {
+        setTimeout(() => {
+          connect();
+        }, 2);
+        return
+      }
+
+      let i = message.indexOf(". ")
+      if(i != -1) {
+        message = message.slice(0, i)
+      }
+    }
+
+    toast.error(message, settings)
   };
 
   // Send a challenge to the server
@@ -186,8 +214,8 @@ export const useWebSocketStore = defineStore("websocket", () => {
     }
 
     const challengeData: ChallengeAuthorisationRequestDTO = {
-      type: "challenge-response" ,
-      challenge: state.value.challenge?? ""
+      type: "challenge-response",
+      challenge: state.value.challenge ?? ""
     };
     state.value.connection.send(JSON.stringify(challengeData));
   };
@@ -216,7 +244,7 @@ export const useWebSocketStore = defineStore("websocket", () => {
   const availableMfaMethods = computed(() => state.value.userInfo?.available_mfa_methods ?? []);
   const defaultMFAMethod = computed(() => state.value.userInfo?.default_mfa ?? "");
   const isAccountLocked = computed(() => state.value.userInfo?.account_locked ?? false);
-  const isDeviceLocked = computed(() => state.value.userInfo?.device_locked ?? false); 
+  const isDeviceLocked = computed(() => state.value.userInfo?.device_locked ?? false);
   const isAuthorised = computed(() => state.value.userInfo?.is_authorized ?? false);
   const isRegistered = computed(() => state.value.userInfo?.has_registered ?? false);
   const isConnected = computed(() => state.value.isConnected);

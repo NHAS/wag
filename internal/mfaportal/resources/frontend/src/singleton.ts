@@ -1,9 +1,12 @@
 import type { App } from "vue";
 
+export let globalInstanceManager: SingleInstanceManager | null = null
+
 export class SingleInstanceManager {
     private channel: BroadcastChannel;
     private instanceId: string;
     private vueApplication: App;
+
 
     constructor(app: App, channelName: string = 'wag-single-instance') {
 
@@ -23,8 +26,21 @@ export class SingleInstanceManager {
     }
 
     public initialize(): void {
+        if(globalInstanceManager !== null) {
+            console.log("BUG, reinitialising an instance manager")
+            return
+        }
+
+        globalInstanceManager = this
+
+
         // Announce this instance
         this.sendMessage('instance-active');
+    }
+
+    public getId(): string {
+    
+        return this.instanceId
     }
 
     private handleMessage(event: MessageEvent): void {
