@@ -140,6 +140,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
+
 	f.RLock()
 	var (
 		targetAddr *netip.AddrPort
@@ -158,6 +159,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	} else {
 		//if neither direction is within the subnet, dump it
+		log.Println("failed as not in either", f.vpnPrefix, src.Addr(), dst.Addr())
 		f.RUnlock()
 		return false
 	}
@@ -177,8 +179,10 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	device, ok := f.addressToDevice[deviceAddr.Addr()]
 	if !ok || device == nil {
+		f.RUnlock()
 		return false
 	}
+	f.RUnlock()
 
 	if f.inactivityTimeout == -1 || !device.inactive {
 		// It doesnt matter if this gets race conditioned
@@ -186,8 +190,6 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	} else {
 		authorized = false
 	}
-
-	f.RUnlock()
 
 	action := false
 	for _, decision := range *policy {
