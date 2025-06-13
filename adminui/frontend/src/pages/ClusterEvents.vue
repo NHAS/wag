@@ -60,7 +60,6 @@ async function acknowledgeError(error: EventErrorDTO) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success('error acknowledged')
       refresh()
       isErrorInspectionModalOpen.value = false
     }
