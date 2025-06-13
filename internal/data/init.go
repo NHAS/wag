@@ -241,7 +241,7 @@ func loadInitialSettings() error {
 			txn.Then(ops...)
 			_, err = txn.Commit()
 			if err != nil {
-				return fmt.Errorf("failed to commit migration to db: %w")
+				return fmt.Errorf("failed to commit migration to db: %w", err)
 			}
 		}
 	}
