@@ -141,48 +141,50 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
 
-	f.RLock()
-	var (
-		targetAddr *netip.AddrPort
-		deviceAddr *netip.AddrPort
-	)
+	device, targetAddr, policy, authorized, ok := func() (device *FirewallDevice, targetAddr *netip.AddrPort, policy *[]routetypes.Policy, authorized, ok bool) {
+		f.RLock()
+		defer f.RUnlock()
 
-	if f.vpnPrefix.Contains(src.Addr()) {
+		var (
+			deviceAddr *netip.AddrPort
+		)
 
-		targetAddr = &dst
-		deviceAddr = &src
+		if f.vpnPrefix.Contains(src.Addr()) {
 
-	} else if f.vpnPrefix.Contains(dst.Addr()) {
-		// if the destination is our user device
-		targetAddr = &src
-		deviceAddr = &dst
+			targetAddr = &dst
+			deviceAddr = &src
 
-	} else {
-		//if neither direction is within the subnet, dump it
-		log.Println("failed as not in either", f.vpnPrefix, src.Addr(), dst.Addr())
-		f.RUnlock()
+		} else if f.vpnPrefix.Contains(dst.Addr()) {
+			// if the destination is our user device
+			targetAddr = &src
+			deviceAddr = &dst
+
+		} else {
+			//if neither direction is within the subnet, dump it
+			return nil, nil, nil, false, false
+		}
+
+		policies, ok := f.addressToPolicies[deviceAddr.Addr()]
+		if !ok || policies == nil {
+			return nil, nil, nil, false, false
+		}
+
+		policy = policies.tableLookup(targetAddr.Addr())
+		if policy == nil {
+
+			return nil, nil, nil, false, false
+		}
+
+		device, ok = f.addressToDevice[deviceAddr.Addr()]
+		if !ok || device == nil {
+			return nil, nil, nil, false, false
+		}
+		return device, targetAddr, policy, f.isAuthed(deviceAddr.Addr()), true
+	}()
+
+	if !ok {
 		return false
 	}
-
-	policies, ok := f.addressToPolicies[deviceAddr.Addr()]
-	if !ok || policies == nil {
-		return false
-	}
-
-	policy := policies.tableLookup(targetAddr.Addr())
-	if policy == nil {
-		f.RUnlock()
-		return false
-	}
-
-	authorized := f.isAuthed(deviceAddr.Addr())
-
-	device, ok := f.addressToDevice[deviceAddr.Addr()]
-	if !ok || device == nil {
-		f.RUnlock()
-		return false
-	}
-	f.RUnlock()
 
 	if f.inactivityTimeout == -1 || !device.inactive {
 		// It doesnt matter if this gets race conditioned
