@@ -6,15 +6,31 @@ Key Features:
 - Define routes which require MFA authorisation, or public always accessible routes
 - Easy API for registering new clients
 - High Availability
-- Multiple MFA options, including webauthn, oidc and more
+- Real time user updates and notifications
+- Multiple MFA integrations
+  - Security Key
+  - SSO
+  - PAM
+  - TOTP
+  
+## Administration
 
 ![image](https://github.com/user-attachments/assets/9b639991-b795-438d-bd45-8b4e106ef802)
 
 ![image](https://github.com/user-attachments/assets/d629030b-e845-4461-b609-561a7cf944d4)
 
-![image](https://github.com/user-attachments/assets/af4f49a7-896b-4399-8298-e8ebc7055a74)
+![image](https://github.com/user-attachments/assets/c12efdd3-c731-4d21-9a30-c207b0997e23)
 
-![image](https://github.com/user-attachments/assets/4341b802-9adf-4a39-abf9-fbc66dff3916)
+![image](https://github.com/user-attachments/assets/a3d684e8-9879-4f27-89fb-312f1dceb280)
+
+## User UI
+
+![image](https://github.com/user-attachments/assets/7be16906-8afa-44cd-9d31-2f53a98a4d3b)
+
+![image](https://github.com/user-attachments/assets/e0fd2995-223d-4e12-b7b4-27ef7b01b5e7)
+
+![image](https://github.com/user-attachments/assets/ae8380a5-d749-44ef-b445-c41d24e126f0)
+
 
 
 
@@ -43,7 +59,7 @@ sysctl -w net.ipv6.conf.all.accept_source_route=1
 
 ## Docker Compose
 
-Please find the docker compose here:
+Please find the docker compose here, you will need to define a configuration file in `/cfg`:
 
 ```yaml
 ---
@@ -91,13 +107,14 @@ cp example_config.json config.json
 sudo ./wag start
 ```
 
-If running behind a reverse proxy, `X-Forwarded-For` must be set.
-
 # Management
 
 ## UI
 
-After you have set up wag and enabled the administrative user interface, it will create the first admin for you. Then you can log in and manage users there.  
+After you have set up wag and enabled the administrative user interface, it will create the first admin for you, the password will be output to STDOUT. Then you can log in and manage users there.  
+
+![image](https://github.com/user-attachments/assets/e18bf61e-d809-44c3-80e2-0fe4f5269029)
+
 
 ## CLI
 
@@ -217,7 +234,7 @@ Usage of webadmin:
         Admin Username to act upon
 ```
 
-# User guide
+# Administration guide
 
 ## Manual installation of Wag
 
@@ -284,7 +301,7 @@ The web interface itself cannot add administrative users.
 `MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory  
 
 `DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
-`Acls`: Defines the `Groups` and `Policies` that restrict routes, this is only respected on first run, use the web UI to edit them during runtime.  
+`Acls`: Defines the `Groups` and `Policies` that restrict routes, this is **only respected on first run**, use the web UI to edit them during runtime.  
 `Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
 `Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
 `Policies.<policy name>.Public`: Routes and services that do not require authorisation
