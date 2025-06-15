@@ -52,6 +52,95 @@ var (
 	mockTun *tuntest.ChannelTUN
 )
 
+func BenchmarkEvaluate_Parallel(b *testing.B) {
+
+	var packets [][]byte
+
+	for _, user := range devices {
+		acl := data.GetEffectiveAcl(user.Username)
+		rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow, acl.Deny)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		// Populate expected
+		for _, rule := range rules {
+
+			for _, policy := range rule.Values {
+
+				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
+				successProto := policy.Proto
+				if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
+					successProto = routetypes.UDP
+				}
+
+				src := net.ParseIP(user.Address)
+				dst := rule.Keys[0].IP[:]
+
+				// Add matching/passing packet
+				packets = append(packets, createPacketTests(src, dst, int(successProto), int(policy.LowerPort)))
+			}
+		}
+	}
+
+	// Set at least one as authorised
+	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			packet := packets[i%len(packets)]
+			testFw.Test(packet)
+			i++
+		}
+	})
+}
+
+func BenchmarkFirewallEvaluate(b *testing.B) {
+
+	var packets [][]byte
+
+	for _, user := range devices {
+		acl := data.GetEffectiveAcl(user.Username)
+		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		// Populate expected
+		for _, rule := range rules {
+
+			for _, policy := range rule.Values {
+
+				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
+				successProto := policy.Proto
+				if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
+					successProto = routetypes.UDP
+				}
+
+				// Add matching/passing packet
+				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+			}
+		}
+	}
+	b.ReportAllocs()
+
+	i := 0
+	for b.Loop() {
+
+		if !testFw.Test(packets[i%len(packets)]) {
+			b.Fatal("should pass")
+		}
+	}
+}
+
 func TestSetupRealWireguardDevice(t *testing.T) {
 
 	const dummyIPv4Device = "dev-ipv4"
@@ -448,8 +537,6 @@ func TestSlidingWindow(t *testing.T) {
 		Src:     net.ParseIP(devices["tester"].Address),
 		Len:     ipv4.HeaderLen,
 	}
-
-	log.Println(testAuthorizedPacket.Dst, testAuthorizedPacket.Src)
 
 	if testAuthorizedPacket.Src == nil || testAuthorizedPacket.Dst == nil {
 		t.Fatal("could not parse ip")
@@ -994,45 +1081,6 @@ func TestLookupDifferentKeyTypesInMap(t *testing.T) {
 		t.Fatal("policy had incorrect proto and port defintions")
 	}
 
-}
-
-func BenchmarkFirewallEvaluate(b *testing.B) {
-
-	var packets [][]byte
-
-	for _, user := range devices {
-		acl := data.GetEffectiveAcl(user.Username)
-		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
-		if err != nil {
-			b.Fatal(err)
-		}
-
-		// Populate expected
-		for _, rule := range rules {
-
-			for _, policy := range rule.Values {
-
-				// If we've got an any single port rule e.g 55/any, make sure that the proto is something that has ports otherwise the test fails
-				successProto := policy.Proto
-				if policy.Proto == routetypes.ANY && policy.LowerPort != routetypes.ANY {
-					successProto = routetypes.UDP
-				}
-
-				// Add matching/passing packet
-				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
-			}
-		}
-
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		for i := range packets {
-			if !testFw.Test(packets[i]) {
-				b.Fatal("should pass")
-			}
-		}
-	}
 }
 
 func addDevices() error {

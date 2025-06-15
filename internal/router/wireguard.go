@@ -121,7 +121,7 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 	defer parsedPacketPool.Put(p)
 
 	placement := 0
-	for i := 0; i < n; i++ {
+	for i := range n {
 		p.Decode(buffs[i][offset : offset+sizes[i]])
 
 		if t.fw.Evaluate(p.Src, p.Dst, uint16(p.IPProto)) {

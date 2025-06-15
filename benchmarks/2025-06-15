@@ -1,0 +1,13 @@
+# Doesnt account for lock contention (when changing rules)
+
+sudo go test -bench 'Benchmark.*' -run 'Benchmark.*' -v -benchmem -benchtime=30s
+
+
+goos: linux
+goarch: amd64
+pkg: github.com/NHAS/wag/internal/router
+cpu: AMD Ryzen 9 5900X 12-Core Processor            
+BenchmarkEvaluate_Parallel
+BenchmarkEvaluate_Parallel-24           263951629              137.6 ns/op             0 B/op          0 allocs/op
+BenchmarkFirewallEvaluate
+BenchmarkFirewallEvaluate-24            317966466              111.7 ns/op             0 B/op          0 allocs/op
