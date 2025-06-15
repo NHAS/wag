@@ -149,7 +149,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 		policies, ok := f.addressToPolicies[src.Addr()]
 		if !ok || policies == nil {
 
-			policies, ok := f.addressToPolicies[dst.Addr()]
+			policies, ok = f.addressToPolicies[dst.Addr()]
 			if !ok || policies == nil {
 				return nil, nil, nil, false, false
 			}
