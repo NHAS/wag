@@ -146,10 +146,10 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 		externalAddr = &dst
 		deviceAddr := &src
 
-		policies, ok := f.addressToPolicies[deviceAddr.Addr()]
+		policies, ok := f.addressToPolicies[src.Addr()]
 		if !ok || policies == nil {
 
-			policies, ok := f.addressToPolicies[deviceAddr.Addr()]
+			policies, ok := f.addressToPolicies[dst.Addr()]
 			if !ok || policies == nil {
 				return nil, nil, nil, false, false
 			}
