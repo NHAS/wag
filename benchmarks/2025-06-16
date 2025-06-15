@@ -1,0 +1,14 @@
+
+This is after reverting the static vpn range checking due to issues
+
+
+sudo go test -bench 'Benchmark.*' -run 'Benchmark.*' -v -benchmem -benchtime=30s
+
+goos: linux
+goarch: amd64
+pkg: github.com/NHAS/wag/internal/router
+cpu: AMD Ryzen 9 5900X 12-Core Processor            
+BenchmarkEvaluate_Parallel
+BenchmarkEvaluate_Parallel-24           313880918              114.3 ns/op             0 B/op          0 allocs/op
+BenchmarkFirewallEvaluate
+BenchmarkFirewallEvaluate-24            236492619              152.8 ns/op             0 B/op          0 allocs/op
