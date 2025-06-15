@@ -1,8 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.24.0
-
-toolchain go1.24.4
+go 1.24.4
 
 require (
 	github.com/NHAS/autoetcdtls v0.0.0-20240225231227-9d5906c5b4f2
