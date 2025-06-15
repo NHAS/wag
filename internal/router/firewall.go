@@ -50,8 +50,6 @@ type Firewall struct {
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
-
-	vpnPrefix netip.Prefix
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -141,35 +139,26 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	// As we are evaluating for a single packet, we can take a snapshot of this current moment
 	// Yes I know there is a pointer that may be modified, but its largely fine
 
-	device, targetAddr, policy, authorized, ok := func() (device *FirewallDevice, targetAddr *netip.AddrPort, policy *[]routetypes.Policy, authorized, ok bool) {
+	device, targetAddr, policy, authorized, ok := func() (device *FirewallDevice, externalAddr *netip.AddrPort, policy *[]routetypes.Policy, authorized, ok bool) {
 		f.RLock()
 		defer f.RUnlock()
 
-		var (
-			deviceAddr *netip.AddrPort
-		)
-
-		if f.vpnPrefix.Contains(src.Addr()) {
-
-			targetAddr = &dst
-			deviceAddr = &src
-
-		} else if f.vpnPrefix.Contains(dst.Addr()) {
-			// if the destination is our user device
-			targetAddr = &src
-			deviceAddr = &dst
-
-		} else {
-			//if neither direction is within the subnet, dump it
-			return nil, nil, nil, false, false
-		}
+		externalAddr = &dst
+		deviceAddr := &src
 
 		policies, ok := f.addressToPolicies[deviceAddr.Addr()]
 		if !ok || policies == nil {
-			return nil, nil, nil, false, false
+
+			policies, ok := f.addressToPolicies[deviceAddr.Addr()]
+			if !ok || policies == nil {
+				return nil, nil, nil, false, false
+			}
+
+			externalAddr = &src
+			deviceAddr = &dst
 		}
 
-		policy = policies.tableLookup(targetAddr.Addr())
+		policy = policies.tableLookup(externalAddr.Addr())
 		if policy == nil {
 
 			return nil, nil, nil, false, false
@@ -179,7 +168,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 		if !ok || device == nil {
 			return nil, nil, nil, false, false
 		}
-		return device, targetAddr, policy, f.isAuthed(deviceAddr.Addr()), true
+		return device, externalAddr, policy, f.isAuthed(deviceAddr.Addr()), true
 	}()
 
 	if !ok {
