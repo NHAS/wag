@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -21,7 +22,7 @@ func (d *userChecks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userObj, err := users.GetUserFromAddress(clientTunnelIp)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
-		log.Printf("device with unknown ip %q (%q, xff %q) used vpn endpoint CHECK CONFIG", clientTunnelIp, r.Host, r.Header.Get("X-forwarded-for"))
+		log.Printf("device with unknown ip %q (%q, xff %q, NumberOfProxies: %d) used vpn endpoint CHECK CONFIG", clientTunnelIp, r.Host, r.Header.Get("X-forwarded-for"), config.Values.NumberProxies)
 		return
 	}
 

@@ -40,6 +40,32 @@ func checkPolicy(reality Policy, expectedValue Policy) error {
 	return nil
 }
 
+func TestIPv6Any(t *testing.T) {
+	//https://github.com/NHAS/wag/issues/184
+	/*
+			"Acls": {
+		    "Groups": {
+		      "group:admin": ["foobar"]
+		    },
+		    "Policies": {
+		      "group:admin": {
+		        "Mfa": ["172.69.0.0/16", "172.63.0.0/16"],
+		        "Allow": ["0.0.0.0/0", "::/0"]
+		      }
+		    }
+		  }
+	*/
+
+	err := ValidateRules([]string{
+		"172.69.0.0/16", "172.63.0.0/16",
+	}, []string{
+		"0.0.0.0/0", "::/0",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestParseEasyRules(t *testing.T) {
 
 	expected := Key{

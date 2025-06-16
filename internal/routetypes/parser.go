@@ -67,6 +67,7 @@ func ParseRules(mfa, public, deny []string) (result []Rule, errs []error) {
 
 	for _, rule := range mfa {
 
+		// 0 = MFA
 		r, err := parseRule(0, rule)
 		if err != nil {
 			errs = append(errs, err)
@@ -171,12 +172,16 @@ func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 
 	keys, err := parseKeys(ruleParts[0])
 	if err != nil {
-		return rules, errors.New("could not parse keys from address " + ruleParts[0] + " err: " + err.Error())
+		return rules, fmt.Errorf("could not parse keys from address %s: %w", ruleParts[0], err)
 	}
 
 	rules.Keys = keys
 
 	rules.Values = []Policy{}
+
+	if len(ruleParts) < 1 {
+		return rules, fmt.Errorf("could not parse rule parts, as it was empty")
+	}
 
 	if len(ruleParts) == 1 {
 		// If the user has only defined one address and no ports this counts as an any/any rule
