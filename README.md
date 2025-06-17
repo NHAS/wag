@@ -298,9 +298,7 @@ The web interface itself cannot add administrative users.
 `NAT`: Turn on or off masquerading  
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp", "100-200/udp" ]  
 `CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to `api.github.com`   
-`MFATemplatesDirectory`: A string path option, when set templates will be queried from disk rather than the embedded copies. Allows you to customise the MFA registration, entry, and success pages, allows custom `js` and `css` in the `MFATemplatesDirectory /custom/` directory  
 
-`DatabaseLocation`: Where to load the sqlite3 database from, it will be created if it does not exist  
 `Acls`: Defines the `Groups` and `Policies` that restrict routes, this is **only respected on first run**, use the web UI to edit them during runtime.  
 `Policies`: A map of group or user names to policy objects which contain the wag firewall & route capture rules. The most specific match governs the type of access a user has to a route, e.g if you have a `/16` defined as MFA, but one ip address in that range as allow that is `/32` then the `/32` will take precedence over the `/16`   
 `Policies.<policy name>.Mfa`: The routes and services that require Mfa to access  
@@ -316,10 +314,18 @@ The web interface itself cannot add administrative users.
 `Webserver.Lockout`: Number of times a person can attempt mfa authentication before their account locks  
   
 `WebServer.Public.ListenAddress`: Listen address for the public registration endpoint
+`WebServer.Public.Domain`: Domain for the registration API  
+`WebServer.Public.TLS`: Boolean, enable TLS on this endpoint (will automatically use ACME if configured with preference to static certificates)   
+`WebServer.Public.CertificatePath`: Path to certificate to load in on first run  
+`WebServer.Public.PrivateKeyPath`: Path to private key to load into wag on first run
 `WebServer.Public.ExternalAddress`: External address to be baked in to generated wireguard configs, i.e where your wireguard connections connect to.  
 `WebServer.Public.DownloadConfigFileName`: The config name to serve toe clients, defaults to `wg0.conf`
 
 `WebServer.Tunnel`: Object that contains configurations for the MFA portal and the MFA methods wag provides  
+`WebServer.Tunnel.Domain`: Domain for the MFA portal tunnel   
+`WebServer.Tunnel.TLS`: Boolean, enable TLS on this endpoint (will automatically use ACME if configured with preference to static certificates)   
+`WebServer.Tunnel.CertificatePath`: Path to certificate to load in on first run  
+`WebServer.Tunnel.PrivateKeyPath`: Path to private key to load into wag on first run
 `WebServer.Tunnel.Port`: Port for in-vpn-tunnel webserver, this does not take a full IP address, as the tunnel listener should *never* be outside the wireguard device
 `WebServer.Tunnel.Domain`: The domain of your MFA portal  
 `WebServer.Tunnel.MaxSessionLifetimeMinutes`: How long a session can last, if -1, timeout is disabled   
@@ -342,7 +348,11 @@ The web interface itself cannot add administrative users.
   
 `WebServer.Management`: Object that contains configurations for the webadministration portal. It is not recommend to expose this portal, I recommend setting `ListenAddress` to `127.0.0.1`/`localhost` and then use ssh forwarding to expose it  
 `WebServer.Management.Enabled`: Enable the web UI  
+`WebServer.Management.Domain`: Domain for the management interface  
+`WebServer.Management.TLS`: Boolean, enable TLS on this endpoint (will automatically use ACME if configured with preference to static certificates)   
 `WebServer.Management.ListenAddress`: Listen address to expose the management UI on  
+`WebServer.Management.CertificatePath`: Path to certificate to load in on first run  
+`WebServer.Management.PrivateKeyPath`: Path to private key to load into wag on first run
 `WebServer.Management.Password`: Object that contains password authentication configuration options for the admin login.  
 `WebServer.Management.Password.Enabled`: Boolean, enable password login (defaults to true).  
 `WebServer.Management.OIDC`: Object that contains `OIDC` specific configuration options for the admin login.
@@ -353,11 +363,14 @@ The web interface itself cannot add administrative users.
 `WebServer.Management.OIDC.IssuerURL`: The administrative page domain  
   
 `Clustering`: Object containing the clustering details  
+`Clustering.Name`: Name of this cluster (defaults to `wag`)  
 `Clustering.ClusterState`: Same as the etcd cluster state setting, can be either `new`, create a new cluster, or `existing`. If you are joining an existing cluster, use `start -join` rather than this  
 `Clustering.ETCDLogLevel`: Level of logging for the embedded etcd server to emit, options `info`, `error`  
 `Clustering.Witness`: Is the node a witness node, i.e one that does not start a wireguard device, or management UI, but replicates events for the RAFT concensus  
+`Clustering.DatabaseLocation`: Path to write the etcd database  
 `Clustering.TLSManagerListenURL`: URL for generating certificates for the wag cluster, must be reachable by all nodes, typically automatically set by `start -join`  
-  
+`Clustering.TLSManagerStorage`: Path to store certificates for the cluster  
+
 `Wireguard`: Object that contains the wireguard device configuration  
 `Wireguard.DevName`: The wireguard device to attach or to create if it does not exist, will automatically add peers (no need to configure peers with `wg-quick`)  
 `Wireguard.ListenPort`: Port that wireguard will listen on  
@@ -443,7 +456,8 @@ Full config example
         "ListenAddresses": [
             "https://127.0.0.1:2380"
         ],
-        "TLSManagerListenURL": "https://127.0.0.1:3434"
+        "TLSManagerListenURL": "https://127.0.0.1:3434",
+        "DatabaseLocation": "/your/data/path"
     },
     "Acls": {
         "Groups": {

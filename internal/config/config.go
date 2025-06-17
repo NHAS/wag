@@ -59,8 +59,6 @@ type Config struct {
 	ExposePorts []string `json:",omitempty"`
 	NAT         *bool    `json:",omitempty"`
 
-	MFATemplatesDirectory string `json:",omitempty"`
-
 	Webserver struct {
 		Acme struct {
 			Email              string
@@ -141,8 +139,6 @@ type Config struct {
 
 		DNS []string `json:",omitempty"`
 	}
-
-	DatabaseLocation string
 
 	Acls Acls
 }
@@ -328,17 +324,6 @@ func load(path string) (c Config, err error) {
 		err = routetypes.ValidateRules(acl.Mfa, acl.Allow, acl.Deny)
 		if err != nil {
 			return c, fmt.Errorf("policy was invalid: %s", err)
-		}
-	}
-
-	if len(c.MFATemplatesDirectory) != 0 {
-		info, err := os.Stat(c.MFATemplatesDirectory)
-		if err != nil {
-			return c, fmt.Errorf("could not check MFATemplatesDirectory (%s): %s", c.MFATemplatesDirectory, err)
-		}
-
-		if !info.IsDir() {
-			return c, fmt.Errorf("MFATemplatesDirectory (%s) was not a directory, please check your configuration", c.MFATemplatesDirectory)
 		}
 	}
 

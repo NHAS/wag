@@ -1,6 +1,4 @@
 {
-
-    "DatabaseLocation": "file::memory:",
     "Webserver": {
         "Lockout": 5,
 

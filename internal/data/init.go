@@ -49,7 +49,7 @@ func parseUrls(values ...string) []url.URL {
 	return urls
 }
 
-func Load(path, joinToken string, testing bool) error {
+func Load(joinToken string, testing bool) error {
 
 	var err error
 

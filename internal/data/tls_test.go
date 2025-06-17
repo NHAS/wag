@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err := Load("data_testing", "", true)
+	err := Load("", true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

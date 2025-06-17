@@ -1127,7 +1127,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err := data.Load(config.Values.DatabaseLocation, "", true)
+	err := data.Load("", true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

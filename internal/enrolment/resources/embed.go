@@ -5,8 +5,6 @@ import (
 	"html/template"
 	"io"
 	"path"
-
-	"github.com/NHAS/wag/internal/config"
 )
 
 type WireguardConfig struct {
@@ -32,12 +30,8 @@ func Render(page string, out io.Writer, data interface{}) error {
 }
 
 func RenderWithFuncs(page string, out io.Writer, data interface{}, templateFuncs template.FuncMap) error {
-	var currentTemplate *template.Template
-	if len(config.Values.MFATemplatesDirectory) != 0 {
-		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFiles(path.Join(config.Values.MFATemplatesDirectory, page)))
-	} else {
-		currentTemplate = template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFS(templates, "templates/"+page))
-	}
+
+	currentTemplate := template.Must(template.New(path.Base(page)).Funcs(templateFuncs).ParseFS(templates, "templates/"+page))
 
 	return currentTemplate.Execute(out, data)
 }
