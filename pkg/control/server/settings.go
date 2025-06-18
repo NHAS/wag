@@ -3,12 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/NHAS/wag/internal/data"
 )
 
 func (wsg *WagControlSocketServer) getGeneralSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := data.GetGeneralSettings()
+	settings, err := wsg.db.GetGeneralSettings()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -25,7 +23,7 @@ func (wsg *WagControlSocketServer) getGeneralSettings(w http.ResponseWriter, r *
 }
 
 func (wsg *WagControlSocketServer) getLoginSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := data.GetLoginSettings()
+	settings, err := wsg.db.GetLoginSettings()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -42,7 +40,7 @@ func (wsg *WagControlSocketServer) getLoginSettings(w http.ResponseWriter, r *ht
 }
 
 func (wsg *WagControlSocketServer) getLockout(w http.ResponseWriter, r *http.Request) {
-	lockout, err := data.GetLockout()
+	lockout, err := wsg.db.GetLockout()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

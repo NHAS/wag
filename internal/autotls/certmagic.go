@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
 )
@@ -35,24 +36,26 @@ type AutoTLS struct {
 	ourHttpServers map[string]bool
 
 	issuer *certmagic.ACMEIssuer
+
+	db interfaces.Database
 }
 
 var Do *AutoTLS
 
-func Initialise() error {
+func Initialise(db interfaces.Database) error {
 
-	email, err := data.GetAcmeEmail()
+	email, err := db.GetAcmeEmail()
 	if err != nil {
 		email = ""
 	}
 
 	// Defaults to lets encrypt production if nothing is set
-	provider, err := data.GetAcmeProvider()
+	provider, err := db.GetAcmeProvider()
 	if err != nil {
 		provider = ""
 	}
 
-	cfDnsToken, err := data.GetAcmeDNS01CloudflareToken()
+	cfDnsToken, err := db.GetAcmeDNS01CloudflareToken()
 	if err != nil {
 		cfDnsToken.APIToken = ""
 	}
@@ -105,13 +108,13 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 		panic("no handler provided")
 	}
 
-	initialDetails, err := data.GetWebserverConfig(forWhat)
+	initialDetails, err := a.db.GetWebserverConfig(forWhat)
 	if err != nil {
 		return fmt.Errorf("could not get initial web server config for %s: %w", forWhat, err)
 	}
 
 	if err := a.refreshListeners(forWhat, mux, &initialDetails); err != nil {
-		data.RaiseError(err, []byte(""))
+		a.db.RaiseError(err, []byte(""))
 		log.Printf("could not start web server for %q, err: %s", forWhat, err)
 	}
 
@@ -219,11 +222,11 @@ func (a *AutoTLS) registerEventListeners() error {
 			a.rollbackCount.Add(1)
 
 			if a.rollbackCount.Load() < 2 {
-				data.SetWebserverConfig(webserverTarget, previous)
-				data.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
+				a.db.SetWebserverConfig(webserverTarget, previous)
+				a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
 				log.Printf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError)
 			} else {
-				data.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
+				a.db.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
 				log.Printf("failed to roll back to previous configuration, rollback counter exceeded")
 			}
 			return preserveError

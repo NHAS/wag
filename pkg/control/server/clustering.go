@@ -3,13 +3,11 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/NHAS/wag/internal/data"
 )
 
 func (wsg *WagControlSocketServer) listErrors(w http.ResponseWriter, r *http.Request) {
 
-	errors, err := data.GetAllErrors()
+	errors, err := wsg.db.GetAllErrors()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -27,7 +25,7 @@ func (wsg *WagControlSocketServer) listErrors(w http.ResponseWriter, r *http.Req
 
 func (wsg *WagControlSocketServer) listMembers(w http.ResponseWriter, r *http.Request) {
 
-	errors := data.GetMembers()
+	errors := wsg.db.GetClusterMembers()
 
 	b, err := json.Marshal(errors)
 	if err != nil {
@@ -53,7 +51,7 @@ func (wsg *WagControlSocketServer) getLastMemberPing(w http.ResponseWriter, r *h
 		return
 	}
 
-	lastPing, err := data.GetLastPing(id)
+	lastPing, err := wsg.db.GetClusterNodeLastPing(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

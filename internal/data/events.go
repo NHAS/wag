@@ -227,7 +227,7 @@ type GeneralEvent struct {
 	} `json:"state"`
 }
 
-func NewGeneralEvent[T any](eType EventType, key string, currentState, previousState *T) GeneralEvent {
+func newGeneralEvent[T any](eType EventType, key string, currentState, previousState *T) GeneralEvent {
 
 	return GeneralEvent{
 		Type: eType.String(),
@@ -243,7 +243,7 @@ func NewGeneralEvent[T any](eType EventType, key string, currentState, previousS
 	}
 }
 
-func RegisterClusterHealthListener(f func(status string)) (string, error) {
+func (d *database) RegisterClusterHealthListener(f func(status string)) (string, error) {
 
 	key, err := utils.GenerateRandomHex(16)
 	if err != nil {
@@ -254,9 +254,9 @@ func RegisterClusterHealthListener(f func(status string)) (string, error) {
 	clusterHealthListeners[key] = f
 	clusterHealthLck.Unlock()
 
-	if !etcdServer.Server.IsLearner() {
+	if !d.etcdServer.Server.IsLearner() {
 		// The moment we've registered a new health listener, test the cluster so it gets a callback
-		testCluster()
+		d.testCluster()
 	}
 
 	return key, nil
@@ -271,17 +271,17 @@ func notifyClusterHealthListeners(event string) {
 	}
 }
 
-func checkClusterHealth() {
+func (d *database) checkClusterHealth() {
 
 	leaderMonitor := time.NewTicker(1 * time.Second)
 	go func() {
 		for range leaderMonitor.C {
-			if etcdServer.Server.Leader() == 0 {
+			if d.etcdServer.Server.Leader() == 0 {
 
 				notifyClusterHealthListeners("electing")
-				time.Sleep(etcdServer.Server.Cfg.ElectionTimeout() * 2)
+				time.Sleep(d.etcdServer.Server.Cfg.ElectionTimeout() * 2)
 
-				if etcdServer.Server.Leader() == 0 {
+				if d.etcdServer.Server.Leader() == 0 {
 					notifyClusterHealthListeners("dead")
 				}
 			}
@@ -292,8 +292,8 @@ func checkClusterHealth() {
 	go func() {
 		for range clusterMonitor.C {
 			// If we're a learner we cant write to the cluster, so just wait until we're promoted
-			if !etcdServer.Server.IsLearner() {
-				testCluster()
+			if !d.etcdServer.Server.IsLearner() {
+				d.testCluster()
 			}
 		}
 	}()
@@ -306,10 +306,10 @@ func checkClusterHealth() {
 
 }
 
-func testCluster() {
+func (d *database) testCluster() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
-	_, err := etcd.Put(ctx, path.Join(NodeInfo, GetServerID().String(), "ping"), time.Now().Format(time.RFC1123Z))
+	_, err := d.etcd.Put(ctx, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
 	if err != nil {
 		log.Println("unable to write liveness value")
@@ -317,11 +317,11 @@ func testCluster() {
 		return
 	}
 
-	notifyHealthy()
+	d.notifyHealthy()
 }
 
-func notifyHealthy() {
-	if etcdServer.Server.IsLearner() {
+func (d *database) notifyHealthy() {
+	if d.etcdServer.Server.IsLearner() {
 		notifyClusterHealthListeners("learner")
 	} else {
 		notifyClusterHealthListeners("healthy")
@@ -343,10 +343,10 @@ type EventError struct {
 //
 // Returns:
 //   - error: Will error if it cannot generate a unique ID or add it to the etcd db
-func RaiseError(raisedError error, value []byte) (err error) {
+func (d *database) RaiseError(raisedError error, value []byte) (err error) {
 
 	ee := EventError{
-		NodeID:          GetServerID().String(),
+		NodeID:          d.GetCurrentNodeID().String(),
 		FailedEventData: string(value),
 		Error:           raisedError.Error(),
 		Time:            time.Now(),
@@ -357,12 +357,12 @@ func RaiseError(raisedError error, value []byte) (err error) {
 		return err
 	}
 
-	return set(path.Join(NodeErrors, ee.ErrorID), false, ee)
+	return set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
 
 }
 
-func GetAllErrors() (ret []EventError, err error) {
-	response, err := etcd.Get(context.Background(), path.Join(NodeErrors), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+func (d *database) GetAllErrors() (ret []EventError, err error) {
+	response, err := d.etcd.Get(context.Background(), path.Join(NodeErrors), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func GetAllErrors() (ret []EventError, err error) {
 	return ret, nil
 }
 
-func ResolveError(errorId string) error {
-	_, err := etcd.Delete(context.Background(), path.Join(NodeErrors, errorId))
+func (d *database) ResolveError(errorId string) error {
+	_, err := d.etcd.Delete(context.Background(), path.Join(NodeErrors, errorId))
 	return err
 }

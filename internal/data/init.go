@@ -30,13 +30,16 @@ const (
 )
 
 var (
-	etcd                   *clientv3.Client
-	etcdServer             *embed.Etcd
 	allowedTokenCharacters = regexp.MustCompile(`[a-zA-Z0-9\-\_\.]+`)
 	TLSManager             *manager.Manager
 )
 
-func parseUrls(values ...string) []url.URL {
+type database struct {
+	etcd       *clientv3.Client
+	etcdServer *embed.Etcd
+}
+
+func (d *database) parseUrls(values ...string) []url.URL {
 	urls := make([]url.URL, 0, len(values))
 	for _, s := range values {
 		u, err := url.Parse(s)
@@ -49,15 +52,13 @@ func parseUrls(values ...string) []url.URL {
 	return urls
 }
 
-func Load(joinToken string, testing bool) error {
-
-	var err error
+func Load(joinToken string, testing bool) (db *database, err error) {
 
 	if TLSManager == nil {
 		if joinToken == "" {
 			TLSManager, err = manager.New(config.Values.Clustering.TLSManagerStorage, config.Values.Clustering.TLSManagerListenURL)
 			if err != nil {
-				return fmt.Errorf("tls manager: %w", err)
+				return nil, fmt.Errorf("tls manager: %w", err)
 			}
 		} else {
 
@@ -80,15 +81,18 @@ func Load(joinToken string, testing bool) error {
 				},
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
+
+	db = &database{}
+
 	part, err := utils.GenerateRandomHex(10)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	etcdUnixSocket := "unix:///tmp/wag.etcd." + part
+	etcdUnixSocket := "unix:///tmp/wag.d.etcd." + part
 
 	cfg := embed.NewConfig()
 	cfg.Name = config.Values.Clustering.Name
@@ -98,8 +102,8 @@ func Load(joinToken string, testing bool) error {
 	cfg.ClusterState = config.Values.Clustering.ClusterState
 	cfg.InitialClusterToken = "wag"
 	cfg.LogLevel = config.Values.Clustering.ETCDLogLevel
-	cfg.ListenPeerUrls = parseUrls(config.Values.Clustering.ListenAddresses...)
-	cfg.ListenClientUrls = parseUrls(etcdUnixSocket)
+	cfg.ListenPeerUrls = db.parseUrls(config.Values.Clustering.ListenAddresses...)
+	cfg.ListenClientUrls = db.parseUrls(etcdUnixSocket)
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
 	cfg.AutoCompactionMode = "periodic"
 	cfg.AutoCompactionRetention = "1h"
@@ -111,7 +115,7 @@ func Load(joinToken string, testing bool) error {
 	cfg.PeerTLSInfo.KeyFile = TLSManager.GetPeerKeyPath()
 
 	if _, ok := config.Values.Clustering.Peers[cfg.Name]; ok {
-		return fmt.Errorf("clustering.peers contains the same name (%s) as this node this would trample something and break", cfg.Name)
+		return nil, fmt.Errorf("clustering.peers contains the same name (%s) as this node this would trample something and break", cfg.Name)
 	}
 
 	peers := config.Values.Clustering.Peers
@@ -125,44 +129,44 @@ func Load(joinToken string, testing bool) error {
 	cfg.InitialCluster = cfg.InitialCluster[:len(cfg.InitialCluster)-1]
 
 	cfg.Dir = filepath.Join(config.Values.Clustering.DatabaseLocation, cfg.Name+".wag-node.etcd")
-	etcdServer, err = embed.StartEtcd(cfg)
+	db.etcdServer, err = embed.StartEtcd(cfg)
 	if err != nil {
-		return fmt.Errorf("error starting etcd: %s", err)
+		return nil, fmt.Errorf("error starting etcd: %s", err)
 	}
 
 	select {
-	case <-etcdServer.Server.ReadyNotify():
+	case <-db.etcdServer.Server.ReadyNotify():
 		break
 	case <-time.After(60 * time.Second):
-		etcdServer.Server.Stop() // trigger a shutdown
-		return errors.New("etcd took too long to start")
+		db.etcdServer.Server.Stop() // trigger a shutdown
+		return nil, errors.New("etcd took too long to start")
 	}
 
-	etcd, err = clientv3.New(clientv3.Config{
+	db.etcd, err = clientv3.New(clientv3.Config{
 		Endpoints: []string{etcdUnixSocket},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Println("Successfully connected to etcd")
 
-	if !etcdServer.Server.IsLearner() {
+	if !db.etcdServer.Server.IsLearner() {
 		// After first run this will be a no-op
-		err = loadInitialSettings()
+		err = db.loadInitialSettings()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 	}
 
-	go checkClusterHealth()
+	go db.checkClusterHealth()
 
-	return nil
+	return db, nil
 }
 
-func loadInitialSettings() error {
-	response, err := etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
+func (d *database) loadInitialSettings() error {
+	response, err := d.etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -172,14 +176,14 @@ func loadInitialSettings() error {
 
 		for aclName, acl := range config.Values.Acls.Policies {
 			aclJson, _ := json.Marshal(acl)
-			_, err = etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
+			_, err = d.etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	response, err = etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
+	response, err = d.etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -190,15 +194,15 @@ func loadInitialSettings() error {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
 		for groupName, members := range config.Values.Acls.Groups {
-			if err := CreateGroup(groupName, members); err != nil {
+			if err := d.CreateGroup(groupName, members); err != nil {
 				return err
 			}
 		}
 
-		set(latestMigrationKey, false, latestMigrationKey)
+		set(d.etcd, latestMigrationKey, false, latestMigrationKey)
 
 	} else {
-		txn := etcd.Txn(context.Background())
+		txn := d.etcd.Txn(context.Background())
 		txn.If(clientv3util.KeyMissing(latestMigrationKey))
 		txn.Then(clientv3.OpPut(latestMigrationKey, config.Version), clientv3.OpDelete(GroupMembershipPrefix, clientv3.WithPrefix(), clientv3.WithPrevKV()))
 
@@ -225,7 +229,7 @@ func loadInitialSettings() error {
 					continue
 				}
 
-				parts, err := SplitKey(1, GroupMembershipPrefix, key)
+				parts, err := d.SplitKey(1, GroupMembershipPrefix, key)
 				if err != nil {
 					log.Println("FAILED TO migrate group: ", key, err)
 					continue
@@ -233,11 +237,11 @@ func loadInitialSettings() error {
 
 				// should now be left with <username>
 				for _, group := range memberCurrentGroups {
-					ops = append(ops, generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
+					ops = append(ops, d.generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
 				}
 			}
 
-			txn = etcd.Txn(context.Background())
+			txn = d.etcd.Txn(context.Background())
 			txn.Then(ops...)
 			_, err = txn.Commit()
 			if err != nil {
@@ -247,89 +251,89 @@ func loadInitialSettings() error {
 	}
 
 	configData, _ := json.Marshal(config.Values)
-	err = putIfNotFound(fullJsonConfigKey, string(configData), "full config")
+	err = putIfNotFound(d.etcd, fullJsonConfigKey, string(configData), "full config")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(helpMailKey, config.Values.Webserver.Tunnel.HelpMail, "help mail")
+	err = putIfNotFound(d.etcd, helpMailKey, config.Values.Webserver.Tunnel.HelpMail, "help mail")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(externalAddressKey, config.Values.Webserver.Public.ExternalAddress, "external wag address")
+	err = putIfNotFound(d.etcd, externalAddressKey, config.Values.Webserver.Public.ExternalAddress, "external wag address")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(dnsKey, config.Values.Wireguard.DNS, "dns")
+	err = putIfNotFound(d.etcd, dnsKey, config.Values.Wireguard.DNS, "dns")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(InactivityTimeoutKey, config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes, "inactivity timeout")
+	err = putIfNotFound(d.etcd, InactivityTimeoutKey, config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes, "inactivity timeout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(SessionLifetimeKey, config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes, "max session life")
+	err = putIfNotFound(d.etcd, SessionLifetimeKey, config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes, "max session life")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(LockoutKey, config.Values.Webserver.Lockout, "lockout")
+	err = putIfNotFound(d.etcd, LockoutKey, config.Values.Webserver.Lockout, "lockout")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(IssuerKey, config.Values.Webserver.Tunnel.Issuer, "issuer name")
+	err = putIfNotFound(d.etcd, IssuerKey, config.Values.Webserver.Tunnel.Issuer, "issuer name")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(defaultWGFileNameKey, config.Values.Webserver.Public.DownloadConfigFileName, "wireguard config file")
+	err = putIfNotFound(d.etcd, defaultWGFileNameKey, config.Values.Webserver.Public.DownloadConfigFileName, "wireguard config file")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(checkUpdatesKey, config.Values.CheckUpdates, "update check settings")
+	err = putIfNotFound(d.etcd, checkUpdatesKey, config.Values.CheckUpdates, "update check settings")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(MFAMethodsEnabledKey, config.Values.Webserver.Tunnel.Methods, "authorisation methods")
+	err = putIfNotFound(d.etcd, MFAMethodsEnabledKey, config.Values.Webserver.Tunnel.Methods, "authorisation methods")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(DefaultMFAMethodKey, config.Values.Webserver.Tunnel.DefaultMethod, "default mfa method")
+	err = putIfNotFound(d.etcd, DefaultMFAMethodKey, config.Values.Webserver.Tunnel.DefaultMethod, "default mfa method")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(OidcDetailsKey, config.Values.Webserver.Tunnel.OIDC, "oidc settings")
+	err = putIfNotFound(d.etcd, OidcDetailsKey, config.Values.Webserver.Tunnel.OIDC, "oidc settings")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(PamDetailsKey, config.Values.Webserver.Tunnel.PAM, "pam settings")
+	err = putIfNotFound(d.etcd, PamDetailsKey, config.Values.Webserver.Tunnel.PAM, "pam settings")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(AcmeEmailKey, config.Values.Webserver.Acme.Email, "acme email")
+	err = putIfNotFound(d.etcd, AcmeEmailKey, config.Values.Webserver.Acme.Email, "acme email")
 	if err != nil {
 		return err
 	}
 
-	err = putIfNotFound(AcmeProviderKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
+	err = putIfNotFound(d.etcd, AcmeProviderKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
 	if err != nil {
 		return err
 	}
 
 	var token CloudflareToken
 	token.APIToken = config.Values.Webserver.Acme.CloudflareDNSToken
-	err = putIfNotFound(AcmeDNS01CloudflareAPIToken, token, "acme cloudflare dns api token")
+	err = putIfNotFound(d.etcd, AcmeDNS01CloudflareAPIToken, token, "acme cloudflare dns api token")
 	if err != nil {
 		return err
 	}
@@ -341,13 +345,13 @@ func loadInitialSettings() error {
 	}
 
 	if config.Values.Webserver.Tunnel.CertificatePath != "" {
-		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
+		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
 		if err != nil {
 			log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
 		}
 	}
 
-	err = putIfNotFound(TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
+	err = putIfNotFound(d.etcd, TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
 	if err != nil {
 		return err
 	}
@@ -359,13 +363,13 @@ func loadInitialSettings() error {
 	}
 
 	if config.Values.Webserver.Public.CertificatePath != "" {
-		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
+		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
 		if err != nil {
 			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 		}
 	}
 
-	err = putIfNotFound(PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
+	err = putIfNotFound(d.etcd, PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
 	if err != nil {
 		return err
 	}
@@ -378,13 +382,13 @@ func loadInitialSettings() error {
 
 	if config.Values.Webserver.Management.CertificatePath != "" {
 
-		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
+		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
 		if err != nil {
 			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 		}
 	}
 
-	err = putIfNotFound(ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
+	err = putIfNotFound(d.etcd, ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
 	if err != nil {
 		return err
 	}
@@ -392,7 +396,7 @@ func loadInitialSettings() error {
 	return nil
 }
 
-func readTLSPems(cert, key string) (string, string, error) {
+func (d *database) readTLSPems(cert, key string) (string, string, error) {
 
 	certBytes, err := os.ReadFile(cert)
 	if err != nil {
@@ -417,7 +421,7 @@ func readTLSPems(cert, key string) (string, string, error) {
 	return string(certBytes), string(keyBytes), nil
 }
 
-func putIfNotFound[T any](key string, value T, set string) error {
+func putIfNotFound[T any](etcd *clientv3.Client, key string, value T, set string) error {
 
 	d, err := json.Marshal(value)
 	if err != nil {
@@ -437,19 +441,21 @@ func putIfNotFound[T any](key string, value T, set string) error {
 	return nil
 }
 
-func TearDown() {
+func (d *database) TearDown() error {
 	close(exit)
-	if etcdServer != nil {
+	if d.etcdServer != nil {
 
-		etcd.Close()
-		etcdServer.Close()
+		d.etcd.Close()
+		d.etcdServer.Close()
 
-		etcd = nil
-		etcdServer = nil
+		d.etcd = nil
+		d.etcdServer = nil
 	}
+
+	return nil
 }
 
-func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
+func (d *database) doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
 	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
 	var opts []clientv3.OpOption
 
@@ -457,7 +463,7 @@ func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(
 		return errors.New("no mutate function set in safe update")
 	}
 
-	origState, err := etcd.Get(ctx, key, opts...)
+	origState, err := d.etcd.Get(ctx, key, opts...)
 	if err != nil {
 		return err
 	}
@@ -469,7 +475,7 @@ func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(
 			return err
 		}
 
-		txnResp, err := etcd.KV.Txn(ctx).If(
+		txnResp, err := d.etcd.KV.Txn(ctx).If(
 			clientv3util.KeyMissing(key),
 		).Then(
 			clientv3.OpPut(key, newValue),
@@ -499,7 +505,7 @@ func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(
 			return err
 		}
 
-		txnResp, err := etcd.KV.Txn(ctx).If(
+		txnResp, err := d.etcd.KV.Txn(ctx).If(
 			clientv3.Compare(clientv3.ModRevision(key), "=", origState.Kvs[0].ModRevision),
 		).Then(
 			clientv3.OpPut(key, newValue),
@@ -521,8 +527,8 @@ func doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(
 	}
 }
 
-func GetInitialData() (users []UserModel, devices []Device, err error) {
-	txn := etcd.Txn(context.Background())
+func (d *database) GetInitialData() (users []UserModel, devices []Device, err error) {
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(clientv3.OpGet(UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
 		clientv3.OpGet(DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
 
@@ -556,9 +562,9 @@ func GetInitialData() (users []UserModel, devices []Device, err error) {
 	return
 }
 
-func Get(key string) ([]byte, error) {
+func (d *database) Get(key string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	resp, err := etcd.Get(ctx, key)
+	resp, err := d.etcd.Get(ctx, key)
 	cancel()
 	if err != nil {
 		return nil, err
@@ -571,15 +577,15 @@ func Get(key string) ([]byte, error) {
 	return resp.Kvs[0].Value, nil
 }
 
-func Put(key, value string) error {
+func (d *database) Put(key, value string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	_, err := etcd.Put(ctx, key, value)
+	_, err := d.etcd.Put(ctx, key, value)
 	cancel()
 
 	return err
 }
 
-func SplitKey(expected int, stripPrefix, key string) ([]string, error) {
+func (d *database) SplitKey(expected int, stripPrefix, key string) ([]string, error) {
 	parts := strings.SplitN(strings.TrimPrefix(key, stripPrefix), "-", expected)
 	if len(parts) != expected {
 		return nil, fmt.Errorf("unexpected number of arguments, expected %d, got %d for key %q", expected, len(parts), key)

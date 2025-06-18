@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/router"
 )
 
@@ -64,15 +65,18 @@ type WagControlSocketServer struct {
 
 	firewall *router.Firewall
 	httpSrv  *http.Server
+
+	db interfaces.Database
 }
 
-func NewControlServer(firewall *router.Firewall) (*WagControlSocketServer, error) {
+func NewControlServer(database interfaces.Database, firewall *router.Firewall) (*WagControlSocketServer, error) {
 	if firewall == nil {
 		panic("firewall is nil")
 	}
 
 	var srvSock WagControlSocketServer
 	srvSock.firewall = firewall
+	srvSock.db = database
 
 	if _, err := os.Stat(config.Values.Socket); err == nil {
 

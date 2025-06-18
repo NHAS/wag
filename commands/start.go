@@ -16,6 +16,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/enrolment"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal"
 
 	"github.com/NHAS/wag/internal/router"
@@ -27,6 +28,8 @@ type start struct {
 	config           string
 	clusterJoinToken string
 	noIptables       bool
+
+	db interfaces.Database
 }
 
 func Start() *start {
@@ -72,12 +75,13 @@ func (g *start) Check() error {
 		}
 	}
 
-	err := data.Load(g.clusterJoinToken, false)
+	var err error
+	g.db, err = data.Load(g.clusterJoinToken, false)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %w", err)
 	}
 
-	err = autotls.Initialise()
+	err = autotls.Initialise(g.db)
 	if err != nil {
 		return fmt.Errorf("failed to initialise auto tls module: %w", err)
 	}
@@ -85,7 +89,7 @@ func (g *start) Check() error {
 
 }
 
-func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(string) {
+func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, errorChan chan<- error) func(string) {
 
 	// Make sure that node states are sync'd
 	var (
@@ -175,7 +179,7 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 						return
 					}
 
-					controlServer, err = server.NewControlServer(routerFw)
+					controlServer, err = server.NewControlServer(db, routerFw)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to create control socket: %v", err)
 						return
@@ -202,14 +206,14 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 					}
 				}
 
-				if !data.IsLearner() {
-					err := data.SetWitness(config.Values.Clustering.Witness)
+				if !db.IsCurrentNodeLearner() {
+					err := db.SetWitness(config.Values.Clustering.Witness)
 					if err != nil {
 						errorChan <- fmt.Errorf("to write witness data when cluster is healthy: %v", err)
 						return
 					}
 
-					err = data.SetVersion()
+					err = db.SetCurrentNodeVersion()
 					if err != nil {
 						errorChan <- fmt.Errorf("to write version data when cluster is healthy: %v", err)
 						return
@@ -226,12 +230,12 @@ func startWag(noIptables bool, cancel <-chan bool, errorChan chan<- error) func(
 func (g *start) Run() error {
 
 	var err error
-	defer data.TearDown()
+	defer g.db.TearDown()
 
 	errorChan := make(chan error)
 	cancel := make(chan bool)
 
-	_, err = data.RegisterClusterHealthListener(startWag(g.noIptables, cancel, errorChan))
+	_, err = g.db.RegisterClusterHealthListener(startWag(g.db, g.noIptables, cancel, errorChan))
 	if err != nil {
 		return err
 	}
@@ -240,7 +244,7 @@ func (g *start) Run() error {
 		log.Println("this node is a witness, and will not start a wireguard device")
 	}
 
-	if data.IsLearner() {
+	if g.db.IsCurrentNodeLearner() {
 		log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
 	}
 
@@ -266,7 +270,7 @@ func (g *start) Run() error {
 		wagType = "Witness Node"
 	}
 
-	if data.IsLearner() {
+	if g.db.IsCurrentNodeLearner() {
 		wagType += " Learner"
 	}
 

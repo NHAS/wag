@@ -37,7 +37,7 @@ func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Re
 
 	} else {
 
-		devices, err = data.GetAllDevices()
+		devices, err = wsg.db.GetAllDevices()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -70,7 +70,7 @@ func (wsg *WagControlSocketServer) lockDevice(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	lockout, err := data.GetLockout()
+	lockout, err := wsg.db.GetLockout()
 	if err != nil {
 		http.Error(w, "could not get lockout number: "+err.Error(), 404)
 		return
@@ -122,7 +122,7 @@ func (wsg *WagControlSocketServer) unlockDevice(w http.ResponseWriter, r *http.R
 func (wsg *WagControlSocketServer) sessions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	sessions, err := data.GetAllSessions()
+	sessions, err := wsg.db.GetAllSessions()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

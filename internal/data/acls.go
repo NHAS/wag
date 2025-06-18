@@ -17,18 +17,18 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-func SetAcl(effects string, policy acls.Acl, overwrite bool) error {
+func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 
 	if err := routetypes.ValidateRules(policy.Mfa, policy.Allow, policy.Deny); err != nil {
 		return err
 	}
 
-	return set(AclsPrefix+effects, true, policy)
+	return set(d.etcd, AclsPrefix+effects, true, policy)
 }
 
-func GetPolicies() (result []control.PolicyData, err error) {
+func (d *database) GetPolicies() (result []control.PolicyData, err error) {
 
-	resp, err := etcd.Get(context.Background(), AclsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	resp, err := d.etcd.Get(context.Background(), AclsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +52,12 @@ func GetPolicies() (result []control.PolicyData, err error) {
 	return
 }
 
-func RemoveAcl(effects string) error {
-	_, err := etcd.Delete(context.Background(), AclsPrefix+effects)
+func (d *database) RemoveAcl(effects string) error {
+	_, err := d.etcd.Delete(context.Background(), AclsPrefix+effects)
 	return err
 }
 
-func insertMap(m map[string]bool, values ...string) {
+func (d *database) insertMap(m map[string]bool, values ...string) {
 	for _, v := range values {
 		m[v] = true
 	}
@@ -72,7 +72,7 @@ func hostIPWithMask(ip net.IP) string {
 	return ip.String() + mask
 }
 
-func GetEffectiveAcl(username string) acls.Acl {
+func (d *database) GetEffectiveAcl(username string) acls.Acl {
 
 	var (
 		// Do deduplication for multiple acls
@@ -81,11 +81,11 @@ func GetEffectiveAcl(username string) acls.Acl {
 		denySet  = map[string]bool{}
 	)
 
-	insertMap(allowSet, hostIPWithMask(config.Values.Wireguard.ServerAddress))
+	d.insertMap(allowSet, hostIPWithMask(config.Values.Wireguard.ServerAddress))
 
 	userMembershipKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(
 		clientv3.OpGet(AclsPrefix+"*"),
 		clientv3.OpGet(AclsPrefix+username),
@@ -101,9 +101,9 @@ func GetEffectiveAcl(username string) acls.Acl {
 	}
 
 	addAcls := func(acl acls.Acl) {
-		insertMap(allowSet, acl.Allow...)
-		insertMap(mfaSet, acl.Mfa...)
-		insertMap(denySet, acl.Deny...)
+		d.insertMap(allowSet, acl.Allow...)
+		d.insertMap(mfaSet, acl.Mfa...)
+		d.insertMap(denySet, acl.Deny...)
 	}
 
 	// the default policy contents
@@ -114,7 +114,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 		if err == nil {
 			addAcls(acl)
 		} else {
-			RaiseError(err, []byte("failed to unmarshal default acls policy"))
+			d.RaiseError(err, []byte("failed to unmarshal default acls policy"))
 			log.Println("failed to unmarshal default acls policy: ", err)
 		}
 	}
@@ -138,7 +138,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 		for _, kv := range membership.Kvs {
 
 			// strips [wag-membership-username-]groupnames
-			resultParts, err := SplitKey(1, userMembershipKey, string(kv.Key))
+			resultParts, err := d.SplitKey(1, userMembershipKey, string(kv.Key))
 			if err != nil {
 				log.Println("failed to get group membership: ", err)
 				continue
@@ -148,11 +148,11 @@ func GetEffectiveAcl(username string) acls.Acl {
 			ops = append(ops, clientv3.OpGet(AclsPrefix+group))
 		}
 
-		txn := etcd.Txn(context.Background())
+		txn := d.etcd.Txn(context.Background())
 		resp, err := txn.Then(ops...).Commit()
 		if err != nil {
 			log.Println("failed to fetch acls from db groups: ", err)
-			RaiseError(err, []byte("failed to fetch acls from db groups"))
+			d.RaiseError(err, []byte("failed to fetch acls from db groups"))
 			return acls.Acl{}
 		}
 
@@ -181,7 +181,7 @@ func GetEffectiveAcl(username string) acls.Acl {
 		err = json.Unmarshal(resp.Responses[3].GetResponseRange().Kvs[0].Value, &dns)
 		if err == nil {
 			for _, server := range dns {
-				insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
+				d.insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
 			}
 		} else {
 			log.Println("failed to unmarshal dns setting: ", err)

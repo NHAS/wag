@@ -20,8 +20,8 @@ type UserModel struct {
 }
 
 // IncrementAuthenticationAttempt Make sure that the attempts is always incremented first to stop race condition attacks
-func IncrementAuthenticationAttempt(username, device string) error {
-	return doSafeUpdate(context.Background(), deviceKey(username, device), false, func(gr *clientv3.GetResponse) (value string, err error) {
+func (d *database) IncrementAuthenticationAttempt(username, device string) error {
+	return d.doSafeUpdate(context.Background(), d.deviceKey(username, device), false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of users")
@@ -33,7 +33,7 @@ func IncrementAuthenticationAttempt(username, device string) error {
 			return "", err
 		}
 
-		l, err := GetLockout()
+		l, err := d.GetLockout()
 		if err != nil {
 			return "", err
 		}
@@ -49,9 +49,9 @@ func IncrementAuthenticationAttempt(username, device string) error {
 	})
 }
 
-func GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
+func (d *database) GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	resp, err := txn.Then(clientv3.OpGet(UsersPrefix+username+"-"), clientv3.OpGet("devices-"+username+"-"+device)).Commit()
 	if err != nil {
 		return
@@ -93,8 +93,8 @@ func GetAuthenticationDetails(username, device string) (mfa, mfaType string, att
 }
 
 // Disable authentication for user
-func SetUserLock(username string) error {
-	err := doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+func (d *database) SetUserLock(username string) error {
+	err := d.doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -115,8 +115,8 @@ func SetUserLock(username string) error {
 	return nil
 }
 
-func SetUserUnlock(username string) error {
-	err := doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+func (d *database) SetUserUnlock(username string) error {
+	err := d.doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -138,8 +138,8 @@ func SetUserUnlock(username string) error {
 }
 
 // Has the user recorded their MFA details. Always read the latest value from the DB
-func IsEnforcingMFA(username string) bool {
-	userResponse, err := etcd.Get(context.Background(), UsersPrefix+username+"-")
+func (d *database) IsEnforcingMFA(username string) bool {
+	userResponse, err := d.etcd.Get(context.Background(), UsersPrefix+username+"-")
 	if err != nil {
 		// Fail closed rather than allowing a user to re-register their mfa on db error
 		return true
@@ -159,9 +159,9 @@ func IsEnforcingMFA(username string) bool {
 }
 
 // Stop displaying MFA secrets for user
-func SetEnforceMFAOn(username string) error {
+func (d *database) SetEnforceMFAOn(username string) error {
 
-	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	return d.doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -177,8 +177,8 @@ func SetEnforceMFAOn(username string) error {
 	})
 }
 
-func SetEnforceMFAOff(username string) error {
-	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+func (d *database) SetEnforceMFAOff(username string) error {
+	return d.doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -195,9 +195,9 @@ func SetEnforceMFAOff(username string) error {
 	})
 }
 
-func GetMFASecret(username string) (string, error) {
+func (d *database) GetMFASecret(username string) (string, error) {
 
-	user, err := get[UserModel](UsersPrefix + username + "-")
+	user, err := get[UserModel](d.etcd, UsersPrefix+username+"-")
 	if err != nil {
 		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
@@ -210,9 +210,9 @@ func GetMFASecret(username string) (string, error) {
 	return user.Mfa, nil
 }
 
-func GetMFAType(username string) (string, error) {
+func (d *database) GetMFAType(username string) (string, error) {
 
-	user, err := get[UserModel](UsersPrefix + username + "-")
+	user, err := get[UserModel](d.etcd, UsersPrefix+username+"-")
 	if err != nil {
 		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
@@ -220,21 +220,21 @@ func GetMFAType(username string) (string, error) {
 	return user.MfaType, nil
 }
 
-func DeleteUser(username string) error {
+func (d *database) DeleteUser(username string) error {
 
 	var errs []error
 
-	_, err := etcd.Delete(context.Background(), UsersPrefix+username+"-", clientv3.WithPrefix())
+	_, err := d.etcd.Delete(context.Background(), UsersPrefix+username+"-", clientv3.WithPrefix())
 	if err != nil {
 		errs = append(errs, fmt.Errorf("failed to delete user from db: %w", err))
 	}
 
-	err = RemoveUserAllGroups(username)
+	err = d.RemoveUserAllGroups(username)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
-	err = DeleteDevices(username)
+	err = d.DeleteDevices(username)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -242,13 +242,13 @@ func DeleteUser(username string) error {
 	return errors.Join(errs...)
 }
 
-func GetUserData(username string) (u UserModel, err error) {
-	return get[UserModel](UsersPrefix + username + "-")
+func (d *database) GetUserData(username string) (u UserModel, err error) {
+	return get[UserModel](d.etcd, UsersPrefix+username+"-")
 }
 
-func GetUserDataFromAddress(address string) (u UserModel, err error) {
+func (d *database) GetUserDataFromAddress(address string) (u UserModel, err error) {
 
-	refResponse, err := etcd.Get(context.Background(), deviceRef+address)
+	refResponse, err := d.etcd.Get(context.Background(), deviceRef+address)
 	if err != nil {
 		return
 	}
@@ -265,12 +265,12 @@ func GetUserDataFromAddress(address string) (u UserModel, err error) {
 	}
 
 	// devices-username-address
-	return GetUserData(string(parts[1]))
+	return d.GetUserData(string(parts[1]))
 }
 
-func SetUserMfa(username, value, mfaType string) error {
+func (d *database) SetUserMfa(username, value, mfaType string) error {
 
-	return doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
+	return d.doSafeUpdate(context.Background(), UsersPrefix+username+"-", false, func(gr *clientv3.GetResponse) (string, error) {
 		var result UserModel
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -287,7 +287,7 @@ func SetUserMfa(username, value, mfaType string) error {
 	})
 }
 
-func CreateUserDataAccount(username string) (UserModel, error) {
+func (d *database) CreateUserDataAccount(username string) (UserModel, error) {
 
 	if strings.Contains(username, "-") {
 		return UserModel{}, errors.New("usernames may not contain '-' ")
@@ -299,7 +299,7 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 		MfaType:  string(types.Unset),
 	}
 
-	err := set(UsersPrefix+username+"-", false, newUser)
+	err := set(d.etcd, UsersPrefix+username+"-", false, newUser)
 	if err != nil {
 		return UserModel{}, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -307,9 +307,9 @@ func CreateUserDataAccount(username string) (UserModel, error) {
 	return newUser, err
 }
 
-func GetAllUsers() (users []UserModel, err error) {
+func (d *database) GetAllUsers() (users []UserModel, err error) {
 
-	response, err := etcd.Get(context.Background(), UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := d.etcd.Get(context.Background(), UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}

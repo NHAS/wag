@@ -1,0 +1,64 @@
+package interfaces
+
+import (
+	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/pkg/control"
+)
+
+type SessionsRepository interface {
+	GetAllSessions() (sessions []data.DeviceSession, err error)
+}
+
+type RawRV interface {
+	Put(key, value string) error
+	Get(key string) ([]byte, error)
+}
+
+type GroupsRepository interface {
+	CreateGroup(group string, initialMembers []string) error
+	GetGroups() (result []*control.GroupData, err error)
+	RemoveGroup(group string) error
+}
+
+type AclsRepository interface {
+	RemoveAcl(effects string) error
+	SetAcl(effects string, policy acls.Acl, overwrite bool) error
+	GetPolicies() (result []control.PolicyData, err error)
+}
+
+type Errors interface {
+	GetAllErrors() (ret []data.EventError, err error)
+	RaiseError(raisedError error, value []byte) (err error)
+	ResolveError(errorId string) error
+}
+
+type BootstrapRepositoryReader interface {
+	GetInitialData() (users []data.UserModel, devices []data.Device, err error)
+}
+
+type Database interface {
+	BootstrapRepositoryReader
+
+	ConfigRepository
+
+	GroupsRepository
+	AuthenticationActions
+	UserRepository
+	AclsRepository
+	MFARespository
+	RegistrationRepository
+	DeviceRepository
+
+	SessionsRepository
+
+	AdminRepository
+	Errors
+	Cluster
+
+	// todo remove from here
+	SplitKey(expected int, stripPrefix, key string) ([]string, error)
+
+	RawRV
+	Teardown
+}

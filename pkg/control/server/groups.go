@@ -3,12 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/NHAS/wag/internal/data"
 )
 
 func (wsg *WagControlSocketServer) listGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := data.GetGroups()
+	groups, err := wsg.db.GetGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

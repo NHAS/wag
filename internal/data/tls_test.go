@@ -16,25 +16,20 @@ import (
 )
 
 const (
-	TestDB            = 9
-	TestKeyPrefix     = "etctlstest"
-	TestEncryptionKey = "1aedfs5kcM8lOZO3BDDMuwC23croDwRr"
-	TestCompression   = true
-
-	TestKeyCertPath       = "certificates"
-	TestKeyAcmePath       = TestKeyCertPath + "/acme-v02.api.letsencrypt.org-directory"
-	TestKeyExamplePath    = TestKeyAcmePath + "/example.com"
-	TestKeyExampleCrt     = TestKeyExamplePath + "/example.com.crt"
-	TestKeyExampleKey     = TestKeyExamplePath + "/example.com.key"
-	TestKeyExampleJson    = TestKeyExamplePath + "/example.com.json"
-	TestKeyLock           = "locks/issue_cert_example.com"
-	TestKeyLockIterations = 250
+	testKeyCertPath    = "certificates"
+	testKeyAcmePath    = testKeyCertPath + "/acme-v02.api.letsencrypt.org-directory"
+	testKeyExamplePath = testKeyAcmePath + "/example.com"
+	testKeyExampleCrt  = testKeyExamplePath + "/example.com.crt"
+	testKeyExampleKey  = testKeyExamplePath + "/example.com.key"
+	testKeyExampleJson = testKeyExamplePath + "/example.com.json"
+	testKeyLock        = "locks/issue_cert_example.com"
 )
 
 var (
-	TestValueCrt  = []byte("TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdCwgc2VkIGRvIGVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0IGRvbG9yZSBtYWduYSBhbGlxdWEu")
-	TestValueKey  = []byte("RWdlc3RhcyBlZ2VzdGFzIGZyaW5naWxsYSBwaGFzZWxsdXMgZmF1Y2lidXMgc2NlbGVyaXNxdWUgZWxlaWZlbmQgZG9uZWMgcHJldGl1bSB2dWxwdXRhdGUuIFRpbmNpZHVudCBvcm5hcmUgbWFzc2EgZWdldC4=")
-	TestValueJson = []byte("U2FnaXR0aXMgYWxpcXVhbSBtYWxlc3VhZGEgYmliZW5kdW0gYXJjdSB2aXRhZSBlbGVtZW50dW0uIEludGVnZXIgbWFsZXN1YWRhIG51bmMgdmVsIHJpc3VzIGNvbW1vZG8gdml2ZXJyYSBtYWVjZW5hcy4=")
+	testValueCrt  = []byte("TG9yZW0gaXBzdW0gZG9sb3Igc2l0IGFtZXQsIGNvbnNlY3RldHVyIGFkaXBpc2NpbmcgZWxpdCwgc2VkIGRvIGVpdXNtb2QgdGVtcG9yIGluY2lkaWR1bnQgdXQgbGFib3JlIGV0IGRvbG9yZSBtYWduYSBhbGlxdWEu")
+	testValueKey  = []byte("RWdlc3RhcyBlZ2VzdGFzIGZyaW5naWxsYSBwaGFzZWxsdXMgZmF1Y2lidXMgc2NlbGVyaXNxdWUgZWxlaWZlbmQgZG9uZWMgcHJldGl1bSB2dWxwdXRhdGUuIFRpbmNpZHVudCBvcm5hcmUgbWFzc2EgZWdldC4=")
+	testValueJson = []byte("U2FnaXR0aXMgYWxpcXVhbSBtYWxlc3VhZGEgYmliZW5kdW0gYXJjdSB2aXRhZSBlbGVtZW50dW0uIEludGVnZXIgbWFsZXN1YWRhIG51bmMgdmVsIHJpc3VzIGNvbW1vZG8gdml2ZXJyYSBtYWVjZW5hcy4=")
+	rs            *CertMagicStore
 )
 
 func TestMain(m *testing.M) {
@@ -44,62 +39,56 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err := Load("", true)
+	db, err := Load("", true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
+
+	rs = NewCertStore(db.etcd, "wag-certificates")
 }
 
 func TestEtcdStorage_Store(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 }
 
 func TestEtcdStorage_Exists(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
-	exists := rs.Exists(context.Background(), TestKeyExampleCrt)
+	exists := rs.Exists(context.Background(), testKeyExampleCrt)
 	assert.False(t, exists)
 
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 
-	exists = rs.Exists(context.Background(), TestKeyExampleCrt)
+	exists = rs.Exists(context.Background(), testKeyExampleCrt)
 	assert.True(t, exists)
 }
 
 func TestEtcdStorage_Load(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 
-	loadedValue, err := rs.Load(context.Background(), TestKeyExampleCrt)
+	loadedValue, err := rs.Load(context.Background(), testKeyExampleCrt)
 	assert.NoError(t, err)
 
-	assert.Equal(t, TestValueCrt, loadedValue)
+	assert.Equal(t, testValueCrt, loadedValue)
 }
 
 func TestEtcdStorage_Delete(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 
-	err = rs.Delete(context.Background(), TestKeyExampleCrt)
+	err = rs.Delete(context.Background(), testKeyExampleCrt)
 	assert.NoError(t, err)
 
-	exists := rs.Exists(context.Background(), TestKeyExampleCrt)
+	exists := rs.Exists(context.Background(), testKeyExampleCrt)
 	assert.False(t, exists)
 
-	loadedValue, err := rs.Load(context.Background(), TestKeyExampleCrt)
+	loadedValue, err := rs.Load(context.Background(), testKeyExampleCrt)
 	assert.Nil(t, loadedValue)
 
 	notExist := errors.Is(err, fs.ErrNotExist)
@@ -108,93 +97,90 @@ func TestEtcdStorage_Delete(t *testing.T) {
 
 func TestEtcdStorage_Stat(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-	size := int64(len(TestValueCrt))
+	size := int64(len(testValueCrt))
 
 	startTime := time.Now()
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	endTime := time.Now()
 	assert.NoError(t, err)
 
-	stat, err := rs.Stat(context.Background(), TestKeyExampleCrt)
+	stat, err := rs.Stat(context.Background(), testKeyExampleCrt)
 	assert.NoError(t, err)
 
-	assert.Equal(t, TestKeyExampleCrt, stat.Key)
+	assert.Equal(t, testKeyExampleCrt, stat.Key)
 	assert.WithinRange(t, stat.Modified, startTime, endTime)
 	assert.Equal(t, size, stat.Size)
 }
 
 func TestEtcdStorage_List(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
 	// Store two key values
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 
-	err = rs.Store(context.Background(), TestKeyExampleKey, TestValueKey)
+	err = rs.Store(context.Background(), testKeyExampleKey, testValueKey)
 	assert.NoError(t, err)
 
 	// List recursively from root
 	keys, err := rs.List(context.Background(), "", true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)
-	assert.Contains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.NotContains(t, keys, TestKeyExampleJson)
+	assert.Contains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.NotContains(t, keys, testKeyExampleJson)
 
 	// List recursively from first directory
-	keys, err = rs.List(context.Background(), TestKeyCertPath, true)
+	keys, err = rs.List(context.Background(), testKeyCertPath, true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)
-	assert.Contains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.NotContains(t, keys, TestKeyExampleJson)
+	assert.Contains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.NotContains(t, keys, testKeyExampleJson)
 
 	// Store third key value
-	err = rs.Store(context.Background(), TestKeyExampleJson, TestValueJson)
+	err = rs.Store(context.Background(), testKeyExampleJson, testValueJson)
 	assert.NoError(t, err)
 
 	// List recursively from root
 	keys, err = rs.List(context.Background(), "", true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 3)
-	assert.Contains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.Contains(t, keys, TestKeyExampleJson)
+	assert.Contains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.Contains(t, keys, testKeyExampleJson)
 
 	// List recursively from first directory
-	keys, err = rs.List(context.Background(), TestKeyCertPath, true)
+	keys, err = rs.List(context.Background(), testKeyCertPath, true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 3)
-	assert.Contains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.Contains(t, keys, TestKeyExampleJson)
+	assert.Contains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.Contains(t, keys, testKeyExampleJson)
 
 	// Delete one key value
-	err = rs.Delete(context.Background(), TestKeyExampleCrt)
+	err = rs.Delete(context.Background(), testKeyExampleCrt)
 	assert.NoError(t, err)
 
 	// List recursively from root
 	keys, err = rs.List(context.Background(), "", true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)
-	assert.NotContains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.Contains(t, keys, TestKeyExampleJson)
+	assert.NotContains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.Contains(t, keys, testKeyExampleJson)
 
-	keys, err = rs.List(context.Background(), TestKeyCertPath, true)
+	keys, err = rs.List(context.Background(), testKeyCertPath, true)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)
-	assert.NotContains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.Contains(t, keys, TestKeyExampleJson)
+	assert.NotContains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.Contains(t, keys, testKeyExampleJson)
 
 	// Delete remaining two key values
-	err = rs.Delete(context.Background(), TestKeyExampleKey)
+	err = rs.Delete(context.Background(), testKeyExampleKey)
 	assert.NoError(t, err)
 
-	err = rs.Delete(context.Background(), TestKeyExampleJson)
+	err = rs.Delete(context.Background(), testKeyExampleJson)
 	assert.NoError(t, err)
 
 	// List recursively from root
@@ -202,59 +188,55 @@ func TestEtcdStorage_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, keys)
 
-	keys, err = rs.List(context.Background(), TestKeyCertPath, true)
+	keys, err = rs.List(context.Background(), testKeyCertPath, true)
 	assert.NoError(t, err)
 	assert.Empty(t, keys)
 }
 
 func TestEtcdStorage_ListNonRecursive(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
 	// Store three key values
-	err := rs.Store(context.Background(), TestKeyExampleCrt, TestValueCrt)
+	err := rs.Store(context.Background(), testKeyExampleCrt, testValueCrt)
 	assert.NoError(t, err)
 
-	err = rs.Store(context.Background(), TestKeyExampleKey, TestValueKey)
+	err = rs.Store(context.Background(), testKeyExampleKey, testValueKey)
 	assert.NoError(t, err)
 
-	err = rs.Store(context.Background(), TestKeyExampleJson, TestValueJson)
+	err = rs.Store(context.Background(), testKeyExampleJson, testValueJson)
 	assert.NoError(t, err)
 
 	// List non-recursively from root
 	keys, err := rs.List(context.Background(), "", false)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 1)
-	assert.Contains(t, keys, TestKeyCertPath)
+	assert.Contains(t, keys, testKeyCertPath)
 
 	// List non-recursively from first level
-	keys, err = rs.List(context.Background(), TestKeyCertPath, false)
+	keys, err = rs.List(context.Background(), testKeyCertPath, false)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 1)
-	assert.Contains(t, keys, TestKeyAcmePath)
+	assert.Contains(t, keys, testKeyAcmePath)
 
 	// List non-recursively from second level
-	keys, err = rs.List(context.Background(), TestKeyAcmePath, false)
+	keys, err = rs.List(context.Background(), testKeyAcmePath, false)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 1)
-	assert.Contains(t, keys, TestKeyExamplePath)
+	assert.Contains(t, keys, testKeyExamplePath)
 
 	// List non-recursively from third level
-	keys, err = rs.List(context.Background(), TestKeyExamplePath, false)
+	keys, err = rs.List(context.Background(), testKeyExamplePath, false)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 3)
-	assert.Contains(t, keys, TestKeyExampleCrt)
-	assert.Contains(t, keys, TestKeyExampleKey)
-	assert.Contains(t, keys, TestKeyExampleJson)
+	assert.Contains(t, keys, testKeyExampleCrt)
+	assert.Contains(t, keys, testKeyExampleKey)
+	assert.Contains(t, keys, testKeyExampleJson)
 }
 
 func TestEtcdStorage_LockUnlock(t *testing.T) {
 
-	rs := NewCertStore("wag-certificates")
-
-	err := rs.Lock(context.Background(), TestKeyLock)
+	err := rs.Lock(context.Background(), testKeyLock)
 	assert.NoError(t, err)
 
-	err = rs.Unlock(context.Background(), TestKeyLock)
+	err = rs.Unlock(context.Background(), testKeyLock)
 	assert.NoError(t, err)
 }

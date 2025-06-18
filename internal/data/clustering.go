@@ -18,43 +18,43 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
-func GetServerID() types.ID {
-	return etcdServer.Server.MemberID()
+func (d *database) GetCurrentNodeID() types.ID {
+	return d.etcdServer.Server.MemberID()
 }
 
-func GetLeader() types.ID {
-	return etcdServer.Server.Leader()
+func (d *database) GetClusterLeader() types.ID {
+	return d.etcdServer.Server.Leader()
 }
 
-func HasLeader() bool {
-	return etcdServer.Server.Leader() != 0
+func (d *database) ClusterHasLeader() bool {
+	return d.etcdServer.Server.Leader() != 0
 }
 
-func IsLearner() bool {
-	return etcdServer.Server.IsLearner()
+func (d *database) IsCurrentNodeLearner() bool {
+	return d.etcdServer.Server.IsLearner()
 }
 
 // StepDown when called on a leader node, to transfer ownership to another node (demoted)
-func StepDown() error {
-	return etcdServer.Server.TryTransferLeadershipOnShutdown()
+func (d *database) ClusterNodeStepDown() error {
+	return d.etcdServer.Server.TryTransferLeadershipOnShutdown()
 }
 
-func GetMembers() []*membership.Member {
+func (d *database) GetClusterMembers() []*membership.Member {
 
-	return etcdServer.Server.Cluster().Members()
+	return d.etcdServer.Server.Cluster().Members()
 }
 
-func GetLastPing(idHex string) (time.Time, error) {
+func (d *database) GetClusterNodeLastPing(idHex string) (time.Time, error) {
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	if etcdServer.Server.Cluster().Member(types.ID(id)) == nil {
+	if d.etcdServer.Server.Cluster().Member(types.ID(id)) == nil {
 		return time.Time{}, errors.New("id is not part of cluster")
 	}
 
-	lastPing, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "ping"))
+	lastPing, err := d.etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "ping"))
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -75,23 +75,23 @@ func GetLastPing(idHex string) (time.Time, error) {
 	return t, nil
 }
 
-func SetWitness(on bool) error {
+func (d *database) SetWitness(on bool) error {
 	if on {
-		_, err := etcd.Put(context.Background(), path.Join(NodeInfo, GetServerID().String(), "witness"), fmt.Sprintf("%t", on))
+		_, err := d.etcd.Put(context.Background(), path.Join(NodeInfo, d.GetCurrentNodeID().String(), "witness"), fmt.Sprintf("%t", on))
 		return err
 	}
 
-	_, err := etcd.Delete(context.Background(), path.Join(NodeInfo, GetServerID().String(), "witness"))
+	_, err := d.etcd.Delete(context.Background(), path.Join(NodeInfo, d.GetCurrentNodeID().String(), "witness"))
 	return err
 }
 
-func IsWitness(idHex string) (bool, error) {
+func (d *database) IsClusterNodeWitness(idHex string) (bool, error) {
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
 
-	isDrained, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "witness"))
+	isDrained, err := d.etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "witness"))
 	if err != nil {
 		return false, err
 	}
@@ -99,21 +99,21 @@ func IsWitness(idHex string) (bool, error) {
 	return isDrained.Count != 0, nil
 }
 
-func GetVersion(idHex string) (string, error) {
+func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
-	return get[string](path.Join(NodeInfo, idHex, "version"))
+	return get[string](d.etcd, path.Join(NodeInfo, idHex, "version"))
 }
 
-func SetVersion() error {
-	return set(path.Join(NodeInfo, GetServerID().String(), "version"), true, config.Version)
+func (d *database) SetVersion() error {
+	return set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
 }
 
-func SetDrained(idHex string, on bool) error {
+func (d *database) SetDrained(idHex string, on bool) error {
 
-	isWitness, err := IsWitness(idHex)
+	isWitness, err := d.IsClusterNodeWitness(idHex)
 	if err != nil {
 		return err
 	}
@@ -128,21 +128,21 @@ func SetDrained(idHex string, on bool) error {
 	}
 
 	if on {
-		_, err = etcd.Put(context.Background(), path.Join(NodeInfo, idHex, "drain"), fmt.Sprintf("%t", on))
+		_, err = d.etcd.Put(context.Background(), path.Join(NodeInfo, idHex, "drain"), fmt.Sprintf("%t", on))
 		return err
 	}
 
-	_, err = etcd.Delete(context.Background(), path.Join(NodeInfo, idHex, "drain"))
+	_, err = d.etcd.Delete(context.Background(), path.Join(NodeInfo, idHex, "drain"))
 	return err
 }
 
-func IsDrained(idHex string) (bool, error) {
+func (d *database) IsClusterNodeDrained(idHex string) (bool, error) {
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
 
-	isDrained, err := etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "drain"))
+	isDrained, err := d.etcd.Get(context.Background(), path.Join(NodeInfo, idHex, "drain"))
 	if err != nil {
 		return false, err
 	}
@@ -154,7 +154,7 @@ func IsDrained(idHex string) (bool, error) {
 // This is done by creating a join token which allows an existing member to issue the CA private key, and download the wag config
 // etcPeerUrlAddress is where the new node etcd instance is contactable
 // newManagerAddressURL is where the tls manager will listen (i.e the place that serves tls certs and config)
-func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken string, err error) {
+func (d *database) AddClusterMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken string, err error) {
 
 	if !strings.HasPrefix(etcPeerUrlAddress, "https://") {
 		return "", errors.New("url must be https://")
@@ -201,7 +201,7 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 
 	copyValues := config.Values
 
-	response, err := etcd.MemberList(context.Background())
+	response, err := d.etcd.MemberList(context.Background())
 	if err != nil {
 		return "", err
 	}
@@ -229,7 +229,7 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 	b, _ := json.Marshal(copyValues)
 	token.SetAdditional("config.json", string(b))
 
-	_, err = etcd.MemberAddAsLearner(context.Background(), []string{newUrl.String()})
+	_, err = d.etcd.MemberAddAsLearner(context.Background(), []string{newUrl.String()})
 	if err != nil {
 		return "", err
 	}
@@ -237,13 +237,13 @@ func AddMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken 
 	return token.Token, nil
 }
 
-func PromoteMember(idHex string) error {
+func (d *database) PromoteClusterMember(idHex string) error {
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
 
-	_, err = etcd.MemberPromote(context.Background(), id)
+	_, err = d.etcd.MemberPromote(context.Background(), id)
 	if err != nil {
 		return err
 	}
@@ -251,19 +251,19 @@ func PromoteMember(idHex string) error {
 	return nil
 }
 
-func RemoveMember(idHex string) error {
+func (d *database) RemoveClusterMember(idHex string) error {
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
 
 	// Clear any node metadata
-	_, err = etcd.Delete(context.Background(), path.Join(NodeInfo, idHex), clientv3.WithPrefix())
+	_, err = d.etcd.Delete(context.Background(), path.Join(NodeInfo, idHex), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
 
-	_, err = etcd.MemberRemove(context.Background(), id)
+	_, err = d.etcd.MemberRemove(context.Background(), id)
 	if err != nil {
 		return err
 	}

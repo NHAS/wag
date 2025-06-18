@@ -15,15 +15,15 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func registrationKey(token string) string {
+func (d *database) registrationKey(token string) string {
 	return fmt.Sprintf("tokens-%s", token)
 }
 
-func GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, err error) {
+func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, err error) {
 
 	minTime := time.After(1 * time.Second)
 
-	result, err := get[control.RegistrationResult](registrationKey(token))
+	result, err := get[control.RegistrationResult](d.etcd, d.registrationKey(token))
 
 	<-minTime
 
@@ -35,9 +35,9 @@ func GetRegistrationToken(token string) (username, overwrites, staticIP string, 
 }
 
 // Returns list of tokens
-func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
+func (d *database) GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 
-	response, err := etcd.Get(context.Background(), tokensKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := d.etcd.Get(context.Background(), tokensKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -55,17 +55,17 @@ func GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 	return results, nil
 }
 
-func DeleteRegistrationToken(identifier string) error {
-	_, err := etcd.Delete(context.Background(), registrationKey(identifier))
+func (d *database) DeleteRegistrationToken(identifier string) error {
+	_, err := d.etcd.Delete(context.Background(), d.registrationKey(identifier))
 	return err
 }
 
 // FinaliseRegistration may or may not delete the token in question depending on whether the number of uses is <= 0
-func FinaliseRegistration(token string) error {
+func (d *database) FinaliseRegistration(token string) error {
 
 	errVal := errors.New("registration token has expired")
 
-	err := doSafeUpdate(context.Background(), tokensKey+token, false, func(gr *clientv3.GetResponse) (string, error) {
+	err := d.doSafeUpdate(context.Background(), tokensKey+token, false, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result control.RegistrationResult
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -85,7 +85,7 @@ func FinaliseRegistration(token string) error {
 	})
 
 	if err == errVal {
-		return DeleteRegistrationToken(token)
+		return d.DeleteRegistrationToken(token)
 	}
 
 	if err != nil {
@@ -96,18 +96,18 @@ func FinaliseRegistration(token string) error {
 }
 
 // Randomly generate a token for a specific username
-func GenerateToken(username, overwrite, staticIp string, groups []string, uses int) (token string, err error) {
+func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
 	}
 
-	err = AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
+	err = d.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int) error {
+func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}
@@ -130,7 +130,7 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 
 	if overwrite != "" {
 
-		response, err := etcd.Get(context.Background(), deviceRef+overwrite)
+		response, err := d.etcd.Get(context.Background(), deviceRef+overwrite)
 		if err != nil {
 			return err
 		}
@@ -139,7 +139,7 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 			return errors.New("no device with that ip")
 		}
 
-		device, err := get[Device](deviceRef + overwrite)
+		device, err := get[Device](d.etcd, deviceRef+overwrite)
 		if err != nil {
 			return fmt.Errorf("could not find device that this token is intended to overwrite: %w", err)
 		}
@@ -155,7 +155,7 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 			checks = append(checks, clientv3util.KeyExists(GroupsPrefix+group))
 		}
 
-		txn := etcd.Txn(context.Background())
+		txn := d.etcd.Txn(context.Background())
 		txn.If(checks...)
 
 		resp, err := txn.Commit()
@@ -177,6 +177,6 @@ func AddRegistrationToken(token, username, overwrite, staticIp string, groups []
 		NumUses:    uses,
 	}
 
-	return set(tokensKey+token, false, result)
+	return set(d.etcd, tokensKey+token, false, result)
 
 }

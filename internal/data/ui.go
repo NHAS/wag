@@ -40,8 +40,8 @@ type admin struct {
 	Hash string
 }
 
-func IncrementAdminAuthenticationAttempt(username string) error {
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+func (d *database) IncrementAdminAuthenticationAttempt(username string) error {
+	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin keys")
@@ -53,7 +53,7 @@ func IncrementAdminAuthenticationAttempt(username string) error {
 			return "", err
 		}
 
-		l, err := GetLockout()
+		l, err := d.GetLockout()
 		if err != nil {
 			return "", err
 		}
@@ -69,7 +69,7 @@ func IncrementAdminAuthenticationAttempt(username string) error {
 	})
 }
 
-func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
+func (d *database) CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -93,12 +93,12 @@ func CreateLocalAdminUser(username, password string, changeOnFirstUse bool) erro
 
 	b, _ := json.Marshal(newAdmin)
 
-	_, err = etcd.Put(context.Background(), AdminUsersKey+username, string(b))
+	_, err = d.etcd.Put(context.Background(), AdminUsersKey+username, string(b))
 
 	return err
 }
 
-func CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
+func (d *database) CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
 
 	newAdmin := admin{
 		AdminUserDTO: AdminUserDTO{
@@ -112,12 +112,12 @@ func CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
 
 	b, _ := json.Marshal(newAdmin)
 
-	_, err := etcd.Put(context.Background(), AdminUsersKey+guid, string(b))
+	_, err := d.etcd.Put(context.Background(), AdminUsersKey+guid, string(b))
 
 	return newAdmin.AdminUserDTO, err
 }
 
-func CompareAdminKeys(username, password string) error {
+func (d *database) CompareAdminKeys(username, password string) error {
 
 	wasteTime := func() {
 		// Null op to stop timing discovery attacks
@@ -129,7 +129,7 @@ func CompareAdminKeys(username, password string) error {
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	err := doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	err := d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
@@ -137,7 +137,7 @@ func CompareAdminKeys(username, password string) error {
 			return "", err
 		}
 
-		lockout, err := GetLockout()
+		lockout, err := d.GetLockout()
 		if err != nil {
 			return "", err
 		}
@@ -182,16 +182,16 @@ func CompareAdminKeys(username, password string) error {
 }
 
 // Lock admin account and make them unable to login
-func SetAdminUserLock(username string) error {
+func (d *database) SetAdminUserLock(username string) error {
 
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
 			return "", err
 		}
 
-		result.Attempts, err = GetLockout()
+		result.Attempts, err = d.GetLockout()
 		if err != nil {
 			return "", err
 		}
@@ -203,9 +203,9 @@ func SetAdminUserLock(username string) error {
 }
 
 // Unlock admin account
-func SetAdminUserUnlock(username string) error {
+func (d *database) SetAdminUserUnlock(username string) error {
 
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
+	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
 		var result admin
 		err := json.Unmarshal(gr.Kvs[0].Value, &result)
 		if err != nil {
@@ -220,9 +220,9 @@ func SetAdminUserUnlock(username string) error {
 	})
 }
 
-func DeleteAdminUser(username string) error {
+func (d *database) DeleteAdminUser(username string) error {
 
-	_, err := etcd.Delete(context.Background(), AdminUsersKey+username, clientv3.WithPrefix())
+	_, err := d.etcd.Delete(context.Background(), AdminUsersKey+username, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -230,9 +230,9 @@ func DeleteAdminUser(username string) error {
 	return err
 }
 
-func GetAdminUser(id string) (a AdminUserDTO, err error) {
+func (d *database) GetAdminUser(id string) (a AdminUserDTO, err error) {
 
-	response, err := etcd.Get(context.Background(), AdminUsersKey+id)
+	response, err := d.etcd.Get(context.Background(), AdminUsersKey+id)
 	if err != nil {
 		return a, err
 	}
@@ -245,9 +245,9 @@ func GetAdminUser(id string) (a AdminUserDTO, err error) {
 	return
 }
 
-func GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
+func (d *database) GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
 
-	response, err := etcd.Get(context.Background(), AdminUsersKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := d.etcd.Get(context.Background(), AdminUsersKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
 	return
 }
 
-func SetAdminPassword(username, password string) error {
+func (d *database) SetAdminPassword(username, password string) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -277,7 +277,7 @@ func SetAdminPassword(username, password string) error {
 
 	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin users")
@@ -300,8 +300,8 @@ func SetAdminPassword(username, password string) error {
 
 }
 
-func SetLastLoginInformation(username, ip string) error {
-	return doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
+func (d *database) SetLastLoginInformation(username, ip string) error {
+	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
 		if len(gr.Kvs) != 1 {
 			return "", errors.New("invalid number of admin users")

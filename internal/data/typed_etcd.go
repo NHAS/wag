@@ -11,7 +11,7 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func set[T any](key string, overwrite bool, data T) (err error) {
+func set[T any](etcd *clientv3.Client, key string, overwrite bool, data T) (err error) {
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -40,7 +40,7 @@ func set[T any](key string, overwrite bool, data T) (err error) {
 	return
 }
 
-func get[T any](key string) (ret T, err error) {
+func get[T any](etcd *clientv3.Client, key string) (ret T, err error) {
 	resp, err := etcd.Get(context.Background(), key)
 	if err != nil {
 		return ret, err

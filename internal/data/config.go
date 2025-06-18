@@ -110,10 +110,10 @@ func (a *WebserverConfiguration) Equals(b *WebserverConfiguration) bool {
 	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.CertificatePEM == b.CertificatePEM && a.PrivateKeyPEM == b.PrivateKeyPEM
 }
 
-func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {
+func (d *database) GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err error) {
 
 	details = make(map[string]WebserverConfiguration)
-	response, err := etcd.Get(context.Background(), WebServerConfigKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := d.etcd.Get(context.Background(), WebServerConfigKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +131,11 @@ func GetAllWebserverConfigs() (details map[string]WebserverConfiguration, err er
 	return details, nil
 }
 
-func GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
-	return get[WebserverConfiguration](WebServerConfigKey + string(forWhat))
+func (d *database) GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
+	return get[WebserverConfiguration](d.etcd, WebServerConfigKey+string(forWhat))
 }
 
-func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
+func (d *database) SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
 
 	switch forWhat {
 	case Tunnel, Management, Public:
@@ -143,16 +143,16 @@ func SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err 
 		return errors.New("unsupported webserver")
 	}
 
-	return set(WebServerConfigKey+string(forWhat), true, details)
+	return set(d.etcd, WebServerConfigKey+string(forWhat), true, details)
 }
 
-func GetPAM() (details PAM, err error) {
-	return get[PAM](PamDetailsKey)
+func (d *database) GetPAM() (details PAM, err error) {
+	return get[PAM](d.etcd, PamDetailsKey)
 }
 
-func GetOidc() (details OIDC, err error) {
+func (d *database) GetOidc() (details OIDC, err error) {
 
-	response, err := etcd.Get(context.Background(), OidcDetailsKey)
+	response, err := d.etcd.Get(context.Background(), OidcDetailsKey)
 	if err != nil {
 		return OIDC{}, err
 	}
@@ -165,9 +165,9 @@ func GetOidc() (details OIDC, err error) {
 	return
 }
 
-func GetWebauthn() (wba Webauthn, err error) {
+func (d *database) GetWebauthn() (wba Webauthn, err error) {
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	response, err := txn.Then(clientv3.OpGet(IssuerKey),
 		clientv3.OpGet(TunnelWebServerConfigKey)).Commit()
 	if err != nil {
@@ -216,8 +216,8 @@ func GetWebauthn() (wba Webauthn, err error) {
 	return
 }
 
-func GetWireguardConfigName() string {
-	k, err := get[string](defaultWGFileNameKey)
+func (d *database) GetWireguardConfigName() string {
+	k, err := get[string](d.etcd, defaultWGFileNameKey)
 	if err != nil {
 		return "wg0.conf"
 	}
@@ -229,28 +229,28 @@ func GetWireguardConfigName() string {
 	return k
 }
 
-func SetDefaultMfaMethod(method string) error {
-	return set(DefaultMFAMethodKey, true, method)
+func (d *database) SetDefaultMFAMethod(method string) error {
+	return set(d.etcd, DefaultMFAMethodKey, true, method)
 }
 
-func GetDefaultMfaMethod() (string, error) {
-	return get[string](DefaultMFAMethodKey)
+func (d *database) GetDefaultMFAMethod() (string, error) {
+	return get[string](d.etcd, DefaultMFAMethodKey)
 }
 
-func SetAuthenticationMethods(methods []string) error {
-	return set(MFAMethodsEnabledKey, true, methods)
+func (d *database) SetEnabledMFAMethods(methods []string) error {
+	return set(d.etcd, MFAMethodsEnabledKey, true, methods)
 }
 
-func GetEnabledAuthenticationMethods() (result []string, err error) {
-	return get[[]string](MFAMethodsEnabledKey)
+func (d *database) GetEnabledMFAMethods() (result []string, err error) {
+	return get[[]string](d.etcd, MFAMethodsEnabledKey)
 }
 
-func ShouldCheckUpdates() (bool, error) {
-	return get[bool](MFAMethodsEnabledKey)
+func (d *database) ShouldCheckUpdates() (bool, error) {
+	return get[bool](d.etcd, MFAMethodsEnabledKey)
 }
 
-func GetTunnelDomainUrl() (string, error) {
-	details, err := GetWebserverConfig(Tunnel)
+func (d *database) GetTunnelDomainUrl() (string, error) {
+	details, err := d.GetWebserverConfig(Tunnel)
 	if err != nil {
 		return "", err
 	}
@@ -274,21 +274,21 @@ func GetTunnelDomainUrl() (string, error) {
 
 }
 
-func SetIssuer(issuer string) error {
-	return set(IssuerKey, true, issuer)
+func (d *database) SetIssuer(issuer string) error {
+	return set(d.etcd, IssuerKey, true, issuer)
 }
 
-func GetIssuer() (string, error) {
-	return get[string](IssuerKey)
+func (d *database) GetIssuer() (string, error) {
+	return get[string](d.etcd, IssuerKey)
 }
 
-func SetHelpMail(helpMail string) error {
-	return set(helpMailKey, true, helpMail)
+func (d *database) SetHelpMail(helpMail string) error {
+	return set(d.etcd, helpMailKey, true, helpMail)
 }
 
-func GetHelpMail() string {
+func (d *database) GetHelpMail() string {
 
-	mail, err := get[string](helpMailKey)
+	mail, err := get[string](d.etcd, helpMailKey)
 	if err != nil {
 		return "Server Error"
 	}
@@ -296,16 +296,16 @@ func GetHelpMail() string {
 	return mail
 }
 
-func GetExternalAddress() (string, error) {
-	return get[string](externalAddressKey)
+func (d *database) GetExternalAddress() (string, error) {
+	return get[string](d.etcd, externalAddressKey)
 }
 
-func SetDNS(dns []string) error {
-	return set(dnsKey, true, dns)
+func (d *database) SetDNS(dns []string) error {
+	return set(d.etcd, dnsKey, true, dns)
 }
 
-func GetDNS() ([]string, error) {
-	return get[[]string](dnsKey)
+func (d *database) GetDNS() ([]string, error) {
+	return get[[]string](d.etcd, dnsKey)
 }
 
 type LoginSettings struct {
@@ -411,8 +411,8 @@ func (gs *GeneralSettings) ToWriteOps() (ret []clientv3.Op, err error) {
 	return
 }
 
-func GetLoginSettings() (s LoginSettings, err error) {
-	txn := etcd.Txn(context.Background())
+func (d *database) GetLoginSettings() (s LoginSettings, err error) {
+	txn := d.etcd.Txn(context.Background())
 	response, err := txn.Then(
 		clientv3.OpGet(InactivityTimeoutKey),
 		clientv3.OpGet(SessionLifetimeKey),
@@ -486,8 +486,8 @@ func GetLoginSettings() (s LoginSettings, err error) {
 	return
 }
 
-func GetGeneralSettings() (s GeneralSettings, err error) {
-	txn := etcd.Txn(context.Background())
+func (d *database) GetGeneralSettings() (s GeneralSettings, err error) {
+	txn := d.etcd.Txn(context.Background())
 	response, err := txn.Then(clientv3.OpGet(helpMailKey),
 		clientv3.OpGet(externalAddressKey),
 		clientv3.OpGet(dnsKey),
@@ -535,20 +535,20 @@ func GetGeneralSettings() (s GeneralSettings, err error) {
 	return
 }
 
-func SetLoginSettings(loginSettings LoginSettings) error {
+func (d *database) SetLoginSettings(loginSettings LoginSettings) error {
 
 	writeOps, err := loginSettings.ToWriteOps()
 	if err != nil {
 		return err
 	}
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	_, err = txn.Then(writeOps...).Commit()
 	return err
 }
 
-func SetGeneralSettings(generalSettings GeneralSettings) error {
-	txn := etcd.Txn(context.Background())
+func (d *database) SetGeneralSettings(generalSettings GeneralSettings) error {
+	txn := d.etcd.Txn(context.Background())
 	writeOPs, err := generalSettings.ToWriteOps()
 	if err != nil {
 		return err
@@ -557,24 +557,24 @@ func SetGeneralSettings(generalSettings GeneralSettings) error {
 	return err
 }
 
-func SetSessionLifetimeMinutes(lifetimeMinutes int) error {
-	return set(SessionLifetimeKey, true, lifetimeMinutes)
+func (d *database) SetSessionLifetimeMinutes(lifetimeMinutes int) error {
+	return set(d.etcd, SessionLifetimeKey, true, lifetimeMinutes)
 }
 
 // If value is below 0 that means the max session is infinite (i.e disabled)
-func GetSessionLifetimeMinutes() (int, error) {
-	return get[int](SessionLifetimeKey)
+func (d *database) GetSessionLifetimeMinutes() (int, error) {
+	return get[int](d.etcd, SessionLifetimeKey)
 }
 
-func SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
-	return set(InactivityTimeoutKey, true, inactivityTimeout)
+func (d *database) SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
+	return set(d.etcd, InactivityTimeoutKey, true, inactivityTimeout)
 }
 
-func GetSessionInactivityTimeoutMinutes() (int, error) {
-	return get[int](InactivityTimeoutKey)
+func (d *database) GetSessionInactivityTimeoutMinutes() (int, error) {
+	return get[int](d.etcd, InactivityTimeoutKey)
 }
 
 // Get account lockout threshold setting
-func GetLockout() (int, error) {
-	return get[int](LockoutKey)
+func (d *database) GetLockout() (int, error) {
+	return get[int](d.etcd, LockoutKey)
 }

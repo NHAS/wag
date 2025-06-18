@@ -10,13 +10,12 @@ import (
 	"strings"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 )
 
 func (wsg *WagControlSocketServer) listRegistrations(w http.ResponseWriter, r *http.Request) {
 
-	result, err := data.GetRegistrationTokens()
+	result, err := wsg.db.GetRegistrationTokens()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -97,7 +96,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	}
 
 	if token != "" {
-		err := data.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
+		err := wsg.db.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -115,7 +114,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	token, err = data.GenerateToken(username, overwrite, staticIp, groups, uses)
+	token, err = wsg.db.GenerateRegistrationToken(username, overwrite, staticIp, groups, uses)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -142,7 +141,7 @@ func (wsg *WagControlSocketServer) deleteRegistration(w http.ResponseWriter, r *
 
 	id := r.FormValue("id")
 
-	err = data.DeleteRegistrationToken(id)
+	err = wsg.db.DeleteRegistrationToken(id)
 	if err != nil {
 
 		http.Error(w, errors.New("Could not delete token: "+err.Error()).Error(), http.StatusInternalServerError)

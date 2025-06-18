@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/users"
 )
 
@@ -39,7 +38,7 @@ func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	currentUsers, err := data.GetAllUsers()
+	currentUsers, err := wsg.db.GetAllUsers()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -68,7 +67,7 @@ func (wsg *WagControlSocketServer) getUserGroups(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := data.GetUserGroupMembership(username)
+	user, err := wsg.db.GetUserGroupMembership(username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -174,7 +173,7 @@ func (wsg *WagControlSocketServer) listAdminUsers(w http.ResponseWriter, r *http
 
 	if username != "" {
 
-		user, err := data.GetAdminUser(username)
+		user, err := wsg.db.GetAdminUser(username)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -192,7 +191,7 @@ func (wsg *WagControlSocketServer) listAdminUsers(w http.ResponseWriter, r *http
 		return
 	}
 
-	currentAdminUsers, err := data.GetAllAdminUsers()
+	currentAdminUsers, err := wsg.db.GetAllAdminUsers()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -217,7 +216,7 @@ func (wsg *WagControlSocketServer) lockAdminUser(w http.ResponseWriter, r *http.
 
 	username := r.FormValue("username")
 
-	err = data.SetAdminUserLock(username)
+	err = wsg.db.SetAdminUserLock(username)
 	if err != nil {
 		http.Error(w, "could not lock admin user: "+err.Error(), 404)
 		return
@@ -237,7 +236,7 @@ func (wsg *WagControlSocketServer) unlockAdminUser(w http.ResponseWriter, r *htt
 
 	username := r.FormValue("username")
 
-	err = data.SetAdminUserUnlock(username)
+	err = wsg.db.SetAdminUserUnlock(username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -257,7 +256,7 @@ func (wsg *WagControlSocketServer) deleteAdminUser(w http.ResponseWriter, r *htt
 
 	username := r.FormValue("username")
 
-	err = data.DeleteAdminUser(username)
+	err = wsg.db.DeleteAdminUser(username)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -278,7 +277,7 @@ func (wsg *WagControlSocketServer) resetAdminUser(w http.ResponseWriter, r *http
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	err = data.SetAdminPassword(username, password)
+	err = wsg.db.SetAdminPassword(username, password)
 	if err != nil {
 		http.Error(w, "unable to set admin user password: "+err.Error(), 404)
 		return
@@ -301,7 +300,7 @@ func (wsg *WagControlSocketServer) addAdminUser(w http.ResponseWriter, r *http.R
 	password := r.FormValue("password")
 	shouldChange := r.FormValue("change") == "true"
 
-	err = data.CreateLocalAdminUser(username, password, shouldChange)
+	err = wsg.db.CreateLocalAdminUser(username, password, shouldChange)
 	if err != nil {
 		http.Error(w, "unable to create admin user: "+err.Error(), 404)
 		return
@@ -351,7 +350,7 @@ func (wsg *WagControlSocketServer) getUserAcl(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	acl := data.GetEffectiveAcl(username)
+	acl := wsg.db.GetEffectiveAcl(username)
 
 	b, err := json.Marshal(acl)
 	if err != nil {

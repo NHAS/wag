@@ -6,13 +6,12 @@ import (
 	"net/http"
 
 	"github.com/NHAS/wag/internal/acls"
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (wsg *WagControlSocketServer) policies(w http.ResponseWriter, r *http.Request) {
-	policies, err := data.GetPolicies()
+	policies, err := wsg.db.GetPolicies()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -34,7 +33,7 @@ func (wsg *WagControlSocketServer) newPolicy(w http.ResponseWriter, r *http.Requ
 
 	}
 
-	if err := data.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes, Deny: acl.DenyRoutes}, false); err != nil {
+	if err := wsg.db.SetAcl(acl.Effects, acls.Acl{Mfa: acl.MfaRoutes, Allow: acl.PublicRoutes, Deny: acl.DenyRoutes}, false); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -53,7 +52,7 @@ func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := data.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes, Deny: polciyData.DenyRoutes}, true); err != nil {
+	if err := wsg.db.SetAcl(polciyData.Effects, acls.Acl{Mfa: polciyData.MfaRoutes, Allow: polciyData.PublicRoutes, Deny: polciyData.DenyRoutes}, true); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -72,7 +71,7 @@ func (wsg *WagControlSocketServer) deletePolicies(w http.ResponseWriter, r *http
 	}
 
 	for _, policyName := range policyNames {
-		if err := data.RemoveAcl(policyName); err != nil {
+		if err := wsg.db.RemoveAcl(policyName); err != nil {
 			log.Println("Unable to set remove policy: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -85,7 +84,7 @@ func (wsg *WagControlSocketServer) deletePolicies(w http.ResponseWriter, r *http
 }
 
 func (wsg *WagControlSocketServer) groups(w http.ResponseWriter, r *http.Request) {
-	groups, err := data.GetGroups()
+	groups, err := wsg.db.GetGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -107,7 +106,7 @@ func (wsg *WagControlSocketServer) newGroup(w http.ResponseWriter, r *http.Reque
 
 	}
 
-	if err := data.CreateGroup(gData.Group, gData.AddedMembers); err != nil {
+	if err := wsg.db.CreateGroup(gData.Group, gData.AddedMembers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -126,12 +125,12 @@ func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := data.RemoveUserFromGroup(gdata.RemovedMembers, gdata.Group); err != nil {
+	if err := wsg.db.RemoveUserFromGroup(gdata.RemovedMembers, gdata.Group); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := data.AddUserToGroups(gdata.AddedMembers, []string{gdata.Group}, false); err != nil {
+	if err := wsg.db.AddUserToGroups(gdata.AddedMembers, []string{gdata.Group}, false); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -151,7 +150,7 @@ func (wsg *WagControlSocketServer) deleteGroup(w http.ResponseWriter, r *http.Re
 	}
 
 	for _, groupName := range groupNames {
-		if err := data.RemoveGroup(groupName); err != nil {
+		if err := wsg.db.RemoveGroup(groupName); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -176,7 +175,7 @@ func (wsg *WagControlSocketServer) getDBKey(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	data, err := data.Get(key)
+	data, err := wsg.db.Get(key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -199,7 +198,7 @@ func (wsg *WagControlSocketServer) putDBKey(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err := data.Put(toWrite.Key, toWrite.Value)
+	err := wsg.db.Put(toWrite.Key, toWrite.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

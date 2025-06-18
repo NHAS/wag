@@ -56,7 +56,26 @@ func chooseInitalIP(cidr *net.IPNet) (net.IP, error) {
 	return incrementIP(cidr.IP, uint(addressAttempt)), nil
 }
 
-func getNextIP(subnet string) (string, error) {
+// https://github.com/IBM/netaddr/blob/master/net_utils.go#L73
+func broadcastAddr(n *net.IPNet) net.IP {
+	// The golang net package doesn't make it easy to calculate the broadcast address. :(
+	var broadcast net.IP
+	switch len(n.IP) {
+	case 4:
+		broadcast = net.ParseIP("0.0.0.0").To4()
+	case 16:
+		broadcast = net.ParseIP("::")
+	default:
+		panic("Bad value for size")
+	}
+
+	for i := 0; i < len(n.IP); i++ {
+		broadcast[i] = n.IP[i] | ^n.Mask[i]
+	}
+	return broadcast
+}
+
+func (d *database) getNextIP(subnet string) (string, error) {
 
 	serverIP, cidr, err := net.ParseCIDR(subnet)
 	if err != nil {
@@ -68,7 +87,7 @@ func getNextIP(subnet string) (string, error) {
 		return "", err
 	}
 
-	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 3)
+	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 3)
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +103,7 @@ func getNextIP(subnet string) (string, error) {
 			addr = incrementIP(addr, 1)
 		}
 
-		txn := etcd.Txn(context.Background())
+		txn := d.etcd.Txn(context.Background())
 		txn.If(
 			clientv3util.KeyMissing(deviceRef+addr.String()),
 			clientv3util.KeyMissing("ip-hold-"+addr.String()),
@@ -114,23 +133,4 @@ func getNextIP(subnet string) (string, error) {
 
 	}
 
-}
-
-// https://github.com/IBM/netaddr/blob/master/net_utils.go#L73
-func broadcastAddr(n *net.IPNet) net.IP {
-	// The golang net package doesn't make it easy to calculate the broadcast address. :(
-	var broadcast net.IP
-	switch len(n.IP) {
-	case 4:
-		broadcast = net.ParseIP("0.0.0.0").To4()
-	case 16:
-		broadcast = net.ParseIP("::")
-	default:
-		panic("Bad value for size")
-	}
-
-	for i := 0; i < len(n.IP); i++ {
-		broadcast[i] = n.IP[i] | ^n.Mask[i]
-	}
-	return broadcast
 }

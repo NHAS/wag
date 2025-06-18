@@ -28,22 +28,22 @@ type CloudflareToken struct {
 	APIToken string `json:"api_token" sensitive:"true"`
 }
 
-func GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
-	return get[CloudflareToken](AcmeDNS01CloudflareAPIToken)
+func (d *database) GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
+	return get[CloudflareToken](d.etcd, AcmeDNS01CloudflareAPIToken)
 }
 
-func SetAcmeDNS01CloudflareToken(token string) error {
+func (d *database) SetAcmeDNS01CloudflareToken(token string) error {
 	var newToken CloudflareToken
 	newToken.APIToken = token
 
-	return set(AcmeDNS01CloudflareAPIToken, true, newToken)
+	return set(d.etcd, AcmeDNS01CloudflareAPIToken, true, newToken)
 }
 
-func GetAcmeEmail() (string, error) {
-	return get[string](AcmeEmailKey)
+func (d *database) GetAcmeEmail() (string, error) {
+	return get[string](d.etcd, AcmeEmailKey)
 }
 
-func SetAcmeEmail(email string) error {
+func (d *database) SetAcmeEmail(email string) error {
 
 	// allow unsetting value
 	if email != "" {
@@ -53,10 +53,10 @@ func SetAcmeEmail(email string) error {
 		}
 	}
 
-	return set(AcmeEmailKey, true, email)
+	return set(d.etcd, AcmeEmailKey, true, email)
 }
 
-func SetAcmeProvider(providerURL string) error {
+func (d *database) SetAcmeProvider(providerURL string) error {
 
 	// we're allowing users to unset a provider url
 	if providerURL != "" {
@@ -74,25 +74,27 @@ func SetAcmeProvider(providerURL string) error {
 		}
 	}
 
-	return set(AcmeProviderKey, true, providerURL)
+	return set(d.etcd, AcmeProviderKey, true, providerURL)
 }
 
-func GetAcmeProvider() (string, error) {
-	return get[string](AcmeProviderKey)
+func (d *database) GetAcmeProvider() (string, error) {
+	return get[string](d.etcd, AcmeProviderKey)
 }
 
 type CertMagicStore struct {
 	basePath string
 	locks    map[string]*concurrency.Mutex
 	mapMutex *sync.RWMutex
+	etcd     *clientv3.Client
 }
 
-func NewCertStore(basePath string) *CertMagicStore {
+func NewCertStore(etcd *clientv3.Client, basePath string) *CertMagicStore {
 	if !strings.HasPrefix(basePath, string(os.PathSeparator)) {
 		basePath = string(os.PathSeparator) + basePath
 	}
 
 	c := &CertMagicStore{
+		etcd:     etcd,
 		basePath: basePath,
 		locks:    make(map[string]*concurrency.Mutex),
 		mapMutex: &sync.RWMutex{},
@@ -104,7 +106,7 @@ func NewCertStore(basePath string) *CertMagicStore {
 func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
 	keyPath := path.Join(cms.basePath, key)
 
-	res, err := etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
+	res, err := cms.etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
 	if err != nil {
 		return false
 	}
@@ -127,7 +129,7 @@ func (cms *CertMagicStore) Lock(ctx context.Context, name string) error {
 		return nil
 	}
 
-	session, err := concurrency.NewSession(etcd, concurrency.WithContext(ctx))
+	session, err := concurrency.NewSession(cms.etcd, concurrency.WithContext(ctx))
 	if err != nil {
 
 		return err
@@ -169,14 +171,14 @@ func (cms *CertMagicStore) Unlock(ctx context.Context, name string) error {
 func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) error {
 	keyPath := path.Join(cms.basePath, key)
 
-	_, err := etcd.Put(ctx, keyPath, string(value))
+	_, err := cms.etcd.Put(ctx, keyPath, string(value))
 	return err
 }
 
 func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error) {
 	keyPath := path.Join(cms.basePath, key)
 
-	res, err := etcd.Get(ctx, keyPath)
+	res, err := cms.etcd.Get(ctx, keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +198,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 
 	keyPath := path.Join(cms.basePath, key)
 
-	delResp, err := etcd.Delete(ctx, keyPath)
+	delResp, err := cms.etcd.Delete(ctx, keyPath)
 	if err != nil {
 
 		return err
@@ -208,7 +210,7 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 			keyPath = keyPath + string(os.PathSeparator)
 		}
 
-		delResp, err := etcd.Delete(ctx, keyPath, clientv3.WithPrefix())
+		delResp, err := cms.etcd.Delete(ctx, keyPath, clientv3.WithPrefix())
 		if err != nil {
 			return err
 		}
@@ -227,7 +229,7 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 
 	keyPath := path.Join(cms.basePath, pathPrefix)
 
-	response, err := etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	response, err := cms.etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +273,7 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 
 	keyPath := path.Join(cms.basePath, key)
 
-	res, err := etcd.Get(ctx, keyPath)
+	res, err := cms.etcd.Get(ctx, keyPath)
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
@@ -289,7 +291,7 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 	}
 
 	// look for directory
-	res, err = etcd.Get(ctx, keyPath+string(os.PathSeparator), clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
+	res, err = cms.etcd.Get(ctx, keyPath+string(os.PathSeparator), clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}

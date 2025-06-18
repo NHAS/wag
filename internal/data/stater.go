@@ -39,7 +39,7 @@ type Watcher[T any] struct {
 	listenerKeys []string
 }
 
-func WatchMulti[T any](
+func WatchMulti[T any](etcd *clientv3.Client,
 	Keys []string,
 	WatchPrefix bool,
 	ResolverFunc func(key string, eventType EventType, newState, previousState T) error) (*Watcher[T], error) {
@@ -103,7 +103,7 @@ func WatchMulti[T any](
 				if !hasPrevious {
 					p = nil
 				}
-				EventsQueue.Write(NewGeneralEvent(eventType, key, &state, p))
+				EventsQueue.Write(newGeneralEvent(eventType, key, &state, p))
 			}()
 			err := ResolverFunc(key, eventType, state, previous)
 

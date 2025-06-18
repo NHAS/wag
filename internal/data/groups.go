@@ -25,7 +25,7 @@ type MembershipInfo struct {
 }
 
 // joined is a unix timestamp
-func generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool, groupIsNew bool) clientv3.Op {
+func (d *database) generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool, groupIsNew bool) clientv3.Op {
 
 	membership := MembershipInfo{
 		Joined: joined,
@@ -55,7 +55,7 @@ func generateOpsForGroupAddition(joined int64, group string, usernames []string,
 	return clientv3.OpTxn(checks, operations, nil)
 }
 
-func CreateGroup(group string, initialMembers []string) error {
+func (d *database) CreateGroup(group string, initialMembers []string) error {
 
 	if strings.Contains(group, "-") {
 		return errors.New("group name cannot contain -")
@@ -73,9 +73,9 @@ func CreateGroup(group string, initialMembers []string) error {
 		clientv3.OpPut(fmt.Sprintf("%s%s", GroupsPrefix, group), string(groupInfoBytes)),
 	}
 
-	operations = append(operations, generateOpsForGroupAddition(info.Created, group, initialMembers, false, true))
+	operations = append(operations, d.generateOpsForGroupAddition(info.Created, group, initialMembers, false, true))
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing(GroupsPrefix + group))
 	txn.Then(
 		operations...,
@@ -93,9 +93,9 @@ func CreateGroup(group string, initialMembers []string) error {
 	return nil
 }
 
-func GetGroups() (result []*control.GroupData, err error) {
+func (d *database) GetGroups() (result []*control.GroupData, err error) {
 
-	resp, err := etcd.Get(context.Background(), GroupsIndexPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	resp, err := d.etcd.Get(context.Background(), GroupsIndexPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get groups index from etcd: %s", err)
 	}
@@ -117,7 +117,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 		ops = append(ops, clientv3.OpGet(fmt.Sprintf("%s%s-members-", GroupsPrefix, groupName), clientv3.WithPrefix()))
 	}
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(ops...)
 	response, err := txn.Commit()
 	if err != nil {
@@ -128,7 +128,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 	for _, resp := range response.Responses {
 		kvs := resp.GetResponseRange().Kvs
 		for _, kv := range kvs {
-			resultParts, err := SplitKey(3, GroupsPrefix, string(kv.Key))
+			resultParts, err := d.SplitKey(3, GroupsPrefix, string(kv.Key))
 			if err != nil {
 				log.Println("failed to get group: ", err)
 				continue
@@ -138,7 +138,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 			var info MembershipInfo
 			err = json.Unmarshal(kv.Value, &info)
 			if err != nil {
-				RaiseError(fmt.Errorf("failed to unmarshal membership info from %s: %w", kv.Key, err), []byte(""))
+				d.RaiseError(fmt.Errorf("failed to unmarshal membership info from %s: %w", kv.Key, err), []byte(""))
 				continue
 			}
 
@@ -159,7 +159,7 @@ func GetGroups() (result []*control.GroupData, err error) {
 	return result, nil
 }
 
-func RemoveGroup(group string) error {
+func (d *database) RemoveGroup(group string) error {
 
 	if group == "*" {
 		return fmt.Errorf("cannot delete default group")
@@ -167,7 +167,7 @@ func RemoveGroup(group string) error {
 
 	// Get main group info key
 	groupKey := fmt.Sprintf("%s%s", GroupsPrefix, group)
-	groupResp, err := etcd.Get(context.Background(), groupKey)
+	groupResp, err := d.etcd.Get(context.Background(), groupKey)
 	if err != nil {
 		return fmt.Errorf("failed to remove group %q, getting group metadata failed: %w", group, err)
 	}
@@ -178,7 +178,7 @@ func RemoveGroup(group string) error {
 
 	// Get all members
 	membersKey := fmt.Sprintf("%s%s-members-", GroupsPrefix, group)
-	membersResp, err := etcd.Get(
+	membersResp, err := d.etcd.Get(
 		context.Background(),
 		membersKey,
 		clientv3.WithPrefix(),
@@ -201,7 +201,7 @@ func RemoveGroup(group string) error {
 		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, user, group)))
 	}
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyExists(groupKey)) // Ensure group still exists
 	txn.Then(
 		ops...,
@@ -219,10 +219,10 @@ func RemoveGroup(group string) error {
 	return nil
 }
 
-func GetUserGroupMembership(username string) ([]string, error) {
+func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 
 	membershipsKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
-	response, err := etcd.Get(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	response, err := d.etcd.Get(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get membership information: %s", err)
 	}
@@ -240,10 +240,10 @@ func GetUserGroupMembership(username string) ([]string, error) {
 	return groupMembership, nil
 }
 
-func RemoveUserAllGroups(username string) error {
+func (d *database) RemoveUserAllGroups(username string) error {
 
 	membershipsKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
-	response, err := etcd.Delete(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithKeysOnly())
+	response, err := d.etcd.Delete(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithKeysOnly())
 	if err != nil {
 		return fmt.Errorf("failed to get membership information: %s", err)
 	}
@@ -262,14 +262,14 @@ func RemoveUserAllGroups(username string) error {
 	// delete all subkeys for the user membership information
 	ops = append(ops, clientv3.OpDelete(membershipsKey, clientv3.WithPrefix()))
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(ops...)
 
 	_, err = txn.Commit()
 	return err
 }
 
-func RemoveUserFromGroup(usernames []string, group string) error {
+func (d *database) RemoveUserFromGroup(usernames []string, group string) error {
 	if group == "*" {
 		return fmt.Errorf("cannot remove user from default group")
 	}
@@ -280,7 +280,7 @@ func RemoveUserFromGroup(usernames []string, group string) error {
 		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username)))
 	}
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(
 		ops...,
 	)
@@ -293,17 +293,17 @@ func RemoveUserFromGroup(usernames []string, group string) error {
 	return nil
 }
 
-func AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
+func (d *database) AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
 
 	addition := time.Now().Unix()
 
 	ops := []clientv3.Op{}
 	// Ugh O(NxM)
 	for _, group := range groups {
-		ops = append(ops, generateOpsForGroupAddition(addition, group, usernames, fromSSO, false))
+		ops = append(ops, d.generateOpsForGroupAddition(addition, group, usernames, fromSSO, false))
 	}
 
-	txn := etcd.Txn(context.Background())
+	txn := d.etcd.Txn(context.Background())
 	txn.Then(ops...)
 
 	_, err := txn.Commit()
@@ -314,12 +314,12 @@ func AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
 	return nil
 }
 
-func SetUserGroupMembership(username string, newGroups []string, fromSSO bool) error {
+func (d *database) SetUserGroupMembership(username string, newGroups []string, fromSSO bool) error {
 
-	err := RemoveUserAllGroups(username)
+	err := d.RemoveUserAllGroups(username)
 	if err != nil {
 		return fmt.Errorf("failed to remove user groups to set them to specific list: %w", err)
 	}
 
-	return AddUserToGroups([]string{username}, newGroups, fromSSO)
+	return d.AddUserToGroups([]string{username}, newGroups, fromSSO)
 }
