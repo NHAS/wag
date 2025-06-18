@@ -173,7 +173,7 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, error
 			if wasDead {
 
 				if !config.Values.Clustering.Witness {
-					routerFw, err = router.New(!noIptables)
+					routerFw, err = router.New(db, !noIptables)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start router: %v", err)
 						return
@@ -191,14 +191,14 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, error
 						return
 					}
 
-					enrolmentServer, err = enrolment.New(routerFw, errorChan)
+					enrolmentServer, err = enrolment.New(db, routerFw, errorChan)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start enrolment server: %v", err)
 						return
 					}
 
 					if config.Values.Webserver.Management.Enabled {
-						adminUI, err = adminui.New(routerFw, errorChan)
+						adminUI, err = adminui.New(db, routerFw, errorChan)
 						if err != nil {
 							errorChan <- fmt.Errorf("unable to start management web server: %v", err)
 							return

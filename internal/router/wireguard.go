@@ -199,7 +199,7 @@ func (f *Firewall) endpointChange(e device.Event) {
 			f.currentlyConnectedPeers[device.address.String()] = udpAddr.String()
 
 			// Otherwise, just update the node association
-			err = data.UpdateDeviceConnectionDetails(device.address.String(), udpAddr)
+			err = f.db.UpdateDeviceConnectionDetails(device.address.String(), udpAddr)
 			if err != nil {
 				log.Printf("unable to update device (%s:%s) endpoint: %s", device.address, device.username, err)
 			}
@@ -387,7 +387,7 @@ func (f *Firewall) setupDevices(devices []data.Device) error {
 			PresharedKey:      psk,
 		}
 
-		if device.AssociatedNode == data.GetServerID() {
+		if device.AssociatedNode == f.db.GetCurrentNodeID() {
 			pc.Endpoint = device.Endpoint
 		}
 

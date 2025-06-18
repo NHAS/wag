@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/safedecoder"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -161,5 +160,5 @@ func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
 
 	b, _ := json.Marshal(t)
 
-	err = data.RaiseError(errors.New(t.Message), b)
+	err = au.db.RaiseError(errors.New(t.Message), b)
 }

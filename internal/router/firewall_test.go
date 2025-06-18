@@ -1127,7 +1127,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err := data.Load("", true)
+	db, err := data.Load("", true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -1149,7 +1149,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	data.TearDown()
+	db.TearDown()
 
 	testFw.Close()
 

@@ -37,8 +37,13 @@ type BootstrapRepositoryReader interface {
 	GetInitialData() (users []data.UserModel, devices []data.Device, err error)
 }
 
+type EventQueueReader interface {
+	GetEventQueue() []data.GeneralEvent
+}
+
 type Database interface {
 	BootstrapRepositoryReader
+	EventQueueReader
 
 	ConfigRepository
 

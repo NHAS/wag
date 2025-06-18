@@ -93,7 +93,7 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 			log.Println("replaced peer public key: ", current.Address)
 		}
 
-		lockout, err := data.GetLockout()
+		lockout, err := f.db.GetLockout()
 		if err != nil {
 			return fmt.Errorf("cannot get lockout: %s", err)
 		}
@@ -147,7 +147,7 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 		}
 
 		// If the authorisation state has changed and is not disabled
-		if data.HasDeviceAuthorised(current, previous) {
+		if f.db.HasDeviceAuthorised(current, previous) {
 			err := f.SetAuthorized(current.Address, current.AssociatedNode)
 
 			if err != nil {
@@ -224,7 +224,7 @@ func (f *Firewall) aclsChanges(_ string, et data.EventType, _, _ acls.Acl) error
 
 func (f *Firewall) groupChanges(key string, et data.EventType, _, _ any) error {
 
-	keyParts, err := data.SplitKey(2, data.GroupMembershipPrefix, key)
+	keyParts, err := f.db.SplitKey(2, data.GroupMembershipPrefix, key)
 	if err != nil {
 		return fmt.Errorf("key was incorrect, this is a bug: %w", err)
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control/wagctl"
@@ -47,6 +48,8 @@ type AdminUI struct {
 	serverID       string
 	wagVersion     string
 	csrfHeaderName string
+
+	db interfaces.Database
 }
 
 type clonerWriter struct {
@@ -57,13 +60,18 @@ func (c *clonerWriter) Write(b []byte) (int, error) {
 	return c.w.Write(string(b))
 }
 
-func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
+func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
 
 	if firewall == nil {
 		panic("firewall was nil")
 	}
 
+	if db == nil {
+		panic("invalid database passed, was nil")
+	}
+
 	var adminUI AdminUI
+	adminUI.db = db
 	adminUI.firewall = firewall
 	adminUI.logQueue = &clonerWriter{
 		queue.NewQueue[string](40),
@@ -158,12 +166,12 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 	}
 
 	adminUI.clusterState = "starting"
-	if data.HasLeader() {
+	if db.ClusterHasLeader() {
 		adminUI.clusterState = "healthy"
 	}
-	adminUI.serverID = data.GetServerID().String()
+	adminUI.serverID = db.GetCurrentNodeID().String()
 
-	adminUI.listenerEvents.clusterHealth, err = data.RegisterClusterHealthListener(adminUI.watchClusterHealth)
+	adminUI.listenerEvents.clusterHealth, err = db.RegisterClusterHealthListener(adminUI.watchClusterHealth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register cluster health event listener: %s", err)
 	}
@@ -199,12 +207,12 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 		func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		},
-		func(w http.ResponseWriter, r *http.Request, dAdmin data.AdminUserDTO) bool {
+		func(w http.ResponseWriter, r *http.Request, d data.AdminUserDTO) bool {
 
 			key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
 			if adminDetails != nil {
 				if adminDetails.Type == "" || adminDetails.Type == data.LocalUser {
-					d, err := data.GetAdminUser(dAdmin.Username)
+					d, err := db.GetAdminUser(d.Username)
 					if err != nil {
 						adminUI.sessionManager.DeleteSession(w, r)
 						http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -287,7 +295,7 @@ func New(firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) 
 
 	go adminUI.monitorClusterMembers(notifications)
 
-	should, err := data.ShouldCheckUpdates()
+	should, err := db.ShouldCheckUpdates()
 	if err == nil && should {
 		adminUI.startUpdateChecker(notifications)
 	}
@@ -383,26 +391,26 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(loginResponse)
 	}()
 
-	err = data.IncrementAdminAuthenticationAttempt(loginDetails.Username)
+	err = au.db.IncrementAdminAuthenticationAttempt(loginDetails.Username)
 	if err != nil {
 		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
 		return
 	}
 
-	err = data.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
+	err = au.db.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
 	if err != nil {
 		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
 
 		return
 	}
 
-	if err := data.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
+	if err := au.db.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
 		log.Println("unable to login: ", err)
 
 		return
 	}
 
-	loginResponse.User, err = data.GetAdminUser(loginDetails.Username)
+	loginResponse.User, err = au.db.GetAdminUser(loginDetails.Username)
 	if err != nil {
 		log.Println("unable to login: ", err)
 		return
@@ -422,11 +430,11 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
-		adminLogin, err := data.GetAdminUser(info.Subject)
+		adminLogin, err := au.db.GetAdminUser(info.Subject)
 		if err != nil {
 			log.Printf("new admin user logged in via oidc: %q", info.PreferredUsername)
 
-			adminLogin, err = data.CreateOidcAdminUser(info.PreferredUsername, info.Subject)
+			adminLogin, err = au.db.CreateOidcAdminUser(info.PreferredUsername, info.Subject)
 			if err != nil {
 				log.Println("unable to create oidc admin entry: ", err)
 				http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -436,7 +444,7 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 		log.Println(info.PreferredUsername, info.Subject, r.RemoteAddr, "oidc admin logged in")
 
-		err = data.SetLastLoginInformation(info.Subject, r.RemoteAddr)
+		err = au.db.SetLastLoginInformation(info.Subject, r.RemoteAddr)
 		if err != nil {
 			log.Println("Failed to set last log in information: ", err)
 		}
@@ -484,7 +492,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.CompareAdminKeys(u.Username, req.CurrentPassword)
+	err = au.db.CompareAdminKeys(u.Username, req.CurrentPassword)
 	if err != nil {
 		log.Println("bad password for admin (password change)")
 		err = errors.New("current password is incorrect")
@@ -492,7 +500,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.SetAdminPassword(u.Username, req.NewPassword)
+	err = au.db.SetAdminPassword(u.Username, req.NewPassword)
 	if err != nil {
 		log.Println("unable to set new admin password for ", u.Username)
 

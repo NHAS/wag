@@ -4,6 +4,7 @@ import "github.com/NHAS/wag/internal/data"
 
 type AdminWriter interface {
 	CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error
+	CreateOidcAdminUser(username, guid string) (data.AdminUserDTO, error)
 
 	DeleteAdminUser(username string) error
 

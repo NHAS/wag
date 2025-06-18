@@ -14,11 +14,13 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NHAS/autoetcdtls/manager"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
+	"github.com/NHAS/wag/pkg/queue"
 	_ "github.com/mattn/go-sqlite3"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
@@ -37,6 +39,15 @@ var (
 type database struct {
 	etcd       *clientv3.Client
 	etcdServer *embed.Etcd
+
+	lck         sync.RWMutex
+	contextMaps map[string]context.CancelFunc
+
+	clusterHealthLck       sync.RWMutex
+	clusterHealthListeners map[string]func(string)
+
+	eventsQueue *queue.Queue[GeneralEvent]
+	exit        chan bool
 }
 
 func (d *database) parseUrls(values ...string) []url.URL {
@@ -86,7 +97,14 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 		}
 	}
 
-	db = &database{}
+	db = &database{
+		contextMaps: map[string]context.CancelFunc{},
+
+		clusterHealthListeners: map[string]func(string){},
+
+		eventsQueue: queue.NewQueue[GeneralEvent](40),
+		exit:        make(chan bool),
+	}
 
 	part, err := utils.GenerateRandomHex(10)
 	if err != nil {
@@ -163,6 +181,10 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 	go db.checkClusterHealth()
 
 	return db, nil
+}
+
+func (d *database) GetEventQueue() []GeneralEvent {
+	return d.eventsQueue.ReadAll()
 }
 
 func (d *database) loadInitialSettings() error {
@@ -442,7 +464,7 @@ func putIfNotFound[T any](etcd *clientv3.Client, key string, value T, set string
 }
 
 func (d *database) TearDown() error {
-	close(exit)
+	close(d.exit)
 	if d.etcdServer != nil {
 
 		d.etcd.Close()

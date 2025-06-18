@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/gaissmai/bart"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -50,6 +51,8 @@ type Firewall struct {
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
+
+	db interfaces.Database
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -109,12 +112,12 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 	if !ok {
 		return nil
 	}
-	userAcls := data.GetEffectiveAcl(username)
+	userAcls := f.db.GetEffectiveAcl(username)
 
 	rules, errs := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
 	if len(errs) != 0 {
 		log.Println("Parsing rules for user had errors: ", errs)
-		data.RaiseError(errors.Join(errs...), []byte("Could not refresh all acls for user: "+username))
+		f.db.RaiseError(errors.Join(errs...), []byte("Could not refresh all acls for user: "+username))
 	}
 
 	// Clear lpm trie
@@ -177,7 +180,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	if f.inactivityTimeout == -1 || !device.inactive {
 		// It doesnt matter if this gets race conditioned
-		device.SetActive(f.inactivityTimeout)
+		device.SetActive(f.db, f.inactivityTimeout)
 	} else {
 		authorized = false
 	}
@@ -221,7 +224,7 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 	// If the peer roams away from us, unset the endpoint in wireguard to make sure the peer watcher will absolutely register a change if they roam back
 	var endpoint *net.UDPAddr = nil
 
-	if device.AssociatedNode == data.GetServerID() {
+	if device.AssociatedNode == f.db.GetCurrentNodeID() {
 		endpoint = device.Endpoint
 	}
 
@@ -240,10 +243,10 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 		return fmt.Errorf("device %q was not found", address)
 	}
 
-	if device.AssociatedNode == data.GetServerID() {
+	if device.AssociatedNode == f.db.GetCurrentNodeID() {
 		// TODO figure out a better way of doing this
 		// when a client shifts over to us, make sure we set the last packet time to something they can actually use
-		d.SetActive(f.inactivityTimeout)
+		d.SetActive(f.db, f.inactivityTimeout)
 	}
 
 	d.associatedNode = device.AssociatedNode
@@ -270,7 +273,7 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 		return fmt.Errorf("device %q was not found", address)
 	}
 
-	maxSession, err := data.GetSessionLifetimeMinutes()
+	maxSession, err := f.db.GetSessionLifetimeMinutes()
 	if err != nil {
 		return err
 	}
@@ -285,7 +288,7 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 
 	device.sessionExpiry = time.Now().Add(time.Duration(timeToSet) * time.Minute)
 
-	device.SetActive(f.inactivityTimeout)
+	device.SetActive(f.db, f.inactivityTimeout)
 
 	device.associatedNode = node
 
@@ -387,12 +390,12 @@ func (f *Firewall) RefreshConfiguration() []error {
 		return []error{errors.New("firewall instance has been closed")}
 	}
 
-	allUsers, err := data.GetAllUsers()
+	allUsers, err := f.db.GetAllUsers()
 	if err != nil {
 		return []error{err}
 	}
 
-	inactivityTimeoutMinutes, err := data.GetSessionInactivityTimeoutMinutes()
+	inactivityTimeoutMinutes, err := f.db.GetSessionInactivityTimeoutMinutes()
 	if err != nil {
 		return []error{err}
 	}
@@ -538,7 +541,7 @@ func (f *Firewall) GetRules() (map[string]FirewallRules, error) {
 	f.RLock()
 	defer f.RUnlock()
 
-	users, err := data.GetAllUsers()
+	users, err := f.db.GetAllUsers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all users from db: %w", err)
 	}
@@ -592,16 +595,19 @@ type FirewallDevice struct {
 	username string
 }
 
-func (fwd *FirewallDevice) timeout() {
-	fwd.inactive = true
-	err := data.DeauthenticateDevice(fwd.address.String())
-	if err != nil {
-		log.Println("failed to deauthenticate device on inactivity timeout: ", err)
+func (fwd *FirewallDevice) timeout(db interfaces.Database) func() {
+
+	return func() {
+		fwd.inactive = true
+		err := db.DeauthenticateDevice(fwd.address.String())
+		if err != nil {
+			log.Println("failed to deauthenticate device on inactivity timeout: ", err)
+		}
+		log.Printf("Device %q %q became inactive", fwd.username, fwd.address)
 	}
-	log.Printf("Device %q %q became inactive", fwd.username, fwd.address)
 }
 
-func (fwd *FirewallDevice) SetActive(duration time.Duration) {
+func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Duration) {
 	fwd.inactive = false
 
 	if duration == -1 {
@@ -610,7 +616,7 @@ func (fwd *FirewallDevice) SetActive(duration time.Duration) {
 	}
 
 	if fwd.inactiveTimer == nil {
-		fwd.inactiveTimer = time.AfterFunc(duration, fwd.timeout)
+		fwd.inactiveTimer = time.AfterFunc(duration, fwd.timeout(db))
 		return
 	}
 

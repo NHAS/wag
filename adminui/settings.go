@@ -54,7 +54,7 @@ func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = data.SetGeneralSettings(generalSettings)
+	err = au.db.SetGeneralSettings(generalSettings)
 	if err != nil {
 		log.Println("failed to get general settings: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -88,7 +88,7 @@ func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.SetLoginSettings(loginSettings)
+	err = au.db.SetLoginSettings(loginSettings)
 	if err != nil {
 		log.Println("failed to set login settings: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -111,7 +111,7 @@ func (au *AdminUI) getAllMfaMethods(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) getAllWebserverConfigs(w http.ResponseWriter, _ *http.Request) {
 
-	confs, err := data.GetAllWebserverConfigs()
+	confs, err := au.db.GetAllWebserverConfigs()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -153,7 +153,7 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	details, err := data.GetWebserverConfig(data.Webserver(s.ServerName))
+	details, err := au.db.GetWebserverConfig(data.Webserver(s.ServerName))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		err = fmt.Errorf("unable to get tunnel webserver configuration to check ip: %w", err)
@@ -205,7 +205,7 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		PrivateKeyPEM:  s.PrivateKeyPEM,
 	}
 
-	err = data.SetWebserverConfig(data.Webserver(s.ServerName), serverUpdate)
+	err = au.db.SetWebserverConfig(data.Webserver(s.ServerName), serverUpdate)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -219,12 +219,12 @@ func (au *AdminUI) getAcmeDetails(w http.ResponseWriter, _ *http.Request) {
 		err     error
 	)
 
-	cfToken, err := data.GetAcmeDNS01CloudflareToken()
+	cfToken, err := au.db.GetAcmeDNS01CloudflareToken()
 	results.CloudflareToken = (err == nil && cfToken.APIToken != "")
 
-	results.ProviderURL, _ = data.GetAcmeProvider()
+	results.ProviderURL, _ = au.db.GetAcmeProvider()
 
-	results.Email, _ = data.GetAcmeEmail()
+	results.Email, _ = au.db.GetAcmeEmail()
 
 	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode(results)
@@ -245,7 +245,7 @@ func (au *AdminUI) editAcmeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.SetAcmeEmail(email.Data)
+	err = au.db.SetAcmeEmail(email.Data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -268,7 +268,7 @@ func (au *AdminUI) editAcmeProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = data.SetAcmeProvider(provider.Data)
+	err = au.db.SetAcmeProvider(provider.Data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -291,7 +291,7 @@ func (au *AdminUI) editCloudflareApiToken(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = data.SetAcmeDNS01CloudflareToken(token.Data)
+	err = au.db.SetAcmeDNS01CloudflareToken(token.Data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

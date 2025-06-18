@@ -7,28 +7,27 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 	var members []MembershipDTO
-	for _, member := range data.GetMembers() {
-		drained, err := data.IsDrained(member.ID.String())
+	for _, member := range au.db.GetClusterMembers() {
+		drained, err := au.db.IsClusterNodeDrained(member.ID.String())
 		if err != nil {
 			log.Println("unable to get drained state: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		witness, err := data.IsWitness(member.ID.String())
+		witness, err := au.db.IsClusterNodeWitness(member.ID.String())
 		if err != nil {
 			log.Println("unable to witness state: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		version, err := data.GetVersion(member.ID.String())
+		version, err := au.db.GetClusterNodeVersion(member.ID.String())
 		if err != nil {
 			log.Println("unable to get version: ", err)
 			version = "unknown"
@@ -45,7 +44,7 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 
 		ping := ""
 		if status != "learner" {
-			lastPing, err := data.GetLastPing(member.ID.String())
+			lastPing, err := au.db.GetClusterNodeLastPing(member.ID.String())
 			if err != nil {
 				log.Println("unable to fetch last ping: ", err)
 				status = "no last ping"
@@ -70,8 +69,8 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 			IsLearner:     member.IsLearner,
 			IsDrained:     drained,
 			IsWitness:     witness,
-			IsCurrentNode: data.GetServerID() == member.ID,
-			IsLeader:      data.GetLeader() == member.ID,
+			IsCurrentNode: au.db.GetCurrentNodeID() == member.ID,
+			IsLeader:      au.db.GetClusterLeader() == member.ID,
 			Status:        status,
 			Ping:          ping,
 			Version:       version,
@@ -105,7 +104,7 @@ func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newNodeResp.JoinToken, err = data.AddMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
+	newNodeResp.JoinToken, err = au.db.AddClusterMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
 	if err != nil {
 		log.Println("failed to add member: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -119,7 +118,7 @@ func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		es = EventsResponseDTO{
-			EventLog: data.EventsQueue.ReadAll(),
+			EventLog: au.db.GetEventQueue(),
 		}
 		err error
 	)
@@ -129,7 +128,7 @@ func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	es.Errors, err = data.GetAllErrors()
+	es.Errors, err = au.db.GetAllErrors()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -157,7 +156,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 	case "promote":
 		log.Println("promoting node ", ncR.Node)
 
-		err = data.PromoteMember(ncR.Node)
+		err = au.db.PromoteClusterMember(ncR.Node)
 		if err != nil {
 			log.Println("failed to promote member: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -166,7 +165,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 	case "drain", "restore":
 		log.Println(ncR.Action, "node", ncR.Node)
 		// Doesnt do anything to the node itself, just marks it as unhealthy so load balancers will no longer direct clients its way.
-		err = data.SetDrained(ncR.Node, ncR.Action == "drain")
+		err = au.db.SetDrained(ncR.Node, ncR.Action == "drain")
 		if err != nil {
 			log.Println("failed to set/reset node drain: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -174,7 +173,7 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 		}
 	case "stepdown":
 		log.Println("node instructed to step down from leadership")
-		err = data.StepDown()
+		err = au.db.ClusterNodeStepDown()
 		if err != nil {
 			log.Println("failed to step down from leadership makenode: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -184,14 +183,14 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 		log.Println("attempting to remove node ", ncR.Node)
 
-		if data.GetServerID().String() == ncR.Node {
+		if au.db.GetCurrentNodeID().String() == ncR.Node {
 			log.Println("user tried to remove current operating node from cluster")
 			err = errors.New("cannot remove current node")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		err = data.RemoveMember(ncR.Node)
+		err = au.db.RemoveClusterMember(ncR.Node)
 		if err != nil {
 			log.Println("failed to remove member from cluster: ", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -220,7 +219,7 @@ func (au *AdminUI) clusterEventsAcknowledge(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err = data.ResolveError(acknowledgeError.ErrorID)
+	err = au.db.ResolveError(acknowledgeError.ErrorID)
 	if err != nil {
 		log.Println("failed to resolve error: ", err)
 		w.WriteHeader(http.StatusInternalServerError)

@@ -7,20 +7,20 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"golang.zx2c4.com/wireguard/tun"
 )
 
-func newDebugFirewall(testDev tun.Device) (*Firewall, error) {
-	return newFw(true, false, testDev)
+func newDebugFirewall(db interfaces.Database, testDev tun.Device) (*Firewall, error) {
+	return newFw(db, true, false, testDev)
 
 }
 
-func New(iptables bool) (*Firewall, error) {
-	return newFw(false, iptables, nil)
+func New(db interfaces.Database, iptables bool) (*Firewall, error) {
+	return newFw(db, false, iptables, nil)
 }
 
-func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
+func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
 
 	log.Println("[ROUTER] Starting up")
 	fw = &Firewall{
@@ -36,9 +36,11 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 
 		currentlyConnectedPeers: make(map[string]string),
 		hasIptables:             iptables,
+
+		db: db,
 	}
 
-	inactivityTimeoutInt, err := data.GetSessionInactivityTimeoutMinutes()
+	inactivityTimeoutInt, err := db.GetSessionInactivityTimeoutMinutes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session inactivity timeout: %s", err)
 	}
@@ -49,10 +51,10 @@ func newFw(testing, iptables bool, testDev tun.Device) (fw *Firewall, err error)
 		fw.inactivityTimeout = -1
 	}
 
-	fw.nodeID = data.GetServerID()
+	fw.nodeID = db.GetCurrentNodeID()
 	fw.deviceName = config.Values.Wireguard.DevName
 
-	initialUsers, knownDevices, err := data.GetInitialData()
+	initialUsers, knownDevices, err := db.GetInitialData()
 	if err != nil {
 		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %s", err)
 	}

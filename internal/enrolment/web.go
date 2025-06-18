@@ -13,6 +13,7 @@ import (
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/enrolment/resources"
+	"github.com/NHAS/wag/internal/interfaces"
 
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -23,6 +24,7 @@ import (
 
 type EnrolmentServer struct {
 	firewall *router.Firewall
+	db       interfaces.Database
 }
 
 func (es *EnrolmentServer) Close() {
@@ -44,7 +46,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	username, overwrites, staticIp, groups, err := data.GetRegistrationToken(key)
+	username, overwrites, staticIp, groups, err := es.db.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
@@ -87,7 +89,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(groups) != 0 {
-		err := data.SetUserGroupMembership(username, groups, false)
+		err := es.db.SetUserGroupMembership(username, groups, false)
 		if err != nil {
 			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -134,7 +136,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		}()
 	}
 
-	acl := data.GetEffectiveAcl(username)
+	acl := es.db.GetEffectiveAcl(username)
 
 	wgPublicKey, wgPort, err := es.firewall.ServerDetails()
 	if err != nil {
@@ -156,7 +158,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	dnsWithOutSubnet, err := data.GetDNS()
+	dnsWithOutSubnet, err := es.db.GetDNS()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable get dns: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -183,7 +185,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 		ClientPresharedKey: presharedKey,
 	}
 
-	externalAddress, err := data.GetExternalAddress()
+	externalAddress, err := es.db.GetExternalAddress()
 	if err != nil {
 		log.Println(username, remoteAddr, "unable to get server external address from datastore: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -198,7 +200,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 
 	wireguardInterface.ServerAddress = externalAddress
 
-	w.Header().Set("Content-Disposition", "attachment; filename="+data.GetWireguardConfigName())
+	w.Header().Set("Content-Disposition", "attachment; filename="+es.db.GetWireguardConfigName())
 
 	err = resources.RenderWithFuncs("wgconf_enrolment.tmpl", w, &wireguardInterface, template.FuncMap{
 		"StringsJoin": strings.Join,
@@ -211,7 +213,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	//Finish registration process
-	err = data.FinaliseRegistration(key)
+	err = es.db.FinaliseRegistration(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "expiring registration token failed:", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -228,7 +230,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 func (es *EnrolmentServer) reachability(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "text/plain")
 
-	isDrained, err := data.IsDrained(data.GetServerID().String())
+	isDrained, err := es.db.IsClusterNodeDrained(es.db.GetCurrentNodeID().String())
 	if err != nil {
 		http.Error(w, "Failed to fetch state", http.StatusInternalServerError)
 		return
@@ -245,13 +247,15 @@ func (es *EnrolmentServer) reachability(w http.ResponseWriter, _ *http.Request) 
 
 }
 
-func New(firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, error) {
+func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, error) {
 	if firewall == nil {
 		panic("firewall was nil")
 	}
 
-	var es EnrolmentServer
-	es.firewall = firewall
+	es := EnrolmentServer{
+		firewall: firewall,
+		db:       db,
+	}
 
 	public := http.NewServeMux()
 	public.HandleFunc("GET /reachability", es.reachability)
