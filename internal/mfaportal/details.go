@@ -13,6 +13,7 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
@@ -45,13 +46,16 @@ type Challenger struct {
 	watchers []io.Closer
 
 	firewall *router.Firewall
+
+	db interfaces.Database
 }
 
-func NewChallenger(firewall *router.Firewall) (*Challenger, error) {
+func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challenger, error) {
 	r := &Challenger{
 		firewall:          firewall,
 		connections:       make(map[string]*websocket.Conn),
 		userToConnections: make(map[string]map[string]bool),
+		db:                db,
 	}
 
 	var err error
@@ -143,7 +147,7 @@ func (c *Challenger) sessionChanges(_ string, et data.EventType, current, previo
 
 func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previous data.Device) error {
 
-	lockout, err := data.GetLockout()
+	lockout, err := c.db.GetLockout()
 	if err != nil {
 		return fmt.Errorf("cannot get lockout: %s", err)
 	}
@@ -178,7 +182,7 @@ func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previou
 			sendUpdate = true
 		}
 
-		if data.HasDeviceAuthorised(current, previous) {
+		if c.db.HasDeviceAuthorised(current, previous) {
 			c.NotifyOfAuth(current)
 			// Notify auth sends a state update with it
 			sendUpdate = false
@@ -256,10 +260,10 @@ func (c *Challenger) Challenge(username, address string) error {
 	// Lets make sure people cant auth if they're already authed and extend their session time for no reason
 	if potentialChallenge.Challenge != "" && !c.firewall.IsAuthed(address) {
 
-		err = data.ValidateChallenge(username, address, potentialChallenge.Challenge)
+		err = c.db.ValidateChallenge(username, address, potentialChallenge.Challenge)
 		// intentional == nil
 		if err == nil {
-			err = data.AuthoriseDevice(username, address)
+			err = c.db.AuthoriseDevice(username, address)
 			if err != nil {
 				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
 			}
@@ -282,7 +286,7 @@ func (c *Challenger) getMfaMethods() []MFAMethod {
 }
 
 func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
-	device, err := data.GetDeviceByAddress(address)
+	device, err := c.db.GetDeviceByAddress(address)
 	if err != nil {
 		return UserInfoDTO{}, err
 	}
@@ -292,12 +296,12 @@ func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 		return UserInfoDTO{}, err
 	}
 
-	defaultMFAMethod, err := data.GetDefaultMfaMethod()
+	defaultMFAMethod, err := c.db.GetDefaultMFAMethod()
 	if err != nil {
 		return UserInfoDTO{}, err
 	}
 
-	lockout, err := data.GetLockout()
+	lockout, err := c.db.GetLockout()
 	if err != nil {
 		return UserInfoDTO{}, fmt.Errorf("failed to get lockout for updating client: %w", err)
 	}
@@ -309,7 +313,7 @@ func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 			Wag: config.Version,
 		},
 		UserMFAMethod:       user.GetMFAType(),
-		HelpMail:            data.GetHelpMail(),
+		HelpMail:            c.db.GetHelpMail(),
 		DefaultMFAMethod:    defaultMFAMethod,
 		AvailableMfaMethods: c.getMfaMethods(),
 		AccountLocked:       user.Locked,
@@ -440,7 +444,7 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	user := users.GetUserFromContext(r.Context())
 
-	domain, err := data.GetTunnelDomainUrl()
+	domain, err := c.db.GetTunnelDomainUrl()
 	if err != nil {
 		log.Println("was unable to get the wag domain: ", err)
 		http.Error(w, "Server error", http.StatusInternalServerError)

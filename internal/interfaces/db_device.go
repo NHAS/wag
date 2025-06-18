@@ -10,6 +10,7 @@ import (
 type DeviceReader interface {
 	GetAllDevices() (devices []data.Device, err error)
 	GetAllDevicesAsMap() (devices map[string]data.Device, err error)
+	GetDeviceByAddress(address string) (device data.Device, err error)
 }
 
 type DeviceWriter interface {

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -33,7 +34,7 @@ type Authenticator interface {
 	Enable()
 	Disable()
 
-	Initialise() error
+	Initialise(db interfaces.Database) error
 
 	Type() string
 

@@ -50,7 +50,7 @@ func (mp *MfaPortal) oidcChanges(_ string, et data.EventType, current data.OIDC,
 		}
 
 		// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
-		methods, err := data.GetEnabledAuthenticationMethods()
+		methods, err := mp.db.GetEnabledMFAMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)
 			return err
@@ -69,7 +69,7 @@ func (mp *MfaPortal) domainChanged(_ string, et data.EventType, current, previou
 	case data.MODIFIED:
 		if !current.Equals(&previous) {
 
-			methods, err := data.GetEnabledAuthenticationMethods()
+			methods, err := mp.db.GetEnabledMFAMethods()
 			if err != nil {
 				log.Println("Couldnt get authenication methods to enable oidc: ", err)
 				return err
@@ -108,7 +108,7 @@ func (mp *MfaPortal) issuerKeyChanged(_ string, et data.EventType, current, prev
 			return nil
 		}
 
-		methods, err := data.GetEnabledAuthenticationMethods()
+		methods, err := mp.db.GetEnabledMFAMethods()
 		if err != nil {
 			log.Println("Couldnt get authenication methods to enable oidc: ", err)
 			return err

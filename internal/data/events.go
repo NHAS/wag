@@ -32,17 +32,6 @@ const (
 	NodeErrors            = "wag/node/errors"
 )
 
-var (
-	lck         sync.RWMutex
-	contextMaps = map[string]context.CancelFunc{}
-
-	clusterHealthLck       sync.RWMutex
-	clusterHealthListeners = map[string]func(string){}
-
-	EventsQueue = queue.NewQueue[GeneralEvent](40)
-	exit        = make(chan bool)
-)
-
 func deregisterEventListener(key string) error {
 	clusterHealthLck.Lock()
 	defer clusterHealthLck.Unlock()

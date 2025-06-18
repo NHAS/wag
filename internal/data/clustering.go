@@ -107,7 +107,7 @@ func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
 	return get[string](d.etcd, path.Join(NodeInfo, idHex, "version"))
 }
 
-func (d *database) SetVersion() error {
+func (d *database) SetCurrentNodeVersion() error {
 	return set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
 }
 

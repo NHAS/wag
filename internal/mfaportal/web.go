@@ -11,6 +11,7 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
@@ -23,6 +24,7 @@ type MfaPortal struct {
 	session  *Challenger
 
 	watchers []io.Closer
+	db       interfaces.Database
 }
 
 func (mp *MfaPortal) Close() {
@@ -39,14 +41,16 @@ func (mp *MfaPortal) Close() {
 	log.Println("Stopped MFA portal")
 }
 
-func New(firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
+func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
 	if firewall == nil {
 		panic("firewall was nil")
 	}
 
 	var mfaPortal MfaPortal
+	mfaPortal.db = db
 	mfaPortal.firewall = firewall
-	mfaPortal.session, err = NewChallenger(firewall)
+
+	mfaPortal.session, err = NewChallenger(db, firewall)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +130,7 @@ func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
 func (mp *MfaPortal) status(w http.ResponseWriter, r *http.Request) {
 	user := users.GetUserFromContext(r.Context())
 
-	acl := data.GetEffectiveAcl(user.Username)
+	acl := mp.db.GetEffectiveAcl(user.Username)
 
 	w.Header().Set("Content-Disposition", "attachment; filename=acl")
 	w.Header().Set("Content-Type", "application/json")
