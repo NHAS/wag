@@ -71,7 +71,9 @@ func WatchMulti[T any](db interfaces.Watchers,
 			return nil, fmt.Errorf("failed to generate watcher key: %w", err)
 		}
 
+		s.Lock()
 		s.watchers[listenKey] = cancel
+		s.Unlock()
 
 		output := make(chan parsedEvent[T], 1)
 		go func() {
