@@ -4,6 +4,7 @@ import (
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type SessionsRepository interface {
@@ -41,6 +42,20 @@ type EventQueueReader interface {
 	GetEventQueue() []data.GeneralEvent
 }
 
+type RawConnection interface {
+	Raw() *clientv3.Client
+}
+
+type EventWriter interface {
+	Write(e data.GeneralEvent) error
+}
+
+type Watchers interface {
+	RawConnection
+	EventWriter
+	Errors
+}
+
 type Database interface {
 	BootstrapRepositoryReader
 	EventQueueReader
@@ -61,9 +76,14 @@ type Database interface {
 	Errors
 	Cluster
 
+	Watchers
+
 	// todo remove from here
 	SplitKey(expected int, stripPrefix, key string) ([]string, error)
 
 	RawRV
+
+	RawConnection
+
 	Teardown
 }

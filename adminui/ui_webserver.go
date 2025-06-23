@@ -18,6 +18,7 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/utils"
@@ -286,7 +287,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	notifications := make(chan NotificationDTO, 1)
 	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
 
-	errorNotf, err := data.Watch(data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
+	errorNotf, err := watcher.Watch(db, data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
 	if err == nil {
 		adminUI.listenerEvents.watchers = append(adminUI.listenerEvents.watchers, errorNotf)
 	} else {

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
@@ -75,7 +74,7 @@ func DisableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitialiseMethod(method types.MFA) error {
+func ReinitialiseMethod(db interfaces.Database, method types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -84,7 +83,7 @@ func ReinitialiseMethod(method types.MFA) error {
 			return nil
 		}
 
-		err := a.Initialise()
+		err := a.Initialise(db)
 		if err != nil {
 			a.Disable()
 			return err
@@ -96,14 +95,14 @@ func ReinitialiseMethod(method types.MFA) error {
 	return fmt.Errorf("method not found: %q", method)
 }
 
-func enableMethod(method types.MFA) error {
+func enableMethod(db interfaces.Database, method types.MFA) error {
 	if a, ok := allMfa[method]; ok {
 		// If the method is already enabled, dont re-enable it
 		if a.IsEnabled() {
 			return nil
 		}
 
-		err := a.Initialise()
+		err := a.Initialise(db)
 		if err != nil {
 			a.Disable()
 			return err
@@ -115,7 +114,7 @@ func enableMethod(method types.MFA) error {
 	return fmt.Errorf("mfa method %q not found", method)
 }
 
-func SetEnabledMethods(method ...types.MFA) error {
+func SetEnabledMethods(db interfaces.Database, method ...types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -128,7 +127,7 @@ func SetEnabledMethods(method ...types.MFA) error {
 	for m, handler := range allMfa {
 		handler.Disable()
 		if enabledMfa[m] {
-			if err := enableMethod(m); err != nil {
+			if err := enableMethod(db, m); err != nil {
 				errRet = append(errRet, err)
 			}
 		}
@@ -187,11 +186,11 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	return
 }
 
-func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
+func AddMFARoutes(db interfaces.Database, mux *http.ServeMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 
-	enabledMethods, err := data.GetEnabledAuthenticationMethods()
+	enabledMethods, err := db.GetEnabledMFAMethods()
 	if err != nil {
 		return err
 	}
@@ -221,7 +220,7 @@ func AddMFARoutes(mux *http.ServeMux, firewall *router.Firewall) error {
 		log.Printf("[PORTAL] MFA %s registered (enabled: %t)", method, isEnabled)
 
 		if isEnabled {
-			err = handler.Initialise()
+			err = handler.Initialise(db)
 			if err != nil {
 				handler.Disable()
 				log.Println("failed to initialise mfa method: ", method, "err: ", err)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -32,10 +33,10 @@ type Oidc struct {
 	provider rp.RelyingParty
 	details  data.OIDC
 	fw       *router.Firewall
+	db       interfaces.Database
 }
 
 func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
-
 	o.fw = fw
 
 	routes = http.NewServeMux()
@@ -61,7 +62,8 @@ func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error)
 	return routes, nil
 }
 
-func (o *Oidc) Initialise() error {
+func (o *Oidc) Initialise(db interfaces.Database) error {
+	o.db = db
 
 	key, err := utils.GenerateRandom(32)
 	if err != nil {
@@ -80,12 +82,12 @@ func (o *Oidc) Initialise() error {
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 	}
 
-	o.details, err = data.GetOidc()
+	o.details, err = db.GetOidc()
 	if err != nil {
 		return err
 	}
 
-	domain, err := data.GetTunnelDomainUrl()
+	domain, err := db.GetTunnelDomainUrl()
 	if err != nil {
 		return err
 	}
@@ -139,7 +141,7 @@ func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
 		Subject: "", // Empty is unconfigured waiting for first login
 	})
 
-	err := data.SetUserMfa(user.Username, string(value), o.Type())
+	err := o.db.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
 		http.Redirect(w, r, "/error", http.StatusSeeOther)
@@ -233,7 +235,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 
 				value, _ := json.Marshal(issuerDetails)
 
-				err = data.SetUserMfa(user.Username, string(value), o.Type())
+				err = o.db.SetUserMfa(user.Username, string(value), o.Type())
 				if err != nil {
 					return fmt.Errorf("unable to set oidc subject: %s", err)
 				}
@@ -249,7 +251,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 				return errors.New("user is not associated with device")
 			}
 
-			return data.SetUserGroupMembership(username, groups, true)
+			return o.db.SetUserGroupMembership(username, groups, true)
 		})
 
 		if err != nil {

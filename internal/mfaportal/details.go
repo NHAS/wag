@@ -13,6 +13,7 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
@@ -59,25 +60,25 @@ func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challeng
 	}
 
 	var err error
-	w, err := data.Watch(data.DevicesPrefix, true, r.deviceChanges)
+	w, err := watcher.Watch(db, data.DevicesPrefix, true, r.deviceChanges)
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, w)
 
-	s, err := data.Watch(data.DeviceSessionPrefix, true, r.sessionChanges)
+	s, err := watcher.Watch(db, data.DeviceSessionPrefix, true, r.sessionChanges)
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, s)
 
-	u, err := data.Watch(data.UsersPrefix, true, r.userChanges)
+	u, err := watcher.Watch(db, data.UsersPrefix, true, r.userChanges)
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, u)
 
-	m, err := data.Watch(data.MFAMethodsEnabledKey, false, r.mfaChanges)
+	m, err := watcher.Watch(db, data.MFAMethodsEnabledKey, false, r.mfaChanges)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previou
 		if current.Endpoint.String() != previous.Endpoint.String() {
 			sendUpdate = true
 			// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
-			if err := current.ChallengeExists(); err == nil {
+			if err := current.ChallengeExists(c.db.Raw()); err == nil {
 				c.Challenge(current.Username, current.Address)
 			}
 		}
@@ -291,7 +292,7 @@ func (c *Challenger) createInfoDTO(address string) (UserInfoDTO, error) {
 		return UserInfoDTO{}, err
 	}
 
-	user, err := users.GetUser(device.Username)
+	user, err := users.GetUser(c.db, device.Username)
 	if err != nil {
 		return UserInfoDTO{}, err
 	}
@@ -370,7 +371,7 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 		return
 	}
 
-	challenge, err := device.GetSensitiveChallenge()
+	challenge, err := device.GetSensitiveChallenge(c.db.Raw())
 	if err != nil {
 		log.Printf("failed to get challenge %q, err: %s", device.Address, err)
 		c.Disconnect(device.Username, device.Address, "Failed to get challenge from device", true)

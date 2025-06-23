@@ -58,7 +58,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 	tunnel := http.NewServeMux()
 
 	// Do inital state setup for our authentication methods
-	err = authenticators.AddMFARoutes(tunnel, mfaPortal.firewall)
+	err = authenticators.AddMFARoutes(db, tunnel, mfaPortal.firewall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add mfa routes: %s", err)
 	}
@@ -75,7 +75,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 		resources.Assets(w, r)
 	})
 
-	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(fetchState(tunnel, mfaPortal.firewall))); err != nil {
+	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(fetchState(tunnel, db, mfaPortal.firewall))); err != nil {
 		return nil, err
 	}
 

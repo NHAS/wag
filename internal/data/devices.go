@@ -65,18 +65,18 @@ func (d *database) ValidateChallenge(username, address, challenge string) error 
 	return nil
 }
 
-func (d Device) ChallengeExists() error {
-	_, err := get[DeviceChallenge](DeviceChallengePrefix + d.Username + "-" + d.Address)
+func (d Device) ChallengeExists(etcd *clientv3.Client) error {
+	_, err := get[DeviceChallenge](etcd, DeviceChallengePrefix+d.Username+"-"+d.Address)
 	return err
 }
 
-func (d Device) GetSensitiveChallenge() (string, error) {
-	deviceWithChallenge, err := get[Device](DevicesPrefix + d.Username + "-" + d.Address)
+func (d Device) GetSensitiveChallenge(etcd *clientv3.Client) (string, error) {
+	deviceWithChallenge, err := get[Device](etcd, DevicesPrefix+d.Username+"-"+d.Address)
 
 	return deviceWithChallenge.Challenge, err
 }
 
-func (d Device) SetChallenge() error {
+func (d Device) SetChallenge(etcd *clientv3.Client) error {
 
 	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 30)
 	if err != nil {
@@ -130,7 +130,7 @@ func (d *database) UpdateDeviceConnectionDetails(address string, endpoint *net.U
 		}
 
 		device.Endpoint = endpoint
-		device.AssociatedNode = d.GetServerID()
+		device.AssociatedNode = d.GetCurrentNodeID()
 		device.Challenge, err = utils.GenerateRandomHex(32)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
@@ -179,7 +179,7 @@ func (d *database) AuthoriseDevice(username, address string) error {
 			return "", errors.New("account is locked")
 		}
 
-		device.AssociatedNode = d.GetServerID()
+		device.AssociatedNode = d.GetCurrentNodeID()
 		device.Authorised = time.Now()
 		device.Attempts = 0
 		device.Challenge, err = utils.GenerateRandomHex(32)

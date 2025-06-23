@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -25,6 +26,22 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/server/v3/embed"
+)
+
+const (
+	DevicesPrefix         = "devices-"
+	DeviceChallengePrefix = "devicechallenge-"
+	DeviceSessionPrefix   = "devicesession-"
+
+	UsersPrefix           = "users-"
+	GroupMembershipPrefix = MembershipKey + "-"
+	AclsPrefix            = "wag-acls-"
+	GroupsPrefix          = "wag-groups-"
+	GroupsIndexPrefix     = "wag-index-groups-"
+	ConfigPrefix          = "wag-config-"
+	AuthenticationPrefix  = "wag-config-authentication-"
+	NodeInfo              = "wag/node/"
+	NodeErrors            = "wag/node/errors"
 )
 
 const (
@@ -123,8 +140,11 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 	cfg.ListenPeerUrls = db.parseUrls(config.Values.Clustering.ListenAddresses...)
 	cfg.ListenClientUrls = db.parseUrls(etcdUnixSocket)
 	cfg.AdvertisePeerUrls = cfg.ListenPeerUrls
-	cfg.AutoCompactionMode = "periodic"
-	cfg.AutoCompactionRetention = "1h"
+	// this was changed in wag 9.0.1
+	// this effectively means we can guarantee that when we use PrevKV that we will have a previous key value thus we can simplify the events watcher
+	// this will cause the compactor to run every 5 mins which may result in higher disk usage, but keeping a smaller number of keys should mean less work is done overall
+	cfg.AutoCompactionMode = "revision"
+	cfg.AutoCompactionRetention = "3"
 	cfg.SnapshotCount = 50000
 
 	cfg.PeerTLSInfo.ClientCertAuth = true
@@ -185,6 +205,10 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 
 func (d *database) GetEventQueue() []GeneralEvent {
 	return d.eventsQueue.ReadAll()
+}
+
+func (d *database) Raw() *clientv3.Client {
+	return d.etcd
 }
 
 func (d *database) loadInitialSettings() error {
@@ -465,12 +489,15 @@ func putIfNotFound[T any](etcd *clientv3.Client, key string, value T, set string
 
 func (d *database) TearDown() error {
 	close(d.exit)
-	if d.etcdServer != nil {
 
+	if d.etcd != nil {
 		d.etcd.Close()
-		d.etcdServer.Close()
-
 		d.etcd = nil
+
+	}
+
+	if d.etcdServer != nil {
+		d.etcdServer.Close()
 		d.etcdServer = nil
 	}
 
@@ -614,4 +641,89 @@ func (d *database) SplitKey(expected int, stripPrefix, key string) ([]string, er
 	}
 
 	return parts, nil
+}
+
+func (d *database) RegisterClusterHealthListener(f func(status string)) (string, error) {
+
+	key, err := utils.GenerateRandomHex(16)
+	if err != nil {
+		return "", err
+	}
+
+	d.clusterHealthLck.Lock()
+	d.clusterHealthListeners[key] = f
+	d.clusterHealthLck.Unlock()
+
+	if !d.etcdServer.Server.IsLearner() {
+		// The moment we've registered a new health listener, test the cluster so it gets a callback
+		d.testCluster()
+	}
+
+	return key, nil
+}
+
+func (d *database) checkClusterHealth() {
+
+	leaderMonitor := time.NewTicker(1 * time.Second)
+	go func() {
+		for range leaderMonitor.C {
+			if d.etcdServer.Server.Leader() == 0 {
+
+				d.notifyClusterHealthListeners("electing")
+				time.Sleep(d.etcdServer.Server.Cfg.ElectionTimeout() * 2)
+
+				if d.etcdServer.Server.Leader() == 0 {
+					d.notifyClusterHealthListeners("dead")
+				}
+			}
+		}
+	}()
+
+	clusterMonitor := time.NewTicker(30 * time.Second)
+	go func() {
+		for range clusterMonitor.C {
+			// If we're a learner we cant write to the cluster, so just wait until we're promoted
+			if !d.etcdServer.Server.IsLearner() {
+				d.testCluster()
+			}
+		}
+	}()
+
+	<-d.exit
+
+	log.Println("etcd server was instructed to terminate")
+	leaderMonitor.Stop()
+	clusterMonitor.Stop()
+
+}
+
+func (d *database) testCluster() {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+
+	_, err := d.etcd.Put(ctx, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "ping"), time.Now().Format(time.RFC1123Z))
+	cancel()
+	if err != nil {
+		log.Println("unable to write liveness value")
+		d.notifyClusterHealthListeners("dead")
+		return
+	}
+
+	d.notifyHealthy()
+}
+
+func (d *database) notifyHealthy() {
+	if d.etcdServer.Server.IsLearner() {
+		d.notifyClusterHealthListeners("learner")
+	} else {
+		d.notifyClusterHealthListeners("healthy")
+	}
+}
+
+func (d *database) notifyClusterHealthListeners(event string) {
+	d.clusterHealthLck.RLock()
+	defer d.clusterHealthLck.RUnlock()
+
+	for _, f := range d.clusterHealthListeners {
+		go f(event)
+	}
 }

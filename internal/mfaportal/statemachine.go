@@ -5,31 +5,32 @@ import (
 	"slices"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 )
 
 func (mp *MfaPortal) registerListeners() error {
 
-	o, err := data.Watch(data.OidcDetailsKey, false, mp.oidcChanges)
+	o, err := watcher.Watch(mp.db, data.OidcDetailsKey, false, mp.oidcChanges)
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, o)
 
-	d, err := data.Watch(data.TunnelWebServerConfigKey, false, mp.domainChanged)
+	d, err := watcher.Watch(mp.db, data.TunnelWebServerConfigKey, false, mp.domainChanged)
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, d)
 
-	m, err := data.Watch(data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
+	m, err := watcher.Watch(mp.db, data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, m)
 
-	i, err := data.Watch(data.IssuerKey, false, mp.issuerKeyChanged)
+	i, err := watcher.Watch(mp.db, data.IssuerKey, false, mp.issuerKeyChanged)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (mp *MfaPortal) oidcChanges(_ string, et data.EventType, current data.OIDC,
 		}
 
 		if slices.Contains(methods, string(types.Oidc)) {
-			return authenticators.ReinitialiseMethod(types.Oidc)
+			return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
 		}
 	}
 
@@ -76,7 +77,7 @@ func (mp *MfaPortal) domainChanged(_ string, et data.EventType, current, previou
 			}
 
 			if slices.Contains(methods, string(types.Oidc)) {
-				return authenticators.ReinitialiseMethod(types.Oidc)
+				return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
 			}
 		}
 	}
@@ -91,7 +92,7 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, et data.EventType, current,
 		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
 	case data.CREATED, data.MODIFIED:
 		if !slices.Equal(current, previous) {
-			err = authenticators.SetEnabledMethods(authenticators.StringsToMFA(current)...)
+			err = authenticators.SetEnabledMethods(mp.db, authenticators.StringsToMFA(current)...)
 		}
 	}
 
@@ -115,11 +116,11 @@ func (mp *MfaPortal) issuerKeyChanged(_ string, et data.EventType, current, prev
 		}
 
 		if slices.Contains(methods, string(types.Totp)) {
-			err = authenticators.ReinitialiseMethod(types.Totp)
+			err = authenticators.ReinitialiseMethod(mp.db, types.Totp)
 		}
 
 		if slices.Contains(methods, string(types.Webauthn)) {
-			err = authenticators.ReinitialiseMethod(types.Webauthn)
+			err = authenticators.ReinitialiseMethod(mp.db, types.Webauthn)
 		}
 
 		return err

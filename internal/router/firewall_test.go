@@ -14,6 +14,8 @@ import (
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/routetypes"
 	"golang.org/x/net/ipv4"
 	"golang.zx2c4.com/wireguard/tun"
@@ -49,6 +51,7 @@ var (
 	}
 
 	testFw  *Firewall
+	db      interfaces.Database
 	mockTun *tuntest.ChannelTUN
 )
 
@@ -57,7 +60,7 @@ func BenchmarkEvaluate_Parallel(b *testing.B) {
 	var packets [][]byte
 
 	for _, user := range devices {
-		acl := data.GetEffectiveAcl(user.Username)
+		acl := db.GetEffectiveAcl(user.Username)
 		rules, err := routetypes.ParseRules(acl.Mfa, acl.Allow, acl.Deny)
 		if err != nil {
 			b.Fatal(err)
@@ -84,7 +87,7 @@ func BenchmarkEvaluate_Parallel(b *testing.B) {
 	}
 
 	// Set at least one as authorised
-	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err := testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -108,7 +111,7 @@ func BenchmarkFirewallEvaluate(b *testing.B) {
 	var packets [][]byte
 
 	for _, user := range devices {
-		acl := data.GetEffectiveAcl(user.Username)
+		acl := db.GetEffectiveAcl(user.Username)
 		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
 		if err != nil {
 			b.Fatal(err)
@@ -210,7 +213,7 @@ func TestAddUser(t *testing.T) {
 			t.Fatal("checking policy table, didnt exist for user: ", device.Username)
 		}
 
-		acl := data.GetEffectiveAcl(device.Username)
+		acl := db.GetEffectiveAcl(device.Username)
 
 		results, errs := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 		if len(errs) != 0 {
@@ -318,7 +321,7 @@ func TestRoutePriority(t *testing.T) {
 
 func TestBasicAuthorise(t *testing.T) {
 
-	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err := testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +381,7 @@ func TestBasicAuthorise(t *testing.T) {
 		headers[5].String(): false,
 	}
 
-	mfas, errs := routetypes.ParseRules(data.GetEffectiveAcl(devices["tester"].Username).Mfa, nil, nil)
+	mfas, errs := routetypes.ParseRules(db.GetEffectiveAcl(devices["tester"].Username).Mfa, nil, nil)
 	if len(errs) != 0 {
 		t.Fatal("failed to parse mfa rules: ", err)
 	}
@@ -517,7 +520,7 @@ func TestRoutePreference(t *testing.T) {
 
 func TestSlidingWindow(t *testing.T) {
 
-	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err := testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +529,7 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(db.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -572,7 +575,7 @@ func TestSlidingWindow(t *testing.T) {
 
 func TestCompositeRules(t *testing.T) {
 
-	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err := testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -646,21 +649,21 @@ func TestCompositeRules(t *testing.T) {
 
 func TestDisabledSlidingWindow(t *testing.T) {
 
-	err := data.SetSessionInactivityTimeoutMinutes(-1)
+	err := db.SetSessionInactivityTimeoutMinutes(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// no op to give etcd time to update the value
-	data.GetSessionInactivityTimeoutMinutes()
+	db.GetSessionInactivityTimeoutMinutes()
 
-	maxSessionLife, _ := data.GetSessionLifetimeMinutes()
+	maxSessionLife, _ := db.GetSessionLifetimeMinutes()
 
 	if testFw.inactivityTimeout != -1 {
 		t.Fatalf("the inactivity timeout was not set to -1, was %d", testFw.inactivityTimeout)
 	}
 
-	err = testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err = testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -669,7 +672,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 		t.Fatal("after setting user as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(db.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -718,7 +721,7 @@ func TestDisabledSlidingWindow(t *testing.T) {
 
 func TestMaxSessionLifetime(t *testing.T) {
 
-	err := testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err := testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -727,7 +730,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 		t.Fatal("after setting user device as authorized it should be.... authorized")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(db.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -768,12 +771,12 @@ func TestMaxSessionLifetime(t *testing.T) {
 func TestDisablingMaxLifetime(t *testing.T) {
 
 	// Disable session max lifetime
-	err := data.SetSessionLifetimeMinutes(-1)
+	err := db.SetSessionLifetimeMinutes(-1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	err = testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -793,7 +796,7 @@ func TestDisablingMaxLifetime(t *testing.T) {
 		t.Fatalf("session expiry not disabled")
 	}
 
-	ip, _, err := net.ParseCIDR(data.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
+	ip, _, err := net.ParseCIDR(db.GetEffectiveAcl(devices["tester"].Username).Mfa[0])
 	if err != nil {
 		t.Fatal("could not parse ip: ", err)
 	}
@@ -851,14 +854,14 @@ func TestPortRestrictions(t *testing.T) {
 		]
 	*/
 
-	acl := data.GetEffectiveAcl(devices["tester"].Username)
+	acl := db.GetEffectiveAcl(devices["tester"].Username)
 
 	rules, errs := routetypes.ParseRules(acl.Mfa, acl.Allow, nil)
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}
 
-	testFw.SetAuthorized(devices["tester"].Address, data.GetServerID())
+	testFw.SetAuthorized(devices["tester"].Address, db.GetCurrentNodeID())
 
 	var packets [][]byte
 	expectedResults := []bool{}
@@ -964,7 +967,7 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 	var packets [][]byte
 
 	for _, user := range devices {
-		acl := data.GetEffectiveAcl(user.Username)
+		acl := db.GetEffectiveAcl(user.Username)
 		rules, err := routetypes.ParseRules(nil, acl.Allow, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -1087,7 +1090,7 @@ func addDevices() error {
 
 	c := make(chan bool)
 	numDevices := 0
-	w, err := data.Watch(data.DevicesPrefix, true, func(key string, et data.EventType, current, previous data.Device) error {
+	w, err := watcher.Watch(db, data.DevicesPrefix, true, func(key string, et data.EventType, current, previous data.Device) error {
 		switch et {
 		case data.CREATED:
 			numDevices++
@@ -1103,12 +1106,12 @@ func addDevices() error {
 
 	for _, device := range devices {
 
-		_, err := data.CreateUserDataAccount(device.Username)
+		_, err := db.CreateUserDataAccount(device.Username)
 		if err != nil {
 			return fmt.Errorf("failed to create data account: %s", err)
 		}
 
-		_, err = data.AddDevice(device.Username, device.Publickey, device.Address)
+		_, err = db.AddDevice(device.Username, device.Publickey, device.Address)
 		if err != nil {
 			return fmt.Errorf("unable to add peer: %s: err: %s", device.Address, err)
 		}
@@ -1127,7 +1130,8 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	db, err := data.Load("", true)
+	var err error
+	db, err = data.Load("", true)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -1135,7 +1139,7 @@ func TestMain(m *testing.M) {
 
 	mockTun = tuntest.NewChannelTUN()
 
-	testFw, err = newDebugFirewall(mockTun.TUN())
+	testFw, err = newDebugFirewall(db, mockTun.TUN())
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

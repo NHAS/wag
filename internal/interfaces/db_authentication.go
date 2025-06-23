@@ -5,7 +5,7 @@ import (
 	"github.com/NHAS/wag/internal/data"
 )
 
-type AuthenticationReader interface {
+type AuthenticationSettingsReader interface {
 	GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error)
 	GetLockout() (int, error)
 	GetSessionInactivityTimeoutMinutes() (int, error)
@@ -14,7 +14,7 @@ type AuthenticationReader interface {
 	GetEffectiveAcl(username string) acls.Acl
 }
 
-type AuthenticationWriter interface {
+type AuthenticationSettingsWriter interface {
 	AuthoriseDevice(username, address string) error
 	DeauthenticateDevice(address string) error
 
@@ -31,7 +31,23 @@ type AuthenticationWriter interface {
 	SetDeviceAuthenticationAttempts(username, address string, attempts int) error
 }
 
+type OidcRepository interface {
+	GetOidc() (details data.OIDC, err error)
+}
+
+type PamRespository interface {
+	GetPAM() (details data.PAM, err error)
+}
+
+type WebauthnRespository interface {
+	GetWebauthn() (wba data.Webauthn, err error)
+}
+
 type AuthenticationActions interface {
-	AuthenticationReader
-	AuthenticationWriter
+	OidcRepository
+	PamRespository
+	WebauthnRespository
+
+	AuthenticationSettingsReader
+	AuthenticationSettingsWriter
 }

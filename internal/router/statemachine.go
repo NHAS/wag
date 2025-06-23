@@ -7,37 +7,38 @@ import (
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func (f *Firewall) handleEvents() error {
 
-	d, err := data.Watch(data.DevicesPrefix, true, f.deviceChanges)
+	d, err := watcher.Watch(f.db, data.DevicesPrefix, true, f.deviceChanges)
 	if err != nil {
 		return err
 	}
 	f.watchers = append(f.watchers, d)
 
-	u, err := data.Watch(data.UsersPrefix, true, f.userChanges)
+	u, err := watcher.Watch(f.db, data.UsersPrefix, true, f.userChanges)
 	if err != nil {
 		return err
 	}
 	f.watchers = append(f.watchers, u)
 
-	a, err := data.Watch(data.AclsPrefix, true, f.aclsChanges)
+	a, err := watcher.Watch(f.db, data.AclsPrefix, true, f.aclsChanges)
 	if err != nil {
 		return err
 	}
 	f.watchers = append(f.watchers, a)
 
-	g, err := data.Watch(data.GroupMembershipPrefix, true, f.groupChanges)
+	g, err := watcher.Watch(f.db, data.GroupMembershipPrefix, true, f.groupChanges)
 	if err != nil {
 		return err
 	}
 	f.watchers = append(f.watchers, g)
 
-	t, err := data.Watch(data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
+	t, err := watcher.Watch(f.db, data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous 
 				}
 
 				// Will set a record deleted after 30 seconds that a device can use to reauthenticate
-				err = current.SetChallenge()
+				err = current.SetChallenge(f.db.Raw())
 				if err != nil {
 					return fmt.Errorf("failed to set device challenge: %w", err)
 				}

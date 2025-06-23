@@ -23,7 +23,7 @@ func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Re
 	var devices []data.Device
 	if username != "" {
 
-		user, err := users.GetUser(username)
+		user, err := users.GetUser(wsg.db, username)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -63,7 +63,7 @@ func (wsg *WagControlSocketServer) lockDevice(w http.ResponseWriter, r *http.Req
 
 	address := r.FormValue("address")
 
-	user, err := users.GetUserFromAddress(net.ParseIP(address))
+	user, err := users.GetUserFromAddress(wsg.db, net.ParseIP(address))
 	if err != nil {
 		http.Error(w, "not found in database: "+err.Error(), 404)
 
@@ -101,7 +101,7 @@ func (wsg *WagControlSocketServer) unlockDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	user, err := users.GetUserFromAddress(net.ParseIP(address))
+	user, err := users.GetUserFromAddress(wsg.db, net.ParseIP(address))
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 
@@ -146,7 +146,7 @@ func (wsg *WagControlSocketServer) deleteDevice(w http.ResponseWriter, r *http.R
 
 	address := r.FormValue("address")
 
-	user, err := users.GetUserFromAddress(net.ParseIP(address))
+	user, err := users.GetUserFromAddress(wsg.db, net.ParseIP(address))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
@@ -61,7 +62,7 @@ func Initialise(db interfaces.Database) error {
 	}
 
 	config := certmagic.NewDefault()
-	config.Storage = data.NewCertStore("wag-certificates")
+	config.Storage = data.NewCertStore(db.Raw(), "wag-certificates")
 
 	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
 		CA:     provider,
@@ -153,7 +154,7 @@ func (a *AutoTLS) HalfClose(what data.Webserver) {
 
 func (a *AutoTLS) registerEventListeners() error {
 
-	_, err := data.Watch(data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
+	_, err := watcher.Watch(a.db, data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
 		if ev == data.DELETED || current.APIToken == "" {
 			a.issuer.DNS01Solver = nil
 		} else {
@@ -172,7 +173,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = data.Watch(data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
+	_, err = watcher.Watch(a.db, data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.Email = current
 		if ev == data.DELETED {
@@ -185,7 +186,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = data.Watch(data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
+	_, err = watcher.Watch(a.db, data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.CA = current
 		if ev == data.DELETED {
@@ -237,7 +238,8 @@ func (a *AutoTLS) registerEventListeners() error {
 		return nil
 	}
 
-	_, err = data.WatchMulti([]string{
+	// this is event closed so we can discard access to the watcher
+	_, err = watcher.WatchMulti(a.db, []string{
 		data.TunnelWebServerConfigKey,
 		data.PublicWebServerConfigKey,
 		data.ManagementWebServerConfigKey,

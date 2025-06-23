@@ -20,7 +20,7 @@ func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Requ
 
 	if username != "" {
 
-		user, err := users.GetUser(username)
+		user, err := users.GetUser(wsg.db, username)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -92,7 +92,7 @@ func (wsg *WagControlSocketServer) lockUser(w http.ResponseWriter, r *http.Reque
 
 	username := r.FormValue("username")
 
-	user, err := users.GetUser(username)
+	user, err := users.GetUser(wsg.db, username)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -119,7 +119,7 @@ func (wsg *WagControlSocketServer) unlockUser(w http.ResponseWriter, r *http.Req
 
 	username := r.FormValue("username")
 
-	user, err := users.GetUser(username)
+	user, err := users.GetUser(wsg.db, username)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -145,7 +145,7 @@ func (wsg *WagControlSocketServer) deleteUser(w http.ResponseWriter, r *http.Req
 
 	username := r.FormValue("username")
 
-	user, err := users.GetUser(username)
+	user, err := users.GetUser(wsg.db, username)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return
@@ -320,7 +320,7 @@ func (wsg *WagControlSocketServer) resetMfaUser(w http.ResponseWriter, r *http.R
 
 	username := r.FormValue("username")
 
-	user, err := users.GetUser(username)
+	user, err := users.GetUser(wsg.db, username)
 	if err != nil {
 		http.Error(w, "not found: "+err.Error(), 404)
 		return

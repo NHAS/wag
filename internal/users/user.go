@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -15,15 +16,17 @@ type user struct {
 	Username  string
 	Locked    bool
 	Enforcing bool
+
+	db interfaces.Database `json:"-"`
 }
 
 func (u *user) ResetDeviceAuthAttempts(address string) error {
-	return data.SetDeviceAuthenticationAttempts(u.Username, address, 0)
+	return u.db.SetDeviceAuthenticationAttempts(u.Username, address, 0)
 }
 
 func (u *user) ResetMfa() error {
 
-	err := data.SetUserMfa(u.Username, u.Username, string(types.Unset))
+	err := u.db.SetUserMfa(u.Username, u.Username, string(types.Unset))
 	if err != nil {
 		return err
 	}
@@ -32,7 +35,7 @@ func (u *user) ResetMfa() error {
 }
 
 func (u *user) SetDeviceAuthAttempts(address string, number int) error {
-	return data.SetDeviceAuthenticationAttempts(u.Username, address, number)
+	return u.db.SetDeviceAuthenticationAttempts(u.Username, address, number)
 }
 
 func (u *user) SetDevicePublicKey(publickey, address string) (err error) {
@@ -41,11 +44,11 @@ func (u *user) SetDevicePublicKey(publickey, address string) (err error) {
 		return err
 	}
 
-	return data.UpdateDevicePublicKey(u.Username, address, key)
+	return u.db.UpdateDevicePublicKey(u.Username, address, key)
 }
 
 func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err error) {
-	device, err := data.GetDeviceByAddress(address)
+	device, err := u.db.GetDeviceByAddress(address)
 	if err != nil {
 		return "", err
 	}
@@ -59,63 +62,63 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 
 func (u *user) AddDevice(publickey wgtypes.Key, staticIp string) (device data.Device, err error) {
 
-	return data.AddDevice(u.Username, publickey.String(), staticIp)
+	return u.db.AddDevice(u.Username, publickey.String(), staticIp)
 }
 
 func (u *user) DeleteDevice(address string) (err error) {
 
-	return data.DeleteDevice(u.Username, address)
+	return u.db.DeleteDevice(u.Username, address)
 }
 
 func (u *user) GetDevice(id string) (device data.Device, err error) {
-	return data.GetDevice(u.Username, id)
+	return u.db.GetDevice(u.Username, id)
 }
 
 func (u *user) GetDevices() (device []data.Device, err error) {
-	return data.GetDevicesByUser(u.Username)
+	return u.db.GetDevicesByUser(u.Username)
 }
 
 func (u *user) Lock() error {
 	u.Locked = true
 
-	return data.SetUserLock(u.Username)
+	return u.db.SetUserLock(u.Username)
 }
 
 func (u *user) Unlock() error {
 	u.Locked = false
-	return data.SetUserUnlock(u.Username)
+	return u.db.SetUserUnlock(u.Username)
 }
 
 func (u *user) EnforceMFA() error {
-	return data.SetEnforceMFAOn(u.Username)
+	return u.db.SetEnforceMFAOn(u.Username)
 }
 
 func (u *user) UnenforceMFA() error {
-	return data.SetEnforceMFAOff(u.Username)
+	return u.db.SetEnforceMFAOff(u.Username)
 }
 
 func (u *user) IsEnforcingMFA() bool {
-	return data.IsEnforcingMFA(u.Username)
+	return u.db.IsEnforcingMFA(u.Username)
 }
 
 func (u *user) Delete() error {
-	return data.DeleteUser(u.Username)
+	return u.db.DeleteUser(u.Username)
 }
 
 func (u *user) Authenticate(device, mfaType string, authenticator types.AuthenticatorFunc) error {
 
 	// Make sure that the attempts is always incremented first to stop race condition attacks
-	err := data.IncrementAuthenticationAttempt(u.Username, device)
+	err := u.db.IncrementAuthenticationAttempt(u.Username, device)
 	if err != nil {
 		return fmt.Errorf("failed to pre-emptively increment authentication attempt counter: %s", err)
 	}
 
-	mfa, userMfaType, attempts, locked, err := data.GetAuthenticationDetails(u.Username, device)
+	mfa, userMfaType, attempts, locked, err := u.db.GetAuthenticationDetails(u.Username, device)
 	if err != nil {
 		return fmt.Errorf("failed to get authenticator details: %s", err)
 	}
 
-	lockout, err := data.GetLockout()
+	lockout, err := u.db.GetLockout()
 	if err != nil {
 		return errors.New("could not get lockout value")
 	}
@@ -144,7 +147,7 @@ func (u *user) Authenticate(device, mfaType string, authenticator types.Authenti
 		}
 	}
 
-	err = data.AuthoriseDevice(u.Username, device)
+	err = u.db.AuthoriseDevice(u.Username, device)
 	if err != nil {
 		return fmt.Errorf("%s %s unable to reset number of mfa attempts: %s", u.Username, device, err)
 	}
@@ -153,11 +156,11 @@ func (u *user) Authenticate(device, mfaType string, authenticator types.Authenti
 }
 
 func (u *user) Deauthenticate(device string) error {
-	return data.DeauthenticateDevice(device)
+	return u.db.DeauthenticateDevice(device)
 }
 
 func (u *user) MFA() (string, error) {
-	url, err := data.GetMFASecret(u.Username)
+	url, err := u.db.GetMFASecret(u.Username)
 	if err != nil {
 		return "", fmt.Errorf("failed to get MFA details: %s", err)
 	}
@@ -166,7 +169,7 @@ func (u *user) MFA() (string, error) {
 }
 
 func (u *user) GetMFAType() string {
-	mType, err := data.GetMFAType(u.Username)
+	mType, err := u.db.GetMFAType(u.Username)
 
 	if err != nil {
 		mType = string(types.Unset)
@@ -175,34 +178,51 @@ func (u *user) GetMFAType() string {
 	return mType
 }
 
-func CreateUser(username string) (user, error) {
-	ud, err := data.CreateUserDataAccount(username)
-	if err != nil {
-		return user{}, err
-	}
-	return user{ud.Username, ud.Locked, ud.Enforcing}, nil
-}
-
-func GetUser(username string) (user, error) {
-
-	ud, err := data.GetUserData(username)
+func CreateUser(db interfaces.Database, username string) (user, error) {
+	ud, err := db.CreateUserDataAccount(username)
 	if err != nil {
 		return user{}, err
 	}
 
-	return user{ud.Username, ud.Locked, ud.Enforcing}, nil
+	return user{
+		db:        db,
+		Username:  ud.Username,
+		Locked:    ud.Locked,
+		Enforcing: ud.Enforcing,
+	}, nil
 }
 
-func GetUserFromAddress(address net.IP) (user, error) {
+func GetUser(db interfaces.Database, username string) (user, error) {
+
+	ud, err := db.GetUserData(username)
+	if err != nil {
+		return user{}, err
+	}
+
+	return user{
+		db:        db,
+		Username:  ud.Username,
+		Locked:    ud.Locked,
+		Enforcing: ud.Enforcing,
+	}, nil
+}
+
+func GetUserFromAddress(db interfaces.Database, address net.IP) (user, error) {
 	if address == nil {
 		return user{}, errors.New("address was nil")
 	}
-	ud, err := data.GetUserDataFromAddress(address.String())
+
+	ud, err := db.GetUserDataFromAddress(address.String())
 	if err != nil {
 		return user{}, err
 	}
 
-	return user{ud.Username, ud.Locked, ud.Enforcing}, nil
+	return user{
+		db:        db,
+		Username:  ud.Username,
+		Locked:    ud.Locked,
+		Enforcing: ud.Enforcing,
+	}, nil
 }
 
 type contextKey string
@@ -211,6 +231,6 @@ type contextKey string
 const UserContextKey contextKey = "user"
 
 // crash out intentionally if the user key is not in the context
-func GetUserFromContext(ctx context.Context) user {
-	return ctx.Value(UserContextKey).(user)
+func GetUserFromContext(ctx context.Context) *user {
+	return ctx.Value(UserContextKey).(*user)
 }

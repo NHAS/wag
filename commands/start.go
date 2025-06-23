@@ -185,7 +185,7 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, error
 						return
 					}
 
-					mfaPortal, err = mfaportal.New(routerFw, errorChan)
+					mfaPortal, err = mfaportal.New(db, routerFw, errorChan)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start mfa portal: %v", err)
 						return

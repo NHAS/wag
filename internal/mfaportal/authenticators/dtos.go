@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 )
 
 type TOTPSecretDTO struct {
@@ -51,12 +51,12 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 
 }
 
-func resultMessage(err error) (string, int) {
+func resultMessage(db interfaces.Database, err error) (string, int) {
 	if err == nil {
 		return "Success", http.StatusOK
 	}
 
-	mail := data.GetHelpMail()
+	mail := db.GetHelpMail()
 
 	msg := "Validation failed"
 	if strings.Contains(err.Error(), "account is locked") {

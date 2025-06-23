@@ -8,14 +8,20 @@ import (
 )
 
 type DeviceReader interface {
+	GetDevice(username, id string) (device data.Device, err error)
+	GetDevicesByUser(username string) (devices []data.Device, err error)
 	GetAllDevices() (devices []data.Device, err error)
 	GetAllDevicesAsMap() (devices map[string]data.Device, err error)
 	GetDeviceByAddress(address string) (device data.Device, err error)
 }
 
 type DeviceWriter interface {
+	AddDevice(username, publickey, staticIp string) (data.Device, error)
+
 	DeleteDevice(username, id string) error
 	DeleteDevices(username string) error
+
+	SetDevice(username, address, publickey, preshared_key string) (data.Device, error)
 
 	UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error
 	UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error

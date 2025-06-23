@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/NHAS/session"
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -27,6 +27,7 @@ type Webauthn struct {
 	webauthnExecutor *webauthn.WebAuthn
 
 	fw *router.Firewall
+	db interfaces.Database
 }
 
 func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
@@ -71,8 +72,10 @@ func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err e
 	return routes, nil
 }
 
-func (wa *Webauthn) Initialise() error {
-	d, err := data.GetWebauthn()
+func (wa *Webauthn) Initialise(db interfaces.Database) error {
+	wa.db = db
+
+	d, err := db.GetWebauthn()
 	if err != nil {
 		return err
 	}
@@ -132,7 +135,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = data.SetUserMfa(user.Username, string(webauthdata), wa.Type())
+	err = wa.db.SetUserMfa(user.Username, string(webauthdata), wa.Type())
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
 		jsonResponse(w, AuthResponse{
@@ -181,7 +184,7 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 				return err
 			}
 
-			err = data.SetUserMfa(username, string(webauthdata), wa.Type())
+			err = wa.db.SetUserMfa(username, string(webauthdata), wa.Type())
 			if err != nil {
 
 				return err
@@ -195,7 +198,7 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
 
-		msg, status := resultMessage(err)
+		msg, status := resultMessage(wa.db, err)
 
 		jsonResponse(w, AuthResponse{
 			Status: Error,
@@ -312,7 +315,7 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 			}
 
 			// Store the updated credentials (credential counter incremented by one)
-			err = data.SetUserMfa(username, string(webauthdata), wa.Type())
+			err = wa.db.SetUserMfa(username, string(webauthdata), wa.Type())
 			if err != nil {
 				return err
 			}
@@ -322,7 +325,7 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err)
-		msg, status := resultMessage(err)
+		msg, status := resultMessage(wa.db, err)
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  msg,
