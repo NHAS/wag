@@ -105,6 +105,7 @@ func WatchMulti[T any](db interfaces.Watchers,
 					return
 				}
 
+
 				for _, event := range watchEvent.Events {
 
 					go func() {
