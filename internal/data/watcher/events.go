@@ -51,7 +51,8 @@ func WatchMulti[T any](db interfaces.Watchers,
 	ResolverFunc func(key string, eventType data.EventType, newState, previousState T) error) (*Watcher[T], error) {
 
 	s := &Watcher[T]{
-		db: db,
+		db:       db,
+		watchers: make(map[string]context.CancelFunc),
 	}
 
 	ops := []clientv3.OpOption{clientv3.WithPrevKV()}
@@ -104,7 +105,6 @@ func WatchMulti[T any](db interfaces.Watchers,
 					log.Println("got watch error: ", err, key)
 					return
 				}
-
 
 				for _, event := range watchEvent.Events {
 

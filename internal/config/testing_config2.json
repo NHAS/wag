@@ -1,8 +1,5 @@
 {
-    
-   
-    "DatabaseLocation": "file::memory:",
-    "Webserver": {
+        "Webserver": {
         "Lockout": 5,
 
         "Public": {
