@@ -88,6 +88,7 @@ func Initialise(db interfaces.Database) error {
 		webServers:     make(map[data.Webserver]*webserver),
 		issuer:         issuer,
 		ourHttpServers: make(map[string]bool),
+		db:             db,
 	}
 
 	if Do != nil {
