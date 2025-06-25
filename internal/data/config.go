@@ -193,27 +193,43 @@ func (d *database) GetWebauthn() (wba Webauthn, err error) {
 		return wba, err
 	}
 
-	if tunnelConfig.Domain == "" {
-		return wba, errors.New("domain was empty")
-	}
-
-	tunnelURL := tunnelConfig.Domain
-	scheme := "http://"
-	if tunnelConfig.TLS {
-		scheme = "https://"
-	}
-	tunnelURL = scheme + tunnelURL
-
-	_, port, err := net.SplitHostPort(tunnelConfig.ListenAddress)
-	// ignore default ports
-	if err == nil && !(tunnelConfig.TLS && port == "443") && !(!tunnelConfig.TLS && port == "80") {
-		tunnelURL = tunnelURL + ":" + port
+	tunnelURL, err := domainToUrl(tunnelConfig.Domain, tunnelConfig.ListenAddress, tunnelConfig.TLS)
+	if err != nil {
+		return wba, err
 	}
 
 	wba.Origin = tunnelURL
 	wba.ID = tunnelConfig.Domain
 
 	return
+}
+
+func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
+	if domain == "" {
+		return "", errors.New("domain was empty")
+	}
+
+	scheme := "http://"
+	if isTLS {
+		scheme = "https://"
+	}
+	url := scheme + domain
+
+	// if the domain has a port specified, dont use the listen address, only do that by default
+	_, port, err := net.SplitHostPort(domain)
+	if err != nil {
+		_, port, err = net.SplitHostPort(listenAddress)
+		if err != nil {
+			// if we cant get a port from either domain or address, then just default to nothing
+			return url, nil
+		}
+	}
+
+	if (!isTLS && port != "80") || (isTLS && port != "443") {
+		url = url + ":" + port
+	}
+
+	return url, nil
 }
 
 func (d *database) GetWireguardConfigName() string {
@@ -255,23 +271,12 @@ func (d *database) GetTunnelDomainUrl() (string, error) {
 		return "", err
 	}
 
-	if details.Domain == "" {
+	url, err := domainToUrl(details.Domain, details.ListenAddress, details.TLS)
+	if err != nil {
 		return "", nil
 	}
 
-	scheme := "http://"
-	if details.TLS {
-		scheme = "https://"
-	}
-
-	url := scheme + details.Domain
-	_, port, err := net.SplitHostPort(details.ListenAddress)
-	if err == nil && ((scheme == "http://" && port != "80") || (scheme == "https://" && port != "443")) {
-		url = url + ":" + port
-	}
-
 	return url, nil
-
 }
 
 func (d *database) SetIssuer(issuer string) error {
