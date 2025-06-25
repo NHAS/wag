@@ -40,7 +40,7 @@ type DeviceChallenge struct {
 }
 
 func (d *database) ValidateChallenge(username, address, challenge string) error {
-	dc, err := get[DeviceChallenge](d.etcd, DeviceChallengePrefix+username+"-"+address)
+	dc, err := Get[DeviceChallenge](d.etcd, DeviceChallengePrefix+username+"-"+address)
 	if err != nil {
 		return err
 	}
@@ -66,12 +66,12 @@ func (d *database) ValidateChallenge(username, address, challenge string) error 
 }
 
 func (d Device) ChallengeExists(etcd *clientv3.Client) error {
-	_, err := get[DeviceChallenge](etcd, DeviceChallengePrefix+d.Username+"-"+d.Address)
+	_, err := Get[DeviceChallenge](etcd, DeviceChallengePrefix+d.Username+"-"+d.Address)
 	return err
 }
 
 func (d Device) GetSensitiveChallenge(etcd *clientv3.Client) (string, error) {
-	deviceWithChallenge, err := get[Device](etcd, DevicesPrefix+d.Username+"-"+d.Address)
+	deviceWithChallenge, err := Get[Device](etcd, DevicesPrefix+d.Username+"-"+d.Address)
 
 	return deviceWithChallenge.Challenge, err
 }
@@ -143,7 +143,7 @@ func (d *database) UpdateDeviceConnectionDetails(address string, endpoint *net.U
 }
 
 func (d *database) GetDevice(username, id string) (device Device, err error) {
-	return get[Device](d.etcd, d.deviceKey(username, id))
+	return Get[Device](d.etcd, d.deviceKey(username, id))
 }
 
 func (d *database) HasDeviceAuthorised(current, previous Device) bool {

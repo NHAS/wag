@@ -226,10 +226,8 @@ func (a *AutoTLS) registerEventListeners() error {
 			if a.rollbackCount.Load() < 2 {
 				a.db.SetWebserverConfig(webserverTarget, previous)
 				a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
-				log.Printf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError)
 			} else {
 				a.db.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
-				log.Printf("failed to roll back to previous configuration, rollback counter exceeded")
 			}
 			return preserveError
 		}

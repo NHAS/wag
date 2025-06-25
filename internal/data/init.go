@@ -245,7 +245,7 @@ func (d *database) loadInitialSettings() error {
 			}
 		}
 
-		set(d.etcd, latestMigrationKey, false, latestMigrationKey)
+		Set(d.etcd, latestMigrationKey, false, latestMigrationKey)
 
 	} else {
 		txn := d.etcd.Txn(context.Background())

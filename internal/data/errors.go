@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"path"
 	"time"
 
@@ -25,7 +26,7 @@ type EventError struct {
 //
 // Returns:
 //   - error: Will error if it cannot generate a unique ID or add it to the etcd db
-func (d *database) RaiseError(raisedError error, value []byte) (err error) {
+func (d *database) RaiseError(raisedError error, value []byte) {
 
 	ee := EventError{
 		NodeID:          d.GetCurrentNodeID().String(),
@@ -34,13 +35,20 @@ func (d *database) RaiseError(raisedError error, value []byte) (err error) {
 		Time:            time.Now(),
 	}
 
+	var err error
 	ee.ErrorID, err = utils.GenerateRandomHex(16)
 	if err != nil {
-		return err
+		log.Println("failed raise error with cluster, failed to generate unique error ID: %w, cluster error: %w", err, raisedError)
+
+		return
 	}
 
-	return set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
+	err = Set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
+	if err != nil {
+		log.Println("failed raise error with cluster, failed to write to cluster: %w, cluster error: %w", err, raisedError)
 
+		return
+	}
 }
 
 func (d *database) GetAllErrors() (ret []EventError, err error) {

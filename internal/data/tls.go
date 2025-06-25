@@ -29,18 +29,18 @@ type CloudflareToken struct {
 }
 
 func (d *database) GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
-	return get[CloudflareToken](d.etcd, AcmeDNS01CloudflareAPIToken)
+	return Get[CloudflareToken](d.etcd, AcmeDNS01CloudflareAPIToken)
 }
 
 func (d *database) SetAcmeDNS01CloudflareToken(token string) error {
 	var newToken CloudflareToken
 	newToken.APIToken = token
 
-	return set(d.etcd, AcmeDNS01CloudflareAPIToken, true, newToken)
+	return Set(d.etcd, AcmeDNS01CloudflareAPIToken, true, newToken)
 }
 
 func (d *database) GetAcmeEmail() (string, error) {
-	return get[string](d.etcd, AcmeEmailKey)
+	return Get[string](d.etcd, AcmeEmailKey)
 }
 
 func (d *database) SetAcmeEmail(email string) error {
@@ -53,7 +53,7 @@ func (d *database) SetAcmeEmail(email string) error {
 		}
 	}
 
-	return set(d.etcd, AcmeEmailKey, true, email)
+	return Set(d.etcd, AcmeEmailKey, true, email)
 }
 
 func (d *database) SetAcmeProvider(providerURL string) error {
@@ -74,11 +74,11 @@ func (d *database) SetAcmeProvider(providerURL string) error {
 		}
 	}
 
-	return set(d.etcd, AcmeProviderKey, true, providerURL)
+	return Set(d.etcd, AcmeProviderKey, true, providerURL)
 }
 
 func (d *database) GetAcmeProvider() (string, error) {
-	return get[string](d.etcd, AcmeProviderKey)
+	return Get[string](d.etcd, AcmeProviderKey)
 }
 
 type CertMagicStore struct {

@@ -197,7 +197,7 @@ func (d *database) SetEnforceMFAOff(username string) error {
 
 func (d *database) GetMFASecret(username string) (string, error) {
 
-	user, err := get[UserModel](d.etcd, UsersPrefix+username+"-")
+	user, err := Get[UserModel](d.etcd, UsersPrefix+username+"-")
 	if err != nil {
 		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
@@ -212,7 +212,7 @@ func (d *database) GetMFASecret(username string) (string, error) {
 
 func (d *database) GetMFAType(username string) (string, error) {
 
-	user, err := get[UserModel](d.etcd, UsersPrefix+username+"-")
+	user, err := Get[UserModel](d.etcd, UsersPrefix+username+"-")
 	if err != nil {
 		return "", fmt.Errorf("failed to get user mfa secret: %w", err)
 	}
@@ -243,7 +243,7 @@ func (d *database) DeleteUser(username string) error {
 }
 
 func (d *database) GetUserData(username string) (u UserModel, err error) {
-	return get[UserModel](d.etcd, UsersPrefix+username+"-")
+	return Get[UserModel](d.etcd, UsersPrefix+username+"-")
 }
 
 func (d *database) GetUserDataFromAddress(address string) (u UserModel, err error) {
@@ -299,7 +299,7 @@ func (d *database) CreateUserDataAccount(username string) (UserModel, error) {
 		MfaType:  string(types.Unset),
 	}
 
-	err := set(d.etcd, UsersPrefix+username+"-", false, newUser)
+	err := Set(d.etcd, UsersPrefix+username+"-", false, newUser)
 	if err != nil {
 		return UserModel{}, fmt.Errorf("failed to create user: %w", err)
 	}

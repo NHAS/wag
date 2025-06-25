@@ -23,7 +23,7 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 
 	minTime := time.After(1 * time.Second)
 
-	result, err := get[control.RegistrationResult](d.etcd, d.registrationKey(token))
+	result, err := Get[control.RegistrationResult](d.etcd, d.registrationKey(token))
 
 	<-minTime
 
@@ -139,7 +139,7 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 			return errors.New("no device with that ip")
 		}
 
-		device, err := get[Device](d.etcd, deviceRef+overwrite)
+		device, err := Get[Device](d.etcd, deviceRef+overwrite)
 		if err != nil {
 			return fmt.Errorf("could not find device that this token is intended to overwrite: %w", err)
 		}
@@ -177,6 +177,6 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 		NumUses:    uses,
 	}
 
-	return set(d.etcd, tokensKey+token, false, result)
+	return Set(d.etcd, tokensKey+token, false, result)
 
 }

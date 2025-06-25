@@ -30,7 +30,7 @@ type AclsRepository interface {
 
 type Errors interface {
 	GetAllErrors() (ret []data.EventError, err error)
-	RaiseError(raisedError error, value []byte) (err error)
+	RaiseError(raisedError error, value []byte)
 	ResolveError(errorId string) error
 }
 

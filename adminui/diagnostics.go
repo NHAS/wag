@@ -160,5 +160,5 @@ func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
 
 	b, _ := json.Marshal(t)
 
-	err = au.db.RaiseError(errors.New(t.Message), b)
+	au.db.RaiseError(errors.New(t.Message), b)
 }

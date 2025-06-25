@@ -116,8 +116,7 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 
 	rules, errs := routetypes.ParseRules(userAcls.Mfa, userAcls.Allow, userAcls.Deny)
 	if len(errs) != 0 {
-		log.Println("Parsing rules for user had errors: ", errs)
-		f.db.RaiseError(errors.Join(errs...), []byte("Could not refresh all acls for user: "+username))
+		f.db.RaiseError(fmt.Errorf("parsing rules for user had errors: %w", errors.Join(errs...)), []byte("Could not refresh all acls for user: "+username))
 	}
 
 	// Clear lpm trie

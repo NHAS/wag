@@ -23,7 +23,7 @@ func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error
 		return err
 	}
 
-	return set(d.etcd, AclsPrefix+effects, true, policy)
+	return Set(d.etcd, AclsPrefix+effects, true, policy)
 }
 
 func (d *database) GetPolicies() (result []control.PolicyData, err error) {

@@ -132,7 +132,7 @@ func (d *database) GetAllWebserverConfigs() (details map[string]WebserverConfigu
 }
 
 func (d *database) GetWebserverConfig(forWhat Webserver) (details WebserverConfiguration, err error) {
-	return get[WebserverConfiguration](d.etcd, WebServerConfigKey+string(forWhat))
+	return Get[WebserverConfiguration](d.etcd, WebServerConfigKey+string(forWhat))
 }
 
 func (d *database) SetWebserverConfig(forWhat Webserver, details WebserverConfiguration) (err error) {
@@ -143,11 +143,11 @@ func (d *database) SetWebserverConfig(forWhat Webserver, details WebserverConfig
 		return errors.New("unsupported webserver")
 	}
 
-	return set(d.etcd, WebServerConfigKey+string(forWhat), true, details)
+	return Set(d.etcd, WebServerConfigKey+string(forWhat), true, details)
 }
 
 func (d *database) GetPAM() (details PAM, err error) {
-	return get[PAM](d.etcd, PamDetailsKey)
+	return Get[PAM](d.etcd, PamDetailsKey)
 }
 
 func (d *database) GetOidc() (details OIDC, err error) {
@@ -233,7 +233,7 @@ func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
 }
 
 func (d *database) GetWireguardConfigName() string {
-	k, err := get[string](d.etcd, defaultWGFileNameKey)
+	k, err := Get[string](d.etcd, defaultWGFileNameKey)
 	if err != nil {
 		return "wg0.conf"
 	}
@@ -246,23 +246,23 @@ func (d *database) GetWireguardConfigName() string {
 }
 
 func (d *database) SetDefaultMFAMethod(method string) error {
-	return set(d.etcd, DefaultMFAMethodKey, true, method)
+	return Set(d.etcd, DefaultMFAMethodKey, true, method)
 }
 
 func (d *database) GetDefaultMFAMethod() (string, error) {
-	return get[string](d.etcd, DefaultMFAMethodKey)
+	return Get[string](d.etcd, DefaultMFAMethodKey)
 }
 
 func (d *database) SetEnabledMFAMethods(methods []string) error {
-	return set(d.etcd, MFAMethodsEnabledKey, true, methods)
+	return Set(d.etcd, MFAMethodsEnabledKey, true, methods)
 }
 
 func (d *database) GetEnabledMFAMethods() (result []string, err error) {
-	return get[[]string](d.etcd, MFAMethodsEnabledKey)
+	return Get[[]string](d.etcd, MFAMethodsEnabledKey)
 }
 
 func (d *database) ShouldCheckUpdates() (bool, error) {
-	return get[bool](d.etcd, MFAMethodsEnabledKey)
+	return Get[bool](d.etcd, MFAMethodsEnabledKey)
 }
 
 func (d *database) GetTunnelDomainUrl() (string, error) {
@@ -280,20 +280,20 @@ func (d *database) GetTunnelDomainUrl() (string, error) {
 }
 
 func (d *database) SetIssuer(issuer string) error {
-	return set(d.etcd, IssuerKey, true, issuer)
+	return Set(d.etcd, IssuerKey, true, issuer)
 }
 
 func (d *database) GetIssuer() (string, error) {
-	return get[string](d.etcd, IssuerKey)
+	return Get[string](d.etcd, IssuerKey)
 }
 
 func (d *database) SetHelpMail(helpMail string) error {
-	return set(d.etcd, helpMailKey, true, helpMail)
+	return Set(d.etcd, helpMailKey, true, helpMail)
 }
 
 func (d *database) GetHelpMail() string {
 
-	mail, err := get[string](d.etcd, helpMailKey)
+	mail, err := Get[string](d.etcd, helpMailKey)
 	if err != nil {
 		return "Server Error"
 	}
@@ -302,15 +302,15 @@ func (d *database) GetHelpMail() string {
 }
 
 func (d *database) GetExternalAddress() (string, error) {
-	return get[string](d.etcd, externalAddressKey)
+	return Get[string](d.etcd, externalAddressKey)
 }
 
 func (d *database) SetDNS(dns []string) error {
-	return set(d.etcd, dnsKey, true, dns)
+	return Set(d.etcd, dnsKey, true, dns)
 }
 
 func (d *database) GetDNS() ([]string, error) {
-	return get[[]string](d.etcd, dnsKey)
+	return Get[[]string](d.etcd, dnsKey)
 }
 
 type LoginSettings struct {
@@ -563,23 +563,23 @@ func (d *database) SetGeneralSettings(generalSettings GeneralSettings) error {
 }
 
 func (d *database) SetSessionLifetimeMinutes(lifetimeMinutes int) error {
-	return set(d.etcd, SessionLifetimeKey, true, lifetimeMinutes)
+	return Set(d.etcd, SessionLifetimeKey, true, lifetimeMinutes)
 }
 
 // If value is below 0 that means the max session is infinite (i.e disabled)
 func (d *database) GetSessionLifetimeMinutes() (int, error) {
-	return get[int](d.etcd, SessionLifetimeKey)
+	return Get[int](d.etcd, SessionLifetimeKey)
 }
 
 func (d *database) SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
-	return set(d.etcd, InactivityTimeoutKey, true, inactivityTimeout)
+	return Set(d.etcd, InactivityTimeoutKey, true, inactivityTimeout)
 }
 
 func (d *database) GetSessionInactivityTimeoutMinutes() (int, error) {
-	return get[int](d.etcd, InactivityTimeoutKey)
+	return Get[int](d.etcd, InactivityTimeoutKey)
 }
 
 // Get account lockout threshold setting
 func (d *database) GetLockout() (int, error) {
-	return get[int](d.etcd, LockoutKey)
+	return Get[int](d.etcd, LockoutKey)
 }

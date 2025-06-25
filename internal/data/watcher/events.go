@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/interfaces"
-	"github.com/NHAS/wag/internal/utils"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -25,7 +23,7 @@ type parsedEvent[T any] struct {
 type Watcher[T any] struct {
 	sync.Mutex
 
-	watchers map[string]context.CancelFunc
+	watchers []context.CancelFunc
 
 	db interfaces.Watchers
 }
@@ -51,8 +49,7 @@ func WatchMulti[T any](db interfaces.Watchers,
 	ResolverFunc func(key string, eventType data.EventType, newState, previousState T) error) (*Watcher[T], error) {
 
 	s := &Watcher[T]{
-		db:       db,
-		watchers: make(map[string]context.CancelFunc),
+		db: db,
 	}
 
 	ops := []clientv3.OpOption{clientv3.WithPrevKV()}
@@ -65,14 +62,8 @@ func WatchMulti[T any](db interfaces.Watchers,
 
 		ctx, cancel := context.WithCancel(context.Background())
 
-		listenKey, err := utils.GenerateRandomHex(16)
-		if err != nil {
-			cancel()
-			return nil, fmt.Errorf("failed to generate watcher key: %w", err)
-		}
-
 		s.Lock()
-		s.watchers[listenKey] = cancel
+		s.watchers = append(s.watchers, cancel)
 		s.Unlock()
 
 		output := make(chan parsedEvent[T], 1)
@@ -80,18 +71,15 @@ func WatchMulti[T any](db interfaces.Watchers,
 			for {
 				select {
 				case <-ctx.Done():
+					return
 				case e, ok := <-output:
 					if !ok {
 						return
 					}
 
-					if err := ResolverFunc(key, e.eventType, e.current, e.previous); err != nil {
-						log.Println("applying event failed: ", e.eventType, e.key, e.current, "err:", err)
+					if err := ResolverFunc(e.key, e.eventType, e.current, e.previous); err != nil {
 						value, _ := json.Marshal(e.current)
-						err = db.RaiseError(err, value)
-						if err != nil {
-							log.Println("failed to raise error with cluster: ", err)
-						}
+						db.RaiseError(fmt.Errorf("applying event failed: %s %s %v, err: %w", e.eventType, e.key, e.current, err), value)
 					}
 				}
 			}
@@ -104,41 +92,28 @@ func WatchMulti[T any](db interfaces.Watchers,
 			for watchEvent := range wc {
 
 				if err := watchEvent.Err(); err != nil {
-					log.Println("got watch error: ", err, key)
+					db.RaiseError(fmt.Errorf("got watch error key %q: err: %w", key, err), nil)
 					return
 				}
 
 				for _, event := range watchEvent.Events {
 
 					go func() {
-						select {
-						case <-ctx.Done():
-							close(output)
+
+						p, err := parseEvent[T](event)
+						if err != nil {
+
+							b, _ := json.MarshalIndent(p.current, "", "    ")
+							db.RaiseError(fmt.Errorf("failed to parse event for sending: %w", err), b)
 							return
-						default:
-							pe, err := parseEvent[T](db, key, event)
-							if err != nil {
-								log.Println("parsing event failed: ", pe.eventType, key, pe.current, "err:", err)
-								value, _ := json.Marshal(pe.current)
-								err = db.RaiseError(err, value)
-								if err != nil {
-									log.Println("failed to raise error with cluster: ", err)
-									return
-								}
-								return
-							}
-
-							select {
-							case output <- pe:
-							case <-time.After(5 * time.Second):
-								err = db.RaiseError(errors.New("cluster member is slow to apply changes (>5 seconds), this may result in inconsistent state and indicate high resource usage"), nil)
-								if err != nil {
-									log.Println("failed to raise error with cluster: ", err)
-									return
-								}
-							}
-
 						}
+
+						err = sendEvent(ctx, p, output)
+						if err != nil {
+							b, _ := json.MarshalIndent(p.current, "", "    ")
+							db.RaiseError(err, b)
+						}
+						db.Write(data.NewGeneralEvent(p.eventType, p.key, &p.current, &p.previous))
 
 					}()
 
@@ -152,7 +127,25 @@ func WatchMulti[T any](db interfaces.Watchers,
 
 }
 
-func parseEvent[T any](db interfaces.Watchers, key string, event *clientv3.Event) (p parsedEvent[T], err error) {
+func sendEvent[T any](ctx context.Context, pe parsedEvent[T], output chan parsedEvent[T]) (err error) {
+	select {
+	case <-ctx.Done():
+		close(output)
+		return nil
+	default:
+		select {
+		case output <- pe:
+			return nil
+		case <-time.After(5 * time.Second):
+			return errors.New("cluster member is slow to apply changes (>5 seconds), this may result in inconsistent state and indicate high resource usage")
+		}
+
+	}
+}
+
+func parseEvent[T any](event *clientv3.Event) (p parsedEvent[T], err error) {
+
+	p.key = string(event.Kv.Key)
 
 	switch event.Type {
 	case mvccpb.DELETE:
@@ -160,21 +153,21 @@ func parseEvent[T any](db interfaces.Watchers, key string, event *clientv3.Event
 		p.eventType = data.DELETED
 		err = json.Unmarshal(event.PrevKv.Value, &p.current)
 		if err != nil {
-			return p, fmt.Errorf("failed to unmarshal previous entry for key %q deleted event: %w", key, err)
+			return p, fmt.Errorf("failed to unmarshal previous entry for key %q deleted event: %w", p.key, err)
 		}
 
 	case mvccpb.PUT:
 		p.eventType = data.CREATED
 		err = json.Unmarshal(event.Kv.Value, &p.current)
 		if err != nil {
-			return p, fmt.Errorf("failed to unmarshal current key %q event event: %w", key, err)
+			return p, fmt.Errorf("failed to unmarshal current key %q event event: %w", p.key, err)
 		}
 
 		if event.IsModify() {
 			p.eventType = data.MODIFIED
 			err = json.Unmarshal(event.PrevKv.Value, &p.previous)
 			if err != nil {
-				return p, fmt.Errorf("failed to unmarshal previous key %q previous data: %q err: %w", key, event.PrevKv.Value, err)
+				return p, fmt.Errorf("failed to unmarshal previous key %q previous data: %q err: %w", p.key, event.PrevKv.Value, err)
 			}
 		}
 	default:
@@ -182,10 +175,7 @@ func parseEvent[T any](db interfaces.Watchers, key string, event *clientv3.Event
 
 	}
 
-	db.Write(data.NewGeneralEvent(p.eventType, key, &p.current, &p.previous))
-
 	return
-
 }
 
 func (s *Watcher[T]) Close() error {

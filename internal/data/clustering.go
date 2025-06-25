@@ -104,11 +104,11 @@ func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
-	return get[string](d.etcd, path.Join(NodeInfo, idHex, "version"))
+	return Get[string](d.etcd, path.Join(NodeInfo, idHex, "version"))
 }
 
 func (d *database) SetCurrentNodeVersion() error {
-	return set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
+	return Set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
 }
 
 func (d *database) SetDrained(idHex string, on bool) error {
