@@ -65,6 +65,12 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 
 	tunnel.HandleFunc("GET /api/session", mfaPortal.session.WS)
 
+	// legacy
+	tunnel.HandleFunc("GET /public_key", mfaPortal.publicKey)
+	tunnel.HandleFunc("GET /status", mfaPortal.status)
+	tunnel.HandleFunc("GET /routes", mfaPortal.routes)
+
+	// as of v9.0.0
 	tunnel.HandleFunc("GET /api/public_key", mfaPortal.publicKey)
 	tunnel.HandleFunc("GET /api/status", mfaPortal.status)
 	tunnel.HandleFunc("GET /api/routes", mfaPortal.routes)
