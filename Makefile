@@ -18,6 +18,9 @@ release: .build_ui
 dev:	debug
 	sudo docker compose -f docker-compose.dev.yml up 
 
+dev-adminui:
+	cd adminui/frontend; DEV_API_URL=http://127.0.0.1:4433 npm run dev
+
 docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 
