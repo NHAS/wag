@@ -14,6 +14,36 @@ export interface RegistrationTokenRequestDTO {
   uses: number
 }
 
+
+export enum WebhookActions {
+  CreateRegistrationToken = 'create_token',
+  DeleteDevice = 'delete_device',
+  DeleteUser = 'delete_user',
+  DeleteAll = 'delete_all',
+}
+
+export interface WebhookAttributes {
+  as_username: string
+  as_device_tag: string
+  as_registration_token: string
+}
+
+export interface WebhookCreateRequestDTO {
+  webhook: string
+  action: WebhookActions
+  json_attribute_roles: WebhookAttributes
+}
+
+export interface WebhookAttribute {
+  key: string
+  value: string
+}
+
+export interface WebhookInputDTO {
+  attributes: WebhookAttribute[]
+}
+
+
 export interface DeviceDTO {
   owner: string
   is_locked: boolean

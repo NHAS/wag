@@ -17,6 +17,8 @@ export const Icons = {
 
   User: 'fa-solid fa-user',
   RegistrationKey: 'fa-solid fa-key',
+  Robot: 'fa-solid fa-robot',
+
 
   Open: 'fa-solid fa-bars',
 

@@ -53,6 +53,9 @@ const router = createRouter({
     route('/management/users/:filter?', 'User Management', () => import('@/pages/Users.vue')),
     route('/management/devices/:filter?', 'Device Management', () => import('@/pages/Devices.vue')),
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
+    route('/management/automation', 'Automation', () => import('@/pages/Automation.vue')),
+
+
 
     route('/settings', 'Settings', () => import('@/pages/Settings.vue')),
     route('/admin_users', 'Admin Users', () => import('@/pages/AdminUsers.vue'))

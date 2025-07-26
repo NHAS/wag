@@ -32,7 +32,8 @@ const policyLinks = [
 const managementLinks = [
   { name: 'Registration Tokens', icon: Icons.RegistrationKey, to: '/management/registration_tokens' },
   { name: 'Users', icon: Icons.Groups, to: '/management/users' },
-  { name: 'Devices', icon: Icons.Device, to: '/management/devices' }
+  { name: 'Devices', icon: Icons.Device, to: '/management/devices' },
+  { name: 'Automation', icon: Icons.Robot, to: '/management/automation' },
 ]
 
 const adminPageLinks = [
