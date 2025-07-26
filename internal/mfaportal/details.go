@@ -60,25 +60,25 @@ func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challeng
 	}
 
 	var err error
-	w, err := watcher.Watch(db, data.DevicesPrefix, true, r.deviceChanges)
+	w, err := watcher.Watch(db, data.DevicesPrefix, true, watcher.OnDelete(r.deviceDeleted), watcher.OnModification(r.deviceChanged))
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, w)
 
-	s, err := watcher.Watch(db, data.DeviceSessionPrefix, true, r.sessionChanges)
+	s, err := watcher.Watch(db, data.DeviceSessionPrefix, true, watcher.OnDelete(r.sessionDeleted))
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, s)
 
-	u, err := watcher.Watch(db, data.UsersPrefix, true, r.userChanges)
+	u, err := watcher.Watch(db, data.UsersPrefix, true, watcher.OnDelete(r.userDeleted), watcher.OnModification(r.userChanged))
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, u)
 
-	m, err := watcher.Watch(db, data.MFAMethodsEnabledKey, false, r.mfaChanges)
+	m, err := watcher.Watch(db, data.MFAMethodsEnabledKey, false, watcher.OnModification(r.mfaChanged))
 	if err != nil {
 		return nil, err
 	}
@@ -105,48 +105,48 @@ func (c *Challenger) Close() error {
 	return nil
 }
 
-func (c *Challenger) mfaChanges(_ string, et data.EventType, current, previous []string) error {
+func (c *Challenger) mfaChanged(_ string, current, previous []string) error {
 
-	switch et {
-
-	case data.MODIFIED:
-		if !slices.Equal(current, previous) {
-			c.UpdateAll()
-		}
-
+	if !slices.Equal(current, previous) {
+		c.UpdateAll()
 	}
 
 	return nil
 }
 
-func (c *Challenger) userChanges(_ string, et data.EventType, current, previous data.UserModel) error {
+func (c *Challenger) userDeleted(_ string, current, previous data.UserModel) error {
 
-	switch et {
+	c.DisconnectAllDevices(current.Username, "Account deleted")
 
-	case data.MODIFIED:
-		if current.Enforcing != previous.Enforcing ||
-			current.Locked != previous.Locked ||
-			current.Mfa != previous.Mfa {
-			c.UpdateUserState(current.Username)
-		}
+	return nil
+}
 
-	case data.DELETED:
-		c.DisconnectAllDevices(current.Username, "Account deleted")
+func hasUserStateChanged(current, previous *data.UserModel) bool {
+	return current.Enforcing != previous.Enforcing || current.Locked != previous.Locked || current.Mfa != previous.Mfa
+}
+
+func (c *Challenger) userChanged(_ string, current, previous data.UserModel) error {
+
+	if hasUserStateChanged(&current, &previous) {
+		c.UpdateUserState(current.Username)
 	}
 
 	return nil
 }
 
-func (c *Challenger) sessionChanges(_ string, et data.EventType, current, previous data.DeviceSession) error {
-	switch et {
-	case data.DELETED:
-		c.UpdateState(current.Username, current.Address)
-	}
+func (c *Challenger) sessionDeleted(_ string, current, previous data.DeviceSession) error {
+
+	c.UpdateState(current.Username, current.Address)
 
 	return nil
 }
 
-func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previous data.Device) error {
+func (c *Challenger) deviceDeleted(_ string, current, previous data.Device) error {
+	c.Disconnect(current.Username, current.Address, "Device deleted.", true)
+	return nil
+}
+
+func (c *Challenger) deviceChanged(_ string, current, previous data.Device) error {
 
 	lockout, err := c.db.GetLockout()
 	if err != nil {
@@ -155,39 +155,34 @@ func (c *Challenger) deviceChanges(_ string, et data.EventType, current, previou
 
 	sendUpdate := false
 
-	switch et {
-	case data.DELETED:
-		c.Disconnect(current.Username, current.Address, "Device deleted.", true)
-	case data.MODIFIED:
-		// If the real world ip endpoint has changed
-		if current.Endpoint.String() != previous.Endpoint.String() {
-			sendUpdate = true
-			// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
-			if err := current.ChallengeExists(c.db.Raw()); err == nil {
-				c.Challenge(current.Username, current.Address)
-			}
+	// If the real world ip endpoint has changed
+	if current.Endpoint.String() != previous.Endpoint.String() {
+		sendUpdate = true
+		// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
+		if err := current.ChallengeExists(c.db.Raw()); err == nil {
+			c.Challenge(current.Username, current.Address)
 		}
+	}
 
-		if current.Attempts != previous.Attempts &&
-			(
-			// If the device has become locked
-			current.Attempts > lockout ||
-				// if the device has become unlocked
-				current.Attempts < lockout) {
+	if current.Attempts != previous.Attempts &&
+		(
+		// If the device has become locked
+		current.Attempts > lockout ||
+			// if the device has become unlocked
+			current.Attempts < lockout) {
 
-			sendUpdate = true
-		}
+		sendUpdate = true
+	}
 
-		// If we've explicitly deauthorised a device (logout)
-		if !current.Authorised.Equal(previous.Authorised) && current.Authorised.IsZero() {
-			sendUpdate = true
-		}
+	// If we've explicitly deauthorised a device (logout)
+	if !current.Authorised.Equal(previous.Authorised) && current.Authorised.IsZero() {
+		sendUpdate = true
+	}
 
-		if c.db.HasDeviceAuthorised(current, previous) {
-			c.NotifyOfAuth(current)
-			// Notify auth sends a state update with it
-			sendUpdate = false
-		}
+	if c.db.HasDeviceAuthorised(current, previous) {
+		c.NotifyOfAuth(current)
+		// Notify auth sends a state update with it
+		sendUpdate = false
 	}
 
 	if sendUpdate {

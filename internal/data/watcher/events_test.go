@@ -22,18 +22,42 @@ func TestWatcher(t *testing.T) {
 	const key = "wag-test-key"
 
 	output := make(chan parsedEvent[testStruct], 3)
-	w, err := Watch(db, key, false, func(key string, eventType data.EventType, newState, previousState testStruct) error {
+	w, err := Watch(db, key, false,
 
-		pe := parsedEvent[testStruct]{
-			key:       key,
-			eventType: eventType,
-			current:   newState,
-			previous:  previousState,
-		}
-		output <- pe
+		OnCreate(func(key string, newState, previousState testStruct) error {
+			pe := parsedEvent[testStruct]{
+				key:       key,
+				eventType: data.CREATED,
+				current:   newState,
+				previous:  previousState,
+			}
+			output <- pe
 
-		return nil
-	})
+			return nil
+		}),
+		OnModification(func(key string, newState, previousState testStruct) error {
+			pe := parsedEvent[testStruct]{
+				key:       key,
+				eventType: data.MODIFIED,
+				current:   newState,
+				previous:  previousState,
+			}
+			output <- pe
+
+			return nil
+		}),
+		OnDelete(func(key string, newState, previousState testStruct) error {
+			pe := parsedEvent[testStruct]{
+				key:       key,
+				eventType: data.DELETED,
+				current:   newState,
+				previous:  previousState,
+			}
+			output <- pe
+
+			return nil
+		}),
+	)
 
 	if err != nil {
 		t.Fatal(err)

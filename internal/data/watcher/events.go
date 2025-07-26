@@ -23,21 +23,101 @@ type parsedEvent[T any] struct {
 type Watcher[T any] struct {
 	sync.Mutex
 
-	watchers []context.CancelFunc
+	watchers  []context.CancelFunc
+	callbacks WatcherCallbacks[T]
 
 	db interfaces.Watchers
+}
+
+type AllCallbackFunc[T any] func(key string, eventType data.EventType, newState, previousState T) error
+
+type CallbackFunc[T any] func(key string, newState, previousState T) error
+
+type WatcherCallbacks[T any] struct {
+	// Created(...) gets only newly created keys
+	Created []CallbackFunc[T]
+
+	// Modified(...) gets changes to existing keys
+	Modified []CallbackFunc[T]
+
+	// Deleted(...) only gets deleted keys
+	Deleted []CallbackFunc[T]
+
+	// All(...) gets all of the key events
+	All AllCallbackFunc[T]
+}
+
+type callback[T any] struct {
+	t  data.EventType
+	cb func(key string, newState, previousState T) error
+}
+
+func OnCreate[T any](cb CallbackFunc[T]) callback[T] {
+	return callback[T]{
+		t:  data.CREATED,
+		cb: cb,
+	}
+}
+
+func OnModification[T any](cb CallbackFunc[T]) callback[T] {
+	return callback[T]{
+		t:  data.MODIFIED,
+		cb: cb,
+	}
+}
+
+func OnDelete[T any](cb CallbackFunc[T]) callback[T] {
+	return callback[T]{
+		t:  data.DELETED,
+		cb: cb,
+	}
+}
+
+func Watch[T any](
+	db interfaces.Watchers,
+	Key string,
+	WatchPrefix bool,
+	callbacks ...callback[T]) (*Watcher[T], error) {
+
+	var wcbs WatcherCallbacks[T]
+
+	for _, c := range callbacks {
+		switch c.t {
+		case data.CREATED:
+			wcbs.Created = append(wcbs.Created, c.cb)
+		case data.MODIFIED:
+			wcbs.Modified = append(wcbs.Modified, c.cb)
+
+		case data.DELETED:
+			wcbs.Deleted = append(wcbs.Deleted, c.cb)
+		}
+
+	}
+
+	return WatchMulti(db, []string{Key}, WatchPrefix, wcbs)
+}
+
+func WatchAll[T any](
+	db interfaces.Watchers,
+	Key string,
+	WatchPrefix bool,
+	cb AllCallbackFunc[T]) (*Watcher[T], error) {
+
+	return WatchMulti(db, []string{Key}, WatchPrefix, WatcherCallbacks[T]{
+		All: cb,
+	})
 }
 
 // Watch allows you to register a typesafe callback that will be fired when a key, or prefix is modified in etcd
 // This callback will be run in a gothread
 // Any structure elements that are marked with `sensitive:"yes"` will be zero'd when emitted to the general event log
-func Watch[T any](
+func WatchStruct[T any](
 	db interfaces.Watchers,
 	Key string,
 	WatchPrefix bool,
-	ResolverFunc func(key string, eventType data.EventType, newState, previousState T) error) (*Watcher[T], error) {
+	callbacks WatcherCallbacks[T]) (*Watcher[T], error) {
 
-	return WatchMulti(db, []string{Key}, WatchPrefix, ResolverFunc)
+	return WatchMulti(db, []string{Key}, WatchPrefix, callbacks)
 }
 
 // WatchMulti allows you to register a typesafe callback that will be fired when a key, or prefix is modified in etcd
@@ -46,16 +126,26 @@ func Watch[T any](
 func WatchMulti[T any](db interfaces.Watchers,
 	Keys []string,
 	WatchPrefix bool,
-	ResolverFunc func(key string, eventType data.EventType, newState, previousState T) error) (*Watcher[T], error) {
+	callbacks WatcherCallbacks[T]) (*Watcher[T], error) {
 
 	s := &Watcher[T]{
-		db: db,
+		db:        db,
+		callbacks: callbacks,
 	}
 
 	ops := []clientv3.OpOption{clientv3.WithPrevKV()}
 
 	if WatchPrefix {
 		ops = append(ops, clientv3.WithPrefix())
+	}
+
+	apply := func(cb CallbackFunc[T], e parsedEvent[T]) {
+		if cb != nil {
+			if err := cb(e.key, e.current, e.previous); err != nil {
+				value, _ := json.Marshal(e.current)
+				db.RaiseError(fmt.Errorf("applying event failed: %s %s %v, err: %w", e.eventType, e.key, e.current, err), value)
+			}
+		}
 	}
 
 	for _, key := range Keys {
@@ -77,10 +167,32 @@ func WatchMulti[T any](db interfaces.Watchers,
 						return
 					}
 
-					if err := ResolverFunc(e.key, e.eventType, e.current, e.previous); err != nil {
-						value, _ := json.Marshal(e.current)
-						db.RaiseError(fmt.Errorf("applying event failed: %s %s %v, err: %w", e.eventType, e.key, e.current, err), value)
+					switch e.eventType {
+					case data.CREATED:
+						for _, createdFuncs := range callbacks.Created {
+							apply(createdFuncs, e)
+						}
+
+					case data.MODIFIED:
+						for _, modifiedFuncs := range callbacks.Modified {
+
+							apply(modifiedFuncs, e)
+						}
+
+					case data.DELETED:
+						for _, deletedFuncs := range callbacks.Deleted {
+
+							apply(deletedFuncs, e)
+						}
 					}
+
+					if callbacks.All != nil {
+						if err := callbacks.All(e.key, e.eventType, e.current, e.previous); err != nil {
+							value, _ := json.Marshal(e.current)
+							db.RaiseError(fmt.Errorf("applying all event failed: %s %s %v, err: %w", e.eventType, e.key, e.current, err), value)
+						}
+					}
+
 				}
 			}
 

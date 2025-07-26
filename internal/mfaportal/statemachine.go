@@ -12,25 +12,25 @@ import (
 
 func (mp *MfaPortal) registerListeners() error {
 
-	o, err := watcher.Watch(mp.db, data.OidcDetailsKey, false, mp.oidcChanges)
+	o, err := watcher.Watch(mp.db, data.OidcDetailsKey, false, watcher.OnDelete(mp.oidcDeleted), watcher.OnCreate(mp.oidcChanged), watcher.OnModification(mp.oidcChanged))
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, o)
 
-	d, err := watcher.Watch(mp.db, data.TunnelWebServerConfigKey, false, mp.domainChanged)
+	d, err := watcher.Watch(mp.db, data.TunnelWebServerConfigKey, false, watcher.OnModification(mp.domainChanged))
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, d)
 
-	m, err := watcher.Watch(mp.db, data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
+	m, err := watcher.WatchAll(mp.db, data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
 	if err != nil {
 		return err
 	}
 	mp.watchers = append(mp.watchers, m)
 
-	i, err := watcher.Watch(mp.db, data.IssuerKey, false, mp.issuerKeyChanged)
+	i, err := watcher.WatchAll(mp.db, data.IssuerKey, false, mp.issuerKeyChanged)
 	if err != nil {
 		return err
 	}
@@ -39,47 +39,46 @@ func (mp *MfaPortal) registerListeners() error {
 	return nil
 }
 
+func (mp *MfaPortal) oidcDeleted(_ string, current data.OIDC, previous data.OIDC) error {
+	authenticators.DisableMethods(types.Oidc)
+	return nil
+}
+
 // OidcDetailsKey = "wag-config-authentication-oidc"
-func (mp *MfaPortal) oidcChanges(_ string, et data.EventType, current data.OIDC, previous data.OIDC) error {
-	switch et {
-	case data.DELETED:
-		authenticators.DisableMethods(types.Oidc)
-	case data.CREATED, data.MODIFIED:
+func (mp *MfaPortal) oidcChanged(_ string, current data.OIDC, previous data.OIDC) error {
 
-		if current.Equals(&previous) {
-			return nil
-		}
+	if current.Equals(&previous) {
+		return nil
+	}
 
-		// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
-		methods, err := mp.db.GetEnabledMFAMethods()
-		if err != nil {
-			log.Println("Couldnt get authenication methods to enable oidc: ", err)
-			return err
-		}
+	// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
+	methods, err := mp.db.GetEnabledMFAMethods()
+	if err != nil {
+		log.Println("Couldnt get authenication methods to enable oidc: ", err)
+		return err
+	}
 
-		if slices.Contains(methods, string(types.Oidc)) {
-			return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
-		}
+	if slices.Contains(methods, string(types.Oidc)) {
+		return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
 	}
 
 	return nil
 }
 
-func (mp *MfaPortal) domainChanged(_ string, et data.EventType, current, previous data.WebserverConfiguration) error {
-	switch et {
-	case data.MODIFIED:
-		if !current.Equals(&previous) {
+func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverConfiguration) error {
 
-			methods, err := mp.db.GetEnabledMFAMethods()
-			if err != nil {
-				log.Println("Couldnt get authenication methods to enable oidc: ", err)
-				return err
-			}
+	if current.Equals(&previous) {
+		return nil
+	}
 
-			if slices.Contains(methods, string(types.Oidc)) {
-				return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
-			}
-		}
+	methods, err := mp.db.GetEnabledMFAMethods()
+	if err != nil {
+		log.Println("Couldnt get authenication methods to enable oidc: ", err)
+		return err
+	}
+
+	if slices.Contains(methods, string(types.Oidc)) {
+		return authenticators.ReinitialiseMethod(mp.db, types.Oidc)
 	}
 
 	return nil

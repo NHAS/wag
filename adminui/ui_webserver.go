@@ -287,7 +287,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	notifications := make(chan NotificationDTO, 1)
 	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
 
-	errorNotf, err := watcher.Watch(db, data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
+	errorNotf, err := watcher.WatchAll(db, data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
 	if err == nil {
 		adminUI.listenerEvents.watchers = append(adminUI.listenerEvents.watchers, errorNotf)
 	} else {

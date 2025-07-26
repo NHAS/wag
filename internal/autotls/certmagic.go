@@ -155,7 +155,7 @@ func (a *AutoTLS) HalfClose(what data.Webserver) {
 
 func (a *AutoTLS) registerEventListeners() error {
 
-	_, err := watcher.Watch(a.db, data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
+	_, err := watcher.WatchAll(a.db, data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
 		if ev == data.DELETED || current.APIToken == "" {
 			a.issuer.DNS01Solver = nil
 		} else {
@@ -174,7 +174,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = watcher.Watch(a.db, data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
+	_, err = watcher.WatchAll(a.db, data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.Email = current
 		if ev == data.DELETED {
@@ -187,7 +187,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	_, err = watcher.Watch(a.db, data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
+	_, err = watcher.WatchAll(a.db, data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
 
 		a.issuer.CA = current
 		if ev == data.DELETED {
@@ -243,7 +243,9 @@ func (a *AutoTLS) registerEventListeners() error {
 		data.PublicWebServerConfigKey,
 		data.ManagementWebServerConfigKey,
 	}, false,
-		webserverEventsFunc)
+		watcher.WatcherCallbacks[data.WebserverConfiguration]{
+			All: webserverEventsFunc,
+		})
 
 	return err
 }

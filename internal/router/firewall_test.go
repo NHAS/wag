@@ -1090,16 +1090,14 @@ func addDevices() error {
 
 	c := make(chan bool)
 	numDevices := 0
-	w, err := watcher.Watch(db, data.DevicesPrefix, true, func(key string, et data.EventType, current, previous data.Device) error {
-		switch et {
-		case data.CREATED:
-			numDevices++
+	w, err := watcher.Watch(db, data.DevicesPrefix, true,
+		watcher.OnCreate(func(key string, newState, previousState data.Device) error {
 			if numDevices >= len(devices) {
 				c <- true
 			}
-		}
-		return nil
-	})
+			return nil
+		},
+		))
 	if err != nil {
 		return err
 	}

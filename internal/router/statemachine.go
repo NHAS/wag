@@ -14,198 +14,218 @@ import (
 
 func (f *Firewall) handleEvents() error {
 
-	d, err := watcher.Watch(f.db, data.DevicesPrefix, true, f.deviceChanges)
-	if err != nil {
-		return err
-	}
-	f.watchers = append(f.watchers, d)
-
-	u, err := watcher.Watch(f.db, data.UsersPrefix, true, f.userChanges)
-	if err != nil {
-		return err
-	}
-	f.watchers = append(f.watchers, u)
-
-	a, err := watcher.Watch(f.db, data.AclsPrefix, true, f.aclsChanges)
-	if err != nil {
-		return err
-	}
-	f.watchers = append(f.watchers, a)
-
-	g, err := watcher.Watch(f.db, data.GroupMembershipPrefix, true, f.groupChanges)
-	if err != nil {
-		return err
-	}
-	f.watchers = append(f.watchers, g)
-
-	t, err := watcher.Watch(f.db, data.InactivityTimeoutKey, true, f.inactivityTimeoutChanges)
+	t, err := watcher.Watch(f.db, data.InactivityTimeoutKey, true, watcher.OnCreate(f.inactivityTimeoutChanges), watcher.OnModification(f.inactivityTimeoutChanges))
 	if err != nil {
 		return err
 	}
 	f.watchers = append(f.watchers, t)
 
+	d, err := watcher.Watch(f.db, data.DevicesPrefix, true, watcher.OnCreate(f.addDevice), watcher.OnModification(f.deviceChanges), watcher.OnDelete(f.delDevice))
+	if err != nil {
+		return err
+	}
+	f.watchers = append(f.watchers, d)
+
+	u, err := watcher.Watch(f.db, data.UsersPrefix, true, watcher.OnCreate(f.addUser), watcher.OnModification(f.userChanges), watcher.OnDelete(f.delUser))
+	if err != nil {
+		return err
+	}
+	f.watchers = append(f.watchers, u)
+
+	a, err := watcher.WatchAll(f.db, data.AclsPrefix, true, f.aclsChanges)
+	if err != nil {
+		return err
+	}
+	f.watchers = append(f.watchers, a)
+
+	g, err := watcher.WatchAll(f.db, data.GroupMembershipPrefix, true, f.groupChanges)
+	if err != nil {
+		return err
+	}
+	f.watchers = append(f.watchers, g)
+
 	return nil
 
 }
 
-func (f *Firewall) inactivityTimeoutChanges(_ string, et data.EventType, current, previous int) error {
+func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int) error {
 
-	switch et {
-	case data.MODIFIED, data.CREATED:
-		if current != previous {
-			if err := f.SetInactivityTimeout(current); err != nil {
-				return fmt.Errorf("unable to set inactivity timeout: %s", err)
-			}
-			log.Println("inactivity timeout changed")
-		}
+	if current == previous {
+		return nil
 	}
 
+	if err := f.SetInactivityTimeout(current); err != nil {
+		return fmt.Errorf("unable to set inactivity timeout: %s", err)
+	}
+	log.Println("inactivity timeout changed")
+
 	return nil
 }
 
-func (f *Firewall) deviceChanges(_ string, et data.EventType, current, previous data.Device) error {
-	switch et {
-	case data.DELETED:
+func (f *Firewall) addDevice(_ string, current, previous data.Device) error {
+	key, _ := wgtypes.ParseKey(current.Publickey)
+	err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, current.AssociatedNode)
+	if err != nil {
+		return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
+	}
 
-		err := f.RemovePeer(current.Publickey, current.Address)
-		if err != nil {
-			return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
-		}
-		log.Println("removed peer: ", current.Address)
+	log.Println("added peer: ", current.Address)
+	return nil
+}
 
-	case data.CREATED:
+func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error {
 
+	lockout, err := f.db.GetLockout()
+	if err != nil {
+		return fmt.Errorf("cannot get lockout: %s", err)
+	}
+
+	if current.Publickey != previous.Publickey {
 		key, _ := wgtypes.ParseKey(current.Publickey)
-		err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, current.AssociatedNode)
+		err := f.ReplacePeer(previous, key)
 		if err != nil {
-			return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
+			return fmt.Errorf("failed to replace peer pub key: %s", err)
 		}
+		log.Println("replaced peer public key: ", current.Address)
+	}
 
-		log.Println("added peer: ", current.Address)
+	if f.IsAuthed(current.Address) {
+		if current.Endpoint.String() != previous.Endpoint.String() {
 
-	case data.MODIFIED:
+			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
 
-		if current.Publickey != previous.Publickey {
-			key, _ := wgtypes.ParseKey(current.Publickey)
-			err := f.ReplacePeer(previous, key)
+			err := f.Deauthenticate(current.Address)
 			if err != nil {
-				return fmt.Errorf("failed to replace peer pub key: %s", err)
+				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
-			log.Println("replaced peer public key: ", current.Address)
+
+			// Will set a record deleted after 30 seconds that a device can use to reauthenticate
+			err = current.SetChallenge(f.db.Raw())
+			if err != nil {
+				return fmt.Errorf("failed to set device challenge: %w", err)
+			}
 		}
 
-		lockout, err := f.db.GetLockout()
+		if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
+			current.Authorised.IsZero() { // If we've explicitly deauthorised a device
+
+			var reasons []string
+			if current.Attempts > lockout {
+				reasons = []string{fmt.Sprintf("exceeded lockout (%d)", current.Attempts)}
+			}
+
+			if current.Authorised.IsZero() {
+				reasons = append(reasons, "session terminated")
+			}
+
+			err := f.Deauthenticate(current.Address)
+			if err != nil {
+				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
+			}
+
+			log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
+
+		}
+	}
+
+	if current.AssociatedNode != previous.AssociatedNode {
+		err := f.UpdateNodeAssociation(current)
 		if err != nil {
-			return fmt.Errorf("cannot get lockout: %s", err)
+			return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
 		}
 
-		if f.IsAuthed(current.Address) {
-			if current.Endpoint.String() != previous.Endpoint.String() {
+		log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
+	}
 
-				log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
+	// If the authorisation state has changed and is not disabled
+	if f.db.HasDeviceAuthorised(current, previous) {
+		err := f.SetAuthorized(current.Address, current.AssociatedNode)
 
-				err := f.Deauthenticate(current.Address)
-				if err != nil {
-					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
-				}
-
-				// Will set a record deleted after 30 seconds that a device can use to reauthenticate
-				err = current.SetChallenge(f.db.Raw())
-				if err != nil {
-					return fmt.Errorf("failed to set device challenge: %w", err)
-				}
-			}
-
-			if current.Attempts > lockout || // If the number of authentication attempts on a device has exceeded the max
-				current.Authorised.IsZero() { // If we've explicitly deauthorised a device
-
-				var reasons []string
-				if current.Attempts > lockout {
-					reasons = []string{fmt.Sprintf("exceeded lockout (%d)", current.Attempts)}
-				}
-
-				if current.Authorised.IsZero() {
-					reasons = append(reasons, "session terminated")
-				}
-
-				err := f.Deauthenticate(current.Address)
-				if err != nil {
-					return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
-				}
-
-				log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
-
-			}
+		if err != nil {
+			return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 		}
+		log.Println("authorized device: ", current.Address)
 
-		if current.AssociatedNode != previous.AssociatedNode {
-			err := f.UpdateNodeAssociation(current)
-			if err != nil {
-				return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
-			}
-
-			log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
-		}
-
-		// If the authorisation state has changed and is not disabled
-		if f.db.HasDeviceAuthorised(current, previous) {
-			err := f.SetAuthorized(current.Address, current.AssociatedNode)
-
-			if err != nil {
-				return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
-			}
-			log.Println("authorized device: ", current.Address)
-
-		}
-
-	default:
-		return fmt.Errorf("unknown event type: %v", et)
 	}
 
 	return nil
 }
 
-func (f *Firewall) userChanges(_ string, et data.EventType, current, previous data.UserModel) error {
-	switch et {
-	case data.CREATED:
-		err := f.AddUser(current.Username)
-		if err != nil {
-			return fmt.Errorf("cannot create user %s: %s", current.Username, err)
-		}
-		log.Printf("added user: %q", current.Username)
+func (f *Firewall) delDevice(_ string, current, previous data.Device) error {
+	err := f.RemovePeer(current.Publickey, current.Address)
+	if err != nil {
+		return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
+	}
+	log.Println("removed peer: ", current.Address)
+	return nil
+}
 
-	case data.DELETED:
-		err := f.RemoveUser(current.Username)
-		if err != nil {
-			return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
-		}
-		log.Printf("removed user: %q", current.Username)
+func (f *Firewall) addUser(_ string, current, previous data.UserModel) error {
+	err := f.AddUser(current.Username)
+	if err != nil {
+		return fmt.Errorf("cannot create user %s: %s", current.Username, err)
+	}
+	log.Printf("added user: %q", current.Username)
+	return nil
+}
 
-	case data.MODIFIED:
-
-		if current.Locked != previous.Locked || current.Locked {
-
-			log.Printf("locked %t user: %q", current.Locked, current.Username)
-
-			err := f.SetLockAccount(current.Username, current.Locked)
-			if err != nil {
-				return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
-			}
-		}
-
-		if current.Mfa != previous.Mfa || current.MfaType != previous.MfaType ||
-			!current.Enforcing || types.MFA(current.MfaType) == types.Unset {
-
-			log.Printf("deauthenticated user: %q", current.Username)
-
-			err := f.DeauthenticateAllDevices(current.Username)
-			if err != nil {
-				return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
-			}
-		}
-
+// shouldDeauthenticateUser determines if a user should be deauthenticated
+// based on changes to their security settings
+func (f *Firewall) shouldDeauthenticateUser(current, previous data.UserModel) bool {
+	// MFA settings changed
+	if current.Mfa != previous.Mfa {
+		return true
 	}
 
+	// MFA type changed
+	if current.MfaType != previous.MfaType {
+		return true
+	}
+
+	// if users mfa was reset
+	if !current.Enforcing {
+		return true
+	}
+
+	// MFA type is unset/invalid
+	if types.MFA(current.MfaType) == types.Unset {
+		return true
+	}
+
+	return false
+}
+
+func (f *Firewall) userChanges(_ string, current, previous data.UserModel) error {
+
+	if current.Locked != previous.Locked || current.Locked {
+
+		log.Printf("locked %t user: %q", current.Locked, current.Username)
+
+		err := f.SetLockAccount(current.Username, current.Locked)
+		if err != nil {
+			return fmt.Errorf("cannot lock user %s: %s", current.Username, err)
+		}
+	}
+
+	if f.shouldDeauthenticateUser(current, previous) {
+
+		log.Printf("deauthenticated user: %q", current.Username)
+
+		err := f.DeauthenticateAllDevices(current.Username)
+		if err != nil {
+			return fmt.Errorf("cannot deauthenticate user %s: %s", current.Username, err)
+		}
+	}
+
+	return nil
+}
+
+func (f *Firewall) delUser(_ string, current, previous data.UserModel) error {
+	err := f.RemoveUser(current.Username)
+	if err != nil {
+		return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
+	}
+	log.Printf("removed user: %q", current.Username)
 	return nil
 }
 
