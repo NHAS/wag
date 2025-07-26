@@ -268,8 +268,8 @@ func (f *Firewall) openWireguard(tdev tun.Device) error {
 	}
 
 	logger := device.NewLogger(
-		device.LogLevelError,
-		fmt.Sprintf("(%s) ", uapiInterfaceName),
+		config.Values.Wireguard.LogLevel,
+		fmt.Sprintf("wag-wireguard (%s) ", uapiInterfaceName),
 	)
 
 	// open UAPI file

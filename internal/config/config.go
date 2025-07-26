@@ -132,6 +132,8 @@ type Config struct {
 		Address    string
 		MTU        int
 
+		LogLevel int
+
 		//Not externally configurable
 		Range                     *net.IPNet `json:"-"`
 		ServerAddress             net.IP     `json:"-"`

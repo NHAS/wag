@@ -1096,8 +1096,7 @@ func addDevices() error {
 				c <- true
 			}
 			return nil
-		},
-		))
+		}))
 	if err != nil {
 		return err
 	}
