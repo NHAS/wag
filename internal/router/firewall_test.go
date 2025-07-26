@@ -1092,6 +1092,7 @@ func addDevices() error {
 	numDevices := 0
 	w, err := watcher.Watch(db, data.DevicesPrefix, true,
 		watcher.OnCreate(func(key string, newState, previousState data.Device) error {
+			numDevices++
 			if numDevices >= len(devices) {
 				c <- true
 			}
