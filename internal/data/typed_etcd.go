@@ -11,7 +11,7 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func Set[T any](etcd *clientv3.Client, key string, overwrite bool, data T) (err error) {
+func Set[T any](etcd *clientv3.Client, key string, overwrite bool, data T, options ...clientv3.OpOption) (err error) {
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -20,13 +20,13 @@ func Set[T any](etcd *clientv3.Client, key string, overwrite bool, data T) (err 
 
 	if overwrite {
 
-		_, err := etcd.Put(context.Background(), key, string(b))
+		_, err := etcd.Put(context.Background(), key, string(b), options...)
 		return err
 	}
 
 	txn := etcd.Txn(context.Background())
 	txn.If(clientv3util.KeyMissing(key))
-	txn.Then(clientv3.OpPut(key, string(b)))
+	txn.Then(clientv3.OpPut(key, string(b), options...))
 
 	resp, err := txn.Commit()
 	if err != nil {

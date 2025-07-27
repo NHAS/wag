@@ -260,6 +260,11 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	protectedRoutes.HandleFunc("POST /api/management/registration_tokens", adminUI.createRegistrationToken)
 	protectedRoutes.HandleFunc("DELETE /api/management/registration_tokens", adminUI.deleteRegistrationTokens)
 
+	protectedRoutes.HandleFunc("GET /api/managment/websockets/ws", adminUI.webhookWebSocket)
+	protectedRoutes.HandleFunc("GET /api/managment/websockets", adminUI.getWebhooks)
+	protectedRoutes.HandleFunc("POST /api/managment/websockets", adminUI.createWebhook)
+	protectedRoutes.HandleFunc("DELETE /api/managment/websockets", adminUI.deleteWebhook)
+
 	protectedRoutes.HandleFunc("GET /api/policy/rules", adminUI.getAllPolicies)
 	protectedRoutes.HandleFunc("PUT /api/policy/rules", adminUI.editPolicy)
 	protectedRoutes.HandleFunc("POST /api/policy/rules", adminUI.createPolicy)

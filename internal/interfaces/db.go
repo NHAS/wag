@@ -50,6 +50,16 @@ type EventWriter interface {
 	Write(e data.GeneralEvent) error
 }
 
+type Webhooks interface {
+	CreateTempWebhook() (string, error)
+	UpdateTempWebhook(id string, content []byte) error
+
+	CreateWebhook(id, action string, mapping data.WebhookAttributeMapping) error
+	GetWebhook(id string) (data.Webhook, error)
+	GetWebhooks() (hooks []data.WebhookDTO, err error)
+	DeleteWebhooks(ids []string) error
+}
+
 type Watchers interface {
 	RawConnection
 	EventWriter
@@ -69,6 +79,7 @@ type Database interface {
 	MFARespository
 	RegistrationRepository
 	DeviceRepository
+	Webhooks
 
 	SessionsRepository
 

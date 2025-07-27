@@ -5,7 +5,7 @@ import { useToast } from 'vue-toastification'
 import Modal from './Modal.vue'
 
 import { useToastError } from '@/composables/useToastError'
-import { WebhookActions, type WebhookAttribute, type WebhookCreateRequestDTO, type WebhookInputDTO } from '@/api'
+import { WebhookActions,  type WebhookCreateRequestDTO, type WebhookInputDTO } from '@/api'
 import EmptyTable from './EmptyTable.vue'
 
 
