@@ -28,9 +28,9 @@ const router = createRouter({
       name: "pam_register",
       component: () => import("../pages/registration/Pam.vue"),
     },    {
-      path: "/register/pam",
-      name: "pam_register",
-      component: () => import("../pages/registration/Pam.vue"),
+      path: "/authorise/pam",
+      name: "pam_authorise",
+      component: () => import("../pages/authorisation/Pam.vue"),
     },
     {
       path: "/register/webauthn",
