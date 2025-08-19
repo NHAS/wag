@@ -89,7 +89,7 @@ func (g *start) Check() error {
 
 }
 
-func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, errorChan chan<- error) func(string) {
+func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, complete chan<- bool, errorChan chan<- error) func(string) {
 
 	// Make sure that node states are sync'd
 	var (
@@ -139,6 +139,8 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, error
 		defer lck.Unlock()
 		cancelled = true
 		teardown()
+
+		complete <- true
 	}()
 
 	return func(stateText string) {
@@ -234,8 +236,9 @@ func (g *start) Run() error {
 
 	errorChan := make(chan error)
 	cancel := make(chan bool)
+	complete := make(chan bool)
 
-	_, err = g.db.RegisterClusterHealthListener(startWag(g.db, g.noIptables, cancel, errorChan))
+	_, err = g.db.RegisterClusterHealthListener(startWag(g.db, g.noIptables, cancel, complete, errorChan))
 	if err != nil {
 		return err
 	}
@@ -278,6 +281,8 @@ func (g *start) Run() error {
 
 	err = <-errorChan
 	cancel <- true
+
+	<-complete
 
 	if err != nil && !strings.Contains(err.Error(), "ignore me I am signal") {
 		return err

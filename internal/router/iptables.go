@@ -10,6 +10,24 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 )
 
+const (
+	filterForwardRulesChain = "WAG_FORWARD_4ede"
+	filterInputRulesChain   = "WAG_INPUT_4ede"
+
+	natPostRoutingRulesChain = "WAG_POSTR_4ede"
+)
+
+func (f *Firewall) clearChains(ipt *iptables.IPTables) {
+	ipt.Delete("filter", "INPUT", "-j", filterInputRulesChain)
+	ipt.Delete("filter", "FORWARD", "-j", filterForwardRulesChain)
+	ipt.Delete("nat", "POSTROUTING", "-j", natPostRoutingRulesChain)
+
+	ipt.ClearAndDeleteChain("filter", filterForwardRulesChain)
+	ipt.ClearAndDeleteChain("filter", filterInputRulesChain)
+	ipt.ClearAndDeleteChain("nat", natPostRoutingRulesChain)
+
+}
+
 func (f *Firewall) setupIptables() error {
 	f.Lock()
 	defer f.Unlock()
@@ -39,38 +57,71 @@ func (f *Firewall) setupIptables() error {
 		return err
 	}
 
-	err = ipt.Append("filter", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	f.clearChains(ipt)
+
+	err = ipt.NewChain("filter", filterForwardRulesChain)
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "FORWARD", "-i", devName, "-j", "ACCEPT")
+	err = ipt.Append("filter", filterForwardRulesChain, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "FORWARD", "-o", devName, "-j", "ACCEPT")
+	err = ipt.Append("filter", filterForwardRulesChain, "-i", devName, "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Append("filter", filterForwardRulesChain, "-o", devName, "-j", "ACCEPT")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Append("filter", filterForwardRulesChain, "-o", devName, "-j", "DROP")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Insert("filter", "FORWARD", 1, "-j", filterForwardRulesChain)
 	if err != nil {
 		return err
 	}
 
 	shouldNAT := config.Values.NAT == nil || (config.Values.NAT != nil && *config.Values.NAT)
 	if shouldNAT {
-		err = ipt.Append("nat", "POSTROUTING", "-s", config.Values.Wireguard.Range.String(), "-j", "MASQUERADE")
+
+		err = ipt.NewChain("nat", natPostRoutingRulesChain)
+		if err != nil {
+			return err
+		}
+
+		err = ipt.Append("nat", natPostRoutingRulesChain, "-s", config.Values.Wireguard.Range.String(), "-j", "MASQUERADE")
+		if err != nil {
+			return err
+		}
+
+		err = ipt.Insert("nat", "POSTROUTING", 1, "-j", natPostRoutingRulesChain)
 		if err != nil {
 			return err
 		}
 	}
 
+	err = ipt.NewChain("filter", filterInputRulesChain)
+	if err != nil {
+		return err
+	}
+
 	if config.Values.NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel, if we're not behind a proxy
-		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
+		err = ipt.Append("filter", filterInputRulesChain, "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
 
 		//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
-		err = ipt.Append("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
+		err = ipt.Insert("filter", filterInputRulesChain, 1, "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
@@ -83,23 +134,28 @@ func (f *Firewall) setupIptables() error {
 			return errors.New(port + " is not in a valid port format. E.g 80/tcp or 80-100/tcp")
 		}
 
-		err = ipt.Append("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", devName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
+		err = ipt.Append("filter", filterInputRulesChain, "-m", parts[1], "-p", parts[1], "-i", devName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
 	}
 
-	err = ipt.Append("filter", "INPUT", "-p", "icmp", "-i", devName, "-j", "ACCEPT")
+	err = ipt.Append("filter", filterInputRulesChain, "-p", "icmp", "-i", devName, "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "INPUT", "-i", devName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	err = ipt.Append("filter", filterInputRulesChain, "-i", devName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", "INPUT", "-i", devName, "-j", "DROP")
+	err = ipt.Append("filter", filterInputRulesChain, "-i", devName, "-j", "DROP")
+	if err != nil {
+		return err
+	}
+
+	err = ipt.Insert("filter", "INPUT", 1, "-j", filterInputRulesChain)
 	if err != nil {
 		return err
 	}
@@ -130,71 +186,7 @@ func (f *Firewall) teardownIptables() {
 		return
 	}
 
-	err = ipt.Delete("filter", "FORWARD", "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
-
-	//Setup the links to the new chains
-	err = ipt.Delete("filter", "FORWARD", "-i", config.Values.Wireguard.DevName, "-j", "ACCEPT")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
-
-	err = ipt.Delete("filter", "FORWARD", "-o", config.Values.Wireguard.DevName, "-j", "ACCEPT")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
-
-	shouldNAT := config.Values.NAT == nil || (config.Values.NAT != nil && *config.Values.NAT)
-	if shouldNAT {
-		err = ipt.Delete("nat", "POSTROUTING", "-s", config.Values.Wireguard.Range.String(), "-j", "MASQUERADE")
-		if err != nil {
-			log.Println("Unable to clean up firewall rules: ", err)
-		}
-	}
-
-	if config.Values.NumberProxies == 0 {
-		//Allow input to authorize web server on the tunnel
-		err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values.Wireguard.DevName, "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
-		if err != nil {
-			log.Println("Unable to clean up firewall rules: ", err)
-		}
-
-		// Open port 80 to allow http redirection
-		//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
-		err = ipt.Delete("filter", "INPUT", "-m", "tcp", "-p", "tcp", "-i", config.Values.Wireguard.DevName, "--dport", "80", "-j", "ACCEPT")
-		if err != nil {
-			log.Println("Unable to clean up firewall rules: ", err)
-		}
-	}
-
-	for _, port := range config.Values.ExposePorts {
-		parts := strings.Split(port, "/")
-		if len(parts) < 2 {
-			log.Println(port + " is not in a valid port format. E.g 80/tcp, 100-200/tcp")
-		}
-
-		err = ipt.Delete("filter", "INPUT", "-m", parts[1], "-p", parts[1], "-i", config.Values.Wireguard.DevName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
-		if err != nil {
-			log.Println("unable to cleanup custom defined port", port, ":", err)
-		}
-	}
-
-	err = ipt.Delete("filter", "INPUT", "-p", "icmp", "-i", config.Values.Wireguard.DevName, "-j", "ACCEPT")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
-
-	err = ipt.Delete("filter", "INPUT", "-i", config.Values.Wireguard.DevName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
-
-	err = ipt.Delete("filter", "INPUT", "-i", config.Values.Wireguard.DevName, "-j", "DROP")
-	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
-	}
+	f.clearChains(ipt)
 
 	log.Println("Firewall rules removed.")
 }

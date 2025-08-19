@@ -3,7 +3,6 @@ package router
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/NHAS/wag/internal/routetypes"
@@ -87,15 +86,6 @@ func createPacket(src, dst net.IP, proto, port int) ([]byte, error) {
 	hdrbytes = append(hdrbytes, content...)
 
 	return hdrbytes, nil
-}
-
-func createPacketTests(src, dst net.IP, proto, port int) []byte {
-	packet, err := createPacket(src, dst, proto, port)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return packet
 }
 
 type pkthdr struct {
