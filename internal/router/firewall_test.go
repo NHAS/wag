@@ -55,6 +55,15 @@ var (
 	mockTun *tuntest.ChannelTUN
 )
 
+func createPacketTests(src, dst net.IP, proto, port int) []byte {
+	packet, err := createPacket(src, dst, proto, port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return packet
+}
+
 func BenchmarkEvaluate_Parallel(b *testing.B) {
 
 	var packets [][]byte
