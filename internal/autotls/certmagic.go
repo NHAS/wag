@@ -259,7 +259,7 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 	w, ok := a.webServers[forWhat]
 	if !ok {
 		if mux == nil || details == nil {
-			return errors.New("refreshing webserver " + string(forWhat) + " config failed, server not currently on")
+			return fmt.Errorf("refreshing webserver %q config failed, server not currently on", forWhat)
 		}
 
 		w = &webserver{

@@ -60,7 +60,6 @@ type database struct {
 	etcd       *clientv3.Client
 	etcdServer *embed.Etcd
 
-	lck         sync.RWMutex
 	contextMaps map[string]context.CancelFunc
 
 	clusterHealthLck       sync.RWMutex

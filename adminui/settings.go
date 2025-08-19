@@ -156,7 +156,7 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 	details, err := au.db.GetWebserverConfig(data.Webserver(s.ServerName))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		err = fmt.Errorf("unable to get tunnel webserver configuration to check ip: %w", err)
+		err = fmt.Errorf("unable to get %q webserver configuration to check ip: %w", s.ServerName, err)
 		return
 	}
 
