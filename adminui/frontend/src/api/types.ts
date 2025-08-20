@@ -19,7 +19,6 @@ export enum WebhookActions {
   CreateRegistrationToken = 'create_token',
   DeleteDevice = 'delete_device',
   DeleteUser = 'delete_user',
-  DeleteAll = 'delete_all',
 }
 
 export interface WebhookAttributes {
@@ -41,6 +40,7 @@ export interface WebhookAttribute {
 
 export interface WebhookInputDTO {
   attributes: WebhookAttribute[]
+  error: string
 }
 
 

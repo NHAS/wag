@@ -15,7 +15,6 @@ const (
 	CreateRegistrationToken = "create_token"
 	DeleteDevice            = "delete_device"
 	DeleteUser              = "delete_user"
-	DeleteAll               = "delete_all"
 )
 
 type WebhookAttributeMapping struct {
@@ -26,7 +25,7 @@ type WebhookAttributeMapping struct {
 
 type WebhookDTO struct {
 	ID                   string                  `json:"id" validate:"required"`
-	Action               string                  `json:"action" validate:"required,oneof=create_token delete_device delete_user delete_all"`
+	Action               string                  `json:"action" validate:"required,oneof=create_token delete_device delete_user"`
 	JsonAttributeMapping WebhookAttributeMapping `json:"json_attribute_mapping" validate:"required"`
 }
 
