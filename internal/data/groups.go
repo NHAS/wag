@@ -221,7 +221,7 @@ func (d *database) RemoveGroup(group string) error {
 
 func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 
-	membershipsKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
+	membershipsKey := fmt.Sprintf(GroupMembershipPrefix+"%s-", username)
 	response, err := d.etcd.Get(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithKeysOnly())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get membership information: %s", err)
@@ -242,7 +242,7 @@ func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 
 func (d *database) RemoveUserAllGroups(username string) error {
 
-	membershipsKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
+	membershipsKey := fmt.Sprintf(GroupMembershipPrefix+"%s-", username)
 	response, err := d.etcd.Delete(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithKeysOnly())
 	if err != nil {
 		return fmt.Errorf("failed to get membership information: %s", err)

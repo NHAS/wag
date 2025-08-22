@@ -29,6 +29,9 @@ const allUsers = computed(() => usersStore.users ?? [])
 const filterLocked = ref(route.params.filter == 'locked')
 const filterUnsetMfa = ref(route.params.filter == 'unset')
 
+const selectedUsers = ref<string[]>([])
+const selectAll = ref(false)
+
 const filteredUsers = computed(() => {
   const arr = allUsers.value
     .filter(a => a.locked || !filterLocked.value)
@@ -64,7 +67,7 @@ async function updateUser(usernames: string[], action: UserEditActions) {
     const resp = await editUser(data)
 
     usersStore.load(true)
-
+    
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
@@ -84,6 +87,10 @@ async function tryDeleteUsers(users: string[]) {
   try {
     const resp = await deleteUsers(users)
     usersStore.load(true)
+    
+    selectAll.value = false
+    selectedUsers.value = []
+
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
@@ -119,8 +126,7 @@ function sortUsers(by: keyof UserDTO) {
   }
 }
 
-const selectedUsers = ref<string[]>([])
-const selectAll = ref(false)
+
 
 watch(selectAll, newValue => {
   if (newValue) {

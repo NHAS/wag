@@ -3,14 +3,23 @@ package data
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"math"
 	"math/big"
-	"math/rand"
 	"net"
+	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
+	"go.etcd.io/etcd/client/v3/concurrency"
+)
+
+const (
+	dhcpPrefix          = "wag/dhcp"
+	dhcpAbandonedPrefix = dhcpPrefix + "/abandoned/"
 )
 
 func incrementIP(ip net.IP, inc uint) net.IP {
@@ -38,24 +47,6 @@ func incrementIP(ip net.IP, inc uint) net.IP {
 
 }
 
-func chooseInitalIP(cidr *net.IPNet) (net.IP, error) {
-
-	max := 128
-	if cidr.IP.To4() != nil {
-		max = 32
-	}
-
-	used, _ := cidr.Mask.Size()
-	maxNumberOfAddresses := int(math.Pow(2, float64(max-used))) - 2 // Do not allocate largest address or 0
-	if maxNumberOfAddresses < 1 {
-		return nil, errors.New("subnet is too small to contain a new device")
-	}
-
-	// Choose a random number that cannot be 0
-	addressAttempt := rand.Intn(maxNumberOfAddresses) + 1
-	return incrementIP(cidr.IP, uint(addressAttempt)), nil
-}
-
 // https://github.com/IBM/netaddr/blob/master/net_utils.go#L73
 func broadcastAddr(n *net.IPNet) net.IP {
 	// The golang net package doesn't make it easy to calculate the broadcast address. :(
@@ -75,40 +66,121 @@ func broadcastAddr(n *net.IPNet) net.IP {
 	return broadcast
 }
 
-func (d *database) getNextIP(subnet string) (string, error) {
+func (d *database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (net.IP, error) {
 
-	serverIP, cidr, err := net.ParseCIDR(subnet)
+	txn := d.etcd.Txn(ctx)
+
+	// As a migration step, if the dhcp end key isnt found, we place it with the ip address next to the servers ip address within the cidr
+	txn.If(
+		clientv3util.KeyExists(dhcpPrefix + "/end"),
+	).Then(
+		clientv3.OpGet(dhcpPrefix + "/end"),
+	).Else(
+		clientv3.OpPut(dhcpPrefix+"/end", fmt.Sprintf("%q", incrementIP(serverIP, 1))),
+	)
+
+	resp, err := txn.Commit()
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to get end of ip range: %w", err)
 	}
 
-	addr, err := chooseInitalIP(cidr)
-	if err != nil {
-		return "", err
-	}
+	// set the default as one next to the server
+	var addr net.IP = incrementIP(serverIP, 1)
+	if resp.Succeeded {
 
-	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 3)
-	if err != nil {
-		return "", err
-	}
-
-	if serverIP.Equal(addr) {
-		addr = incrementIP(addr, 1)
-	}
-
-	startIP := addr
-	for {
-
-		if serverIP.Equal(addr) {
-			addr = incrementIP(addr, 1)
+		err = json.Unmarshal(resp.Responses[0].GetResponseRange().Kvs[0].Value, &addr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal end dhcp ip address %s: %w", string(resp.Responses[0].GetResponseRange().Kvs[0].Value), err)
 		}
 
-		txn := d.etcd.Txn(context.Background())
+	}
+
+	return addr, nil
+}
+
+func (d *database) countAbandonedKeys(ctx context.Context) (int64, error) {
+	resp, err := d.etcd.Get(ctx, dhcpAbandonedPrefix, clientv3.WithPrefix(), clientv3.WithCountOnly())
+	if err != nil {
+		return 0, fmt.Errorf("failed to count abandoned keys: %w", err)
+	}
+
+	return resp.Count, nil
+}
+
+func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
+	var addr net.IP
+
+	for i := 0; i < 3; i++ {
+		resp, err := d.etcd.Get(ctx, dhcpAbandonedPrefix, clientv3.WithPrefix(), clientv3.WithLimit(1))
+		if err != nil {
+			return "", fmt.Errorf("could not find dhcp lease by recycling old addresses: %w", err)
+		}
+
+		if len(resp.Kvs) != 1 {
+			return "", errors.New("subnet is full and no more abandoned dhcp leases exist")
+		}
+
+		err = json.Unmarshal(resp.Kvs[0].Value, &addr)
+		if err != nil {
+			return "", fmt.Errorf("failed to unmarshal end dhcp ip address: %w", err)
+		}
+
+		txn := d.etcd.Txn(ctx)
 		txn.If(
 			clientv3util.KeyMissing(deviceRef+addr.String()),
-			clientv3util.KeyMissing("ip-hold-"+addr.String()),
 		).Then(
-			clientv3.OpPut("ip-hold-"+addr.String(), addr.String(), clientv3.WithLease(lease.ID)),
+			clientv3.OpPut(deviceRef+addr.String(), ""),
+			clientv3.OpDelete(string(resp.Kvs[0].Key)),
+		)
+
+		txnResp, err := txn.Commit()
+		if err != nil {
+			return "", err
+		}
+
+		if !txnResp.Succeeded {
+			// if there was a deviceRef despite it being marked abandoned
+			// delete the abandoned entry and log it
+			// then try again
+
+			d.etcd.Delete(ctx, string(resp.Kvs[0].Key))
+
+			log.Printf("%q was marked as abandoned, but still has a device reference, this may be bug. ", string(resp.Kvs[0].Key))
+			continue
+		}
+
+		return addr.String(), nil
+	}
+
+	return "", fmt.Errorf("failed to get dhcp lease in allotted time, your subnet maybe full")
+}
+
+func (d *database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cidr *net.IPNet) (string, error) {
+	one, bits := cidr.Mask.Size()
+	sizeOfNetwork := int(math.Pow(2, float64(bits-one)))
+
+	// this just puts an upper bound on how many times this will increment.
+	// In actual fact this should never increment
+	for i := 0; i <= sizeOfNetwork/2; i++ {
+
+		select {
+		case <-ctx.Done():
+			return "", errors.New("context finished, dhcp allocation operation timed out")
+		default:
+		}
+
+		newEnd := incrementIP(start, 1)
+		if !cidr.Contains(incrementIP(start, 1)) {
+			newEnd = start
+		}
+
+		// update the end pointer if it is still within the cidr
+		txn := d.etcd.Txn(ctx)
+		txn.If(
+			clientv3util.KeyMissing(deviceRef+start.String()),
+		).Then(
+			clientv3.OpPut(deviceRef+start.String(), ""),
+			clientv3.OpPut(dhcpPrefix+"/end", fmt.Sprintf("%q", newEnd)),
 		)
 
 		resp, err := txn.Commit()
@@ -117,20 +189,68 @@ func (d *database) getNextIP(subnet string) (string, error) {
 		}
 
 		if resp.Succeeded {
-			return addr.String(), nil
+			return start.String(), nil
 		}
 
-		addr = incrementIP(addr, 1)
-		if cidr.Contains(addr) && !broadcastAddr(cidr).Equal(addr) {
+		start = incrementIP(start, 1)
+
+		if cidr.Contains(start) && !broadcastAddr(cidr).Equal(start) {
 			continue
-		} else {
-			addr = incrementIP(cidr.IP, 1)
 		}
 
-		if addr.Equal(startIP) {
-			return "", errors.New("unable to obtain ip lease, subnet is full")
-		}
-
+		// if we've moved out of the cidr, then last ditch try getting them from the abandoned pool
+		return d.getLeaseFromAbandoned(ctx)
 	}
+
+	return "", fmt.Errorf("could not find a dhcp lease")
+}
+
+func (d *database) getNextIP(subnet string) (string, error) {
+
+	serverIP, cidr, err := net.ParseCIDR(subnet)
+	if err != nil {
+		return "", err
+	}
+	cidr.Mask.Size()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	session, err := concurrency.NewSession(d.etcd, concurrency.WithContext(ctx))
+	if err != nil {
+		return "", fmt.Errorf("failed to create lock session: %w", err)
+	}
+	defer session.Close()
+
+	mutex := concurrency.NewMutex(session, dhcpPrefix+"/locks")
+
+	err = mutex.Lock(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to acquire dhcp lock: %w", err)
+	}
+
+	count, err := d.countAbandonedKeys(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if count > 0 {
+		return d.getLeaseFromAbandoned(ctx)
+	}
+
+	addr, err := d.determineIPStartPoint(ctx, serverIP)
+	if err != nil {
+		return "", err
+	}
+
+	log.Println("starting point: ", addr)
+
+	// fast path, if the address we get to start incremented by one is outside the cidr then just try and get from the abandoned pool
+	if !cidr.Contains(incrementIP(addr, 1)) {
+		return d.getLeaseFromAbandoned(ctx)
+	}
+
+	// this will call getLeaseFromAbandoned if it cannot find an ip address by incrementing
+	return d.getLeaseFromEndPointer(ctx, addr, cidr)
 
 }

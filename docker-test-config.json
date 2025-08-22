@@ -1,7 +1,6 @@
 {
     "Socket": "/tmp/wag.sock",
     "NumberProxies": 0,
-    "Proxied": false,
     "ExposePorts": [
         "10/tcp",
         "100-500/tcp"

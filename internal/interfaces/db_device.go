@@ -21,8 +21,6 @@ type DeviceWriter interface {
 	DeleteDevice(username, id string) error
 	DeleteDevices(username string) error
 
-	SetDevice(username, address, publickey, preshared_key string) (data.Device, error)
-
 	UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error
 	UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error
 }

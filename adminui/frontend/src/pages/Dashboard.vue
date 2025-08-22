@@ -55,7 +55,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
             </div>
             <div class="card-body" v-else>
               <h5 class="card-title">Manage MFA</h5>
-              <div>{{ usersLackingMfa.length + ' user have not completed MFA registration' }}</div>
+              <div>{{ usersLackingMfa.length + ' user'+(usersLackingMfa.length > 1 ? "s" : "")+' have not completed MFA registration' }}</div>
             </div>
           </router-link>
           <router-link

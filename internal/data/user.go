@@ -52,7 +52,7 @@ func (d *database) IncrementAuthenticationAttempt(username, device string) error
 func (d *database) GetAuthenticationDetails(username, device string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
 	txn := d.etcd.Txn(context.Background())
-	resp, err := txn.Then(clientv3.OpGet(UsersPrefix+username+"-"), clientv3.OpGet("devices-"+username+"-"+device)).Commit()
+	resp, err := txn.Then(clientv3.OpGet(UsersPrefix+username+"-"), clientv3.OpGet(DevicesPrefix+username+"-"+device)).Commit()
 	if err != nil {
 		return
 	}

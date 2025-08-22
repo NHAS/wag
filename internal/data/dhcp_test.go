@@ -131,34 +131,3 @@ func TestIncrementIPOverflow(t *testing.T) {
 		})
 	}
 }
-
-func TestChooseInitial(t *testing.T) {
-
-	_, cidr, err := net.ParseCIDR("192.168.3.4/24")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr, err := chooseInitalIP(cidr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !cidr.Contains(addr) {
-		t.Fatalf("does not contain address, %s", addr)
-	}
-
-	_, cidr, err = net.ParseCIDR("2001:db8:abcd:1234:c000::/66")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr, err = chooseInitalIP(cidr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !cidr.Contains(addr) {
-		t.Fatalf("does not contain address, %s", addr)
-	}
-}

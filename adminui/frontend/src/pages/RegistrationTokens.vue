@@ -45,6 +45,9 @@ const isCreateTokenModalOpen = ref(false)
 const toast = useToast()
 const { catcher } = useToastError()
 
+const selectedTokens = ref<string[]>([])
+const selectAll = ref(false)
+
 async function deleteTokens(tokensToDelete: string[]) {
   if (tokensToDelete.length == 0) {
     return
@@ -54,6 +57,10 @@ async function deleteTokens(tokensToDelete: string[]) {
     const resp = await deleteRegistrationTokens(tokensToDelete)
 
     tokensStore.load(true)
+    
+    selectAll.value = false
+    selectedTokens.value = []
+
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
@@ -65,8 +72,7 @@ async function deleteTokens(tokensToDelete: string[]) {
   }
 }
 
-const selectedTokens = ref<string[]>([])
-const selectAll = ref(false)
+
 
 watch(selectAll, newValue => {
   if (newValue) {

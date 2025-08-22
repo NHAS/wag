@@ -381,11 +381,17 @@ func (d *database) AddDevice(username, publickey, staticIp string) (Device, erro
 	}
 
 	b, _ := json.Marshal(dev)
+
 	key := d.deviceKey(username, address)
 
-	response, err := d.etcd.Txn(context.Background()).If(clientv3util.KeyMissing(deviceRef+address)).Then(clientv3.OpPut(key, string(b)),
+	response, err := d.etcd.Txn(context.Background()).
+		If(
+			clientv3util.KeyMissing(key),
+		).Then(
+		clientv3.OpPut(key, string(b)),
 		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
-		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key)).Commit()
+		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key),
+	).Commit()
 	if err != nil {
 		return Device{}, err
 	}
@@ -397,33 +403,9 @@ func (d *database) AddDevice(username, publickey, staticIp string) (Device, erro
 	return dev, err
 }
 
-func (d *database) SetDevice(username, address, publickey, preshared_key string) (Device, error) {
-	if net.ParseIP(address) == nil {
-		return Device{}, fmt.Errorf("address %q cannot be parsed as IP, invalid", address)
-	}
-
-	dev := Device{
-		Address:      address,
-		Publickey:    publickey,
-		Username:     username,
-		PresharedKey: preshared_key,
-	}
-
-	b, _ := json.Marshal(dev)
-	key := d.deviceKey(username, address)
-
-	_, err := d.etcd.Txn(context.Background()).Then(clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
-		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key)).Commit()
-	if err != nil {
-		return Device{}, err
-	}
-
-	return dev, err
-}
-
+// devices-username-address
 func (d *database) deviceKey(username, address string) string {
-	return fmt.Sprintf("devices-%s-%s", username, address)
+	return fmt.Sprintf(DevicesPrefix+"%s-%s", username, address)
 }
 
 // DeleteDevice removes a single device from etcd
@@ -470,14 +452,14 @@ func (d *database) deleteDeviceOps(dev Device) []clientv3.Op {
 	challengeKey := DeviceChallengePrefix + dev.Username + "-" + dev.Address
 
 	return []clientv3.Op{
+		clientv3.OpPut(dhcpAbandonedPrefix+dev.Address, fmt.Sprintf("%q", dev.Address)),
+
 		clientv3.OpDelete(key),
 
 		clientv3.OpDelete(ipRef),
 		clientv3.OpDelete(publicKeyRef),
 
 		clientv3.OpDelete(sessionRef),
-
-		clientv3.OpDelete("allocated_ips/" + dev.Address),
 		clientv3.OpDelete(challengeKey),
 	}
 }
@@ -536,7 +518,7 @@ func (d *database) UpdateDevicePublicKey(username, address string, publicKey wgt
 		return err
 	}
 
-	_, err = d.etcd.Delete(context.Background(), "devicesref-"+beforeUpdate.Publickey)
+	_, err = d.etcd.Delete(context.Background(), deviceRef+beforeUpdate.Publickey)
 
 	return err
 }
@@ -576,7 +558,7 @@ func (d *database) GetDeviceByAddress(address string) (device Device, err error)
 
 func (d *database) GetDevicesByUser(username string) (devices []Device, err error) {
 
-	response, err := d.etcd.Get(context.Background(), fmt.Sprintf("devices-%s-", username), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	response, err := d.etcd.Get(context.Background(), fmt.Sprintf(DevicesPrefix+"%s-", username), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}

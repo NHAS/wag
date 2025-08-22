@@ -29,17 +29,22 @@ const route = useRoute()
 
 const filterText = ref('')
 
+const selectedDevices = ref<string[]>([])
+
 const allDevices = computed(() => devicesStore.devices ?? [])
 
 const filterActive = ref(route.params.filter == 'active')
 const filterLocked = ref(route.params.filter == 'locked')
 
 const filteredDevices = computed(() => {
+
   const arr = allDevices.value.filter(a => (sessionStore.deviceActive(a.internal_ip) || !filterActive.value)).filter(a => a.is_locked || !filterLocked.value)
 
   if (filterText.value == '') {
     return arr
   }
+
+    console.log('After status filters:', arr.length)
 
   const searchTerm = filterText.value.trim().toLowerCase()
 
@@ -70,6 +75,9 @@ async function updateDevices(addresses: string[], action: DeviceEditActions) {
     const resp = await editDevice(data)
     devicesStore.load(true)
 
+    selectedDevices.value = []
+    selectAll.value = false
+
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
@@ -90,6 +98,9 @@ async function tryDeleteDevices(rules: string[]) {
 
     const resp = await deleteDevices(rules)
     devicesStore.load(true)
+
+    selectedDevices.value = []
+    selectAll.value = false
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
@@ -127,7 +138,7 @@ function sortDevices(by: keyof DeviceDTO) {
 }
 
 
-const selectedDevices = ref<string[]>([])
+
 const selectAll = ref(false)
 
 watch(selectAll, (newValue) => {
