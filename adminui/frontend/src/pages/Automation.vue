@@ -166,7 +166,6 @@ watch(selectedHooks, newVal => {
                   </template>
                 </td>
                 <td class="font-mono relative">
-                  
                   <ConfirmModal @on-confirm="() => deleteHooks([hook.id])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">

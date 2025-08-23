@@ -59,7 +59,8 @@ type Webhooks interface {
 	GetWebhooks() (hooks []data.WebhookDTO, err error)
 	DeleteWebhooks(ids []string) error
 
-	GetLastWebhookRequestPath(pool, id string) string
+	GetLastWebhookRequestPath(id string) string
+	GetWebhookLastRequest(id string) (string, error)
 	WebhookExists(id string) bool
 }
 

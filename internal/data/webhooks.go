@@ -22,7 +22,7 @@ const (
 	ActiveWebhooksPrefix = WebhooksPrefix + "webhooks/active/"
 )
 
-func (d *database) GetLastWebhookRequestPath(pool, id string) string {
+func (d *database) GetLastWebhookRequestPath(id string) string {
 	return path.Join(WebhooksPrefix, "last_requests", id)
 }
 
@@ -46,6 +46,10 @@ type WebhookAttribute struct {
 
 func (d *database) GetWebhook(id string) (WebhookDTO, error) {
 	return Get[WebhookDTO](d.etcd, ActiveWebhooksPrefix+id)
+}
+
+func (d *database) GetWebhookLastRequest(id string) (string, error) {
+	return Get[string](d.etcd, d.GetLastWebhookRequestPath(id))
 }
 
 func (d *database) WebhookExists(id string) bool {
@@ -102,12 +106,12 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 		return fmt.Errorf("storing webhook request encountered an error, input was too big >4096 bytes")
 	}
 
-	b, _ := json.Marshal(request)
+	requestBytes, _ := json.Marshal(request)
 
 	res, err := d.etcd.Txn(context.Background()).If(
 		clientv3util.KeyExists(ActiveWebhooksPrefix+id),
 	).Then(
-		clientv3.OpPut(d.GetLastWebhookRequestPath(ActiveWebhooksPrefix, id), string(b)),
+		clientv3.OpPut(d.GetLastWebhookRequestPath(id), string(requestBytes)),
 		clientv3.OpGet(ActiveWebhooksPrefix+id),
 	).Else(
 		clientv3.OpTxn(
@@ -115,7 +119,7 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 				clientv3util.KeyExists(TempWebhooksPrefix + id),
 			},
 			[]clientv3.Op{
-				clientv3.OpPut(d.GetLastWebhookRequestPath(TempWebhooksPrefix, id), string(b)),
+				clientv3.OpPut(d.GetLastWebhookRequestPath(id), string(requestBytes)),
 			},
 			nil,
 		),
@@ -241,14 +245,17 @@ func (d *database) DeleteWebhooks(ids []string) error {
 	var ops []clientv3.Op
 
 	for _, id := range ids {
-		ops = append(ops, clientv3.OpDelete(ActiveWebhooksPrefix+id), clientv3.OpDelete(d.GetLastWebhookRequestPath(ActiveWebhooksPrefix, id)))
+		ops = append(ops,
+			clientv3.OpDelete(ActiveWebhooksPrefix+id),
+			clientv3.OpDelete(d.GetLastWebhookRequestPath(id)),
+		)
 	}
 
 	_, err := d.etcd.Txn(context.Background()).Then(ops...).Commit()
 	return err
 }
 
-func Unpack(parent string, c map[string]interface{}) []WebhookAttribute {
+func Unpack(parent string, c map[string]any) []WebhookAttribute {
 
 	output := []WebhookAttribute{}
 
@@ -258,7 +265,7 @@ func Unpack(parent string, c map[string]interface{}) []WebhookAttribute {
 
 	for k, v := range c {
 
-		if innerAttributes, ok := v.(map[string]interface{}); ok {
+		if innerAttributes, ok := v.(map[string]any); ok {
 			output = append(output, Unpack(k, innerAttributes)...)
 		} else {
 

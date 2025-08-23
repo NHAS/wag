@@ -121,7 +121,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// setup database watch on key to see if there is any data/json coming in from the webhook
 
-	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(data.TempWebhooksPrefix, id), false,
+	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(id), false,
 		watcher.OnCreate(onUpdate),
 		watcher.OnModification(onUpdate),
 
@@ -148,6 +148,30 @@ func (au *AdminUI) getWebhooks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(hooks)
 
+}
+
+func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request) {
+	var (
+		webhook string
+		err     error
+	)
+
+	defer func() { au.respond(err, w) }()
+
+	err = safedecoder.Decoder(r.Body).Decode(&webhook)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	req, err := au.db.GetWebhookLastRequest(webhook)
+	if err != nil {
+		log.Printf("failed to get webhook request: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	au.respondSuccess(err, req, w)
 }
 
 func (au *AdminUI) createWebhook(w http.ResponseWriter, r *http.Request) {

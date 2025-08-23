@@ -262,6 +262,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 
 	protectedRoutes.HandleFunc("GET /api/management/webhooks/ws", adminUI.webhookWebSocket)
 	protectedRoutes.HandleFunc("GET /api/management/webhooks", adminUI.getWebhooks)
+	protectedRoutes.HandleFunc("GET /api/management/webhook/request", adminUI.getWebhookLastRequest)
 	protectedRoutes.HandleFunc("POST /api/management/webhooks", adminUI.createWebhook)
 	protectedRoutes.HandleFunc("DELETE /api/management/webhooks", adminUI.deleteWebhooks)
 
