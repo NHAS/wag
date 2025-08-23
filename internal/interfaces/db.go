@@ -54,12 +54,12 @@ type Webhooks interface {
 	CreateTempWebhook() (string, error)
 	WebhookRecordLastRequest(id string, request string) error
 
-	CreateWebhook(webhook data.WebhookDTO) error
-	GetWebhook(id string) (data.WebhookDTO, error)
-	GetWebhooks() (hooks []data.WebhookDTO, err error)
+	CreateWebhook(webhook data.WebhookCreateRequestDTO) error
+	GetWebhook(id string) (data.WebhookGetResponseDTO, error)
+	GetWebhooks() (hooks []data.WebhookGetResponseDTO, err error)
 	DeleteWebhooks(ids []string) error
 
-	GetLastWebhookRequestPath(id string) string
+	GetLastWebhookRequestPath(id string, additionals ...string) string
 	GetWebhookLastRequest(id string) (string, error)
 	WebhookExists(id string) bool
 }

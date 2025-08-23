@@ -34,10 +34,15 @@ export interface WebhookJsonAttributesRoles {
 export type WebhookRoles = keyof WebhookJsonAttributesRoles
 
 // this dto is used for request and response
-export interface WebhookDTO {
+export interface WebhookCreateRequestDTO {
   id: string
   action: WebhookActions
   json_attribute_roles: WebhookJsonAttributesRoles
+}
+
+export interface WebhookGetResponseDTO extends WebhookCreateRequestDTO{
+  time: string
+  status: string
 }
 
 export interface WebhookAttribute {

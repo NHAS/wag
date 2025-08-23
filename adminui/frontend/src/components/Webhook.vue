@@ -5,7 +5,7 @@ import { useToast } from 'vue-toastification'
 import Modal from './Modal.vue'
 
 import { useToastError } from '@/composables/useToastError'
-import { createWebhook, WebhookActions, WebhookInputTypes, type WebhookRoles, type WebhookAttribute, type WebhookDTO, type WebhookInputAttributesDTO, type WebhookInputType, type WebhookInputUrlDTO, type WebhookJsonAttributesRoles } from '@/api'
+import { createWebhook, WebhookActions, WebhookInputTypes, type WebhookRoles, type WebhookAttribute, type WebhookCreateRequestDTO, type WebhookInputAttributesDTO, type WebhookInputType, type WebhookInputUrlDTO, type WebhookJsonAttributesRoles } from '@/api'
 import Multiselect from 'vue-multiselect'
 import EmptyTable from './EmptyTable.vue'
 
@@ -26,7 +26,7 @@ const isOpen = computed({
   set: (value: boolean) => emit('update:isOpen', value)
 })
 
-const newWebhook = ref({ action: WebhookActions.CreateRegistrationToken } as WebhookDTO)
+const newWebhook = ref({ action: WebhookActions.CreateRegistrationToken } as WebhookCreateRequestDTO)
 const url = ref("")
 
 interface attributeType {
@@ -202,7 +202,7 @@ function disconnectWebSocket() {
 }
 
 function resetState() {
-  newWebhook.value = { action: WebhookActions.CreateRegistrationToken } as WebhookDTO
+  newWebhook.value = { action: WebhookActions.CreateRegistrationToken } as WebhookCreateRequestDTO
   incommingAttributes.value = {
     attributes: [],
     error: "Waiting for webhook input!",

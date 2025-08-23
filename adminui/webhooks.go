@@ -121,7 +121,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// setup database watch on key to see if there is any data/json coming in from the webhook
 
-	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(id), false,
+	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(id, "data"), false,
 		watcher.OnCreate(onUpdate),
 		watcher.OnModification(onUpdate),
 
@@ -152,11 +152,11 @@ func (au *AdminUI) getWebhooks(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request) {
 	var (
-		webhook string
-		err     error
+		webhook struct {
+			ID string `json:"id"`
+		}
+		err error
 	)
-
-	defer func() { au.respond(err, w) }()
 
 	err = safedecoder.Decoder(r.Body).Decode(&webhook)
 	if err != nil {
@@ -164,7 +164,7 @@ func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req, err := au.db.GetWebhookLastRequest(webhook)
+	req, err := au.db.GetWebhookLastRequest(webhook.ID)
 	if err != nil {
 		log.Printf("failed to get webhook request: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -176,7 +176,7 @@ func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request)
 
 func (au *AdminUI) createWebhook(w http.ResponseWriter, r *http.Request) {
 	var (
-		webhook data.WebhookDTO
+		webhook data.WebhookCreateRequestDTO
 		err     error
 	)
 

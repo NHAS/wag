@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"path"
+	"time"
 
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/go-playground/validator/v10"
@@ -22,8 +24,20 @@ const (
 	ActiveWebhooksPrefix = WebhooksPrefix + "webhooks/active/"
 )
 
-func (d *database) GetLastWebhookRequestPath(id string) string {
-	return path.Join(WebhooksPrefix, "last_requests", id)
+func (d *database) GetLastWebhookRequestPath(id string, additionals ...string) string {
+
+	input := []string{
+		WebhooksPrefix, "last_requests", id,
+	}
+
+	input = append(input, additionals...)
+
+	result := path.Join(input...)
+	if len(additionals) == 0 {
+		result += "/"
+	}
+
+	return result
 }
 
 type WebhookAttributeMapping struct {
@@ -33,10 +47,16 @@ type WebhookAttributeMapping struct {
 	AsDeviceIP          string `json:"as_device_ip" validate:"omitempty,omitempty,max=255,min=1"`
 }
 
-type WebhookDTO struct {
+type WebhookCreateRequestDTO struct {
 	ID                 string                  `json:"id" validate:"required"`
 	Action             string                  `json:"action" validate:"required,oneof=create_token delete_device delete_user"`
 	JsonAttributeRoles WebhookAttributeMapping `json:"json_attribute_roles" validate:"required"`
+}
+
+type WebhookGetResponseDTO struct {
+	WebhookCreateRequestDTO
+	LastRequestTime   time.Time `json:"time"`
+	LastRequestStatus string    `json:"status"`
 }
 
 type WebhookAttribute struct {
@@ -44,12 +64,8 @@ type WebhookAttribute struct {
 	Value string `json:"value" validate:"required"`
 }
 
-func (d *database) GetWebhook(id string) (WebhookDTO, error) {
-	return Get[WebhookDTO](d.etcd, ActiveWebhooksPrefix+id)
-}
-
 func (d *database) GetWebhookLastRequest(id string) (string, error) {
-	return Get[string](d.etcd, d.GetLastWebhookRequestPath(id))
+	return Get[string](d.etcd, d.GetLastWebhookRequestPath(id, "data"))
 }
 
 func (d *database) WebhookExists(id string) bool {
@@ -78,7 +94,11 @@ func (d *database) WebhookExists(id string) bool {
 	return res.Succeeded
 }
 
-func (d *database) GetWebhooks() (hooks []WebhookDTO, err error) {
+func (d *database) GetWebhook(id string) (WebhookGetResponseDTO, error) {
+	return Get[WebhookGetResponseDTO](d.etcd, ActiveWebhooksPrefix+id)
+}
+
+func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 
 	response, err := d.etcd.Get(context.Background(), ActiveWebhooksPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -86,15 +106,67 @@ func (d *database) GetWebhooks() (hooks []WebhookDTO, err error) {
 	}
 
 	// otherwise json returns null
-	hooks = []WebhookDTO{}
+	hooks = []WebhookGetResponseDTO{}
+	lastRequestOps := []clientv3.Op{}
+	lastRequestStatusOps := []clientv3.Op{}
 	for _, res := range response.Kvs {
-		var hook WebhookDTO
+		var hook WebhookGetResponseDTO
 		err := json.Unmarshal(res.Value, &hook)
 		if err != nil {
 			return nil, err
 		}
 
+		lastRequestOps = append(lastRequestOps, clientv3.OpGet(d.GetLastWebhookRequestPath(hook.ID, "time"), clientv3.WithRev(response.Header.Revision)))
+		lastRequestStatusOps = append(lastRequestStatusOps, clientv3.OpGet(d.GetLastWebhookRequestPath(hook.ID, "status"), clientv3.WithRev(response.Header.Revision)))
+
 		hooks = append(hooks, hook)
+	}
+
+	resp, err := d.etcd.Txn(context.Background()).Then(lastRequestOps...).Commit()
+	// we'll just have no last_request times so this isnt critical
+	// intentional == nil
+	if err == nil {
+		for i := range resp.Responses {
+
+			if len(resp.Responses[i].GetResponseRange().Kvs) == 0 {
+				// webhook has never fired so ignore
+				continue
+			}
+
+			var t time.Time
+			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &t)
+			if err != nil {
+				log.Printf("could not unmarshal last request time from webhook: %s: %v", string(resp.Responses[i].GetResponseRange().Kvs[0].Key), err)
+				continue
+			}
+
+			// As we're generating the txn list in order of the hooks we can do this. Its bad code and Im sure it'll blow up, but hey. Funni
+			hooks[i].LastRequestTime = t
+		}
+	}
+
+	resp, err = d.etcd.Txn(context.Background()).Then(lastRequestStatusOps...).Commit()
+	// we'll just have no last_request status' so this isnt critical
+	// intentional == nil
+	if err == nil {
+		for i := range resp.Responses {
+
+			if len(resp.Responses[i].GetResponseRange().Kvs) == 0 {
+				// webhook has never fired so ignore
+				continue
+			}
+
+			var status string
+			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &status)
+			if err != nil {
+				log.Println(string(resp.Responses[i].GetResponseRange().Kvs[0].Value))
+				log.Printf("could not unmarshal last request status from webhook: %s: %v", string(resp.Responses[i].GetResponseRange().Kvs[0].Key), err)
+				continue
+			}
+
+			// As we're generating the txn list in order of the hooks we can do this. Its bad code and Im sure it'll blow up, but hey. Funni
+			hooks[i].LastRequestStatus = status
+		}
 	}
 
 	return hooks, nil
@@ -108,11 +180,14 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 
 	requestBytes, _ := json.Marshal(request)
 
+	timeBytes, _ := json.Marshal(time.Now())
+
 	res, err := d.etcd.Txn(context.Background()).If(
 		clientv3util.KeyExists(ActiveWebhooksPrefix+id),
 	).Then(
-		clientv3.OpPut(d.GetLastWebhookRequestPath(id), string(requestBytes)),
 		clientv3.OpGet(ActiveWebhooksPrefix+id),
+		clientv3.OpPut(d.GetLastWebhookRequestPath(id, "data"), string(requestBytes)),
+		clientv3.OpPut(d.GetLastWebhookRequestPath(id, "time"), string(timeBytes)),
 	).Else(
 		clientv3.OpTxn(
 			[]clientv3.Cmp{
@@ -127,16 +202,16 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 
 	if res.Succeeded {
 
-		if len(res.Responses) != 2 {
+		if len(res.Responses) != 3 {
 			return fmt.Errorf("unable read response incorrect size: %d", len(res.Responses))
 		}
 
-		if len(res.Responses[1].GetResponseRange().Kvs) != 1 {
+		if len(res.Responses[0].GetResponseRange().Kvs) != 1 {
 			return fmt.Errorf("incorrect key value size for getting webhook action: %q", id)
 		}
 
-		var hookSettings WebhookDTO
-		err = json.Unmarshal(res.Responses[1].GetResponseRange().Kvs[0].Value, &hookSettings)
+		var hookSettings WebhookCreateRequestDTO
+		err = json.Unmarshal(res.Responses[0].GetResponseRange().Kvs[0].Value, &hookSettings)
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal webhook settings: %w", err)
 		}
@@ -147,7 +222,7 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 	return err
 }
 
-func (d *database) actionWebhook(hook WebhookDTO, request *string) {
+func (d *database) actionWebhook(hook WebhookCreateRequestDTO, request *string) {
 
 	var c map[string]any
 
@@ -205,12 +280,16 @@ func (d *database) actionWebhook(hook WebhookDTO, request *string) {
 		err = d.DeleteUser(Username)
 	}
 
+	status := "OK"
 	if err != nil {
+		status = err.Error()
 		d.RaiseError(fmt.Errorf("unable to do %q via webhook %q as error occured: %w", hook.Action, hook.ID, err), nil)
 	}
+
+	Set(d.etcd, d.GetLastWebhookRequestPath(hook.ID, "status"), true, status)
 }
 
-func (d *database) CreateWebhook(webhook WebhookDTO) error {
+func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	if err := validate.Struct(webhook); err != nil {
@@ -228,7 +307,7 @@ func (d *database) CreateTempWebhook() (string, error) {
 		return "", err
 	}
 
-	var temp WebhookDTO
+	var temp WebhookCreateRequestDTO
 
 	temp.ID, err = utils.GenerateRandomHex(16)
 	if err != nil {
@@ -246,8 +325,8 @@ func (d *database) DeleteWebhooks(ids []string) error {
 
 	for _, id := range ids {
 		ops = append(ops,
-			clientv3.OpDelete(ActiveWebhooksPrefix+id),
-			clientv3.OpDelete(d.GetLastWebhookRequestPath(id)),
+			clientv3.OpDelete(ActiveWebhooksPrefix+id, clientv3.WithPrefix()),
+			clientv3.OpDelete(d.GetLastWebhookRequestPath(id), clientv3.WithPrefix()),
 		)
 	}
 

@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 
-import type { WebhookDTO } from '@/api/types'
+import type { WebhookGetResponseDTO } from '@/api/types'
 import { getAllWebhooks } from '@/api'
 
 export type WebhooksToken = {
-  hooks: WebhookDTO[]
+  hooks: WebhookGetResponseDTO[]
   loading: boolean
 }
 

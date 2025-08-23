@@ -1,17 +1,17 @@
-import type { GenericResponseDTO, WebhookDTO } from './types'
+import type { GenericResponseDTO, WebhookCreateRequestDTO, WebhookGetResponseDTO } from './types'
 
 import { client } from '.'
 
-export function getAllWebhooks(): Promise<WebhookDTO[]> {
+export function getAllWebhooks(): Promise<WebhookGetResponseDTO[]> {
   return client.get('/api/management/webhooks').then(res => res.data)
 }
 
-export function getWebhookLastRequest(): Promise<GenericResponseDTO> {
-  return client.get('/api/management/webhook/request').then(res => res.data)
+export function getWebhookLastRequest(id: string): Promise<GenericResponseDTO> {
+  return client.post('/api/management/webhook/request', {id}).then(res => res.data)
 }
 
 
-export function createWebhook(webhook: WebhookDTO): Promise<GenericResponseDTO> {
+export function createWebhook(webhook: WebhookCreateRequestDTO): Promise<GenericResponseDTO> {
   return client.post('/api/management/webhooks', webhook).then(res => res.data)
 }
 
