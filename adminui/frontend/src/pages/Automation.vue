@@ -6,28 +6,27 @@ import PaginationControls from '@/components/PaginationControls.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import EmptyTable from '@/components/EmptyTable.vue'
 
-import { deleteRegistrationTokens } from '@/api/registration_tokens'
-
 import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 
-import { useTokensStore } from '@/stores/registration_tokens'
 import { copyToClipboard } from '@/util/clipboard'
 
 import { Icons } from '@/util/icons'
 import Webhook from '@/components/Webhook.vue'
+import { useWebhooksStore } from '@/stores/automation'
+import { deleteWebhooks } from '@/api'
 
-const tokensStore = useTokensStore()
-tokensStore.load(true)
+const hooksStore = useWebhooksStore()
+hooksStore.load(true)
 
-const tokens = computed(() => {
-  return tokensStore.tokens ?? []
+const hooks = computed(() => {
+  return hooksStore.hooks ?? []
 })
 
 const filterText = ref('')
 
-const filteredTokens = computed(() => {
-  const arr = tokens.value
+const filteredWebhookss = computed(() => {
+  const arr = hooks.value
 
   if (filterText.value == '') {
     return arr
@@ -35,50 +34,57 @@ const filteredTokens = computed(() => {
 
   const searchTerm = filterText.value.trim().toLowerCase()
 
-  return arr.filter(x => x.username.toLowerCase().includes(searchTerm))
+  return arr.filter(x => x.id.toLowerCase().includes(searchTerm))
 })
 
-const { next: nextPage, prev: prevPage, totalPages, currentItems: currentTokens, activePage } = usePagination(filteredTokens, 20)
+const { next: nextPage, prev: prevPage, totalPages, currentItems: currentHooks, activePage } = usePagination(filteredWebhookss, 20)
 
 const isWebhookModalOpen = ref(false)
 
 const toast = useToast()
 const { catcher } = useToastError()
 
-async function deleteTokens(tokensToDelete: string[]) {
-  if (tokensToDelete.length == 0) {
+async function deleteHooks(hooksToDelete: string[]) {
+  if (hooksToDelete.length == 0) {
     return
   }
 
   try {
-    const resp = await deleteRegistrationTokens(tokensToDelete)
+    const resp = await deleteWebhooks(hooksToDelete)
 
-    tokensStore.load(true)
+    selectAll.value = false
+    selectedHooks.value = []
+
+
+    hooksStore.load(true)
+
+
+
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
     } else {
-      toast.success('token ' + tokensToDelete.join(', ') + ' deleted!')
+      toast.success('webhook ' + hooksToDelete.join(', ') + ' deleted!')
     }
   } catch (e) {
-    catcher(e, 'failed to delete token: ')
+    catcher(e, 'failed to delete webhook: ')
   }
 }
 
-const selectedTokens = ref<string[]>([])
+const selectedHooks = ref<string[]>([])
 const selectAll = ref(false)
 
 watch(selectAll, newValue => {
   if (newValue) {
-    // Select all devices
-    selectedTokens.value = currentTokens.value.map(t => t.token)
+    // Select all webhooks
+    selectedHooks.value = currentHooks.value.map(t => t.id)
   } else {
     // Deselect all devices
-    selectedTokens.value = []
+    selectedHooks.value = []
   }
 })
 
-watch(selectedTokens, newVal => {
+watch(selectedHooks, newVal => {
   if (newVal.length == 0) {
     selectAll.value = false
   }
@@ -92,7 +98,7 @@ watch(selectedTokens, newVal => {
   <main class="w-full p-4">
     <Webhook v-model:isOpen="isWebhookModalOpen" v-on:success="
       () => {
-        tokensStore.load(true)
+        hooksStore.load(true)
       }
     "></Webhook>
     <h1 class="text-4xl font-bold mb-4">Automation</h1>
@@ -107,9 +113,9 @@ watch(selectedTokens, newVal => {
                   Add Webhook <font-awesome-icon :icon="Icons.Add" />
                 </button>
               </div>
-              <div :class="selectedTokens.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
-                <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)">
-                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedTokens.length == 0">Bulk Delete<font-awesome-icon
+              <div :class="selectedHooks.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedHooks.length + ' tokens'">
+                <ConfirmModal @on-confirm="() => deleteHooks(selectedHooks)">
+                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedHooks.length == 0">Bulk Delete<font-awesome-icon
                       :icon="Icons.Delete"/></button>
                 </ConfirmModal>
               </div>
@@ -134,35 +140,34 @@ watch(selectedTokens, newVal => {
               </tr>
             </thead>
             <tbody>
-              <tr class="hover group" v-for="token in currentTokens" :key="token.token">
+              <tr class="hover group" v-for="hook in currentHooks" :key="hook.id">
                 <th>
-                  <input type="checkbox" class="checkbox" v-model="selectedTokens" :value="token.token" />
+                  <input type="checkbox" class="checkbox" v-model="selectedHooks" :value="hook.id" />
                 </th>
                 <td class="font-mono">
                   <div class="flex items-center gap-1">
 
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap flex-1">
-                      {{ token.token }}
+                      {{ hook.id }}
                     </div>
-                    <button @click="copyToClipboard(token.token)">
+                    <button @click="copyToClipboard(hook.id)">
                       <font-awesome-icon :icon="Icons.Clipboard" class="text-secondary" />
                     </button>
                   </div>
 
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.username }}</div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ hook.action }}</div>
                 </td>
-                <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}
-                  </div>
-                </td>
-                <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.overwrites }}</div>
+                <td class="font-mono flex flex-col">
+                        
+                  <template v-for="(attribute, index) in hook.json_attribute_roles" :key="attribute" >
+                    <div v-if="attribute != ''"class="mt-2 badge badge-secondary text-white font-mono overflow-hidden text-ellipsis whitespace-nowrap">{{ index.replace("as_", "") + ": " + attribute }}</div>
+                  </template>
                 </td>
                 <td class="font-mono relative">
-                  <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
-                  <ConfirmModal @on-confirm="() => deleteTokens([token.token])">
+                  
+                  <ConfirmModal @on-confirm="() => deleteHooks([hook.id])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
@@ -172,8 +177,8 @@ watch(selectedTokens, newVal => {
               </tr>
             </tbody>
           </table>
-          <EmptyTable v-if="tokens.length == 0" text="No webhooks defined" />
-          <EmptyTable v-if="tokens.length != 0 && tokens.length == 0" text="No matching webhooks" />
+          <EmptyTable v-if="hooks.length == 0" text="No webhooks defined" />
+          <EmptyTable v-if="hooks.length != 0 && hooks.length == 0" text="No matching webhooks" />
 
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"

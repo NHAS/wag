@@ -1,8 +1,10 @@
-package enrolment
+package publicwebserver
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -12,8 +14,8 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/enrolment/resources"
 	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/publicwebserver/resources"
 
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -22,16 +24,16 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-type EnrolmentServer struct {
+type PublicWebserver struct {
 	firewall *router.Firewall
 	db       interfaces.Database
 }
 
-func (es *EnrolmentServer) Close() {
+func (es *PublicWebserver) Close() {
 	autotls.Do.Close(data.Public)
 }
 
-func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request) {
+func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request) {
 	remoteAddr := utils.GetIPFromRequest(r)
 
 	key, err := url.PathUnescape(r.URL.Query().Get("key"))
@@ -227,7 +229,7 @@ func (es *EnrolmentServer) registerDevice(w http.ResponseWriter, r *http.Request
 	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
 }
 
-func (es *EnrolmentServer) reachability(w http.ResponseWriter, _ *http.Request) {
+func (es *PublicWebserver) reachability(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "text/plain")
 
 	isDrained, err := es.db.IsClusterNodeDrained(es.db.GetCurrentNodeID().String())
@@ -247,12 +249,47 @@ func (es *EnrolmentServer) reachability(w http.ResponseWriter, _ *http.Request) 
 
 }
 
-func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (*EnrolmentServer, error) {
+func (es *PublicWebserver) webhooks(w http.ResponseWriter, r *http.Request) {
+
+	parts := strings.SplitN(r.URL.Path, "/", 3)
+	if len(parts) != 3 {
+		http.NotFound(w, r)
+		return
+	}
+
+	id := parts[len(parts)-1]
+
+	if !es.db.WebhookExists(id) {
+		http.NotFound(w, r)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 4097)
+
+	buffer := bytes.NewBuffer(nil)
+	_, err := io.Copy(buffer, r.Body)
+	if err != nil {
+		log.Println("failed to read webhook request: ", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	err = es.db.WebhookRecordLastRequest(id, buffer.String())
+	if err != nil {
+		log.Println("failed to update webhook last request: ", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (*PublicWebserver, error) {
 	if firewall == nil {
 		panic("firewall was nil")
 	}
 
-	es := EnrolmentServer{
+	es := PublicWebserver{
 		firewall: firewall,
 		db:       db,
 	}
@@ -260,6 +297,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 	public := http.NewServeMux()
 	public.HandleFunc("GET /reachability", es.reachability)
 	public.HandleFunc("GET /register_device", es.registerDevice)
+	public.HandleFunc("/webhooks/", es.webhooks)
 
 	if err := autotls.Do.DynamicListener(data.Public, public); err != nil {
 		return nil, err

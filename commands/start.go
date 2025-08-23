@@ -15,9 +15,9 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/enrolment"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal"
+	"github.com/NHAS/wag/internal/publicwebserver"
 
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control/server"
@@ -102,7 +102,7 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 
 		controlServer   *server.WagControlSocketServer
 		mfaPortal       *mfaportal.MfaPortal
-		enrolmentServer *enrolment.EnrolmentServer
+		enrolmentServer *publicwebserver.PublicWebserver
 		adminUI         *adminui.AdminUI
 
 		err error
@@ -193,7 +193,7 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 						return
 					}
 
-					enrolmentServer, err = enrolment.New(db, routerFw, errorChan)
+					enrolmentServer, err = publicwebserver.New(db, routerFw, errorChan)
 					if err != nil {
 						errorChan <- fmt.Errorf("unable to start enrolment server: %v", err)
 						return

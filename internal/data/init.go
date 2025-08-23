@@ -33,9 +33,6 @@ const (
 	DeviceChallengePrefix = "devicechallenge-"
 	DeviceSessionPrefix   = "devicesession-"
 
-	WebhooksPrefix     = "webhooks-"
-	TempWebhooksPrefix = "temp-webhooks-"
-
 	UsersPrefix           = "users-"
 	GroupMembershipPrefix = MembershipKey + "-"
 	AclsPrefix            = "wag-acls-"

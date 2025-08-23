@@ -240,3 +240,15 @@ type AcmeDetailsResponseDTO struct {
 type StringDTO struct {
 	Data string `json:"data"`
 }
+
+type WebhookInputAttributesDTO struct {
+	Type       string                  `json:"type"`
+	Attributes []data.WebhookAttribute `json:"attributes"`
+	Error      string                  `json:"error"`
+}
+
+type WebhookInputUrlDTO struct {
+	Type string `json:"type"`
+	Url  string `json:"url"`
+	ID   string `json:"id"`
+}

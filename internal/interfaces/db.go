@@ -52,12 +52,15 @@ type EventWriter interface {
 
 type Webhooks interface {
 	CreateTempWebhook() (string, error)
-	UpdateTempWebhook(id string, content []byte) error
+	WebhookRecordLastRequest(id string, request string) error
 
-	CreateWebhook(id, action string, mapping data.WebhookAttributeMapping) error
-	GetWebhook(id string) (data.Webhook, error)
+	CreateWebhook(webhook data.WebhookDTO) error
+	GetWebhook(id string) (data.WebhookDTO, error)
 	GetWebhooks() (hooks []data.WebhookDTO, err error)
 	DeleteWebhooks(ids []string) error
+
+	GetLastWebhookRequestPath(pool, id string) string
+	WebhookExists(id string) bool
 }
 
 type Watchers interface {

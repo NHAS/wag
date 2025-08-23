@@ -15,22 +15,29 @@ export interface RegistrationTokenRequestDTO {
 }
 
 
+
+
 export enum WebhookActions {
   CreateRegistrationToken = 'create_token',
   DeleteDevice = 'delete_device',
   DeleteUser = 'delete_user',
 }
 
-export interface WebhookAttributes {
+
+export interface WebhookJsonAttributesRoles {
   as_username: string
   as_device_tag: string
   as_registration_token: string
+  as_device_ip: string
 }
 
-export interface WebhookCreateRequestDTO {
-  webhook: string
+export type WebhookRoles = keyof WebhookJsonAttributesRoles
+
+// this dto is used for request and response
+export interface WebhookDTO {
+  id: string
   action: WebhookActions
-  json_attribute_roles: WebhookAttributes
+  json_attribute_roles: WebhookJsonAttributesRoles
 }
 
 export interface WebhookAttribute {
@@ -38,9 +45,25 @@ export interface WebhookAttribute {
   value: string
 }
 
-export interface WebhookInputDTO {
+export enum WebhookInputTypes {
+  AttributeInput = "attributes",
+  URL = "URL"
+}
+
+export interface WebhookInputType {
+  type: WebhookInputTypes
+}
+
+export interface WebhookInputAttributesDTO {
+  type: WebhookInputTypes
   attributes: WebhookAttribute[]
   error: string
+}
+
+export interface WebhookInputUrlDTO {
+  type: WebhookInputTypes
+  id: string
+  url: string
 }
 
 

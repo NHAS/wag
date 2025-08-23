@@ -27,6 +27,8 @@ type Watcher[T any] struct {
 	callbacks WatcherCallbacks[T]
 
 	db interfaces.Watchers
+
+	wait chan bool
 }
 
 type AllCallbackFunc[T any] func(key string, eventType data.EventType, newState, previousState T) error
@@ -131,6 +133,7 @@ func WatchMulti[T any](db interfaces.Watchers,
 	s := &Watcher[T]{
 		db:        db,
 		callbacks: callbacks,
+		wait:      make(chan bool),
 	}
 
 	ops := []clientv3.OpOption{clientv3.WithPrevKV()}
@@ -290,6 +293,10 @@ func parseEvent[T any](event *clientv3.Event) (p parsedEvent[T], err error) {
 	return
 }
 
+func (s *Watcher[T]) Wait() {
+	<-s.wait
+}
+
 func (s *Watcher[T]) Close() error {
 	s.Lock()
 	defer s.Unlock()
@@ -298,6 +305,8 @@ func (s *Watcher[T]) Close() error {
 		cancel()
 	}
 	clear(s.watchers)
+
+	close(s.wait)
 
 	return nil
 }
