@@ -2,6 +2,9 @@ package data
 
 import (
 	"context"
+	"crypto/pbkdf2"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,6 +23,7 @@ const (
 	DeleteUser              = "delete_user"
 
 	WebhooksPrefix       = "wag-webhooks/"
+	WebhookAuthPrefix    = WebhooksPrefix + "auth/"
 	TempWebhooksPrefix   = WebhooksPrefix + "webhooks/temp/"
 	ActiveWebhooksPrefix = WebhooksPrefix + "webhooks/active/"
 )
@@ -40,21 +44,38 @@ func (d *database) GetLastWebhookRequestPath(id string, additionals ...string) s
 	return result
 }
 
-type WebhookAttributeMapping struct {
-	AsUsername          string `json:"as_username" validate:"omitempty,max=255,min=1"`
-	AsDeviceTag         string `json:"as_device_tag" validate:"omitempty,max=255,min=1"`
-	AsRegistrationToken string `json:"as_registration_token" validate:"omitempty,max=255,min=1"`
-	AsDeviceIP          string `json:"as_device_ip" validate:"omitempty,omitempty,max=255,min=1"`
+func (d *database) GetWebhookAuthPath(id, plainTextCredentials string) (string, error) {
+
+	res, err := pbkdf2.Key(sha256.New, plainTextCredentials, []byte(id), 10, 32)
+	if err != nil {
+		return "", fmt.Errorf("unable to determine hash: %w", err)
+	}
+
+	result := path.Join(WebhookAuthPrefix, id, hex.EncodeToString(res))
+
+	return result, nil
 }
 
-type WebhookCreateRequestDTO struct {
+type Webhook struct {
 	ID                 string                  `json:"id" validate:"required"`
 	Action             string                  `json:"action" validate:"required,oneof=create_token delete_device delete_user"`
 	JsonAttributeRoles WebhookAttributeMapping `json:"json_attribute_roles" validate:"required"`
 }
 
+type WebhookAttributeMapping struct {
+	AsUsername          string `json:"as_username" validate:"omitempty,max=255,min=1"`
+	AsDeviceTag         string `json:"as_device_tag" validate:"omitempty,max=255,min=1"`
+	AsRegistrationToken string `json:"as_registration_token" validate:"omitempty,max=255,min=1"`
+	AsDeviceIP          string `json:"as_device_ip" validate:"omitempty,max=255,min=1"`
+}
+
+type WebhookCreateRequestDTO struct {
+	Webhook
+	AuthHeader string `json:"auth_header,omitempty" validate:"required,min=32,max=32"`
+}
+
 type WebhookGetResponseDTO struct {
-	WebhookCreateRequestDTO
+	Webhook
 	LastRequestTime   time.Time `json:"time"`
 	LastRequestStatus string    `json:"status"`
 }
@@ -66,32 +87,6 @@ type WebhookAttribute struct {
 
 func (d *database) GetWebhookLastRequest(id string) (string, error) {
 	return Get[string](d.etcd, d.GetLastWebhookRequestPath(id, "data"))
-}
-
-func (d *database) WebhookExists(id string) bool {
-	res, err := d.etcd.Txn(context.Background()).
-		If(
-			clientv3util.KeyExists(ActiveWebhooksPrefix + id),
-		).Commit()
-
-	if err != nil {
-		return false
-	}
-
-	if res.Succeeded {
-		return true
-	}
-
-	res, err = d.etcd.Txn(context.Background()).
-		If(
-			clientv3util.KeyExists(TempWebhooksPrefix + id),
-		).Commit()
-
-	if err != nil {
-		return false
-	}
-
-	return res.Succeeded
 }
 
 func (d *database) GetWebhook(id string) (WebhookGetResponseDTO, error) {
@@ -172,7 +167,28 @@ func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 	return hooks, nil
 }
 
-func (d *database) WebhookRecordLastRequest(id, request string) error {
+func (d *database) CheckWebhookAuth(id, authHeader string) bool {
+	if len(id) == 0 || len(authHeader) == 0 || len(authHeader) < 32 || len(id) < 32 {
+		return false
+	}
+
+	path, err := d.GetWebhookAuthPath(id, authHeader)
+	if err != nil {
+		return false
+	}
+
+	resp, err := d.etcd.Get(context.Background(), path)
+	if err != nil {
+		return false
+	}
+
+	return len(resp.Kvs) == 1
+}
+
+func (d *database) WebhookRecordLastRequest(id, authHeader, request string) error {
+	if !d.CheckWebhookAuth(id, authHeader) {
+		return fmt.Errorf("webhook authorisation failed, or webhook did not exist")
+	}
 
 	if len(request) > 4096 {
 		return fmt.Errorf("storing webhook request encountered an error, input was too big >4096 bytes")
@@ -194,7 +210,7 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 				clientv3util.KeyExists(TempWebhooksPrefix + id),
 			},
 			[]clientv3.Op{
-				clientv3.OpPut(d.GetLastWebhookRequestPath(id), string(requestBytes)),
+				clientv3.OpPut(d.GetLastWebhookRequestPath(id, "data"), string(requestBytes)),
 			},
 			nil,
 		),
@@ -210,19 +226,22 @@ func (d *database) WebhookRecordLastRequest(id, request string) error {
 			return fmt.Errorf("incorrect key value size for getting webhook action: %q", id)
 		}
 
-		var hookSettings WebhookCreateRequestDTO
+		var hookSettings Webhook
 		err = json.Unmarshal(res.Responses[0].GetResponseRange().Kvs[0].Value, &hookSettings)
 		if err != nil {
 			return fmt.Errorf("unable to unmarshal webhook settings: %w", err)
 		}
 
 		go d.actionWebhook(hookSettings, &request)
+
+	} else if !res.Responses[0].GetResponseTxn().Succeeded {
+		return fmt.Errorf("webhook not found")
 	}
 
 	return err
 }
 
-func (d *database) actionWebhook(hook WebhookCreateRequestDTO, request *string) {
+func (d *database) actionWebhook(hook Webhook, request *string) {
 
 	var c map[string]any
 
@@ -296,27 +315,53 @@ func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 		return fmt.Errorf("validation of new webhook failed: %w", err)
 	}
 
-	d.etcd.Delete(context.Background(), TempWebhooksPrefix+webhook.ID)
+	credPath, err := d.GetWebhookAuthPath(webhook.ID, webhook.AuthHeader)
+	if err != nil {
+		return fmt.Errorf("could not store auth materical for web hook: %w", err)
+	}
 
-	return Set(d.etcd, ActiveWebhooksPrefix+webhook.ID, false, webhook)
+	b, _ := json.Marshal(webhook)
+
+	_, err = d.etcd.Txn(context.Background()).Then(
+		clientv3.OpDelete(TempWebhooksPrefix+webhook.ID, clientv3.WithPrefix()),
+		clientv3.OpPut(credPath, "\"\""), // this clears the lease (hopefully)
+		clientv3.OpPut(ActiveWebhooksPrefix+webhook.ID, string(b)),
+	).Commit()
+
+	return err
 }
 
-func (d *database) CreateTempWebhook() (string, error) {
+func (d *database) CreateTempWebhook() (string, string, error) {
 	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 30*60)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	var temp WebhookCreateRequestDTO
 
 	temp.ID, err = utils.GenerateRandomHex(16)
 	if err != nil {
-		return "", fmt.Errorf("unable to generate random id for temp webhook: %w", err)
+		return "", "", fmt.Errorf("unable to generate random id for temp webhook: %w", err)
 	}
 
-	err = Set(d.etcd, TempWebhooksPrefix+temp.ID, false, temp, clientv3.WithLease(lease.ID))
+	authHeader, err := utils.GenerateRandomHex(16)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate auth header: %w", err)
+	}
 
-	return temp.ID, err
+	authPath, err := d.GetWebhookAuthPath(temp.ID, authHeader)
+	if err != nil {
+		return "", "", fmt.Errorf("could not use generated value as auth header: %w", err)
+	}
+
+	tempBytes, _ := json.Marshal(temp)
+
+	_, err = d.etcd.Txn(context.Background()).Then(
+		clientv3.OpPut(TempWebhooksPrefix+temp.ID, string(tempBytes), clientv3.WithLease(lease.ID)),
+		clientv3.OpPut(authPath, "\"\"", clientv3.WithLease(lease.ID)),
+	).Commit()
+
+	return temp.ID, authHeader, err
 }
 
 func (d *database) DeleteWebhooks(ids []string) error {
@@ -327,6 +372,7 @@ func (d *database) DeleteWebhooks(ids []string) error {
 		ops = append(ops,
 			clientv3.OpDelete(ActiveWebhooksPrefix+id, clientv3.WithPrefix()),
 			clientv3.OpDelete(d.GetLastWebhookRequestPath(id), clientv3.WithPrefix()),
+			clientv3.OpDelete(WebhookAuthPrefix+id, clientv3.WithPrefix()),
 		)
 	}
 

@@ -248,7 +248,8 @@ type WebhookInputAttributesDTO struct {
 }
 
 type WebhookInputUrlDTO struct {
-	Type string `json:"type"`
-	Url  string `json:"url"`
-	ID   string `json:"id"`
+	Type       string `json:"type"`
+	Url        string `json:"url"`
+	ID         string `json:"id"`
+	AuthHeader string `json:"auth_header"`
 }

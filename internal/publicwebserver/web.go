@@ -257,9 +257,11 @@ func (es *PublicWebserver) webhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authHeader := r.Header.Get("X-AUTH-HEADER")
+
 	id := parts[len(parts)-1]
 
-	if !es.db.WebhookExists(id) {
+	if !es.db.CheckWebhookAuth(id, authHeader) {
 		http.NotFound(w, r)
 		return
 	}
@@ -274,7 +276,7 @@ func (es *PublicWebserver) webhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = es.db.WebhookRecordLastRequest(id, buffer.String())
+	err = es.db.WebhookRecordLastRequest(id, authHeader, buffer.String())
 	if err != nil {
 		log.Println("failed to update webhook last request: ", err)
 		http.Error(w, "Server Error", http.StatusInternalServerError)

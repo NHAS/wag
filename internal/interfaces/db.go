@@ -51,8 +51,8 @@ type EventWriter interface {
 }
 
 type Webhooks interface {
-	CreateTempWebhook() (string, error)
-	WebhookRecordLastRequest(id string, request string) error
+	CreateTempWebhook() (string, string, error)
+	WebhookRecordLastRequest(id, authHeader, request string) error
 
 	CreateWebhook(webhook data.WebhookCreateRequestDTO) error
 	GetWebhook(id string) (data.WebhookGetResponseDTO, error)
@@ -61,7 +61,7 @@ type Webhooks interface {
 
 	GetLastWebhookRequestPath(id string, additionals ...string) string
 	GetWebhookLastRequest(id string) (string, error)
-	WebhookExists(id string) bool
+	CheckWebhookAuth(id, authHeader string) bool
 }
 
 type Watchers interface {

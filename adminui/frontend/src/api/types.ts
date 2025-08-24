@@ -38,6 +38,7 @@ export interface WebhookCreateRequestDTO {
   id: string
   action: WebhookActions
   json_attribute_roles: WebhookJsonAttributesRoles
+  auth_header: string
 }
 
 export interface WebhookGetResponseDTO extends WebhookCreateRequestDTO{
@@ -65,10 +66,11 @@ export interface WebhookInputAttributesDTO {
   error: string
 }
 
-export interface WebhookInputUrlDTO {
+export interface WebhookTempCreateResponseDTO {
   type: WebhookInputTypes
   id: string
   url: string
+  auth_header: string
 }
 
 

@@ -5,9 +5,11 @@ import { useToast } from 'vue-toastification'
 import Modal from './Modal.vue'
 
 import { useToastError } from '@/composables/useToastError'
-import { createWebhook, WebhookActions, WebhookInputTypes, type WebhookRoles, type WebhookAttribute, type WebhookCreateRequestDTO, type WebhookInputAttributesDTO, type WebhookInputType, type WebhookInputUrlDTO, type WebhookJsonAttributesRoles } from '@/api'
+import { createWebhook, WebhookActions, WebhookInputTypes, type WebhookRoles, type WebhookAttribute, type WebhookCreateRequestDTO, type WebhookInputAttributesDTO, type WebhookInputType, type WebhookTempCreateResponseDTO, type WebhookJsonAttributesRoles } from '@/api'
 import Multiselect from 'vue-multiselect'
 import EmptyTable from './EmptyTable.vue'
+import { Icons } from '@/util/icons'
+import { copyToClipboard } from '@/util/clipboard'
 
 
 
@@ -27,7 +29,7 @@ const isOpen = computed({
 })
 
 const newWebhook = ref({ action: WebhookActions.CreateRegistrationToken } as WebhookCreateRequestDTO)
-const url = ref("")
+const tempWebhookDetails = ref({} as WebhookTempCreateResponseDTO)
 
 interface attributeType {
   friendlyName: string
@@ -112,7 +114,7 @@ function requirementsMet(selected: actionOption) {
 }
 
 let ws: WebSocket | null = null
-const connectionStatus = ref<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected')
+let pingTimer: number | undefined = undefined
 
 
 function connectWebSocket() {
@@ -121,7 +123,6 @@ function connectWebSocket() {
   }
 
   try {
-    connectionStatus.value = 'connecting'
     // Replace with your actual WebSocket URL
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -130,8 +131,12 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl)
 
     ws.onopen = () => {
-      connectionStatus.value = 'connected'
       console.log('WebSocket connected')
+      pingTimer = setInterval(() => {
+        if(ws != null) {
+          ws.send(JSON.stringify({"data": "ping"}))
+        }
+      }, 10000)
     }
 
     ws.onmessage = (event) => {
@@ -146,16 +151,13 @@ function connectWebSocket() {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error)
-      connectionStatus.value = 'error'
       toast.error('Cannot connect to wag server')
     }
 
     ws.onclose = () => {
-      connectionStatus.value = 'disconnected'
       console.log('WebSocket disconnected')
     }
   } catch (error) {
-    connectionStatus.value = 'error'
     console.error('Failed to connect WebSocket:', error)
     toast.error('Failed to connect to WebSocket')
   }
@@ -175,10 +177,11 @@ function handleWebSocketMessage(data: WebhookInputType) {
 
       break
     case WebhookInputTypes.URL:
-      const inputUrl = (data as WebhookInputUrlDTO)
+      const inputUrl = (data as WebhookTempCreateResponseDTO)
       // First message should contain the webhook URL
       newWebhook.value.id = inputUrl.id
-      url.value = inputUrl.url
+      newWebhook.value.auth_header = inputUrl.auth_header
+      tempWebhookDetails.value = inputUrl
 
       console.log(inputUrl)
 
@@ -194,11 +197,11 @@ function handleWebSocketMessage(data: WebhookInputType) {
 
 function disconnectWebSocket() {
   if (ws !== null) {
+    clearInterval(pingTimer)
+
     ws.close()
     ws = null
   }
-
-  connectionStatus.value = 'disconnected'
 }
 
 function resetState() {
@@ -207,7 +210,7 @@ function resetState() {
     attributes: [],
     error: "Waiting for webhook input!",
   }
-  url.value = ""
+  tempWebhookDetails.value = {} as WebhookTempCreateResponseDTO
   filterText.value = ''
 
   // Reset all attribute selections
@@ -233,7 +236,7 @@ async function createWebhookTrigger() {
     newWebhook.value.json_attribute_roles = {} as WebhookJsonAttributesRoles
 
     [...selectedAction.value.required, ...selectedAction.value.optional].forEach(attr => {
-      if(attr.data.value != null) {
+      if (attr.data.value != null) {
         newWebhook.value.json_attribute_roles[attr.role] = attr.data.value.key
       }
     })
@@ -249,10 +252,10 @@ async function createWebhookTrigger() {
     toast.success('Webhook created!')
     isOpen.value = false
 
-    if(props.onSuccess !== undefined) {
+    if (props.onSuccess !== undefined) {
       props.onSuccess()
     }
-   } catch (e) {
+  } catch (e) {
     catcher(e, 'failed to create webhook: ')
   }
 }
@@ -269,11 +272,20 @@ async function createWebhookTrigger() {
       <p>Send your JSON webhook to the following URL.</p>
       <div class="mt-8">
         <div>
-          <label for="webhookURL" class="block font-medium  pb-4">Webhook URL<span v-if="url == ''"
-              class="ml-4 loading loading-spinner loading-xs"></span><span v-else> - valid for 30 mins</span></label>
-          <input type="text" id="webhookURL" class="input input-bordered input-sm w-full" disabled :value="url" />
+          <label for="webhookURL" class="block font-medium  pb-4">Webhook URL<span v-if="tempWebhookDetails.url == ''"
+              class="ml-4 loading loading-spinner loading-xs"></span></label>
+          <input type="text" id="webhookURL" class="input input-bordered input-sm w-full" disabled
+            :value="tempWebhookDetails.url" />
+            
+          <div class="pt-4">
+            <p class="pb-2">The following authentication header will only be displayed here: </p>
+            <p class="inline">X-AUTH-HEADER: {{ tempWebhookDetails.auth_header == undefined ? "waiting...." : tempWebhookDetails.auth_header}}</p>
+            <button v-if="tempWebhookDetails.auth_header != undefined" class="inline pl-4"
+              @click="copyToClipboard('X-AUTH-HEADER: ' + tempWebhookDetails.auth_header)">
+              <font-awesome-icon :icon="Icons.Clipboard" class="text-secondary" />
+            </button>
+          </div>
         </div>
-
 
         <div>
           <label for="action" class="block font-medium  pt-6 pb-4">Action</label>
@@ -351,8 +363,9 @@ async function createWebhookTrigger() {
             <div>
               <label class="typo__label">{{ attribute.friendlyName }}</label>
 
-              <Multiselect v-model="attribute.data.value" :options="incommingAttributes.attributes" :taggable="true" @tag="(value: any) => {attribute.data.value = {key: value,  value: ''} }"
-                placeholder="Required" label="key" track-by="key">
+              <Multiselect v-model="attribute.data.value" :options="incommingAttributes.attributes" :taggable="true"
+                @tag="(value: any) => { attribute.data.value = { key: value, value: '' } }" placeholder="Required"
+                label="key" track-by="key">
               </Multiselect>
             </div>
           </template>
@@ -360,8 +373,9 @@ async function createWebhookTrigger() {
           <template v-for="attribute in selectedAction.optional">
             <div class="gap-4 pt-4">
               <label class="typo__label">{{ attribute.friendlyName }}</label>
-              <Multiselect v-model="attribute.data.value" :options="incommingAttributes.attributes" :taggable="true" @tag="(value: any) => {attribute.data.value = {key: value,  value: ''} }"
-                placeholder="Optional" :allowEmpty="true" label="key" track-by="key">
+              <Multiselect v-model="attribute.data.value" :options="incommingAttributes.attributes" :taggable="true"
+                @tag="(value: any) => { attribute.data.value = { key: value, value: '' } }" placeholder="Optional"
+                :allowEmpty="true" label="key" track-by="key">
               </Multiselect>
             </div>
           </template>

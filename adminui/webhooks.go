@@ -37,7 +37,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	id, err := au.db.CreateTempWebhook()
+	id, authHeader, err := au.db.CreateTempWebhook()
 	if err != nil {
 		log.Printf("unable to create temporary webhook: %s", err)
 		return
@@ -46,6 +46,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	var url WebhookInputUrlDTO
 	url.Type = "URL"
+	url.AuthHeader = authHeader
 
 	host, port, _ := net.SplitHostPort(config.ListenAddress)
 
@@ -71,10 +72,15 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var lastRequestWatcher *watcher.Watcher[string]
+	defer func() {
+		if lastRequestWatcher != nil {
+			lastRequestWatcher.Close()
+		}
+	}()
 
 	onDelete := func(_ string, current, previous string) error {
 		if lastRequestWatcher != nil {
-			lastRequestWatcher.Close()
+			conn.CloseNow()
 		}
 
 		return nil
@@ -95,7 +101,8 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 				log.Println("failed to write to websocket: ", err)
-				lastRequestWatcher.Close()
+				conn.CloseNow()
+
 			}
 
 			return nil
@@ -113,7 +120,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			log.Println("failed to write to websocket: ", err)
-			lastRequestWatcher.Close()
+			conn.CloseNow()
 		}
 
 		return nil
@@ -132,7 +139,16 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lastRequestWatcher.Wait()
+	for {
+		var ping StringDTO
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err = wsjson.Read(ctx, conn, &ping)
+		cancel()
+		if err != nil {
+			return
+		}
+	}
+
 }
 
 func (au *AdminUI) getWebhooks(w http.ResponseWriter, r *http.Request) {

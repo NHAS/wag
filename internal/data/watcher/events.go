@@ -29,6 +29,8 @@ type Watcher[T any] struct {
 	db interfaces.Watchers
 
 	wait chan bool
+
+	closed bool
 }
 
 type AllCallbackFunc[T any] func(key string, eventType data.EventType, newState, previousState T) error
@@ -301,12 +303,18 @@ func (s *Watcher[T]) Close() error {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.closed {
+		return nil
+	}
+
 	for _, cancel := range s.watchers {
 		cancel()
 	}
 	clear(s.watchers)
 
 	close(s.wait)
+
+	s.closed = true
 
 	return nil
 }
