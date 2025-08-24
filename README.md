@@ -1,4 +1,4 @@
-# Wag
+# Wag [![Go](https://github.com/NHAS/wag/actions/workflows/test_and_deploy.yml/badge.svg)](https://github.com/NHAS/wag/actions/workflows/test_and_deploy.yml)
 
 Wag adds MFA, route restriction and device enrolment to wireguard.    
 
