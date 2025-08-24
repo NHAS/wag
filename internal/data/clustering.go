@@ -18,33 +18,65 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 )
 
+func (d *database) ClusterManagementEnabled() bool {
+	return d.etcdServer != nil
+}
+
 func (d *database) GetCurrentNodeID() types.ID {
+	if d.etcdServer == nil {
+		return d.id
+	}
+
 	return d.etcdServer.Server.MemberID()
 }
 
 func (d *database) GetClusterLeader() types.ID {
+	if d.etcdServer == nil {
+		return 0
+	}
+
 	return d.etcdServer.Server.Leader()
 }
 
 func (d *database) ClusterHasLeader() bool {
+	if d.etcdServer == nil {
+		return true
+	}
+
 	return d.etcdServer.Server.Leader() != 0
 }
 
 func (d *database) IsCurrentNodeLearner() bool {
+	if d.etcdServer == nil {
+		return false
+	}
+
 	return d.etcdServer.Server.IsLearner()
 }
 
 // StepDown when called on a leader node, to transfer ownership to another node (demoted)
 func (d *database) ClusterNodeStepDown() error {
+	if d.etcdServer == nil {
+		return fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	return d.etcdServer.Server.TryTransferLeadershipOnShutdown()
 }
 
 func (d *database) GetClusterMembers() []*membership.Member {
 
+	if d.etcdServer == nil {
+		return nil
+	}
+
 	return d.etcdServer.Server.Cluster().Members()
 }
 
 func (d *database) GetClusterNodeLastPing(idHex string) (time.Time, error) {
+	if d.etcdServer == nil {
+		return time.Time{}, fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return time.Time{}, err
@@ -76,6 +108,10 @@ func (d *database) GetClusterNodeLastPing(idHex string) (time.Time, error) {
 }
 
 func (d *database) SetWitness(on bool) error {
+	if d.etcdServer == nil {
+		return fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	if on {
 		_, err := d.etcd.Put(context.Background(), path.Join(NodeInfo, d.GetCurrentNodeID().String(), "witness"), fmt.Sprintf("%t", on))
 		return err
@@ -86,6 +122,10 @@ func (d *database) SetWitness(on bool) error {
 }
 
 func (d *database) IsClusterNodeWitness(idHex string) (bool, error) {
+	if d.etcdServer == nil {
+		return false, fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
@@ -100,6 +140,9 @@ func (d *database) IsClusterNodeWitness(idHex string) (bool, error) {
 }
 
 func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
+	if d.etcdServer == nil {
+		return "", fmt.Errorf("cannot manage cluster, cluster is external")
+	}
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
@@ -108,21 +151,17 @@ func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
 }
 
 func (d *database) SetCurrentNodeVersion() error {
+	if d.etcdServer == nil {
+		return fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	return Set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
 }
 
+// these two functions can still be used if the cluster is being managed externally
 func (d *database) SetDrained(idHex string, on bool) error {
 
-	isWitness, err := d.IsClusterNodeWitness(idHex)
-	if err != nil {
-		return err
-	}
-
-	if isWitness {
-		return errors.New("cannot set drained on witness node, this node is not serving clients")
-	}
-
-	_, err = strconv.ParseUint(idHex, 16, 64)
+	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return err
 	}
@@ -137,6 +176,7 @@ func (d *database) SetDrained(idHex string, on bool) error {
 }
 
 func (d *database) IsClusterNodeDrained(idHex string) (bool, error) {
+
 	_, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return false, fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
@@ -155,6 +195,9 @@ func (d *database) IsClusterNodeDrained(idHex string) (bool, error) {
 // etcPeerUrlAddress is where the new node etcd instance is contactable
 // newManagerAddressURL is where the tls manager will listen (i.e the place that serves tls certs and config)
 func (d *database) AddClusterMember(name, etcPeerUrlAddress, newManagerAddressURL string) (joinToken string, err error) {
+	if d.etcdServer == nil {
+		return "", fmt.Errorf("cannot manage cluster, cluster is external")
+	}
 
 	if !strings.HasPrefix(etcPeerUrlAddress, "https://") {
 		return "", errors.New("url must be https://")
@@ -238,6 +281,10 @@ func (d *database) AddClusterMember(name, etcPeerUrlAddress, newManagerAddressUR
 }
 
 func (d *database) PromoteClusterMember(idHex string) error {
+	if d.etcdServer == nil {
+		return fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
@@ -252,6 +299,10 @@ func (d *database) PromoteClusterMember(idHex string) error {
 }
 
 func (d *database) RemoveClusterMember(idHex string) error {
+	if d.etcdServer == nil {
+		return fmt.Errorf("cannot manage cluster, cluster is external")
+	}
+
 	id, err := strconv.ParseUint(idHex, 16, 64)
 	if err != nil {
 		return fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)

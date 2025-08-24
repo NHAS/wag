@@ -67,13 +67,10 @@
         "Address": "192.168.122.1/24",
         "ServerPersistentKeepAlive": 0
     },
-    "Clustering": {
-        "ClusterState": "new",
-        "ETCDLogLevel": "error",
-        "ListenAddresses": [
-            "https://127.0.0.1:2380"
-        ],
-        "TLSManagerListenURL": "https://127.0.0.1:3434"
+    "RemoteCluster": {
+        "Endpoints": [
+            "http://127.0.0.1:2379"
+        ]
     },
     "Acls": {
         "Groups": {

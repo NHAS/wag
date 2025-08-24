@@ -208,19 +208,21 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 					}
 				}
 
-				if !db.IsCurrentNodeLearner() {
-					err := db.SetWitness(config.Values.Clustering.Witness)
-					if err != nil {
-						errorChan <- fmt.Errorf("to write witness data when cluster is healthy: %v", err)
-						return
-					}
+				if db.ClusterManagementEnabled() {
+					if !db.IsCurrentNodeLearner() {
+						err := db.SetWitness(config.Values.Clustering.Witness)
+						if err != nil {
+							errorChan <- fmt.Errorf("to write witness data when cluster is healthy: %v", err)
+							return
+						}
 
-					err = db.SetCurrentNodeVersion()
-					if err != nil {
-						errorChan <- fmt.Errorf("to write version data when cluster is healthy: %v", err)
-						return
-					}
+						err = db.SetCurrentNodeVersion()
+						if err != nil {
+							errorChan <- fmt.Errorf("to write version data when cluster is healthy: %v", err)
+							return
+						}
 
+					}
 				}
 
 				wasDead = false
@@ -243,12 +245,26 @@ func (g *start) Run() error {
 		return err
 	}
 
-	if config.Values.Clustering.Witness {
-		log.Println("this node is a witness, and will not start a wireguard device")
-	}
+	wagType := "Wag"
 
-	if g.db.IsCurrentNodeLearner() {
-		log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
+	if g.db.ClusterManagementEnabled() {
+		if config.Values.Clustering.Witness {
+			wagType = "Witness Node"
+		}
+
+		if g.db.IsCurrentNodeLearner() {
+			wagType += " Learner"
+		}
+
+		if config.Values.Clustering.Witness {
+			log.Println("this node is a witness, and will not start a wireguard device")
+		}
+
+		if g.db.IsCurrentNodeLearner() {
+			log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
+		}
+	} else {
+		wagType += " (remote cluster)"
 	}
 
 	go func() {
@@ -267,15 +283,6 @@ func (g *start) Run() error {
 		log.Printf("Got signal %s gracefully exiting\n", s)
 
 	}()
-
-	wagType := "Wag"
-	if config.Values.Clustering.Witness {
-		wagType = "Witness Node"
-	}
-
-	if g.db.IsCurrentNodeLearner() {
-		wagType += " Learner"
-	}
 
 	log.Printf("%s (%s) starting, Ctrl + C to stop", wagType, config.Version)
 

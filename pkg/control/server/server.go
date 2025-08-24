@@ -163,10 +163,11 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 	controlMux.HandleFunc("POST /registration/create", srvSock.newRegistration)
 	controlMux.HandleFunc("POST /registration/delete", srvSock.deleteRegistration)
 
-	controlMux.HandleFunc("GET /clustering/errors", srvSock.listErrors)
-	controlMux.HandleFunc("GET /clustering/members", srvSock.listMembers)
-	controlMux.HandleFunc("GET /clustering/ping", srvSock.getLastMemberPing)
-
+	if srvSock.db.ClusterManagementEnabled() {
+		controlMux.HandleFunc("GET /clustering/errors", srvSock.listErrors)
+		controlMux.HandleFunc("GET /clustering/members", srvSock.listMembers)
+		controlMux.HandleFunc("GET /clustering/ping", srvSock.getLastMemberPing)
+	}
 	srvSock.httpSrv = &http.Server{
 		Handler: controlMux,
 	}

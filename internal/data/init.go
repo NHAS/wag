@@ -2,6 +2,8 @@ package data
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -23,6 +25,7 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/queue"
 	_ "github.com/mattn/go-sqlite3"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/server/v3/embed"
@@ -64,6 +67,8 @@ type database struct {
 
 	eventsQueue *queue.Queue[GeneralEvent]
 	exit        chan bool
+
+	id types.ID
 }
 
 func (d *database) parseUrls(values ...string) []url.URL {
@@ -80,6 +85,42 @@ func (d *database) parseUrls(values ...string) []url.URL {
 }
 
 func Load(joinToken string, testing bool) (db *database, err error) {
+
+	db = &database{
+		contextMaps: map[string]context.CancelFunc{},
+
+		clusterHealthListeners: map[string]func(string){},
+
+		eventsQueue: queue.NewQueue[GeneralEvent](40),
+		exit:        make(chan bool),
+	}
+
+	if config.Values.RemoteCluster != nil {
+
+		idBytes := make([]byte, 8)
+		_, err := rand.Read(idBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate random ID: %w", err)
+		}
+
+		db.id = types.ID(binary.BigEndian.Uint64(idBytes))
+		config, err := clientv3.NewClientConfig(config.Values.RemoteCluster, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make etcd client connection: %w", err)
+		}
+
+		db.etcd, err = clientv3.New(*config)
+		if err != nil {
+			return nil, err
+		}
+
+		err = db.loadInitialSettings()
+		if err != nil {
+			return nil, err
+		}
+
+		return db, nil
+	}
 
 	if TLSManager == nil {
 		if joinToken == "" {
@@ -111,15 +152,6 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 				return nil, err
 			}
 		}
-	}
-
-	db = &database{
-		contextMaps: map[string]context.CancelFunc{},
-
-		clusterHealthListeners: map[string]func(string){},
-
-		eventsQueue: queue.NewQueue[GeneralEvent](40),
-		exit:        make(chan bool),
 	}
 
 	part, err := utils.GenerateRandomHex(10)
@@ -653,7 +685,7 @@ func (d *database) RegisterClusterHealthListener(f func(status string)) (string,
 	d.clusterHealthListeners[key] = f
 	d.clusterHealthLck.Unlock()
 
-	if !d.etcdServer.Server.IsLearner() {
+	if d.etcdServer != nil && !d.etcdServer.Server.IsLearner() || !d.ClusterManagementEnabled() {
 		// The moment we've registered a new health listener, test the cluster so it gets a callback
 		d.testCluster()
 	}
@@ -711,7 +743,7 @@ func (d *database) testCluster() {
 }
 
 func (d *database) notifyHealthy() {
-	if d.etcdServer.Server.IsLearner() {
+	if d.etcdServer != nil && d.etcdServer.Server.IsLearner() {
 		d.notifyClusterHealthListeners("learner")
 	} else {
 		d.notifyClusterHealthListeners("healthy")

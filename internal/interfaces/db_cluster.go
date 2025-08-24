@@ -20,6 +20,7 @@ type ClusterWriter interface {
 }
 
 type ClusterReader interface {
+	ClusterManagementEnabled() bool
 	GetCurrentNodeID() types.ID
 	IsCurrentNodeLearner() bool
 

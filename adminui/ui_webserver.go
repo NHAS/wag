@@ -166,15 +166,18 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		return nil, fmt.Errorf("failed to create cookie session store: %s", err)
 	}
 
-	adminUI.clusterState = "starting"
-	if db.ClusterHasLeader() {
-		adminUI.clusterState = "healthy"
-	}
-	adminUI.serverID = db.GetCurrentNodeID().String()
+	if db.ClusterManagementEnabled() {
 
-	adminUI.listenerEvents.clusterHealth, err = db.RegisterClusterHealthListener(adminUI.watchClusterHealth)
-	if err != nil {
-		return nil, fmt.Errorf("failed to register cluster health event listener: %s", err)
+		adminUI.clusterState = "starting"
+		if db.ClusterHasLeader() {
+			adminUI.clusterState = "healthy"
+		}
+		adminUI.serverID = db.GetCurrentNodeID().String()
+
+		adminUI.listenerEvents.clusterHealth, err = db.RegisterClusterHealthListener(adminUI.watchClusterHealth)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register cluster health event listener: %s", err)
+		}
 	}
 
 	log.SetOutput(io.MultiWriter(os.Stdout, adminUI.logQueue))
@@ -232,9 +235,11 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	protectedRoutes.HandleFunc("GET /api/info", adminUI.serverInfo)
 	protectedRoutes.HandleFunc("GET /api/console_log", adminUI.consoleLog)
 
-	protectedRoutes.HandleFunc("GET /api/cluster/members", adminUI.members)
-	protectedRoutes.HandleFunc("POST /api/cluster/members", adminUI.newNode)
-	protectedRoutes.HandleFunc("PUT /api/cluster/members", adminUI.nodeControl)
+	if db.ClusterManagementEnabled() {
+		protectedRoutes.HandleFunc("GET /api/cluster/members", adminUI.members)
+		protectedRoutes.HandleFunc("POST /api/cluster/members", adminUI.newNode)
+		protectedRoutes.HandleFunc("PUT /api/cluster/members", adminUI.nodeControl)
+	}
 
 	protectedRoutes.HandleFunc("GET /api/cluster/events", adminUI.getClusterEvents)
 	protectedRoutes.HandleFunc("PUT /api/cluster/events", adminUI.clusterEventsAcknowledge)
@@ -300,7 +305,9 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		log.Println("failed to register websockets listener: ", err)
 	}
 
-	go adminUI.monitorClusterMembers(notifications)
+	if db.ClusterManagementEnabled() {
+		go adminUI.monitorClusterMembers(notifications)
+	}
 
 	should, err := db.ShouldCheckUpdates()
 	if err == nil && should {

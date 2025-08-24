@@ -15,6 +15,7 @@ import (
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -124,6 +125,8 @@ type Config struct {
 
 	Clustering ClusteringDetails
 
+	RemoteCluster *clientv3.ConfigSpec
+
 	Wireguard struct {
 		DevName    string
 		ListenPort int
@@ -173,18 +176,38 @@ func load(path string) (c Config, err error) {
 		c.Wireguard.MTU = 1420
 	}
 
-	if c.Clustering.TLSManagerStorage == "" {
-		c.Clustering.TLSManagerStorage = "certificates"
-	}
+	if c.RemoteCluster == nil {
 
-	if c.Clustering.TLSManagerListenURL == "" {
-		c.Clustering.TLSManagerListenURL = "https://127.0.0.1:4455"
-		log.Println("WARNING no TLSManagerListenURL specified adding another cluster member will be disabled.")
+		if c.Clustering.TLSManagerStorage == "" {
+			c.Clustering.TLSManagerStorage = "certificates"
+		}
 
-	}
+		if c.Clustering.TLSManagerListenURL == "" {
+			c.Clustering.TLSManagerListenURL = "https://127.0.0.1:4455"
+			log.Println("WARNING no TLSManagerListenURL specified adding another cluster member will be disabled.")
 
-	if !strings.HasPrefix(c.Clustering.TLSManagerListenURL, "https://") {
-		return c, fmt.Errorf("tls manager listen url must be https://")
+		}
+
+		if !strings.HasPrefix(c.Clustering.TLSManagerListenURL, "https://") {
+			return c, fmt.Errorf("tls manager listen url must be https://")
+		}
+
+		if c.Clustering.Peers == nil {
+			c.Clustering.Peers = make(map[string][]string)
+		}
+
+		if c.Clustering.Name == "" {
+			c.Clustering.Name = "default"
+		}
+
+		if c.Clustering.ListenAddresses == nil {
+			c.Clustering.ListenAddresses = []string{"https://localhost:2380"}
+		}
+
+		if c.Clustering.ClusterState == "" {
+			c.Clustering.ClusterState = "new"
+		}
+
 	}
 
 	_, err = net.InterfaceByName(c.Wireguard.DevName)
@@ -205,22 +228,6 @@ func load(path string) (c Config, err error) {
 		if c.Wireguard.ListenPort == 0 {
 			return c, errors.New("wireguard ListenPort not set")
 		}
-	}
-
-	if c.Clustering.Peers == nil {
-		c.Clustering.Peers = make(map[string][]string)
-	}
-
-	if c.Clustering.Name == "" {
-		c.Clustering.Name = "default"
-	}
-
-	if c.Clustering.ListenAddresses == nil {
-		c.Clustering.ListenAddresses = []string{"https://localhost:2380"}
-	}
-
-	if c.Clustering.ClusterState == "" {
-		c.Clustering.ClusterState = "new"
 	}
 
 	if c.NAT == nil {
