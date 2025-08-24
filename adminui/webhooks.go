@@ -17,7 +17,7 @@ import (
 )
 
 func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
-	config, err := au.db.GetWebserverConfig(data.Public)
+	config, err := au.ctrl.GetSingleWebserverSettings(data.Public)
 	if err != nil {
 		log.Printf("failed to get web server config for public server: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -37,7 +37,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	id, authHeader, err := au.db.CreateTempWebhook()
+	details, err := au.ctrl.CreateTempWebhook()
 	if err != nil {
 		log.Printf("unable to create temporary webhook: %s", err)
 		return
@@ -46,7 +46,8 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	var url WebhookInputUrlDTO
 	url.Type = "URL"
-	url.AuthHeader = authHeader
+	url.ID = details.ID
+	url.AuthHeader = details.Auth
 
 	host, port, _ := net.SplitHostPort(config.ListenAddress)
 
@@ -63,8 +64,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		scheme = "https"
 	}
 
-	url.Url = fmt.Sprintf("%s://%s:%s/webhooks/%s", scheme, host, port, id)
-	url.ID = id
+	url.Url = fmt.Sprintf("%s://%s:%s/webhooks/%s", scheme, host, port, details.ID)
 
 	err = wsjson.Write(context.Background(), conn, url)
 	if err != nil {
@@ -128,7 +128,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// setup database watch on key to see if there is any data/json coming in from the webhook
 
-	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(id, "data"), false,
+	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(details.ID, "data"), false,
 		watcher.OnCreate(onUpdate),
 		watcher.OnModification(onUpdate),
 
@@ -153,7 +153,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) getWebhooks(w http.ResponseWriter, r *http.Request) {
 
-	hooks, err := au.db.GetWebhooks()
+	hooks, err := au.ctrl.GetWebhooks()
 	if err != nil {
 		log.Printf("failed to get all webhook err: %s", err)
 
@@ -180,7 +180,7 @@ func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req, err := au.db.GetWebhookLastRequest(webhook.ID)
+	req, err := au.ctrl.GetWebhookLastRequest(webhook.ID)
 	if err != nil {
 		log.Printf("failed to get webhook request: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -204,7 +204,7 @@ func (au *AdminUI) createWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = au.db.CreateWebhook(webhook)
+	err = au.ctrl.CreateWebhook(webhook)
 	if err != nil {
 		log.Printf("failed to create webhook: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -227,7 +227,7 @@ func (au *AdminUI) deleteWebhooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = au.db.DeleteWebhooks(webhooks)
+	err = au.ctrl.DeleteWebhooks(webhooks)
 	if err != nil {
 		log.Printf("failed to delete webhook: %s", err)
 		w.WriteHeader(http.StatusBadRequest)

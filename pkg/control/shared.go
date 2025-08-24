@@ -44,4 +44,9 @@ type PutReq struct {
 	Value string `json:"value"`
 }
 
+type TempWebhookResponseDTO struct {
+	ID   string
+	Auth string
+}
+
 const DefaultWagSocket = "/tmp/wag.sock"

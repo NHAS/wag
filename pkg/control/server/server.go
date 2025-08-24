@@ -130,12 +130,20 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 
 	controlMux.HandleFunc("GET /groups/list", srvSock.listGroups)
 
+	controlMux.HandleFunc("GET /webadmin/user", srvSock.getAdminUser)
 	controlMux.HandleFunc("GET /webadmin/list", srvSock.listAdminUsers)
 	controlMux.HandleFunc("POST /webadmin/lock", srvSock.lockAdminUser)
 	controlMux.HandleFunc("POST /webadmin/unlock", srvSock.unlockAdminUser)
 	controlMux.HandleFunc("POST /webadmin/delete", srvSock.deleteAdminUser)
 	controlMux.HandleFunc("POST /webadmin/reset", srvSock.resetAdminUser)
 	controlMux.HandleFunc("POST /webadmin/add", srvSock.addAdminUser)
+
+	controlMux.HandleFunc("GET /webhooks/temp", srvSock.createTempWebhook)
+	controlMux.HandleFunc("GET /webhooks", srvSock.getWebhooks)
+	controlMux.HandleFunc("POST /webhooks", srvSock.createWebhook)
+	controlMux.HandleFunc("DELETE /webhooks", srvSock.deleteWebhooks)
+
+	controlMux.HandleFunc("GET /webhook/last_request", srvSock.getWebhookLastRequest)
 
 	controlMux.HandleFunc("GET /firewall/list", srvSock.firewallRules)
 	controlMux.HandleFunc("GET /config/policies/list", srvSock.policies)
@@ -152,7 +160,19 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 	controlMux.HandleFunc("POST /db/put", srvSock.putDBKey)
 
 	controlMux.HandleFunc("GET /config/settings/general", srvSock.getGeneralSettings)
+	controlMux.HandleFunc("POST /config/settings/general", srvSock.setGeneralSettings)
 	controlMux.HandleFunc("GET /config/settings/login", srvSock.getLoginSettings)
+	controlMux.HandleFunc("POST /config/settings/login", srvSock.setLoginSettings)
+	controlMux.HandleFunc("GET /config/settings/webservers", srvSock.getAllWebserversSettings)
+	controlMux.HandleFunc("GET /config/settings/webserver", srvSock.getSingleWebserverSettings)
+	controlMux.HandleFunc("POST /config/settings/webserver", srvSock.setSingleWebserverSettings)
+	controlMux.HandleFunc("GET /config/settings/acme/cloudflare/dns01token", srvSock.getCloudflareToken)
+	controlMux.HandleFunc("POST /config/settings/acme/cloudflare/dns01token", srvSock.setCloudflareToken)
+	controlMux.HandleFunc("GET /config/settings/acme/provider", srvSock.getAcmeProvider)
+	controlMux.HandleFunc("POST /config/settings/acme/provider", srvSock.setAcmeProvider)
+	controlMux.HandleFunc("GET /config/settings/acme/email", srvSock.getAcmeEmail)
+	controlMux.HandleFunc("POST /config/settings/acme/email", srvSock.setAcmeEmail)
+
 	controlMux.HandleFunc("GET /config/settings/lockout", srvSock.getLockout)
 
 	controlMux.HandleFunc("GET /version", srvSock.version)

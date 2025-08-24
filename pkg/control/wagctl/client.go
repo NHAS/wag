@@ -152,6 +152,28 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO,
 	return
 }
 
+func (c *CtrlClient) GetAdminUser(username string) (user data.AdminUserDTO, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webadmin/user?username=" + url.QueryEscape(username))
+	if err != nil {
+		return user, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return user, err
+		}
+
+		return user, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&user)
+
+	return
+}
+
 // Take device address to remove
 func (c *CtrlClient) AddAdminUser(username, password string, changeOnFirstUser bool) error {
 	form := url.Values{}
@@ -553,6 +575,30 @@ func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err
 	return allSettings, nil
 }
 
+func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettings) (err error) {
+
+	settingsByte, err := json.Marshal(allSettings)
+	if err != nil {
+		return fmt.Errorf("unable to marshal general settings to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/general", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
 func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/login")
@@ -575,6 +621,242 @@ func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err err
 	}
 
 	return allSettings, nil
+}
+
+func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettings) (err error) {
+
+	settingsByte, err := json.Marshal(allSettings)
+	if err != nil {
+		return fmt.Errorf("unable to marshal general settings to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/login", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.WebserverConfiguration, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/webservers")
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result data.WebserverConfiguration, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/webserver?name=" + url.QueryEscape(string(server)))
+	if err != nil {
+		return data.WebserverConfiguration{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return data.WebserverConfiguration{}, err
+		}
+		return data.WebserverConfiguration{}, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return data.WebserverConfiguration{}, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig data.WebserverConfiguration) (err error) {
+	settingsByte, err := json.Marshal(webConfig)
+	if err != nil {
+		return fmt.Errorf("unable to marshal general settings to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/webserver?name="+url.QueryEscape(string(server)), "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) GetAcmeDNS01CloudflareToken() (result data.CloudflareToken, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/cloudflare/dns01token")
+	if err != nil {
+		return data.CloudflareToken{}, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return data.CloudflareToken{}, err
+		}
+		return data.CloudflareToken{}, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return data.CloudflareToken{}, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) SetAcmeDNS01CloudflareToken(token string) (err error) {
+	settingsByte, err := json.Marshal(token)
+	if err != nil {
+		return fmt.Errorf("unable to marshal cloudflare token to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/acme/cloudflare/dns01token", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) GetAcmeProvider() (result string, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/acme/provider")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return "", err
+		}
+		return "", errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) SetAcmeProvider(providerURL string) (err error) {
+	settingsByte, err := json.Marshal(providerURL)
+	if err != nil {
+		return fmt.Errorf("unable to marshal provider URL to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/acme/provider", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) GetAcmeEmail() (result string, err error) {
+
+	response, err := c.httpClient.Get("http://unix/config/settings/acme/email")
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return "", err
+		}
+		return "", errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) SetAcmeEmail(email string) (err error) {
+	settingsByte, err := json.Marshal(email)
+	if err != nil {
+		return fmt.Errorf("unable to marshal acme email to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/config/settings/acme/email", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
 }
 
 func (c *CtrlClient) GetLockout() (lockout int, err error) {
@@ -818,6 +1100,131 @@ func (c *CtrlClient) PutDBKey(key, value string) error {
 	}
 
 	if response.StatusCode != 200 {
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) CreateTempWebhook() (result control.TempWebhookResponseDTO, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webhooks/temp")
+	if err != nil {
+		return result, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		r, err := io.ReadAll(response.Body)
+		if err != nil {
+			return result, err
+		}
+		return result, errors.New(string(r))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) GetWebhooks() (result []data.WebhookGetResponseDTO, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webhooks")
+	if err != nil {
+		return result, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		r, err := io.ReadAll(response.Body)
+		if err != nil {
+			return result, err
+		}
+		return result, errors.New(string(r))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) GetWebhookLastRequest(id string) (result string, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webhook/last_request?id=" + url.QueryEscape(id))
+	if err != nil {
+		return result, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		r, err := io.ReadAll(response.Body)
+		if err != nil {
+			return result, err
+		}
+		return result, errors.New(string(r))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&result)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (c *CtrlClient) CreateWebhook(hook data.WebhookCreateRequestDTO) (err error) {
+	settingsByte, err := json.Marshal(hook)
+	if err != nil {
+		return fmt.Errorf("unable to marshal webhook to json: %w", err)
+	}
+
+	response, err := c.httpClient.Post("http://unix/webhook/last_request", "application/json", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
+func (c *CtrlClient) DeleteWebhooks(ids []string) (err error) {
+	settingsByte, err := json.Marshal(ids)
+	if err != nil {
+		return fmt.Errorf("unable to marshal webhook ids to json: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, "http://unix/webhook", bytes.NewBuffer(settingsByte))
+	if err != nil {
+		return fmt.Errorf("failed to make http request to unix socket: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
 		return errors.New(string(result))
 	}
 

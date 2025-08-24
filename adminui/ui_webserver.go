@@ -216,14 +216,15 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 			key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
 			if adminDetails != nil {
 				if adminDetails.Type == "" || adminDetails.Type == data.LocalUser {
-					d, err := db.GetAdminUser(d.Username)
+
+					admin, err := adminUI.ctrl.GetAdminUser(d.Username)
 					if err != nil {
 						adminUI.sessionManager.DeleteSession(w, r)
 						http.Error(w, "Unauthorized", http.StatusUnauthorized)
 						return false
 					}
 
-					adminUI.sessionManager.UpdateSession(key, d)
+					adminUI.sessionManager.UpdateSession(key, admin)
 				}
 
 				// Otherwise the admin type is OIDC, and will no be in the local db
@@ -424,7 +425,7 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginResponse.User, err = au.db.GetAdminUser(loginDetails.Username)
+	loginResponse.User, err = au.ctrl.GetAdminUser(loginDetails.Username)
 	if err != nil {
 		log.Println("unable to login: ", err)
 		return
@@ -444,7 +445,7 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
-		adminLogin, err := au.db.GetAdminUser(info.Subject)
+		adminLogin, err := au.ctrl.GetAdminUser(info.Subject)
 		if err != nil {
 			log.Printf("new admin user logged in via oidc: %q", info.PreferredUsername)
 
@@ -514,7 +515,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = au.db.SetAdminPassword(u.Username, req.NewPassword)
+	err = au.ctrl.SetAdminUserPassword(u.Username, req.NewPassword)
 	if err != nil {
 		log.Println("unable to set new admin password for ", u.Username)
 
