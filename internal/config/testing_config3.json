@@ -17,9 +17,9 @@
         "ClusterState": "new",
         "ETCDLogLevel": "error",
         "Witness": false,
-        "TLSManagerListenURL": "https://localhost:3434",
+        "TLSManagerListenURL": "https://localhost:3435",
         "ListenAddresses": [
-            "https://localhost:2382"
+            "https://localhost:2383"
         ]
     },
     "Wireguard": {
