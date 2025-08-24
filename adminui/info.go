@@ -26,11 +26,12 @@ func (au *AdminUI) serverInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	d := ServerInfoDTO{
-		PublicKey:       pubkey.String(),
-		ExternalAddress: s.ExternalAddress,
-		Subnet:          config.Values.Wireguard.Range.String(),
-		Port:            port,
-		Version:         au.wagVersion,
+		PublicKey:                pubkey.String(),
+		ExternalAddress:          s.ExternalAddress,
+		Subnet:                   config.Values.Wireguard.Range.String(),
+		Port:                     port,
+		Version:                  au.wagVersion,
+		ClusterManagementEnabled: au.db.ClusterManagementEnabled(),
 	}
 
 	w.Header().Set("content-type", "application/json")

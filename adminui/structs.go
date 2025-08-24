@@ -20,6 +20,8 @@ type ServerInfoDTO struct {
 	PublicKey       string `json:"public_key"`
 	ExternalAddress string `json:"external_address"`
 	Version         string `json:"version"`
+
+	ClusterManagementEnabled bool `json:"cluster_management_enabled"`
 }
 
 type LogLinesDTO struct {

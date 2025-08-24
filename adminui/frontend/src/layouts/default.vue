@@ -12,7 +12,7 @@ const authStore = useAuthStore()
 const { loggedInUser } = storeToRefs(authStore)
 
 const info = useInstanceDetailsStore()
-info.load(false)
+info.load(true)
 
 const router = useRouter()
 const route = useRoute()
@@ -20,9 +20,12 @@ const route = useRoute()
 const pageLinks = [{ name: 'Dashboard', icon: Icons.Dashboard, to: '/dashboard' }]
 
 const clusterLinks = [
-  { name: 'Events', icon: Icons.Events, to: '/cluster/events' },
-  { name: 'Members', icon: Icons.ClusterMembers, to: '/cluster/members' }
+  { name: 'Events', icon: Icons.Events, to: '/cluster/events' }
 ]
+
+if(info.serverInfo.cluster_management_enabled) {
+  clusterLinks.push(  { name: 'Members', icon: Icons.ClusterMembers, to: '/cluster/members' })
+}
 
 const policyLinks = [
   { name: 'Rules', icon: Icons.Edit, to: '/policy/rules' },
@@ -85,7 +88,6 @@ async function logout() {
             </RouterLink>
           </li>
         </ul>
-
         <hr class="mt-4 h-px border-0 bg-gray-700" />
         <ul class="menu">
           <li v-for="link in clusterLinks" :key="link.name"
@@ -97,7 +99,6 @@ async function logout() {
             </RouterLink>
           </li>
         </ul>
-
         <hr class="mt-4 h-px border-0 bg-gray-700" />
 
         <ul class="menu">

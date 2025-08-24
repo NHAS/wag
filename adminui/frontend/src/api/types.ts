@@ -167,6 +167,7 @@ export interface ServerInfoDTO {
   public_key: string
   external_address: string
   version: string
+  cluster_management_enabled: boolean
 }
 
 export interface LogLinesDTO {
