@@ -34,7 +34,7 @@ var (
 
 func TestMain(m *testing.M) {
 
-	if err := config.Load("../config/testing_config2.json"); err != nil {
+	if err := config.Load("../config/testing_config3.json"); err != nil {
 		log.Println("failed to load config: ", err)
 		os.Exit(1)
 	}
