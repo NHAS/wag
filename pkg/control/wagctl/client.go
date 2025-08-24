@@ -1184,7 +1184,7 @@ func (c *CtrlClient) CreateWebhook(hook data.WebhookCreateRequestDTO) (err error
 		return fmt.Errorf("unable to marshal webhook to json: %w", err)
 	}
 
-	response, err := c.httpClient.Post("http://unix/webhook/last_request", "application/json", bytes.NewBuffer(settingsByte))
+	response, err := c.httpClient.Post("http://unix/webhooks", "application/json", bytes.NewBuffer(settingsByte))
 	if err != nil {
 		return err
 	}
@@ -1207,7 +1207,7 @@ func (c *CtrlClient) DeleteWebhooks(ids []string) (err error) {
 		return fmt.Errorf("unable to marshal webhook ids to json: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodDelete, "http://unix/webhook", bytes.NewBuffer(settingsByte))
+	req, err := http.NewRequest(http.MethodDelete, "http://unix/webhooks", bytes.NewBuffer(settingsByte))
 	if err != nil {
 		return fmt.Errorf("failed to make http request to unix socket: %w", err)
 	}

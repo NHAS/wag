@@ -25,11 +25,11 @@ import (
 
 type start struct {
 	fs               *flag.FlagSet
-	config           string
+	Config           string
 	clusterJoinToken string
-	noIptables       bool
+	NoIptables       bool
 
-	db interfaces.Database
+	DB interfaces.Database
 }
 
 func Start() *start {
@@ -38,9 +38,9 @@ func Start() *start {
 	}
 
 	gc.fs.StringVar(&gc.clusterJoinToken, "join", "", "Cluster join token")
-	gc.fs.StringVar(&gc.config, "config", "./config.json", "Configuration file location")
+	gc.fs.StringVar(&gc.Config, "config", "./config.json", "Configuration file location")
 
-	gc.fs.Bool("noiptables", false, "Do not add iptables rules")
+	gc.fs.BoolVar(&gc.NoIptables, "noiptables", false, "Do not add iptables rules")
 
 	return gc
 }
@@ -64,24 +64,24 @@ func (g *start) Check() error {
 	g.fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "noiptables":
-			g.noIptables = true
+			g.NoIptables = true
 		}
 	})
 
 	if g.clusterJoinToken == "" {
-		err := config.Load(g.config)
+		err := config.Load(g.Config)
 		if err != nil {
 			return err
 		}
 	}
 
 	var err error
-	g.db, err = data.Load(g.clusterJoinToken, false)
+	g.DB, err = data.Load(g.clusterJoinToken, false)
 	if err != nil {
 		return fmt.Errorf("cannot load database: %w", err)
 	}
 
-	err = autotls.Initialise(g.db)
+	err = autotls.Initialise(g.DB)
 	if err != nil {
 		return fmt.Errorf("failed to initialise auto tls module: %w", err)
 	}
@@ -234,25 +234,25 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 func (g *start) Run() error {
 
 	var err error
-	defer g.db.TearDown()
+	defer g.DB.TearDown()
 
 	errorChan := make(chan error)
 	cancel := make(chan bool)
 	complete := make(chan bool)
 
-	_, err = g.db.RegisterClusterHealthListener(startWag(g.db, g.noIptables, cancel, complete, errorChan))
+	_, err = g.DB.RegisterClusterHealthListener(startWag(g.DB, g.NoIptables, cancel, complete, errorChan))
 	if err != nil {
 		return err
 	}
 
 	wagType := "Wag"
 
-	if g.db.ClusterManagementEnabled() {
+	if g.DB.ClusterManagementEnabled() {
 		if config.Values.Clustering.Witness {
 			wagType = "Witness Node"
 		}
 
-		if g.db.IsCurrentNodeLearner() {
+		if g.DB.IsCurrentNodeLearner() {
 			wagType += " Learner"
 		}
 
@@ -260,7 +260,7 @@ func (g *start) Run() error {
 			log.Println("this node is a witness, and will not start a wireguard device")
 		}
 
-		if g.db.IsCurrentNodeLearner() {
+		if g.DB.IsCurrentNodeLearner() {
 			log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
 		}
 	} else {

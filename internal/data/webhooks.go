@@ -235,6 +235,8 @@ func (d *database) WebhookRecordLastRequest(id, authHeader, request string) erro
 		go d.actionWebhook(hookSettings, &request)
 
 	} else if !res.Responses[0].GetResponseTxn().Succeeded {
+		log.Println("here 1")
+
 		return fmt.Errorf("webhook not found")
 	}
 
@@ -304,6 +306,7 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 
 	status := "OK"
 	if err != nil {
+		log.Println("failed to action webhook: ", err)
 		status = err.Error()
 		d.RaiseError(fmt.Errorf("unable to do %q via webhook %q as error occured: %w", hook.Action, hook.ID, err), nil)
 	}

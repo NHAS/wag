@@ -243,8 +243,6 @@ func (d *database) getNextIP(subnet string) (string, error) {
 		return "", err
 	}
 
-	log.Println("starting point: ", addr)
-
 	// fast path, if the address we get to start incremented by one is outside the cidr then just try and get from the abandoned pool
 	if !cidr.Contains(incrementIP(addr, 1)) {
 		return d.getLeaseFromAbandoned(ctx)

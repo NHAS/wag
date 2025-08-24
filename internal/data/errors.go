@@ -38,14 +38,14 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 	var err error
 	ee.ErrorID, err = utils.GenerateRandomHex(16)
 	if err != nil {
-		log.Println("failed raise error with cluster, failed to generate unique error ID: %w, cluster error: %w", err, raisedError)
+		log.Printf("failed raise error with cluster, failed to generate unique error ID: %v, cluster error: %v", err, raisedError)
 
 		return
 	}
 
 	err = Set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
 	if err != nil {
-		log.Println("failed raise error with cluster, failed to write to cluster: %w, cluster error: %w", err, raisedError)
+		log.Printf("failed raise error with cluster, failed to write to cluster: %v, cluster error: %v", err, raisedError)
 
 		return
 	}
