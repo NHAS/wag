@@ -3,7 +3,8 @@ package types
 type MFA string
 
 const (
-	Unset    MFA = "unset"
+	Unset MFA = "unset"
+
 	Totp     MFA = "totp"
 	Webauthn MFA = "webauthn"
 	Oidc     MFA = "oidc"

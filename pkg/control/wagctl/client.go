@@ -238,28 +238,6 @@ func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err err
 	return
 }
 
-func (c *CtrlClient) ListAllGroups() (groups []control.GroupData, err error) {
-
-	response, err := c.httpClient.Get("http://unix/groups/list")
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != 200 {
-		result, err := io.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, errors.New(string(result))
-	}
-
-	err = safedecoder.Decoder(response.Body).Decode(&groups)
-
-	return
-}
-
 func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/groups?username=" + url.QueryEscape(username))

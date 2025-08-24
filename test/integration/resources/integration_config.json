@@ -11,7 +11,20 @@
             "Port": "8080",
             "HelpMail": "help@example.com",
             "MaxSessionLifetimeMinutes": 1,
-            "SessionInactivityTimeoutMinutes": 1
+            "SessionInactivityTimeoutMinutes": 1,
+
+            "DefaultMethod": "totp",
+            "Issuer": "vpn.test",
+            "Methods": [
+                "totp"
+            ]
+        },
+        "Management": {
+            "Enabled": true,
+            "ListenAddress": "127.0.0.1:4433",
+            "Password": {
+                "Enabled": true
+            }
         }
     },
     "Clustering": {

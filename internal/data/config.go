@@ -4,18 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"slices"
 	"strings"
 
+	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/go-playground/validator/v10"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type OIDC struct {
-	IssuerURL           string   `json:"issuer"`
-	ClientSecret        string   `json:"client_secret" sensitive:"yes"`
-	ClientID            string   `json:"client_id"`
+	IssuerURL           string   `json:"issuer" validate:"omitempty,url" `
+	ClientSecret        string   `json:"client_secret" validate:"omitempty,min=1,max=255" sensitive:"yes"`
+	ClientID            string   `json:"client_id" validate:"omitempty,min=1,max=255"`
 	GroupsClaimName     string   `json:"group_claim_name"`
 	DeviceUsernameClaim string   `json:"device_username_claim"`
 	Scopes              []string `json:"scopes"`
@@ -34,7 +36,7 @@ func (o *OIDC) Equals(b *OIDC) bool {
 }
 
 type PAM struct {
-	ServiceName string `json:"service_name"`
+	ServiceName string `json:"service_name" validate:"omitempty,min=1"`
 }
 
 type Webauthn struct {
@@ -335,7 +337,25 @@ func (lg *LoginSettings) Validate() error {
 	return validate.Struct(lg)
 }
 
+func checkValidMFA(method types.MFA) ([]types.MFA, bool) {
+	r := []types.MFA{
+		types.Totp, types.Webauthn, types.Oidc, types.Pam,
+	}
+
+	return r, slices.Contains(r, method)
+}
+
 func (lg *LoginSettings) ToWriteOps() (ret []clientv3.Op, err error) {
+
+	if required, ok := checkValidMFA(types.MFA(lg.DefaultMFAMethod)); !ok {
+		return nil, fmt.Errorf("invalid default method: %q, should be: one of %s", lg.DefaultMFAMethod, required)
+	}
+
+	for _, m := range lg.EnabledMFAMethods {
+		if required, ok := checkValidMFA(types.MFA(m)); !ok {
+			return nil, fmt.Errorf("invalid enabled method: %q, should be: one of %s", m, required)
+		}
+	}
 
 	if err := lg.Validate(); err != nil {
 		return nil, err
