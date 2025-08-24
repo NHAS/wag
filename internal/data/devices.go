@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"path"
 	"time"
 
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -18,6 +19,14 @@ import (
 	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+)
+
+const (
+	DevicesPrefix         = "devices-"
+	DeviceChallengePrefix = "devicechallenge-"
+	DeviceSessionPrefix   = "devicesession-"
+
+	deviceTagsPrefix = "devicetags/"
 )
 
 type Device struct {
@@ -31,12 +40,32 @@ type Device struct {
 	Authorised     time.Time
 	Challenge      string `sensitive:"yes"`
 	AssociatedNode types.ID
+	Tag            string
 }
 
 type DeviceChallenge struct {
 	Address   string
 	Username  string
 	Challenge string `sensitive:"yes"`
+}
+
+func (d *database) getTagPath(tag string) string {
+	return path.Join(deviceTagsPrefix, "tags", tag)
+}
+
+func (d *database) DeleteDeviceByTag(tag string) error {
+
+	tagPath := d.getTagPath(tag)
+	resp, err := d.etcd.Delete(context.Background(), tagPath, clientv3.WithPrevKV())
+	if err != nil {
+		return fmt.Errorf("unable to delete tag: %q: %w", tagPath, err)
+	}
+
+	if len(resp.PrevKvs) > 0 {
+		return d.deleteDevice(string(resp.PrevKvs[0].Value))
+	}
+
+	return nil
 }
 
 func (d *database) ValidateChallenge(username, address, challenge string) error {
@@ -358,11 +387,15 @@ func (d *database) GetAllDevicesAsMap() (devices map[string]Device, err error) {
 	return devices, nil
 }
 
-func (d *database) AddDevice(username, publickey, staticIp string) (Device, error) {
+func (d *database) AddDevice(username, publickey, staticIp, tag string) (Device, error) {
 
 	preshared_key, err := wgtypes.GenerateKey()
 	if err != nil {
 		return Device{}, err
+	}
+
+	if len(tag) > 100 {
+		return Device{}, fmt.Errorf("tag was too large")
 	}
 
 	address := staticIp
@@ -378,29 +411,68 @@ func (d *database) AddDevice(username, publickey, staticIp string) (Device, erro
 		Publickey:    publickey,
 		Username:     username,
 		PresharedKey: preshared_key.String(),
+		Tag:          tag,
 	}
 
 	b, _ := json.Marshal(dev)
 
 	key := d.deviceKey(username, address)
 
-	response, err := d.etcd.Txn(context.Background()).
-		If(
-			clientv3util.KeyMissing(key),
-		).Then(
+	createOps := []clientv3.Op{
 		clientv3.OpPut(key, string(b)),
 		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
 		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key),
-	).Commit()
+	}
+
+	cmp := []clientv3.Cmp{
+		clientv3util.KeyMissing(key),
+	}
+
+	if len(tag) != 0 {
+		createOps = append(createOps, clientv3.OpPut(d.getTagPath(tag), key))
+		cmp = append(cmp, clientv3util.KeyMissing(d.getTagPath(tag)))
+
+	}
+
+	response, err := d.etcd.Txn(context.Background()).If(cmp...).Then(createOps...).Commit()
 	if err != nil {
 		return Device{}, err
 	}
 
 	if !response.Succeeded {
+
+		if len(tag) > 0 {
+			return Device{}, fmt.Errorf("device with %q address or tag %q already exists", address, tag)
+
+		}
+
 		return Device{}, fmt.Errorf("device with %q address already exists", address)
 	}
 
 	return dev, err
+}
+
+func (d *database) deleteDevice(key string) error {
+	resp, err := d.etcd.Delete(context.Background(), key, clientv3.WithPrevKV())
+	if err != nil {
+		return fmt.Errorf("could not delete device by direct key: %q: %w", key, err)
+	}
+
+	if len(resp.PrevKvs) != 0 {
+
+		var dev Device
+		err := json.Unmarshal(resp.PrevKvs[0].Value, &dev)
+		if err != nil {
+			return fmt.Errorf("could not parse device: %w", err)
+		}
+
+		_, err = d.etcd.Txn(context.Background()).Then(d.deleteDeviceOps(dev)...).Commit()
+		return err
+
+	}
+
+	return nil
+
 }
 
 // devices-username-address
@@ -409,9 +481,8 @@ func (d *database) deviceKey(username, address string) string {
 }
 
 // DeleteDevice removes a single device from etcd
-// username is the users name obviously
 // id can be a public key, or ip address
-func (d *database) DeleteDevice(username, id string) error {
+func (d *database) DeleteDevice(id string) error {
 
 	refKey := deviceRef + id
 
@@ -461,6 +532,8 @@ func (d *database) deleteDeviceOps(dev Device) []clientv3.Op {
 
 		clientv3.OpDelete(sessionRef),
 		clientv3.OpDelete(challengeKey),
+
+		clientv3.OpDelete(d.getTagPath(dev.Tag)),
 	}
 }
 

@@ -60,14 +60,14 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 	return device.PresharedKey, nil
 }
 
-func (u *user) AddDevice(publickey wgtypes.Key, staticIp string) (device data.Device, err error) {
+func (u *user) AddDevice(publickey wgtypes.Key, staticIp, tag string) (device data.Device, err error) {
 
-	return u.db.AddDevice(u.Username, publickey.String(), staticIp)
+	return u.db.AddDevice(u.Username, publickey.String(), staticIp, tag)
 }
 
 func (u *user) DeleteDevice(address string) (err error) {
 
-	return u.db.DeleteDevice(u.Username, address)
+	return u.db.DeleteDevice(address)
 }
 
 func (u *user) GetDevice(id string) (device data.Device, err error) {

@@ -34,6 +34,8 @@ type registration struct {
 	overwrite    string
 	staticIp     string
 
+	tag string
+
 	uses int
 }
 
@@ -52,6 +54,8 @@ func Registration() *registration {
 
 	gc.fs.StringVar(&gc.overwrite, "overwrite", "", "Add registration token for an existing user device, will overwrite wireguard public key (but not 2FA)")
 	gc.fs.StringVar(&gc.staticIp, "static_ip", "", "Add registration token with a specific ip address (do not dynamically allocate ip)")
+
+	gc.fs.StringVar(&gc.tag, "tag", "", "Create device with tag")
 
 	gc.fs.IntVar(&gc.uses, "uses", 1, "Number of times a registration token can be used")
 
@@ -119,7 +123,7 @@ func (g *registration) Run() error {
 	switch g.action {
 	case "add":
 
-		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.staticIp, g.uses, g.groups...)
+		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.staticIp, g.uses, g.tag, g.groups...)
 		if err != nil {
 			return err
 		}
@@ -148,7 +152,7 @@ func (g *registration) Run() error {
 
 		fmt.Println("token,username,overwrites,groups")
 		for _, token := range tokens {
-			fmt.Printf("%s,%s,%s,%s\n", token.Token, token.Username, token.Overwrites, token.Groups)
+			fmt.Printf("%s,%s,%s,%s,%s\n", token.Token, token.Username, token.Overwrites, token.Tag, token.Groups)
 		}
 	}
 

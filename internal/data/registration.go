@@ -19,7 +19,7 @@ func (d *database) registrationKey(token string) string {
 	return fmt.Sprintf("tokens-%s", token)
 }
 
-func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, err error) {
+func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, tag string, err error) {
 
 	minTime := time.After(1 * time.Second)
 
@@ -31,7 +31,7 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 		return
 	}
 
-	return result.Username, result.Overwrites, result.StaticIP, result.Groups, nil
+	return result.Username, result.Overwrites, result.StaticIP, result.Groups, result.Tag, nil
 }
 
 // Returns list of tokens
@@ -96,18 +96,18 @@ func (d *database) FinaliseRegistration(token string) error {
 }
 
 // Randomly generate a token for a specific username
-func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int) (token string, err error) {
+func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int, tag string) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
 	}
 
-	err = d.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
+	err = d.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, tag)
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int) error {
+func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int, tag string) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}
@@ -126,6 +126,10 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 
 	if _, err := netip.ParseAddr(staticIp); err != nil && staticIp != "" {
 		return fmt.Errorf("static ip was not parsable as an ip address: %w", err)
+	}
+
+	if len(tag) > 100 {
+		return fmt.Errorf("tag was too large >100")
 	}
 
 	if overwrite != "" {
@@ -175,6 +179,7 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 		StaticIP:   staticIp,
 		Groups:     groups,
 		NumUses:    uses,
+		Tag:        tag,
 	}
 
 	return Set(d.etcd, tokensKey+token, false, result)

@@ -47,6 +47,8 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	groupsString := r.FormValue("groups")
 	usesString := r.FormValue("uses")
 
+	tag := r.FormValue("tag")
+
 	var groups []string = nil
 	err = json.Unmarshal([]byte(groupsString), &groups)
 	if err != nil {
@@ -88,6 +90,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		NumUses:    uses,
 		Overwrites: overwrite,
 		StaticIP:   staticIp,
+		Tag:        tag,
 	}
 
 	tokenType := "registration"
@@ -96,7 +99,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	}
 
 	if token != "" {
-		err := wsg.db.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses)
+		err := wsg.db.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, tag)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -114,7 +117,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	token, err = wsg.db.GenerateRegistrationToken(username, overwrite, staticIp, groups, uses)
+	token, err = wsg.db.GenerateRegistrationToken(username, overwrite, staticIp, groups, uses, tag)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -12,6 +12,7 @@ export interface RegistrationTokenRequestDTO {
   static_ip: string
   overwrites: string
   uses: number
+  tag: string
 }
 
 
@@ -80,6 +81,7 @@ export interface DeviceDTO {
   internal_ip: string
   public_key: string
   last_endpoint: string
+  tag: string
 }
 
 export interface SessionDTO {

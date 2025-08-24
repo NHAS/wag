@@ -33,6 +33,7 @@ func (au *AdminUI) getAllDevices(w http.ResponseWriter, r *http.Request) {
 			InternalIP:   dev.Address,
 			PublicKey:    dev.Publickey,
 			LastEndpoint: dev.Endpoint.String(),
+			Tag:          dev.Tag,
 		})
 	}
 

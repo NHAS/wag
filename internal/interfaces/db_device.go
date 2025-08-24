@@ -16,9 +16,9 @@ type DeviceReader interface {
 }
 
 type DeviceWriter interface {
-	AddDevice(username, publickey, staticIp string) (data.Device, error)
+	AddDevice(username, publickey, staticIp, tag string) (data.Device, error)
 
-	DeleteDevice(username, id string) error
+	DeleteDevice(id string) error
 	DeleteDevices(username string) error
 
 	UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error

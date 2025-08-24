@@ -7,6 +7,8 @@ type RegistrationResult struct {
 	Overwrites string
 	StaticIP   string
 	NumUses    int
+
+	Tag string
 }
 
 type PolicyData struct {

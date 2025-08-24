@@ -35,7 +35,7 @@ const filteredTokens = computed(() => {
 
   const searchTerm = filterText.value.trim().toLowerCase()
 
-  return arr.filter(x => x.username.toLowerCase().includes(searchTerm))
+  return arr.filter(x => x.username.toLowerCase().includes(searchTerm) || x.tag.toLocaleLowerCase().includes(searchTerm))
 })
 
 const { next: nextPage, prev: prevPage, totalPages, currentItems: currentTokens, activePage } = usePagination(filteredTokens, 20)
@@ -133,6 +133,7 @@ watch(selectedTokens, newVal => {
                 </th>
                 <th>Token</th>
                 <th>Username</th>
+                <th>Tag</th>
                 <th>Groups</th>
                 <th>Overwrites</th>
                 <th>Uses</th>
@@ -157,6 +158,9 @@ watch(selectedTokens, newVal => {
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.username }}</div>
+                </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.tag }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.groups?.join(', ') || '-' }}

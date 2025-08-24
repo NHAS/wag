@@ -32,10 +32,6 @@ import (
 )
 
 const (
-	DevicesPrefix         = "devices-"
-	DeviceChallengePrefix = "devicechallenge-"
-	DeviceSessionPrefix   = "devicesession-"
-
 	UsersPrefix           = "users-"
 	GroupMembershipPrefix = MembershipKey + "-"
 	AclsPrefix            = "wag-acls-"

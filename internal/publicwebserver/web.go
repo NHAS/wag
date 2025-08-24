@@ -48,7 +48,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	username, overwrites, staticIp, groups, err := es.db.GetRegistrationToken(key)
+	username, overwrites, staticIp, groups, tag, err := es.db.GetRegistrationToken(key)
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to get registration key:", err)
 		http.NotFound(w, r)
@@ -117,7 +117,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 		// Make sure not to accidentally shadow the global err here as we're using a defer to monitor failures to delete the device
 		var device data.Device
-		device, err = user.AddDevice(publickey, staticIp)
+		device, err = user.AddDevice(publickey, staticIp, tag)
 		if err != nil {
 			log.Println(username, remoteAddr, "unable to add device: ", err)
 

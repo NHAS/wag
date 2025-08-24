@@ -52,7 +52,8 @@ const filteredDevices = computed(() => {
     x =>
       x.internal_ip.toLowerCase().includes(searchTerm) ||
       x.last_endpoint?.includes(searchTerm) ||
-      x.owner?.includes(searchTerm)
+      x.owner?.includes(searchTerm) ||
+      x.tag?.includes(searchTerm)
   )
 })
 
@@ -224,6 +225,7 @@ const selectedDevicesHasLocked = computed(() => {
                 </th>
                 <th class="cursor-pointer" @click="sortDevices('owner')">Owner</th>
                 <th class="cursor-pointer" @click="sortDevices('internal_ip')">Address</th>
+                <th class="cursor-pointer" @click="sortDevices('tag')">Tag</th>
                 <th class="cursor-pointer" @click="sortDevices('public_key')">Public Key</th>
                 <th class="cursor-pointer" @click="sortDevices('last_endpoint')">Last Endpoint</th>
                 <th class="cursor-pointer" @click="sortDevices('is_locked')">Locked</th>
@@ -239,6 +241,9 @@ const selectedDevicesHasLocked = computed(() => {
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.internal_ip }}</div>
+                </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.tag }}</div>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ device.public_key }}</div>

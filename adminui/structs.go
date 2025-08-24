@@ -40,6 +40,7 @@ type RegistrationTokenRequestDTO struct {
 	StaticIP   string `json:"static_ip"`
 	Groups     []string
 	Uses       int
+	Tag        string
 }
 
 type UsersData struct {
@@ -59,6 +60,8 @@ type DevicesData struct {
 
 	PublicKey    string `json:"public_key"`
 	LastEndpoint string `json:"last_endpoint"`
+
+	Tag string `json:"tag"`
 }
 
 type TokensData struct {
@@ -68,6 +71,8 @@ type TokensData struct {
 	Overwrites string   `json:"overwrites"`
 	StaticIP   string   `json:"static_ip"`
 	Uses       int      `json:"uses"`
+
+	Tag string `json:"tag"`
 }
 
 type WgDevicesData struct {

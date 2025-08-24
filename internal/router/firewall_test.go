@@ -1118,7 +1118,7 @@ func addDevices() error {
 			return fmt.Errorf("failed to create data account: %s", err)
 		}
 
-		_, err = db.AddDevice(device.Username, device.Publickey, device.Address)
+		_, err = db.AddDevice(device.Username, device.Publickey, device.Address, "")
 		if err != nil {
 			return fmt.Errorf("unable to add peer: %s: err: %s", device.Address, err)
 		}

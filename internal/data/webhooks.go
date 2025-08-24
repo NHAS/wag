@@ -254,8 +254,8 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 	suppliedAttrbutes := Unpack("", c)
 
 	var (
-		DeviceIP string
-		//DeviceTag string
+		DeviceIP  string
+		DeviceTag string
 
 		Username string
 
@@ -268,10 +268,10 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 			continue
 		}
 
-		// if hook.JsonAttributeRoles.AsDeviceTag == i.Key {
-		// 	DeviceTag = i.Value
-		// 	continue
-		// }
+		if hook.JsonAttributeRoles.AsDeviceTag == i.Key {
+			DeviceTag = i.Value
+			continue
+		}
 
 		if hook.JsonAttributeRoles.AsUsername == i.Key {
 			Username = i.Value
@@ -289,11 +289,14 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 
 	case CreateRegistrationToken:
 
-		err = d.AddRegistrationToken(Token, Username, "", "", nil, 1)
+		err = d.AddRegistrationToken(Token, Username, "", "", nil, 1, DeviceTag)
 
 	case DeleteDevice:
-
-		err = d.DeleteDevice(Username, DeviceIP)
+		if DeviceIP != "" {
+			err = d.DeleteDevice(DeviceIP)
+		} else {
+			err = d.DeleteDeviceByTag(DeviceTag)
+		}
 
 	case DeleteUser:
 		err = d.DeleteUser(Username)
