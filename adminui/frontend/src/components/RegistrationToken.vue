@@ -57,6 +57,7 @@ async function createToken() {
     <div class="w-screen max-w-[600px]">
       <h3 class="text-lg font-bold">Create Registration Token</h3>
       <div class="mt-8">
+        <form @submit.prevent="createToken()">
         <div class="form-group">
           <label for="username" class="block font-medium text-gray-900">Username</label>
           <input type="text" id="username" class="input input-bordered input-sm w-full" required v-model="newToken.username" />
@@ -114,6 +115,8 @@ async function createToken() {
           <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
           <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
         </div>
+
+        </form>
 
         <span class="mt-4 flex">
           <button class="btn btn-primary" @click="() => createToken()">Create</button>
