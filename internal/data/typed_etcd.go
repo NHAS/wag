@@ -67,3 +67,25 @@ func Get[T any](etcd *clientv3.Client, key string) (ret T, err error) {
 
 	return
 }
+
+func GetSMT[T any](value string) (ret T, err error) {
+	b := bytes.NewBufferString(value)
+
+	dec := safedecoder.Decoder(b)
+	dec.DisallowUnknownFields()
+
+	err = dec.Decode(&ret)
+	if err != nil {
+		return ret, err
+	}
+
+	return
+}
+
+func ToString[T any](thing T) (string, error) {
+	b, err := json.Marshal(thing)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}

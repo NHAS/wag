@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
-	"time"
 
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 func (d *database) registrationKey(token string) string {
@@ -21,13 +21,49 @@ func (d *database) registrationKey(token string) string {
 
 func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, tag string, err error) {
 
-	minTime := time.After(1 * time.Second)
+	tokenKey := d.registrationKey(token)
 
-	result, err := Get[control.RegistrationResult](d.etcd, d.registrationKey(token))
+	var result control.RegistrationResult
 
-	<-minTime
+	resp, err := concurrency.NewSTM(d.etcd, func(s concurrency.STM) error {
+
+		startingValue := s.Get(tokenKey)
+		if startingValue == "" {
+			return fmt.Errorf("no token")
+		}
+
+		token, err := GetSMT[control.RegistrationResult](startingValue)
+		if err != nil {
+			return err
+		}
+
+		if token.NumUses <= 0 {
+			s.Del(tokenKey)
+			return fmt.Errorf("key already used")
+		}
+
+		token.NumUses--
+
+		value, err := ToString(token)
+		if err != nil {
+			return err
+		}
+
+		s.Put(tokenKey, value)
+
+		// this feels horribly wrong
+		result = token
+
+		return nil
+	})
 
 	if err != nil {
+		err = fmt.Errorf("failed to get registration token: %w", err)
+		return
+	}
+
+	if !resp.Succeeded {
+		err = fmt.Errorf("failed to transact on registration token")
 		return
 	}
 
@@ -60,41 +96,6 @@ func (d *database) DeleteRegistrationToken(identifier string) error {
 	return err
 }
 
-// FinaliseRegistration may or may not delete the token in question depending on whether the number of uses is <= 0
-func (d *database) FinaliseRegistration(token string) error {
-
-	errVal := errors.New("registration token has expired")
-
-	err := d.doSafeUpdate(context.Background(), tokensKey+token, false, func(gr *clientv3.GetResponse) (string, error) {
-
-		var result control.RegistrationResult
-		err := json.Unmarshal(gr.Kvs[0].Value, &result)
-		if err != nil {
-			return "", err
-		}
-
-		result.NumUses--
-
-		if result.NumUses <= 0 {
-			err = errVal
-		}
-
-		b, _ := json.Marshal(result)
-
-		return string(b), err
-	})
-
-	if err == errVal {
-		return d.DeleteRegistrationToken(token)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Randomly generate a token for a specific username
 func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int, tag string) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
@@ -110,6 +111,10 @@ func (d *database) GenerateRegistrationToken(username, overwrite, staticIp strin
 func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int, tag string) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
+	}
+
+	if len(token) > 128 {
+		return errors.New("registration token too long")
 	}
 
 	if !allowedTokenCharacters.Match([]byte(token)) {

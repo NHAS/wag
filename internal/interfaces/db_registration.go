@@ -6,7 +6,6 @@ type RegistrationWriter interface {
 	AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int, tag string) error
 	GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int, tag string) (token string, err error)
 
-	FinaliseRegistration(token string) error
 	DeleteRegistrationToken(identifier string) error
 }
 

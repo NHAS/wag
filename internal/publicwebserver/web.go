@@ -214,14 +214,6 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	//Finish registration process
-	err = es.db.FinaliseRegistration(key)
-	if err != nil {
-		log.Println(username, remoteAddr, "expiring registration token failed:", err)
-		http.Error(w, "Server Error", http.StatusInternalServerError)
-		return
-	}
-
 	logMsg := "registered as"
 	if overwrites != "" {
 		logMsg = "overwrote"
