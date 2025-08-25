@@ -115,13 +115,13 @@ func (f *Firewall) setupIptables() error {
 
 	if config.Values.NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel, if we're not behind a proxy
-		err = ipt.Append("filter", filterInputRulesChain, "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
+		err = ipt.Append("filter", filterInputRulesChain, "-m", "tcp", "-p", "tcp", "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
 
 		//Allow input to authorize web server on the tunnel (http -> https redirect), if we're not behind a proxy
-		err = ipt.Insert("filter", filterInputRulesChain, 1, "-m", "tcp", "-p", "tcp", "-i", devName, "--dport", "80", "-j", "ACCEPT")
+		err = ipt.Insert("filter", filterInputRulesChain, 1, "-m", "tcp", "-p", "tcp", "--dport", "80", "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
@@ -134,28 +134,28 @@ func (f *Firewall) setupIptables() error {
 			return errors.New(port + " is not in a valid port format. E.g 80/tcp or 80-100/tcp")
 		}
 
-		err = ipt.Append("filter", filterInputRulesChain, "-m", parts[1], "-p", parts[1], "-i", devName, "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
+		err = ipt.Append("filter", filterInputRulesChain, "-m", parts[1], "-p", parts[1], "--dport", strings.Replace(parts[0], "-", ":", 1), "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}
 	}
 
-	err = ipt.Append("filter", filterInputRulesChain, "-p", "icmp", "-i", devName, "-j", "ACCEPT")
+	err = ipt.Append("filter", filterInputRulesChain, "-p", "icmp", "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", filterInputRulesChain, "-i", devName, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	err = ipt.Append("filter", filterInputRulesChain, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Append("filter", filterInputRulesChain, "-i", devName, "-j", "DROP")
+	err = ipt.Append("filter", filterInputRulesChain, "-j", "DROP")
 	if err != nil {
 		return err
 	}
 
-	err = ipt.Insert("filter", "INPUT", 1, "-j", filterInputRulesChain)
+	err = ipt.Insert("filter", "INPUT", 1, "-i", devName, "-j", filterInputRulesChain)
 	if err != nil {
 		return err
 	}

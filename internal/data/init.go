@@ -595,7 +595,7 @@ func (d *database) doSafeUpdate(ctx context.Context, key string, create bool, mu
 
 		if !txnResp.Succeeded {
 			origState = (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-			log.Println("failed: ", origState)
+			log.Println("Updating state failed")
 			continue
 		}
 
