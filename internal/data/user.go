@@ -293,6 +293,14 @@ func (d *database) CreateUserDataAccount(username string) (UserModel, error) {
 		return UserModel{}, errors.New("usernames may not contain '-' ")
 	}
 
+	if len(username) == 0 {
+		return UserModel{}, errors.New("username is too short")
+	}
+
+	if len(username) > 128 {
+		return UserModel{}, errors.New("username is too long")
+	}
+
 	newUser := UserModel{
 		Username: username,
 		Mfa:      string(types.Unset),

@@ -104,6 +104,31 @@ func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
 	return
 }
 
+func (c *CtrlClient) CreateDevice(dev control.CreateDeviceDTO) error {
+
+	b, err := json.Marshal(dev)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.httpClient.Post("http://unix/devices", "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+
+		return errors.New(string(result))
+	}
+
+	return nil
+}
+
 // Take device address to remove
 func (c *CtrlClient) DeleteDevice(address string) error {
 
@@ -214,6 +239,33 @@ func (c *CtrlClient) UnlockAdminUser(username string) error {
 	form.Add("username", username)
 
 	return c.simplepost("webadmin/unlock", form)
+}
+
+func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
+
+	b, err := json.Marshal(username)
+	if err != nil {
+		return user, err
+	}
+
+	response, err := c.httpClient.Post("http://unix/users", "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return user, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != 200 {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return user, err
+		}
+
+		return user, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&user)
+
+	return
 }
 
 func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err error) {

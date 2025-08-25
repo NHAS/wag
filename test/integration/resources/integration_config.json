@@ -1,6 +1,7 @@
 {
     
     "Socket": "temp/wag-integration-test.socket",
+    "DevMode": true,
     "Webserver": {
         "Lockout": 5,
         "Public": {

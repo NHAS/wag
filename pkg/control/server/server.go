@@ -119,14 +119,16 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 	controlMux.HandleFunc("POST /device/lock", srvSock.lockDevice)
 	controlMux.HandleFunc("POST /device/unlock", srvSock.unlockDevice)
 	controlMux.HandleFunc("POST /device/delete", srvSock.deleteDevice)
+	controlMux.HandleFunc("POST /devices", srvSock.addDevice)
 
+	controlMux.HandleFunc("GET /users/acls", srvSock.getUserAcl)
 	controlMux.HandleFunc("GET /users/groups", srvSock.getUserGroups)
 	controlMux.HandleFunc("GET /users/list", srvSock.listUsers)
 	controlMux.HandleFunc("POST /users/lock", srvSock.lockUser)
 	controlMux.HandleFunc("POST /users/unlock", srvSock.unlockUser)
 	controlMux.HandleFunc("POST /users/delete", srvSock.deleteUser)
 	controlMux.HandleFunc("POST /users/reset", srvSock.resetMfaUser)
-	controlMux.HandleFunc("GET /users/acls", srvSock.getUserAcl)
+	controlMux.HandleFunc("POST /users", srvSock.addUser)
 
 	controlMux.HandleFunc("GET /groups/list", srvSock.listGroups)
 

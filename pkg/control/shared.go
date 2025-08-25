@@ -23,6 +23,13 @@ type GroupData struct {
 	Members []MemberInfo `json:"members"`
 }
 
+type CreateDeviceDTO struct {
+	Username  string `json:"username"`
+	Publickey string `json:"public_key"`
+	StaticIp  string `json:"ip"`
+	Tag       string `json:"tag"`
+}
+
 type MemberInfo struct {
 	SSO    bool   `json:"sso"`
 	Name   string `json:"name"`

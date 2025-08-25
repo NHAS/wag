@@ -425,7 +425,7 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (Device,
 	}
 
 	cmp := []clientv3.Cmp{
-		clientv3util.KeyMissing(key),
+		clientv3util.KeyMissing(key), clientv3util.KeyExists(UsersPrefix + username + "-"),
 	}
 
 	if len(tag) != 0 {

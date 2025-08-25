@@ -9,6 +9,8 @@ import (
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/users"
+	"github.com/NHAS/wag/pkg/control"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Request) {
@@ -137,6 +139,30 @@ func (wsg *WagControlSocketServer) sessions(w http.ResponseWriter, r *http.Reque
 	w.Write(result)
 }
 
+func (wsg *WagControlSocketServer) addDevice(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		input control.CreateDeviceDTO
+		err   error
+	)
+
+	err = safedecoder.Decoder(r.Body).Decode(&input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	device, err := wsg.db.AddDevice(input.Username, input.Publickey, input.StaticIp, input.Tag)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Println(device.Username, " device", device.Address, "created")
+
+	w.Write([]byte("OK"))
+}
+
 func (wsg *WagControlSocketServer) deleteDevice(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -152,7 +178,7 @@ func (wsg *WagControlSocketServer) deleteDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = user.DeleteDevice(address)
+	err = wsg.db.DeleteDevice(address)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

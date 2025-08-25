@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/users"
+	"github.com/NHAS/wag/pkg/safedecoder"
 )
 
 func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Request) {
@@ -20,13 +22,14 @@ func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Requ
 
 	if username != "" {
 
-		user, err := users.GetUser(wsg.db, username)
+		user, err := wsg.db.GetUserData(username)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		b, err := json.Marshal(user)
+		users := []data.UserModel{user}
+		b, err := json.Marshal(users)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -211,4 +214,26 @@ func (wsg *WagControlSocketServer) getUserAcl(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
+}
+
+func (wsg *WagControlSocketServer) addUser(w http.ResponseWriter, r *http.Request) {
+
+	var (
+		username string
+	)
+
+	err := safedecoder.Decoder(r.Body).Decode(&username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	usermodel, err := wsg.db.CreateUserDataAccount(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(usermodel)
 }
