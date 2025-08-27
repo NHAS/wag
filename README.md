@@ -124,7 +124,7 @@ The root user is able to manage the wag server with the following command:
 wag subcommand [-options]
 ```
 
-Supported commands: `start`, `cleanup`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`
+Supported commands: `start`, `version`, `firewall`, `registration`, `devices`, `users`, `webadmin`
   
 `start`: starts the wag server  
 ```sh
@@ -136,19 +136,6 @@ Usage of start:
         Configuration file location (default "./config.json")
 ```
 
-`cleanup`: Will remove all firewall forwards, and shutdown the wireguard device  
-
-`version`: Display the version of wag
-
-`firewall`: Get firewall rules
-```sh
-Usage of firewall:
-  -list
-        List firewall rules
-  -socket string
-        Wag socket to act on (default "/tmp/wag.sock")
-
-``` 
 
 `registration`:  Deals with creating, deleting and listing the registration tokens
 ```sh

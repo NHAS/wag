@@ -59,7 +59,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	pubkeyParam, err := url.PathUnescape(r.URL.Query().Get("pubkey"))
 	if err != nil {
 		log.Println(username, remoteAddr, "failed to url decode public key paramter:", err)
-		http.NotFound(w, r)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 

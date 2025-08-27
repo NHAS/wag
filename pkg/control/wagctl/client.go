@@ -58,7 +58,7 @@ func (c *CtrlClient) simplepost(path string, form url.Values) error {
 	return nil
 }
 
-// ListDevice if the username field is empty (""), then list all devices. Otherwise list the one device corrosponding to the set username
+// Return a list of all wireguard devicess, optionally take a username and list the devices for that specific user.
 func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/list?username=" + url.QueryEscape(username))
@@ -81,7 +81,7 @@ func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 	return
 }
 
-// ListSessions returns a list of active sessions across the whole cluster
+// Sessions returns a list of active MFA sessions across the whole cluster
 func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/sessions")
@@ -104,6 +104,7 @@ func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
 	return
 }
 
+// Create a new device associated to a user.
 func (c *CtrlClient) CreateDevice(dev control.CreateDeviceDTO) error {
 
 	b, err := json.Marshal(dev)
@@ -129,7 +130,7 @@ func (c *CtrlClient) CreateDevice(dev control.CreateDeviceDTO) error {
 	return nil
 }
 
-// Take device address to remove
+// Delete a single device
 func (c *CtrlClient) DeleteDevice(address string) error {
 
 	form := url.Values{}
@@ -138,6 +139,7 @@ func (c *CtrlClient) DeleteDevice(address string) error {
 	return c.simplepost("device/delete", form)
 }
 
+// Device will no longer be able to send traffic to MFA routes or be able to authorise.
 func (c *CtrlClient) LockDevice(address string) error {
 
 	form := url.Values{}
@@ -146,6 +148,7 @@ func (c *CtrlClient) LockDevice(address string) error {
 	return c.simplepost("device/lock", form)
 }
 
+// Device will unlock and the user will have to reauthenticate.
 func (c *CtrlClient) UnlockDevice(address string) error {
 
 	form := url.Values{}
@@ -177,6 +180,7 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO,
 	return
 }
 
+// Return the admin user details
 func (c *CtrlClient) GetAdminUser(username string) (user data.AdminUserDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/user?username=" + url.QueryEscape(username))
@@ -199,7 +203,7 @@ func (c *CtrlClient) GetAdminUser(username string) (user data.AdminUserDTO, err 
 	return
 }
 
-// Take device address to remove
+// AddAdminUser creates administrative user that can log in to the admin portal
 func (c *CtrlClient) AddAdminUser(username, password string, changeOnFirstUser bool) error {
 	form := url.Values{}
 	form.Add("username", username)
@@ -218,7 +222,6 @@ func (c *CtrlClient) SetAdminUserPassword(username, password string) error {
 	return c.simplepost("webadmin/reset", form)
 }
 
-// Take device address to remove
 func (c *CtrlClient) DeleteAdminUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
@@ -241,6 +244,7 @@ func (c *CtrlClient) UnlockAdminUser(username string) error {
 	return c.simplepost("webadmin/unlock", form)
 }
 
+// Create a user with no devices in database, defaulty has unset mfa
 func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
 
 	b, err := json.Marshal(username)
@@ -268,6 +272,7 @@ func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
 	return
 }
 
+// If the username field is empty, list all users, otherwise list single user.
 func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/list?username=" + url.QueryEscape(username))
@@ -290,6 +295,7 @@ func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err err
 	return
 }
 
+// Fetch the users group membership
 func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/groups?username=" + url.QueryEscape(username))
@@ -312,7 +318,7 @@ func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error
 	return
 }
 
-// Take device address to remove
+// Remove user and all associated devices
 func (c *CtrlClient) DeleteUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
@@ -320,6 +326,7 @@ func (c *CtrlClient) DeleteUser(username string) error {
 	return c.simplepost("users/delete", form)
 }
 
+// Lock an entire user account, all devices will be locked and unable to access MFA routes until unlocked. User will be notified.
 func (c *CtrlClient) LockUser(username string) error {
 	form := url.Values{}
 	form.Add("username", username)
@@ -327,6 +334,7 @@ func (c *CtrlClient) LockUser(username string) error {
 	return c.simplepost("users/lock", form)
 }
 
+// Unlock account, users devices will be able to login but will have to reauthenticate
 func (c *CtrlClient) UnlockUser(username string) error {
 
 	form := url.Values{}
@@ -335,6 +343,7 @@ func (c *CtrlClient) UnlockUser(username string) error {
 	return c.simplepost("users/unlock", form)
 }
 
+// Allow the user to re-register MFA method.
 func (c *CtrlClient) ResetUserMFA(username string) error {
 
 	form := url.Values{}
@@ -343,6 +352,7 @@ func (c *CtrlClient) ResetUserMFA(username string) error {
 	return c.simplepost("users/reset", form)
 }
 
+// Return list of currently allowed/denied and authorisation required ips and ports
 func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/acls?username=" + url.QueryEscape(username))
@@ -368,6 +378,7 @@ func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 	return acl, nil
 }
 
+// A debug tool that returns a map of usernames to their respective firewall rules
 func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err error) {
 
 	response, err := c.httpClient.Get("http://unix/firewall/list")
@@ -393,6 +404,7 @@ func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err
 	return
 }
 
+// Get all acl policies defined in wag
 func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/policies/list")
@@ -409,7 +421,7 @@ func (c *CtrlClient) GetPolicies() (result []control.PolicyData, err error) {
 	return
 }
 
-// Add wag rule
+// Add wag acl policy rule
 func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 
 	policiesData, err := json.Marshal(policies)
@@ -434,7 +446,7 @@ func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 	return nil
 }
 
-// Edit wag rule
+// Update a wag policy
 func (c *CtrlClient) EditPolicies(policy control.PolicyData) error {
 
 	polciesData, err := json.Marshal(policy)
@@ -483,6 +495,7 @@ func (c *CtrlClient) RemovePolicies(policyNames []string) error {
 	return nil
 }
 
+// Get all groups on wag, this includes which users are in said groups
 func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/group/list")
@@ -499,7 +512,7 @@ func (c *CtrlClient) GetGroups() (result []control.GroupData, err error) {
 	return
 }
 
-// Add wag group/s
+// Create a wag group
 func (c *CtrlClient) AddGroup(group control.GroupCreateData) error {
 
 	groupData, err := json.Marshal(group)
@@ -581,6 +594,7 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 	return nil
 }
 
+// Get the settings object related to help email, etc
 func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/general")
@@ -629,6 +643,7 @@ func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettings) (err e
 	return nil
 }
 
+// Get information about what MFA methods are enabled
 func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/login")
@@ -677,6 +692,7 @@ func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettings) (err error
 	return nil
 }
 
+// Get all wag running webserver configurations, this includes if they are doing TLS and ACME
 func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.WebserverConfiguration, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/webservers")
@@ -701,6 +717,7 @@ func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.Webserve
 	return result, nil
 }
 
+// Get a single web server configuration
 func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result data.WebserverConfiguration, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/webserver?name=" + url.QueryEscape(string(server)))
@@ -725,6 +742,8 @@ func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result d
 	return result, nil
 }
 
+// Update a webservers configuration, this can be used to turn on/off TLS, set domain, set listening address and more
+// If ths update fails to apply the wag server will attempt to roll back the change
 func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig data.WebserverConfiguration) (err error) {
 	settingsByte, err := json.Marshal(webConfig)
 	if err != nil {
@@ -795,6 +814,7 @@ func (c *CtrlClient) SetAcmeDNS01CloudflareToken(token string) (err error) {
 	return nil
 }
 
+// The ACME provider URL, i.e what is giving us our certificates
 func (c *CtrlClient) GetAcmeProvider() (result string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/acme/provider")
@@ -819,6 +839,7 @@ func (c *CtrlClient) GetAcmeProvider() (result string, err error) {
 	return result, nil
 }
 
+// What URL should we query for getting our TLS certificates
 func (c *CtrlClient) SetAcmeProvider(providerURL string) (err error) {
 	settingsByte, err := json.Marshal(providerURL)
 	if err != nil {
@@ -889,6 +910,8 @@ func (c *CtrlClient) SetAcmeEmail(email string) (err error) {
 	return nil
 }
 
+// Get global number of authentication attempts that can occur
+// this applies to admin and regular users
 func (c *CtrlClient) GetLockout() (lockout int, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/lockout")
@@ -913,6 +936,7 @@ func (c *CtrlClient) GetLockout() (lockout int, err error) {
 	return lockout, nil
 }
 
+// Get running wag instance version
 func (c *CtrlClient) GetVersion() (string, error) {
 
 	response, err := c.httpClient.Get("http://unix/version")
@@ -929,6 +953,7 @@ func (c *CtrlClient) GetVersion() (string, error) {
 	return string(result), nil
 }
 
+// Return all active registration tokens
 func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err error) {
 
 	response, err := c.httpClient.Get("http://unix/registration/list")
@@ -953,6 +978,8 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 	return
 }
 
+// Create a new registration token, the majority of these fields are optional
+// The only required fields are `username` and `uses`
 func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string, uses int, tag string, groups ...string) (r control.RegistrationResult, err error) {
 
 	if uses <= 0 {
@@ -1011,6 +1038,7 @@ func (c *CtrlClient) DeleteRegistration(id string) (err error) {
 	return c.simplepost("registration/delete", form)
 }
 
+// Shutdown the wag node
 func (c *CtrlClient) Shutdown(cleanup bool) (err error) {
 
 	form := url.Values{}
@@ -1019,6 +1047,7 @@ func (c *CtrlClient) Shutdown(cleanup bool) (err error) {
 	return c.simplepost("shutdown", form)
 }
 
+// Return all error events that are stored in the etcd database
 func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err error) {
 	response, err := c.httpClient.Get("http://unix/clustering/errors")
 	if err != nil {
@@ -1042,6 +1071,7 @@ func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err er
 	return clusterErrors, nil
 }
 
+// Get wag cluster members, this is etcd information
 func (c *CtrlClient) GetClusterMembers() (clusterMembers []*membership.Member, err error) {
 	response, err := c.httpClient.Get("http://unix/clustering/members")
 	if err != nil {
@@ -1065,6 +1095,7 @@ func (c *CtrlClient) GetClusterMembers() (clusterMembers []*membership.Member, e
 	return clusterMembers, nil
 }
 
+// Get when the cluster member specified by `id` last wrote to a value in etcd
 func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error) {
 	response, err := c.httpClient.Get("http://unix/clustering/members")
 	if err != nil {
@@ -1088,6 +1119,7 @@ func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error
 	return t, nil
 }
 
+// Get a raw value from the etcd cluster
 func (c *CtrlClient) GetDBKey(key string) (string, error) {
 
 	b := bytes.NewBuffer(nil)
@@ -1108,6 +1140,7 @@ func (c *CtrlClient) GetDBKey(key string) (string, error) {
 	return string(result), nil
 }
 
+// Push a raw value into the etcd cluster
 func (c *CtrlClient) PutDBKey(key, value string) error {
 
 	b := bytes.NewBuffer(nil)
@@ -1136,6 +1169,7 @@ func (c *CtrlClient) PutDBKey(key, value string) error {
 	return nil
 }
 
+// Create a webhook that wont perform any actions but will record last request (up to 4096 bytes) for 30 mins
 func (c *CtrlClient) CreateTempWebhook() (result control.TempWebhookResponseDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webhooks/temp")
@@ -1160,6 +1194,7 @@ func (c *CtrlClient) CreateTempWebhook() (result control.TempWebhookResponseDTO,
 	return result, nil
 }
 
+// Get all active webhooks, this will not include temp webhooks
 func (c *CtrlClient) GetWebhooks() (result []data.WebhookGetResponseDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webhooks")
@@ -1184,6 +1219,7 @@ func (c *CtrlClient) GetWebhooks() (result []data.WebhookGetResponseDTO, err err
 	return result, nil
 }
 
+// Get the last bytes posted into the webhook
 func (c *CtrlClient) GetWebhookLastRequest(id string) (result string, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webhook/last_request?id=" + url.QueryEscape(id))
@@ -1208,6 +1244,8 @@ func (c *CtrlClient) GetWebhookLastRequest(id string) (result string, err error)
 	return result, nil
 }
 
+// Create an active webhook, when this webhook is used it well do some action specified by the create request
+// AuthHeader is required
 func (c *CtrlClient) CreateWebhook(hook data.WebhookCreateRequestDTO) (err error) {
 	settingsByte, err := json.Marshal(hook)
 	if err != nil {

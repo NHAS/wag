@@ -24,7 +24,10 @@ type GroupData struct {
 }
 
 type CreateDeviceDTO struct {
-	Username  string `json:"username"`
+	// Required
+	Username string `json:"username"`
+
+	// Optional
 	Publickey string `json:"public_key"`
 	StaticIp  string `json:"ip"`
 	Tag       string `json:"tag"`

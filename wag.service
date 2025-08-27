@@ -8,7 +8,6 @@ WorkingDirectory=/opt/wag
 ExecStart=/opt/wag/wag start
 
 # If any of the ExecStart tasks fail, then ExecStopPost will run
-ExecStopPost=/opt/wag/wag cleanup
 
 Restart=on-failure
 RestartSec=10

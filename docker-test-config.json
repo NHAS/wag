@@ -66,11 +66,15 @@
         "PrivateKey": "uP2iyvfBFkz7Ks6yZmXbTN2PDSOaLb0zKTziMhBYs0E=",
         "Address": "192.168.122.1/24",
         "ServerPersistentKeepAlive": 0
+        
     },
-    "RemoteCluster": {
-        "Endpoints": [
-            "http://127.0.0.1:2379"
-        ]
+           "Clustering": {
+        "ClusterState": "new",
+        "ETCDLogLevel": "error",
+        "ListenAddresses": [
+            "https://127.0.0.1:2380"
+        ],
+        "TLSManagerListenURL": "https://127.0.0.1:3434"
     },
     "Acls": {
         "Groups": {
