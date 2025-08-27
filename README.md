@@ -70,12 +70,11 @@ services:
     restart: always
     ports:
       - 11371:11371/udp
-    cap_add:
-      - NET_ADMIN
-     ports:
       - '4433:4433/tcp' # Admin page
       - '8081:8081/tcp' # Public registration page
       - '53230:53230/udp' # Wireguard port
+    cap_add:
+      - NET_ADMIN
     volumes:
       - ./wag/config/:/cfg/:z
       - ./wag/data/:/data:z
