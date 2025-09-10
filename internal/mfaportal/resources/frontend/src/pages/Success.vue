@@ -45,7 +45,7 @@ async function downloadStatus() {
     
     // Create temporary download link
     const link = document.createElement('a');
-    link.style = "display: none";
+    link.style.display  = "none";
     link.href = url;
     link.download = `debug-${new Date().toISOString().split('T')[0]}.json`;
     
