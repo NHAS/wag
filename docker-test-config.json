@@ -13,7 +13,7 @@
 
         "Tunnel": {
             "Domain": "vpn.test",
-            "Port": "8080",
+            "Port": "8082",
 
             "MaxSessionLifetimeMinutes": 2,
             "SessionInactivityTimeoutMinutes": 1,
@@ -68,7 +68,7 @@
         "ServerPersistentKeepAlive": 0
         
     },
-           "Clustering": {
+    "Clustering": {
         "ClusterState": "new",
         "ETCDLogLevel": "error",
         "ListenAddresses": [

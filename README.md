@@ -68,8 +68,6 @@ services:
     image: wagvpn/wag:latest # ghcr.io/nhas/wag:unstable # Unstable branch
     container_name: wag
     restart: always
-    ports:
-      - 11371:11371/udp
     cap_add:
       - NET_ADMIN
      ports:

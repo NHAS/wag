@@ -45,7 +45,7 @@ func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error)
 	authorisationEndpoints := http.NewServeMux()
 	authorisationEndpoints.HandleFunc("GET /start", o.startAuthorisation)
 	authorisationEndpoints.HandleFunc("GET /callback", o.oidcCallbackFinishAuth)
-	//For iDPs that dont respect the trailing slash
+	//For IdPs that dont respect the trailing slash
 	// https://github.com/NHAS/wag/issues/129
 	authorisationEndpoints.HandleFunc("GET /callback/", o.oidcCallbackFinishAuth)
 
