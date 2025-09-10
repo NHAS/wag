@@ -76,7 +76,7 @@ func (d *database) CreateGroup(group string, initialMembers []string) error {
 	operations = append(operations, d.generateOpsForGroupAddition(info.Created, group, initialMembers, false, true))
 
 	txn := d.etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyMissing(GroupsPrefix + group))
+	txn.If(clientv3util.KeyMissing(GroupsIndexPrefix + group))
 	txn.Then(
 		operations...,
 	)

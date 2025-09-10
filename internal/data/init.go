@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -107,6 +108,10 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 
 		db.etcd, err = clientv3.New(*config)
 		if err != nil {
+			return nil, err
+		}
+
+		if err := db.doMigrations(); err != nil {
 			return nil, err
 		}
 
@@ -217,6 +222,12 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 	log.Println("Successfully connected to etcd")
 
 	if !db.etcdServer.Server.IsLearner() {
+
+		// ugh duplicated code
+		if err := db.doMigrations(); err != nil {
+			return nil, err
+		}
+
 		// After first run this will be a no-op
 		err = db.loadInitialSettings()
 		if err != nil {
@@ -238,7 +249,117 @@ func (d *database) Raw() *clientv3.Client {
 	return d.etcd
 }
 
+func (d *database) doMigrations() error {
+	type migration struct {
+		version string
+		run     func() error
+	}
+
+	migrations := []migration{
+		{
+			version: "9.0.0",
+			run: func() error {
+
+				resp, err := d.etcd.Delete(context.Background(), GroupMembershipPrefix, clientv3.WithPrefix(), clientv3.WithPrevKV())
+				if err != nil {
+					return fmt.Errorf("failed to apply migration: %w", err)
+				}
+
+				ops := []clientv3.Op{}
+				for _, kv := range resp.PrevKvs {
+					key := string(kv.Key)
+					log.Printf("Migrating user(%q) membership to new group layout", key)
+					var memberCurrentGroups []string
+					err = json.Unmarshal(kv.Value, &memberCurrentGroups)
+					if err != nil {
+						log.Println("FAILED TO migrate group: ", key, err)
+						continue
+					}
+
+					parts, err := d.SplitKey(1, GroupMembershipPrefix, key)
+					if err != nil {
+						log.Println("FAILED TO migrate group: ", key, err)
+						continue
+					}
+
+					// should now be left with group membership for <username> (which is parts[0])
+					for _, group := range memberCurrentGroups {
+
+						ops = append(ops, d.generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
+					}
+				}
+
+				if len(ops) > 0 {
+
+					txn := d.etcd.Txn(context.Background())
+					txn.Then(ops...)
+					_, err = txn.Commit()
+					if err != nil {
+						return fmt.Errorf("failed to commit migration to db: %w", err)
+					}
+				}
+
+				return nil
+			},
+		},
+		{
+			version: "9.1.1",
+			run: func() error {
+				// the previous migration did not set the group creation information or create the group index
+
+				response, err := d.etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
+				if err != nil {
+					return fmt.Errorf("unable to load all groups: %w", err)
+				}
+
+				for _, kv := range response.Kvs {
+					if bytes.Contains(kv.Key, []byte("-members-")) {
+						continue
+					}
+
+					group := strings.TrimPrefix(string(kv.Key), GroupsPrefix)
+
+					// create group now uses the group index to check if the group exists
+					// previously it used the group information
+					// the index is not created in the previous migration
+					err := d.CreateGroup(group, []string{})
+					if err != nil && !strings.Contains(err.Error(), "group already exists") {
+						return fmt.Errorf("failed to migrate group: %s: %w", group, err)
+					}
+				}
+
+				return nil
+			},
+		},
+	}
+
+	for _, action := range migrations {
+
+		migrationKey := fmt.Sprintf("%s-%q", dbMigrations, action.version)
+
+		txn := d.etcd.Txn(context.Background())
+		txn.If(clientv3util.KeyMissing(migrationKey))
+
+		resp, err := txn.Commit()
+		if err != nil {
+			return fmt.Errorf("failed to apply migration %s: %w", action.version, err)
+		}
+
+		if resp.Succeeded {
+			err = action.run()
+			if err != nil {
+				return fmt.Errorf("failed to apply migration: %s: %v", action.version, err)
+			}
+
+			Set(d.etcd, migrationKey, false, migrationKey)
+		}
+	}
+
+	return nil
+}
+
 func (d *database) loadInitialSettings() error {
+
 	response, err := d.etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
 	if err != nil {
 		return err
@@ -261,64 +382,12 @@ func (d *database) loadInitialSettings() error {
 		return err
 	}
 
-	latestMigrationKey := fmt.Sprintf("%s-%q", dbMigrations, "9.0.0")
-
 	if len(response.Kvs) == 0 {
 		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
 		for groupName, members := range config.Values.Acls.Groups {
 			if err := d.CreateGroup(groupName, members); err != nil {
 				return err
-			}
-		}
-
-		Set(d.etcd, latestMigrationKey, false, latestMigrationKey)
-
-	} else {
-		txn := d.etcd.Txn(context.Background())
-		txn.If(clientv3util.KeyMissing(latestMigrationKey))
-		txn.Then(clientv3.OpPut(latestMigrationKey, config.Version), clientv3.OpDelete(GroupMembershipPrefix, clientv3.WithPrefix(), clientv3.WithPrevKV()))
-
-		resp, err := txn.Commit()
-		if err != nil {
-			return fmt.Errorf("failed to apply migration: %w", err)
-		}
-
-		if resp.Succeeded {
-
-			if len(resp.Responses) != 2 {
-				return fmt.Errorf("doing migrations failed as the number of responses from the db wasnt correct: %d", len(resp.Responses))
-			}
-
-			ops := []clientv3.Op{}
-			deleteResp := resp.Responses[1].GetResponseDeleteRange()
-			for _, kv := range deleteResp.PrevKvs {
-				key := string(kv.Key)
-				log.Printf("Migrating user(%q) membership to new group layout", key)
-				var memberCurrentGroups []string
-				err = json.Unmarshal(kv.Value, &memberCurrentGroups)
-				if err != nil {
-					log.Println("FAILED TO migrate group: ", key, err)
-					continue
-				}
-
-				parts, err := d.SplitKey(1, GroupMembershipPrefix, key)
-				if err != nil {
-					log.Println("FAILED TO migrate group: ", key, err)
-					continue
-				}
-
-				// should now be left with <username>
-				for _, group := range memberCurrentGroups {
-					ops = append(ops, d.generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
-				}
-			}
-
-			txn = d.etcd.Txn(context.Background())
-			txn.Then(ops...)
-			_, err = txn.Commit()
-			if err != nil {
-				return fmt.Errorf("failed to commit migration to db: %w", err)
 			}
 		}
 	}
