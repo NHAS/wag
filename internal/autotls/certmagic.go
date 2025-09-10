@@ -68,6 +68,7 @@ func Initialise(db interfaces.Database) error {
 		CA:     provider,
 		Email:  email,
 		Agreed: true,
+		DisableTLSALPNChallenge: true,
 	})
 
 	if cfDnsToken.APIToken != "" {
