@@ -3,7 +3,6 @@ package autotls
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -21,9 +20,9 @@ import (
 )
 
 type webserver struct {
-	listeners []*http.Server
-	mux       http.Handler
-	details   *data.WebserverConfiguration
+	listener *http.Server
+	mux      http.Handler
+	details  *data.WebserverConfiguration
 }
 
 type AutoTLS struct {
@@ -34,11 +33,11 @@ type AutoTLS struct {
 	rollbackCount atomic.Int32
 	webServers    map[data.Webserver]*webserver
 
-	ourHttpServers map[string]bool
-
 	issuer *certmagic.ACMEIssuer
 
 	db interfaces.Database
+
+	http01Challenge *http.Server
 }
 
 var Do *AutoTLS
@@ -65,9 +64,9 @@ func Initialise(db interfaces.Database) error {
 	config.Storage = data.NewCertStore(db.Raw(), "wag-certificates")
 
 	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
-		CA:     provider,
-		Email:  email,
-		Agreed: true,
+		CA:                      provider,
+		Email:                   email,
+		Agreed:                  true,
 		DisableTLSALPNChallenge: true,
 	})
 
@@ -85,15 +84,19 @@ func Initialise(db interfaces.Database) error {
 	config.Issuers = []certmagic.Issuer{issuer}
 
 	ret := &AutoTLS{
-		Config:         config,
-		webServers:     make(map[data.Webserver]*webserver),
-		issuer:         issuer,
-		ourHttpServers: make(map[string]bool),
-		db:             db,
+		Config:     config,
+		webServers: make(map[data.Webserver]*webserver),
+		issuer:     issuer,
+		db:         db,
 	}
 
 	if Do != nil {
 		panic("should not occur")
+	}
+
+	err = ret.startAutoRedirector()
+	if err != nil {
+		log.Println("could not start port 80 redirector, this will break HTTP-01 TLS transactions: ", err)
 	}
 
 	err = ret.registerEventListeners()
@@ -114,6 +117,12 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 	initialDetails, err := a.db.GetWebserverConfig(forWhat)
 	if err != nil {
 		return fmt.Errorf("could not get initial web server config for %s: %w", forWhat, err)
+	}
+
+	if _, port, err := net.SplitHostPort(initialDetails.ListenAddress); err == nil && port == "80" {
+		log.Println("Shutdown default 80/tcp http listener in favor of: ", forWhat, "configuration.")
+		a.http01Challenge.Close()
+		a.http01Challenge = nil
 	}
 
 	if err := a.refreshListeners(forWhat, mux, &initialDetails); err != nil {
@@ -140,11 +149,11 @@ func (a *AutoTLS) halfClose(what data.Webserver) {
 		return
 	}
 
-	for _, s := range w.listeners {
-		s.Close()
+	if w.listener != nil {
+		w.listener.Close()
 	}
 
-	w.listeners = []*http.Server{}
+	w.listener = nil
 }
 
 // HalfClose shuts down all active server listeners, but does not clear the web server config or mux routes
@@ -157,6 +166,9 @@ func (a *AutoTLS) HalfClose(what data.Webserver) {
 func (a *AutoTLS) registerEventListeners() error {
 
 	_, err := watcher.WatchAll(a.db, data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
+		a.Lock()
+		defer a.Unlock()
+
 		if ev == data.DELETED || current.APIToken == "" {
 			a.issuer.DNS01Solver = nil
 		} else {
@@ -176,6 +188,8 @@ func (a *AutoTLS) registerEventListeners() error {
 	}
 
 	_, err = watcher.WatchAll(a.db, data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
+		a.Lock()
+		defer a.Unlock()
 
 		a.issuer.Email = current
 		if ev == data.DELETED {
@@ -189,6 +203,8 @@ func (a *AutoTLS) registerEventListeners() error {
 	}
 
 	_, err = watcher.WatchAll(a.db, data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
+		a.Lock()
+		defer a.Unlock()
 
 		a.issuer.CA = current
 		if ev == data.DELETED {
@@ -226,12 +242,14 @@ func (a *AutoTLS) registerEventListeners() error {
 
 			if a.rollbackCount.Load() < 2 {
 				a.db.SetWebserverConfig(webserverTarget, previous)
-				a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occured %s, rolling back", webserverTarget, preserveError), []byte(""))
+				a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occurred %s, rolling back", webserverTarget, preserveError), []byte(""))
 			} else {
 				a.db.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
 			}
 			return preserveError
 		}
+
+		a.startAutoRedirector()
 
 		a.rollbackCount.Store(0)
 
@@ -274,36 +292,37 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 		w.details = details
 	}
 
+	if w.listener != nil {
+		w.listener.Close()
+	}
+
+	w.listener = &http.Server{
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       5 * time.Minute,
+		Handler:           w.mux,
+		BaseContext:       func(listener net.Listener) context.Context { return ctx },
+	}
+
 	// TODO the below code is quite repetitious, we should seperate these out into functions to reduce duplication. Future me, away!
 	// if we have no domain, or tls is explicitly disabled ( or acme provider hasnt been configured )
 	// open an http only port on whatever the listen address is
 	if w.details.Domain == "" || !w.details.TLS {
 
-		httpServer := &http.Server{
-			ReadHeaderTimeout: 10 * time.Second,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      2 * time.Minute,
-			IdleTimeout:       5 * time.Minute,
-			Handler:           w.mux,
-			BaseContext:       func(listener net.Listener) context.Context { return ctx },
-		}
-
 		if len(a.Issuers) > 0 {
+			// just start an http-01 handler on anything thats not tls
 			if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
-				httpServer.Handler = am.HTTPChallengeHandler(w.mux)
+				w.listener.Handler = am.HTTPChallengeHandler(w.mux)
 			}
 		}
-		for _, s := range w.listeners {
-			s.Close()
-		}
-		w.listeners = []*http.Server{httpServer}
 
 		httpListener, err := net.Listen("tcp", w.details.ListenAddress)
 		if err != nil {
 			return err
 		}
 
-		go a.runHttpServer(httpServer, httpListener)
+		go w.listener.Serve(httpListener)
 	} else if w.details.TLS {
 
 		if w.details.StaticCerts {
@@ -335,37 +354,21 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 				PreferServerCipherSuites: true,
 			}
 
-			httpsServer := &http.Server{
-				ReadHeaderTimeout: 10 * time.Second,
-				ReadTimeout:       30 * time.Second,
-				WriteTimeout:      2 * time.Minute,
-				IdleTimeout:       5 * time.Minute,
-				Handler:           w.mux,
-				BaseContext:       func(listener net.Listener) context.Context { return ctx },
-			}
-			for _, s := range w.listeners {
-				s.Close()
-			}
-			w.listeners = []*http.Server{}
-
-			httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
-			if err == nil {
-				w.listeners = append(w.listeners, httpRedirectServer)
-			}
-
-			w.listeners = append(w.listeners, httpsServer)
-
 			httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
 			if err != nil {
 				return err
 			}
-			go httpsServer.Serve(httpsLn)
+			go w.listener.Serve(httpsLn)
 
 		} else {
-
+			// if TLS is enabled but we are using ACME to auto provision certs
 			if len(a.Issuers) == 0 {
 				return fmt.Errorf("no issuers were setup for ACME TLS provider")
 			}
+
+			// attempt to start the listener just in case
+			a.startAutoRedirector()
+
 			err := a.Config.ManageSync(ctx, []string{w.details.Domain})
 			if err != nil {
 				return err
@@ -374,31 +377,11 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 			tlsConfig := a.Config.TLSConfig()
 			tlsConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsConfig.NextProtos...)
 
-			httpsServer := &http.Server{
-				ReadHeaderTimeout: 10 * time.Second,
-				ReadTimeout:       30 * time.Second,
-				WriteTimeout:      2 * time.Minute,
-				IdleTimeout:       5 * time.Minute,
-				Handler:           w.mux,
-				BaseContext:       func(listener net.Listener) context.Context { return ctx },
-			}
-			for _, s := range w.listeners {
-				s.Close()
-			}
-			w.listeners = []*http.Server{}
-
-			httpRedirectServer, err := a.autoRedirector(w.details.ListenAddress, w.details.Domain)
-			if err == nil {
-				w.listeners = append(w.listeners, httpRedirectServer)
-			}
-
-			w.listeners = append(w.listeners, httpsServer)
-
 			httpsLn, err := tls.Listen("tcp", w.details.ListenAddress, tlsConfig)
 			if err != nil {
 				return err
 			}
-			go httpsServer.Serve(httpsLn)
+			go w.listener.Serve(httpsLn)
 
 		}
 	}
@@ -406,30 +389,22 @@ func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, det
 	return nil
 }
 
-func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Server, error) {
+func (a *AutoTLS) startAutoRedirector() error {
 	// this is only to be used within the critical section
 	ctx := context.Background()
 
-	host, port, err := net.SplitHostPort(httpsServerListenAddr)
+	if a.http01Challenge != nil {
+		a.http01Challenge.Close()
+	}
+
+	httpRedirectListener, err := net.Listen("tcp", ":80")
 	if err != nil {
-		host = httpsServerListenAddr
-		port = "443"
+		return err
 	}
 
-	listenAddr := fmt.Sprintf("%s:80", host)
+	log.Printf("Started http redirector on port 80")
 
-	if a.ourHttpServers[listenAddr] || a.ourHttpServers[":80"] {
-		return nil, errors.New("ignore me, we already have an http listener on this port")
-	}
-
-	httpRedirectListener, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	a.ourHttpServers[listenAddr] = true
-
-	httpServer := &http.Server{
+	a.http01Challenge = &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      5 * time.Second,
@@ -437,25 +412,19 @@ func (a *AutoTLS) autoRedirector(httpsServerListenAddr, domain string) (*http.Se
 		BaseContext:       func(listener net.Listener) context.Context { return ctx },
 	}
 
-	if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok {
-		httpServer.Handler = am.HTTPChallengeHandler(http.HandlerFunc(a.httpRedirectHandler(domain + ":" + port)))
+	if am, ok := a.Issuers[0].(*certmagic.ACMEIssuer); ok && a.issuer.DNS01Solver == nil {
+		a.http01Challenge.Handler = am.HTTPChallengeHandler(http.HandlerFunc(a.httpRedirectHandler()))
 	}
 
-	go a.runHttpServer(httpServer, httpRedirectListener)
-	return httpServer, nil
+	go a.http01Challenge.Serve(httpRedirectListener)
+	return nil
 }
 
-func (a *AutoTLS) httpRedirectHandler(redirectTo string) func(w http.ResponseWriter, r *http.Request) {
+func (a *AutoTLS) httpRedirectHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// get rid of this disgusting unencrypted HTTP connection 🤢
-		w.Header().Set("Connection", "close")
-		http.Redirect(w, r, "https://"+redirectTo, http.StatusMovedPermanently)
-	}
-}
 
-func (a *AutoTLS) runHttpServer(httpServer *http.Server, listener net.Listener) {
-	httpServer.Serve(listener)
-	a.Lock()
-	delete(a.ourHttpServers, listener.Addr().String())
-	a.Unlock()
+		w.Header().Set("Connection", "close")
+		http.Redirect(w, r, "https://"+r.Host, http.StatusMovedPermanently)
+	}
 }
