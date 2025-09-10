@@ -16,7 +16,7 @@ jobs:
           go-version: "1.24.4"
 
       - name: Update repos
-        run: sudo apt update && sudo apt upgrade
+        run: sudo apt update
 
       - name: Install build tools
         run: sudo apt install -y gcc make git npm libpam0g-dev
