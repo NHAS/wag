@@ -31,6 +31,36 @@ async function fetchSessionDetails() {
   }
 }
 
+async function downloadStatus() {
+  
+  try {
+    // Convert status data to JSON string
+    const statusResp = await getStatus()
+
+    const jsonData = JSON.stringify(statusResp, null, 2);
+    
+    // Create blob and download link
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create temporary download link
+    const link = document.createElement('a');
+    link.style = "display: none";
+    link.href = url;
+    link.download = `debug-${new Date().toISOString().split('T')[0]}.json`;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    catcher(e, "Failed to download status data");
+  }
+}
+
 onMounted(async () => {
   // Trigger animations on mount
   document.querySelector('.auth-card')?.classList.add('slide-in');
@@ -131,40 +161,39 @@ async function doLogout() {
               </div>
               Access Details
             </div>
-            <button @click="fetchSessionDetails" :disabled="isLoadingDetails"
-              class="btn btn-ghost btn-sm h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
-              title="Refresh access details">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform duration-300"
-                :class="{ 'animate-spin': isLoadingDetails }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
+            <div class="flex gap-2">
+              <button @click="downloadStatus" :disabled="!sessionDetails || isLoadingDetails"
+                class="btn btn-ghost btn-sm h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
+                title="Download debug data">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+              <button @click="fetchSessionDetails" :disabled="isLoadingDetails"
+                class="btn btn-ghost btn-sm h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
+                title="Refresh access details">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform duration-300"
+                  :class="{ 'animate-spin': isLoadingDetails }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
           </h4>
 
           <div class="space-y-6">
             <div v-if="sessionDetails?.Public?.length" class="resource-section">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-2 h-2 bg-success rounded-full"></div>
-                <span class="font-medium">Public Routes ({{ sessionDetails.Public.length }})</span>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <div class="resource-badge success" v-for="resource in sessionDetails.Public" :key="resource">
-                  {{ resource }}
-                </div>
+                <span class="font-medium">Public Routes: {{ sessionDetails.Public.length }}</span>
               </div>
             </div>
 
             <div v-if="sessionDetails?.MFA?.length" class="resource-section">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-2 h-2 bg-warning rounded-full"></div>
-                <span class="font-medium">MFA Protected Routes ({{ sessionDetails.MFA.length }})</span>
-                
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <div class="resource-badge warning" v-for="resource in sessionDetails.MFA" :key="resource">
-                  {{ resource }}
-                </div>
+                <span class="font-medium">MFA Protected Routes: {{ sessionDetails.MFA.length }}</span>
               </div>
             </div>
           </div>
