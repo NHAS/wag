@@ -330,7 +330,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		return nil, err
 	}
 
-	log.Println("[ADMINUI] Started Managemnt UI listening:", config.Values.Webserver.Management.ListenAddress)
+	log.Println("[ADMINUI] Started Management UI listening:", config.Values.Webserver.Management.ListenAddress)
 
 	return &adminUI, nil
 }

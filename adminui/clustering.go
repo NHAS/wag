@@ -50,11 +50,11 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 				status = "no last ping"
 			} else {
 
-				if lastPing.Before(time.Now().Add(-6 * time.Second)) {
+				if lastPing.Before(time.Now().Add(-30 * time.Second)) {
 					status += "(lagging ping)"
 				}
 
-				if lastPing.Before(time.Now().Add(-14 * time.Second)) {
+				if lastPing.Before(time.Now().Add(-60 * time.Second)) {
 					status = "dead"
 				}
 
