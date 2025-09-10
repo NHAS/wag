@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/NHAS/wag/adminui"
+	"github.com/NHAS/wag/debug"
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -285,6 +286,10 @@ func (g *start) Run() error {
 	}()
 
 	log.Printf("%s (%s) starting, Ctrl + C to stop", wagType, config.Version)
+
+	if config.Values.DevMode {
+		debug.StartPprof()
+	}
 
 	err = <-errorChan
 	cancel <- true
