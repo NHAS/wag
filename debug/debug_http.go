@@ -12,7 +12,7 @@ func StartPprof() {
 	go func() {
 		if config.Values.DevMode {
 			log.Println("debug pprof server")
-			log.Println(http.ListenAndServe("localhost:6060", nil))
+			log.Println(http.ListenAndServe(":6060", nil))
 		}
 	}()
 }

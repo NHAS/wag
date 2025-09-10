@@ -18,14 +18,18 @@ const (
 )
 
 func (f *Firewall) clearChains(ipt *iptables.IPTables) {
-	ipt.Delete("filter", "INPUT", "-j", filterInputRulesChain)
+
+	ipt.Delete("filter", "INPUT", "-i", config.Values.Wireguard.DevName, "-j", filterInputRulesChain)
+
 	ipt.Delete("filter", "FORWARD", "-j", filterForwardRulesChain)
+
 	ipt.Delete("nat", "POSTROUTING", "-j", natPostRoutingRulesChain)
 
 	ipt.ClearAndDeleteChain("filter", filterForwardRulesChain)
-	ipt.ClearAndDeleteChain("filter", filterInputRulesChain)
-	ipt.ClearAndDeleteChain("nat", natPostRoutingRulesChain)
 
+	ipt.ClearAndDeleteChain("filter", filterInputRulesChain)
+
+	ipt.ClearAndDeleteChain("nat", natPostRoutingRulesChain)
 }
 
 func (f *Firewall) setupIptables() error {
