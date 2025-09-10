@@ -23,7 +23,7 @@ const clusterLinks = [
   { name: 'Events', icon: Icons.Events, to: '/cluster/events' }
 ]
 
-if(info.serverInfo.cluster_management_enabled) {
+if(!info.serverInfo.cluster_management_enabled) {
   clusterLinks.push(  { name: 'Members', icon: Icons.ClusterMembers, to: '/cluster/members' })
 }
 
