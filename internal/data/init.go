@@ -346,7 +346,7 @@ func (d *database) doMigrations() error {
 		}
 
 		if resp.Succeeded {
-			log.Println("running migration: %s", action.version)
+			log.Printf("running migration: %s", action.version)
 			err = action.run()
 			if err != nil {
 				return fmt.Errorf("failed to apply migration: %s: %v", action.version, err)
