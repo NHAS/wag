@@ -246,6 +246,12 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 		// TODO figure out a better way of doing this
 		// when a client shifts over to us, make sure we set the last packet time to something they can actually use
 		d.SetActive(f.db, f.inactivityTimeout)
+	} else {
+		// its roamed away from us
+		if d.inactiveTimer != nil {
+			d.inactiveTimer.Stop()
+			d.inactiveTimer = nil
+		}
 	}
 
 	d.associatedNode = device.AssociatedNode
@@ -610,6 +616,10 @@ func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Durat
 	fwd.inactive = false
 
 	if duration == -1 {
+		if fwd.inactiveTimer != nil {
+			fwd.inactiveTimer.Stop()
+			fwd.inactiveTimer = nil
+		}
 		// if the inactivity duration is -1 that means its disabled, thus dont start a timer or reset a timer
 		return
 	}
