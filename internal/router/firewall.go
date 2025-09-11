@@ -179,7 +179,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 
 	if f.inactivityTimeout == -1 || !device.inactive {
 		// It doesnt matter if this gets race conditioned
-		device.SetActive(f.db, f.inactivityTimeout)
+		device.SetActive(f.db, f.inactivityTimeout, f.nodeID)
 	} else {
 		authorized = false
 	}
@@ -242,19 +242,9 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 		return fmt.Errorf("device %q was not found", address)
 	}
 
-	if device.AssociatedNode == f.db.GetCurrentNodeID() {
-		// TODO figure out a better way of doing this
-		// when a client shifts over to us, make sure we set the last packet time to something they can actually use
-		d.SetActive(f.db, f.inactivityTimeout)
-	} else {
-		// its roamed away from us
-		if d.inactiveTimer != nil {
-			d.inactiveTimer.Stop()
-			d.inactiveTimer = nil
-		}
-	}
-
 	d.associatedNode = device.AssociatedNode
+
+	d.SetActive(f.db, f.inactivityTimeout, f.nodeID)
 
 	return nil
 }
@@ -292,10 +282,9 @@ func (f *Firewall) SetAuthorized(address string, node types.ID) error {
 	}
 
 	device.sessionExpiry = time.Now().Add(time.Duration(timeToSet) * time.Minute)
-
-	device.SetActive(f.db, f.inactivityTimeout)
-
 	device.associatedNode = node
+
+	device.SetActive(f.db, f.inactivityTimeout, f.nodeID)
 
 	return nil
 }
@@ -607,12 +596,21 @@ func (fwd *FirewallDevice) timeout(db interfaces.Database) func() {
 		err := db.DeauthenticateDevice(fwd.address.String())
 		if err != nil {
 			log.Println("failed to deauthenticate device on inactivity timeout: ", err)
+			return
 		}
 		log.Printf("Device %q %q became inactive", fwd.username, fwd.address)
 	}
 }
 
-func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Duration) {
+func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Duration, currentNode types.ID) {
+	if currentNode != fwd.associatedNode {
+		if fwd.inactiveTimer != nil {
+			fwd.inactiveTimer.Stop()
+			fwd.inactiveTimer = nil
+		}
+		return
+	}
+
 	fwd.inactive = false
 
 	if duration == -1 {
