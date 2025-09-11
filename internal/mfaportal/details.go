@@ -135,6 +135,7 @@ func (c *Challenger) userChanged(_ string, current, previous data.UserModel) err
 }
 
 func (c *Challenger) sessionDeleted(_ string, current, previous data.DeviceSession) error {
+	log.Println(current.Username, current.Address, "device session deleted")
 
 	c.UpdateState(current.Username, current.Address)
 

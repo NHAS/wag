@@ -10,7 +10,7 @@
             "Port": "8080",
             "HelpMail": "help@example.com",
             "Issuer": "192.168.121.61",
-            "MaxSessionLifetimeMinutes": 1,
+            "MaxSessionLifetimeMinutes": 2,
             "SessionInactivityTimeoutMinutes": 1
         }
     },

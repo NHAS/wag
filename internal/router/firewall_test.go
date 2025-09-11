@@ -561,7 +561,7 @@ func TestSlidingWindow(t *testing.T) {
 
 	difference := uint64(config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes) * 60000000000
 	if testFw.inactivityTimeout != time.Duration(difference) {
-		t.Fatal("timeout retrieved from ebpf program does not match json")
+		t.Fatal("timeout retrieved does not match json")
 	}
 
 	if !testFw.Test(packet) {

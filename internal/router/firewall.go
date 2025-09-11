@@ -610,7 +610,7 @@ func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Durat
 	fwd.inactive = false
 
 	if duration == -1 {
-		// if the inacitivity duration is -1 that means its disabled, thus dont start a timer or reset a timer
+		// if the inactivity duration is -1 that means its disabled, thus dont start a timer or reset a timer
 		return
 	}
 
