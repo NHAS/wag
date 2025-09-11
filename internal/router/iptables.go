@@ -19,7 +19,7 @@ const (
 
 func (f *Firewall) clearChains(ipt *iptables.IPTables) {
 
-	ipt.Delete("filter", "INPUT", "-i", config.Values.Wireguard.DevName, "-j", filterInputRulesChain)
+	ipt.Delete("filter", "INPUT", "-j", filterInputRulesChain)
 
 	ipt.Delete("filter", "FORWARD", "-j", filterForwardRulesChain)
 
@@ -159,7 +159,7 @@ func (f *Firewall) setupIptables() error {
 		return err
 	}
 
-	err = ipt.Insert("filter", "INPUT", 1, "-i", devName, "-j", filterInputRulesChain)
+	err = ipt.Insert("filter", "INPUT", 1, "-j", filterInputRulesChain)
 	if err != nil {
 		return err
 	}
