@@ -568,10 +568,24 @@ func TestSlidingWindow(t *testing.T) {
 		t.Fatalf("program did not pass packet instead dropped it")
 	}
 
+	// sleep for half the inactivity time out, then issue a packet
+	time.Sleep(testFw.inactivityTimeout / 2)
+
+	if !testFw.Test(packet) {
+		t.Fatalf("program did not pass packet instead dropped it")
+	}
+
+	addr := netip.MustParseAddr(devices["tester"].Address)
+
+	dev := testFw.addressToDevice[addr]
+	if dev.inactive {
+		t.Fatal("should not be inactive now")
+	}
+
 	t.Logf("Now doing timing test for sliding window waiting %d+10seconds", config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes)
 
 	//Check slightly after inactivity timeout to see if the user is now not authenticated
-	time.Sleep(time.Duration(config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes)*time.Minute + 10*time.Second)
+	time.Sleep(testFw.inactivityTimeout + 10*time.Second)
 
 	if testFw.Test(packet) {
 		t.Fatalf("program did not drop packet instead passed it")
@@ -773,7 +787,7 @@ func TestMaxSessionLifetime(t *testing.T) {
 	}
 
 	if testFw.IsAuthed(devices["tester"].Address) {
-		t.Fatal("user is still authorized after inactivity timeout should have killed them")
+		t.Fatal("user is still authorized after max session timeout should have killed them")
 	}
 }
 
