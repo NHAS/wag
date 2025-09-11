@@ -90,7 +90,7 @@ func (f *Firewall) setupIptables() error {
 		return err
 	}
 
-	err = ipt.Insert("filter", "FORWARD", 1, "-j", filterForwardRulesChain)
+	err = ipt.Append("filter", "FORWARD", "-j", filterForwardRulesChain)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (f *Firewall) setupIptables() error {
 			return err
 		}
 
-		err = ipt.Insert("nat", "POSTROUTING", 1, "-j", natPostRoutingRulesChain)
+		err = ipt.Append("nat", "POSTROUTING", "-j", natPostRoutingRulesChain)
 		if err != nil {
 			return err
 		}
@@ -161,7 +161,7 @@ func (f *Firewall) setupIptables() error {
 		return err
 	}
 
-	err = ipt.Insert("filter", "INPUT", 1, "-i", config.Values.Wireguard.DevName, "-j", filterInputRulesChain)
+	err = ipt.Append("filter", "INPUT", "-i", config.Values.Wireguard.DevName, "-j", filterInputRulesChain)
 	if err != nil {
 		return err
 	}
