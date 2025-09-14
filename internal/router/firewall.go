@@ -244,8 +244,10 @@ func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
 
 	d.associatedNode = device.AssociatedNode
 
-	d.SetActive(f.db, f.inactivityTimeout, f.nodeID)
-
+	// dont set the device as active if the DB thinks they're not authorised
+	if !device.Authorised.IsZero() {
+		d.SetActive(f.db, f.inactivityTimeout, f.nodeID)
+	}
 	return nil
 }
 
