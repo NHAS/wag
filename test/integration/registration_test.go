@@ -89,6 +89,17 @@ func TestRegistrationTokenMultipleUses(t *testing.T) {
 		}
 	}
 
+	tokens, err := ctrl.Registrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if slices.ContainsFunc(tokens, func(a control.RegistrationResult) bool {
+		return a.Token == validRegistrationToken
+	}) {
+		t.Fatal("token should not be present after max uses")
+	}
+
 	// Try to use it one more time - should fail
 	resp, err := http.Get("http://127.0.0.1:8081/register_device?key=" + validRegistrationToken)
 	if err != nil {
@@ -99,6 +110,7 @@ func TestRegistrationTokenMultipleUses(t *testing.T) {
 	if resp.StatusCode == 200 {
 		t.Fatal("token should not work after exceeding max uses")
 	}
+
 }
 
 func TestRegistrationTokenWithGroups(t *testing.T) {
