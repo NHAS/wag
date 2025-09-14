@@ -32,24 +32,23 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 			return fmt.Errorf("no token")
 		}
 
-		token, err := GetSMT[control.RegistrationResult](startingValue)
+		token, err := Unmarshal[control.RegistrationResult](startingValue)
 		if err != nil {
 			return err
-		}
-
-		if token.NumUses <= 0 {
-			s.Del(tokenKey)
-			return fmt.Errorf("key already used")
 		}
 
 		token.NumUses--
 
-		value, err := ToString(token)
-		if err != nil {
-			return err
-		}
+		if token.NumUses > 0 {
+			value, err := ToString(token)
+			if err != nil {
+				return err
+			}
 
-		s.Put(tokenKey, value)
+			s.Put(tokenKey, value)
+		} else {
+			s.Del(tokenKey)
+		}
 
 		// this feels horribly wrong
 		result = token

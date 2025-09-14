@@ -68,7 +68,7 @@ func Get[T any](etcd *clientv3.Client, key string) (ret T, err error) {
 	return
 }
 
-func GetSMT[T any](value string) (ret T, err error) {
+func Unmarshal[T any](value string) (ret T, err error) {
 	b := bytes.NewBufferString(value)
 
 	dec := safedecoder.Decoder(b)
