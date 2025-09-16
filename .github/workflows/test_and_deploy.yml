@@ -56,6 +56,10 @@ jobs:
           username: wagvpn
           password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
+      - name: Extract tag name
+        id: extract_tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
