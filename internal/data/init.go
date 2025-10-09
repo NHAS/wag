@@ -489,6 +489,8 @@ func (d *database) loadInitialSettings() error {
 
 	if config.Values.Webserver.Tunnel.CertificatePath != "" {
 		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
+		tunnelWebserverConfig.StaticCerts=true
+		
 		if err != nil {
 			log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
 		}
@@ -507,6 +509,8 @@ func (d *database) loadInitialSettings() error {
 
 	if config.Values.Webserver.Public.CertificatePath != "" {
 		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
+		publicWebserverConfig.StaticCerts=true
+		
 		if err != nil {
 			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 		}
@@ -526,6 +530,8 @@ func (d *database) loadInitialSettings() error {
 	if config.Values.Webserver.Management.CertificatePath != "" {
 
 		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
+		managementWebserverConfig.StaticCerts=true
+
 		if err != nil {
 			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
 		}
