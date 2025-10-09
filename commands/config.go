@@ -58,8 +58,12 @@ func (g *modifyConfig) Check() error {
 	switch g.action {
 	case "get":
 		if g.value != "" {
-			return errors.New("value supplied when getting")
+			return errors.New("value should not be supplied when getting")
 		}
+	case "put":
+		if g.value == "" {
+			return errors.New("value required when putting")
+		}		
 	default:
 		return errors.New("Unknown flag: " + g.action)
 	}
