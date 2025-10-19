@@ -104,10 +104,10 @@ function openEventInspectionModal(error: GeneralEvent) {
             }}
           </p>
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">Error:</label>
+          <label for="members" class="block font-medium label-text pt-6">Error:</label>
           <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" disabled v-model="inspectedError.error"></textarea>
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">Event JSON:</label>
+          <label for="members" class="block font-medium label-text pt-6">Event JSON:</label>
           <textarea
             disabled
             class="disabled textarea textarea-bordered w-full font-mono"
@@ -130,7 +130,7 @@ function openEventInspectionModal(error: GeneralEvent) {
         <h3 class="text-lg font-bold overflow-hidden text-ellipsis whitespace-nowrap">Event Key: {{ inspectedEvent.key }}</h3>
         <div class="mt-8">
           <p>
-            <span class="font-medium text-gray-900 pt-6">Time:</span>
+            <span class="font-medium label-text pt-6">Time:</span>
             {{
               new Date(inspectedEvent.time).toLocaleString(undefined, {
                 weekday: 'short',
@@ -140,7 +140,7 @@ function openEventInspectionModal(error: GeneralEvent) {
             }}
           </p>
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">New Key Value JSON:</label>
+          <label for="members" class="block font-medium label-text pt-6">New Key Value JSON:</label>
           <textarea
             class="disabled textarea textarea-bordered w-full font-mono"
             disabled
@@ -149,7 +149,7 @@ function openEventInspectionModal(error: GeneralEvent) {
           ></textarea>
 
           <div v-if="inspectedEvent.state.previous.length > 0">
-            <label for="members" class="block font-medium text-gray-900 pt-6">Previous Key Value JSON:</label>
+            <label for="members" class="block font-medium label-text pt-6">Previous Key Value JSON:</label>
             <textarea
               class="disabled textarea textarea-bordered w-full font-mono"
               rows="3"

@@ -59,17 +59,17 @@ async function createToken() {
       <div class="mt-8">
         <form @submit.prevent="createToken()">
         <div class="form-group">
-          <label for="username" class="block font-medium text-gray-900">Username</label>
+          <label for="username" class="block font-medium label-text">Username</label>
           <input type="text" id="username" class="input input-bordered input-sm w-full" required v-model="newToken.username" />
         </div>
 
         <div class="form-group">
-          <label for="token" class="block font-medium text-gray-900 pt-6">Token</label>
+          <label for="token" class="block font-medium label-text pt-6">Token</label>
           <input type="text" id="token" class="input input-bordered input-sm w-full" v-model="newToken.token" placeholder="(Optional)" />
         </div>
 
         <div class="form-group">
-          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Static IP</label>
+          <label for="overwrites" class="block font-medium label-text pt-6">Static IP</label>
           <input
             type="text"
             id="static_ip"
@@ -80,7 +80,7 @@ async function createToken() {
         </div>
 
         <div class="form-group">
-          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Overwrites</label>
+          <label for="overwrites" class="block font-medium label-text pt-6">Overwrites</label>
           <input
             type="text"
             id="overwrites"
@@ -91,7 +91,7 @@ async function createToken() {
         </div>
 
         <div class="form-group">
-          <label for="tag" class="block font-medium text-gray-900 pt-6">Tag</label>
+          <label for="tag" class="block font-medium label-text pt-6">Tag</label>
           <input
             type="text"
             id="tag"
@@ -102,7 +102,7 @@ async function createToken() {
         </div>
 
         <div class="form-group">
-          <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
+          <label for="groups" class="block font-medium label-text pt-6">Groups</label>
           <input type="text" id="groups" class="input input-bordered input-sm w-full" @input="(e: Event) => {
              let target = e.target as HTMLInputElement
             
@@ -112,7 +112,7 @@ async function createToken() {
         </div>
 
         <div class="form-group">
-          <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
+          <label for="uses" class="block font-medium label-text pt-6">Uses</label>
           <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
         </div>
 

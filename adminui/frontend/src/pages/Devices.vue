@@ -191,12 +191,12 @@ const selectedDevicesHasLocked = computed(() => {
                 <button
                 :disabled="selectedDevices.length == 0"
                   @click="updateDevices(selectedDevices, selectedDevicesHasLocked ? DeviceEditActions.Unlock : DeviceEditActions.Lock)"
-                  class="btn btn-ghost disabled:bg-white ">{{ selectedDevicesHasLocked ? 'Unlock' : 'Lock' }}
+                  class="btn btn-ghost  ">{{ selectedDevicesHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedDevicesHasLocked ? Icons.Unlocked : Icons.Locked" /></button>
               </div>
               <div :class="selectedDevices.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedDevices.length + ' devices'">
                 <ConfirmModal @on-confirm="() => tryDeleteDevices(selectedDevices)">
-                  <button :disabled="selectedDevices.length == 0" class="btn btn-ghost disabled:bg-white">Bulk Delete<font-awesome-icon
+                  <button :disabled="selectedDevices.length == 0" class="btn btn-ghost ">Bulk Delete<font-awesome-icon
                       :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>

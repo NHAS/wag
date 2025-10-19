@@ -6,6 +6,18 @@
   --padding-card: 24px;
 }
 
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}
+
 .compact-table tr th:first-of-type,
 .compact-table tr td:first-of-type {
   padding-left: 0;
@@ -30,4 +42,18 @@ table.table-first-col-bold tr > td:first-of-type {
 
 .label {
   padding-left: 0px !important;
+}
+
+[data-theme="corporate"] .btn:disabled,
+[data-theme="corporate"] .btn[disabled] {
+  background-color: white;
+  border-color: transparent;
+  color: oklch(var(--bc) / 0.4);
+}
+
+[data-theme="business"] .btn:disabled,
+[data-theme="business"] .btn[disabled] {
+  background-color: transparent;
+  border-color: transparent;
+  color: oklch(var(--bc) / 0.5);
 }

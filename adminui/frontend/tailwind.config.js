@@ -10,11 +10,19 @@ module.exports = {
   },
   plugins: [require('daisyui'), require('@tailwindcss/typography')],
   daisyui: {
-    themes: [{
-      corporate: {
-        ...require('daisyui/src/theming/themes')['corporate'],
-        'primary-content': 'oklch(91.85% 0.041 287.86)',
+    themes: [
+      {
+        corporate: {
+          ...require('daisyui/src/theming/themes')['corporate'],
+          'primary-content': 'oklch(91.85% 0.041 287.86)',
+        }
+      },
+      {
+        business: {
+          ...require('daisyui/src/theming/themes')['business'],
+          'primary-content': 'oklch(91.85% 0.041 287.86)',
+        }
       }
-    }]
+    ]
   }
 }

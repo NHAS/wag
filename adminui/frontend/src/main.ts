@@ -9,6 +9,7 @@ import 'vue-toastification/dist/index.css'
 
 import App from './App.vue'
 import router from './router'
+import { useThemeStore } from './stores/theme'
 
 import './styles.css'
 
@@ -17,7 +18,13 @@ const app = createApp(App)
 library.add(fas)
 
 app.component('font-awesome-icon', FontAwesomeIcon)
-app.use(createPinia())
+
+const pinia = createPinia()
+app.use(pinia)
+
+const themeStore = useThemeStore(pinia)
+themeStore.initialize()
+
 app.use(Toast, {})
 app.use(router)
 

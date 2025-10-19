@@ -223,13 +223,13 @@ async function tryDeleteGroups(groups: string[]) {
       <h3 class="text-lg font-bold">{{ groupModalTitle }}</h3>
       <div class="mt-4">
         <div class="form-group">
-          <label for="group" class="block font-medium text-gray-900 pb-2">Group Name:</label>
+          <label for="group" class="block font-medium label-text pb-2">Group Name:</label>
           <input type="text" id="group" class="input input-bordered w-full" required v-model="Effects.group"
             :disabled="Effects.is_edit" />
         </div>
 
         <div class="pt-2">
-          <label class="block font-medium text-gray-900 mb-2">Members:</label>
+          <label class="block font-medium label-text mb-2">Members:</label>
 
           <!-- Add member input -->
           <div class="flex gap-2 mb-4">
@@ -242,8 +242,8 @@ async function tryDeleteGroups(groups: string[]) {
           </div>
 
           <!-- Members badges -->
-          <div class="min-h-[80px] p-3 border border-gray-300 rounded-lg bg-gray-50">
-            <div v-if="currentMembers.length === 0" class="text-gray-500 text-sm">
+          <div class="min-h-[80px] p-3 border border-base-300 rounded-lg bg-base-200">
+            <div v-if="currentMembers.length === 0" class="opacity-60 text-sm">
               No members added yet
             </div>
             <div v-else class="flex flex-wrap gap-2">
@@ -330,7 +330,7 @@ async function tryDeleteGroups(groups: string[]) {
                         </div>
                         <div v-if="group.members.length > 10">... {{ group.members.length - 10 }} more</div>
                       </template>
-                      <div v-if="!group.members || group.members.length === 0" class="text-gray-500">
+                      <div v-if="!group.members || group.members.length === 0" class="opacity-60">
                         No members
                       </div>
                     </div>

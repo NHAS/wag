@@ -111,7 +111,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
           <p>Add member to wag cluster</p>
 
           <div class="form-group">
-            <label for="group" class="block font-medium text-gray-900 pt-6"
+            <label for="group" class="block font-medium label-text pt-6"
               >Peer URL:
               <input
                 type="url"
@@ -124,7 +124,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
           </div>
 
           <div class="form-group">
-            <label for="group" class="block font-medium text-gray-900 pt-6"
+            <label for="group" class="block font-medium label-text pt-6"
               >New Node Label:
               <input
                 type="text"
@@ -137,7 +137,7 @@ async function controlNode(member: ClusterMember, action: NodeControlActions) {
           </div>
 
           <div class="form-group">
-            <label for="group" class="block font-medium text-gray-900 pt-6"
+            <label for="group" class="block font-medium label-text pt-6"
               >Manager URL:
               <input
                 type="text"

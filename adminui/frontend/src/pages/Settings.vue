@@ -382,7 +382,7 @@ const activeTab = ref('general')
                 </div>
 
                 <div class="form-control">
-                  <label for="dns" class="block font-medium text-gray-900 pt-6">DNS</label>
+                  <label for="dns" class="block font-medium label-text pt-6">DNS</label>
                   <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3"
                     v-model="textValue"></textarea>
                 </div>
@@ -444,7 +444,7 @@ const activeTab = ref('general')
                       <span class="flex flex-grow"></span>
                       <span
                         v-if="method.method == loginSettingsData.default_mfa_method && loginSettingsData.enabled_mfa_methods.length > 0"
-                        class="text-gray-400 mr-4">DEFAULT</span>
+                        class="opacity-60 mr-4">DEFAULT</span>
 
                       <div class="tooltip"
                         :data-tip="(!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')) ? 'This method requires that the tunnel has a domain' : (!doesTunnelHaveTLS() && method.method == 'webauthn') ? 'The tunnel requires TLS to use this authentication method' : null">

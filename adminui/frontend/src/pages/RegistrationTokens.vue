@@ -113,7 +113,7 @@ watch(selectedTokens, newVal => {
               </div>
               <div :class="selectedTokens.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedTokens.length + ' tokens'">
                 <ConfirmModal @on-confirm="() => deleteTokens(selectedTokens)">
-                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedTokens.length == 0">Bulk Delete<font-awesome-icon
+                  <button class="btn btn-ghost" :disabled="selectedTokens.length == 0">Bulk Delete<font-awesome-icon
                       :icon="Icons.Delete"/></button>
                 </ConfirmModal>
               </div>

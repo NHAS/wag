@@ -146,7 +146,7 @@ async function tryDeleteRules(rules: string[]) {
         <p>Make changes to your rule here.</p>
 
         <div class="form-group">
-          <label for="effects" class="block font-medium text-gray-900 pt-6">Effects:</label>
+          <label for="effects" class="block font-medium label-text pt-6">Effects:</label>
           <input
             type="text"
             id="effects"
@@ -157,13 +157,13 @@ async function tryDeleteRules(rules: string[]) {
           />
         </div>
 
-        <label for="publicRoutes" class="block font-medium text-gray-900 pt-6">Public Routes:</label>
+        <label for="publicRoutes" class="block font-medium label-text pt-6">Public Routes:</label>
         <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="PublicRules"></textarea>
 
-        <label for="mfaRoutes" class="block font-medium text-gray-900 pt-6">MFA Routes:</label>
+        <label for="mfaRoutes" class="block font-medium label-text pt-6">MFA Routes:</label>
         <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="MFARules"></textarea>
 
-        <label for="denyRoutes" class="block font-medium text-gray-900 pt-6">Deny Routes:</label>
+        <label for="denyRoutes" class="block font-medium label-text pt-6">Deny Routes:</label>
         <textarea class="rules-input textarea textarea-bordered w-full font-mono" rows="3" v-model="DenyRules"></textarea>
 
         <span class="mt-4 flex">

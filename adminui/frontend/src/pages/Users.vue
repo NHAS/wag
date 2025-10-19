@@ -172,20 +172,20 @@ const selectedUsersHasLocked = computed(() => {
               <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'">
                 <button
                   @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)"
-                  class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0"
+                  class="btn btn-ghost " :disabled="selectedUsers.length == 0"
                 >
                   {{ selectedUsersHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" />
                 </button>
               </div>
               <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">
+                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost " :disabled="selectedUsers.length == 0">
                   Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
                 </button>
               </div>
               <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedUsers.length + ' users'">
                 <ConfirmModal @on-confirm="() => tryDeleteUsers(selectedUsers)">
-                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                  <button class="btn btn-ghost " :disabled="selectedUsers.length == 0">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
             </span>

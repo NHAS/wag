@@ -137,14 +137,14 @@ watch(inspectedWebhook, (current) => {
         <h3 class="text-lg font-bold">Webhook {{ inspectedWebhook.id }}</h3>
         <div>
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">Last Input Received:</label>
+          <label for="members" class="block font-medium label-text pt-6">Last Input Received:</label>
           <div class="font-mono">{{ inspectedWebhook.time }}</div>
 
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">Status:</label>
+          <label for="members" class="block font-medium label-text pt-6">Status:</label>
           <div class="font-mono">{{ inspectedWebhook.status }}</div>
 
-          <label for="members" class="block font-medium text-gray-900 pt-6">Received JSON:</label>
+          <label for="members" class="block font-medium label-text pt-6">Received JSON:</label>
           <textarea disabled class="disabled textarea textarea-bordered w-full font-mono" rows="16"
             :value="lastRequestText.message">
           </textarea>
@@ -171,7 +171,7 @@ watch(inspectedWebhook, (current) => {
               <div :class="selectedHooks.length > 0 ? 'tooltip' : null"
                 :data-tip="'Delete ' + selectedHooks.length + ' tokens'">
                 <ConfirmModal @on-confirm="() => deleteHooks(selectedHooks)">
-                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedHooks.length == 0">Bulk
+                  <button class="btn btn-ghost " :disabled="selectedHooks.length == 0">Bulk
                     Delete<font-awesome-icon :icon="Icons.Delete" /></button>
                 </ConfirmModal>
               </div>
@@ -220,13 +220,13 @@ watch(inspectedWebhook, (current) => {
                 <td class="font-mono flex flex-col">
                   <template v-for="(attribute, index) in hook.json_attribute_roles" :key="attribute">
                     <div v-if="attribute != ''"
-                      class="mt-2 badge badge-secondary text-white font-mono overflow-hidden text-ellipsis whitespace-nowrap">
+                      class="mt-2 badge badge-secondary font-mono overflow-hidden text-ellipsis whitespace-nowrap">
                       {{ index.replace("as_", "") + ": " + attribute }}</div>
                   </template>
                 </td>
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">
-                    <div class="mt-2 badge text-white font-mono"
+                    <div class="mt-2 badge font-mono"
                       :class="{ 'badge-secondary': hook.status == null || hook.status == '', 'badge-success': hook.status == 'OK', 'badge-error': hook.status != 'OK' && hook.status != null && hook.status != '' }">
                       {{ (hook.status == null || hook.status == '') ? 'UNUSED' : hook.status == 'OK' ? "OK" : 'ERROR' }}
                     </div>
