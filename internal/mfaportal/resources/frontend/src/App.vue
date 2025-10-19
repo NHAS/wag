@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { onBeforeMount, onBeforeUnmount, watch, nextTick } from "vue";
 import { RouterView, useRoute } from "vue-router";
 
 import { useWebSocketStore } from "./store/info";
-import { onBeforeMount, onBeforeUnmount, watch, nextTick } from "vue";
+import { useThemeStore } from "./store/theme";
+import ThemeToggle from "./components/ThemeToggle.vue";
 import router from "./router";
 import type { UserInfoDTO } from "./api";
 
 
 const info = useWebSocketStore();
+const themeStore = useThemeStore();
 const route = useRoute();
 
 let previousState: UserInfoDTO | null = null;
@@ -18,6 +21,7 @@ onBeforeMount(() => {
 
 onBeforeUnmount(() => {
   info.cleanup();
+  themeStore.cleanup();
 });
 
 
@@ -225,7 +229,8 @@ if (window.location.pathname !== "/error") {
 
 <template>
   <main class="w-full min-h-screen">
-    <div class="bg-slate-200 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-base-200 min-h-screen flex items-center justify-center p-4">
+      <ThemeToggle />
       <div class="card bg-neutral shadow-xl max-w-3xl h-max text-neutral-content">
         <div class="card-body">
           <RouterView />

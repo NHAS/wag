@@ -6,6 +6,18 @@
   --padding-card: 24px;
 }
 
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}
+
 .compact-table tr th:first-of-type,
 .compact-table tr td:first-of-type {
   padding-left: 0;

@@ -12,6 +12,7 @@ import "./styles.css";
 
 import App from "./App.vue";
 import router from "./router";
+import { useThemeStore } from "./store/theme";
 
 const app = createApp(App);
 
@@ -22,7 +23,13 @@ instanceManager.initialize();
 library.add(fas);
 
 app.component("font-awesome-icon", FontAwesomeIcon);
-app.use(createPinia());
+
+const pinia = createPinia();
+app.use(pinia);
+
+const themeStore = useThemeStore(pinia);
+themeStore.initialize();
+
 app.use(Toast, {});
 app.use(router);
 

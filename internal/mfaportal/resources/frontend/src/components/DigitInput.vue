@@ -94,7 +94,7 @@ function handlePaste(event: ClipboardEvent): void {
             <div class="flex gap-2 justify-center">
                 <template v-for="(_, index) in 6" :key="index">
                     <input type="text" :autofocus="index == 0"
-                        class="input input-bordered text-neutral input-primary w-12 h-12 text-center text-lg font-mono"
+                        class="input input-bordered input-primary w-12 h-12 text-center text-lg font-mono"
                         maxlength="1" :ref="(el) => digitInputs[index] = (el as HTMLInputElement)"
                         v-model="digits[index]" placeholder="0" @keydown="handleInput(index, $event)"
                         @paste="handlePaste($event)" autocomplete="off" />
