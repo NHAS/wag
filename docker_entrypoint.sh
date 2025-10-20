@@ -7,6 +7,6 @@ if [ ! -f /cfg/config.json ]; then
 	echo "Config generated, you may want to edit the advanced options and start again"
   exit
 fi
-
+rm -rf /tmp/*
 echo "WAG: start"
 exec /usr/bin/wag start -config /cfg/config.json
