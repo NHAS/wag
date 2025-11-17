@@ -12,6 +12,10 @@ Key Features:
   - SSO
   - PAM
   - TOTP
+
+
+
+[Documentation](https://wag-docs.dev)
   
 ## Administration
 
@@ -42,6 +46,8 @@ This work was very kindly supported by:
 
 [![softscheck](https://github.com/user-attachments/assets/674004c9-50c0-4ab5-b368-ca5b46e748fb)](https://www.softscheck.com/)
 
+
+
 # Requirements
 
 Forwarding must be enabled in `sysctl`.  
@@ -55,6 +61,7 @@ sysctl -w net.ipv6.conf.all.accept_ra=2
 sysctl -w net.ipv6.conf.all.accept_redirects=1
 sysctl -w net.ipv6.conf.all.accept_source_route=1
 ```
+
 
 # Setup instructions
 
