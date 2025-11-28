@@ -106,12 +106,12 @@ func NewCertStore(etcd *clientv3.Client, basePath string) *CertMagicStore {
 func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
 	keyPath := path.Join(cms.basePath, key)
 
-	res, err := cms.etcd.Get(ctx, keyPath, clientv3.WithCountOnly())
+	res, err := cms.etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
 	if err != nil {
 		return false
 	}
 
-	return res.Count > 1
+	return res.Count > 0
 }
 
 func (cms *CertMagicStore) lockPath(name string) string {
@@ -252,12 +252,16 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 	// stolen from: https://github.com/SUNET/knubbis-fleetlock/blob/main/certmagic/etcd3storage/etcd3storage.go
 
 	combinedKeys := map[string]struct{}{}
+	stripPrefix := pathPrefix
+	if !strings.HasSuffix(pathPrefix, "/") {
+		stripPrefix += "/"
+	}
 	for _, key := range keys {
 		// prefix/dir1/file1 -> dir1/file1
-		noPrefixKey := strings.TrimPrefix(key, pathPrefix+"/")
+
+		noPrefixKey := strings.TrimPrefix(key, stripPrefix)
 		// dir1/file1 -> dir1
 		part := strings.Split(noPrefixKey, "/")[0]
-
 		combinedKeys[part] = struct{}{}
 	}
 
@@ -272,7 +276,6 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyInfo, error) {
 
 	keyPath := path.Join(cms.basePath, key)
-
 	res, err := cms.etcd.Get(ctx, keyPath)
 	if err != nil {
 		return certmagic.KeyInfo{}, err
@@ -282,7 +285,7 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 		Key: key,
 	}
 
-	if len(res.Kvs) > 1 {
+	if len(res.Kvs) > 0 {
 
 		r.Size = int64(len(res.Kvs[0].Value))
 		r.IsTerminal = true
