@@ -207,6 +207,7 @@ func (d *database) GetWebauthn() (wba Webauthn, err error) {
 }
 
 func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
+
 	if domain == "" {
 		return "", errors.New("domain was empty")
 	}
@@ -225,10 +226,15 @@ func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
 			// if we cant get a port from either domain or address, then just default to nothing
 			return url, nil
 		}
+		url = url + ":" + port
 	}
 
-	if (!isTLS && port != "80") || (isTLS && port != "443") {
-		url = url + ":" + port
+	if isTLS && port == "443" {
+		url = strings.TrimSuffix(url, ":443")
+	}
+
+	if !isTLS && port == "80" {
+		url = strings.TrimSuffix(url, ":80")
 	}
 
 	return url, nil

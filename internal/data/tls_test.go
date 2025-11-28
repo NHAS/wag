@@ -46,6 +46,8 @@ func TestMain(m *testing.M) {
 	}
 
 	rs = NewCertStore(db.etcd, "wag-certificates")
+
+	os.Exit(m.Run())
 }
 
 func TestEtcdStorage_Store(t *testing.T) {
