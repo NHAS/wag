@@ -11,7 +11,7 @@ import (
 func StartPprof() {
 	go func() {
 		if config.Values.DevMode {
-			log.Println("debug pprof server")
+			log.Println("debug pprof server started on :6060")
 			log.Println(http.ListenAndServe(":6060", nil))
 		}
 	}()

@@ -119,10 +119,12 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 		return fmt.Errorf("could not get initial web server config for %s: %w", forWhat, err)
 	}
 
-	if _, port, err := net.SplitHostPort(initialDetails.ListenAddress); err == nil && port == "80" {
-		log.Println("Shutdown default 80/tcp http listener in favor of: ", forWhat, "configuration.")
-		a.http01Challenge.Close()
-		a.http01Challenge = nil
+	if a.http01Challenge != nil {
+		if _, port, err := net.SplitHostPort(initialDetails.ListenAddress); err == nil && port == "80" {
+			log.Println("Shutdown default 80/tcp http listener in favor of: ", forWhat, "configuration.")
+			a.http01Challenge.Close()
+			a.http01Challenge = nil
+		}
 	}
 
 	if err := a.refreshListeners(forWhat, mux, &initialDetails); err != nil {

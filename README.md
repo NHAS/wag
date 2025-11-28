@@ -12,6 +12,10 @@ Key Features:
   - SSO
   - PAM
   - TOTP
+
+
+
+[Documentation](https://wag-docs.dev)
   
 ## Administration
 
@@ -36,9 +40,12 @@ Key Features:
 
 # Sponsorship 
 
-This work was very kindly supported by <a href='https://www.aurainfosec.com/'>Aura Information Security</a>. 
+This work was very kindly supported by:
 
-![image](https://user-images.githubusercontent.com/6820641/181147262-c7baa5a5-36b2-4153-b01f-5064226ec56e.png)
+[![image](https://user-images.githubusercontent.com/6820641/181147262-c7baa5a5-36b2-4153-b01f-5064226ec56e.png)](https://www.aurainfosec.com/)
+
+[![softscheck](https://github.com/user-attachments/assets/674004c9-50c0-4ab5-b368-ca5b46e748fb)](https://www.softscheck.com/)
+
 
 
 # Requirements
@@ -54,6 +61,7 @@ sysctl -w net.ipv6.conf.all.accept_ra=2
 sysctl -w net.ipv6.conf.all.accept_redirects=1
 sysctl -w net.ipv6.conf.all.accept_source_route=1
 ```
+
 
 # Setup instructions
 
