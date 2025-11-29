@@ -60,10 +60,11 @@ func Initialise(db interfaces.Database) error {
 		cfDnsToken.APIToken = ""
 	}
 
-	config := certmagic.NewDefault()
-	config.Storage = data.NewCertStore(db.Raw(), "wag-certificates")
+	certmagic.Default.Storage = data.NewCertStore(db.Raw(), "wag-certificates")
 
-	certmagic.Default.Storage = config.Storage
+	config := certmagic.NewDefault()
+	// apparently it is important to set the storage before creating a config
+	config.Storage = certmagic.Default.Storage
 
 	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
 		CA:                      provider,
