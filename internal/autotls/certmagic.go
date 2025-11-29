@@ -63,6 +63,8 @@ func Initialise(db interfaces.Database) error {
 	config := certmagic.NewDefault()
 	config.Storage = data.NewCertStore(db.Raw(), "wag-certificates")
 
+	certmagic.Default.Storage = config.Storage
+
 	issuer := certmagic.NewACMEIssuer(config, certmagic.ACMEIssuer{
 		CA:                      provider,
 		Email:                   email,
