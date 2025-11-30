@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"net/mail"
 	"net/url"
 	"os"
@@ -108,13 +107,10 @@ func (cms *CertMagicStore) Exists(ctx context.Context, key string) bool {
 	keyPath := path.Join(cms.basePath, key)
 
 	res, err := cms.etcd.Get(ctx, keyPath, clientv3.WithCountOnly(), clientv3.WithPrefix())
-	log.Println("[CertMagicStore] EXISTS ", key, keyPath, err)
 
 	if err != nil {
 		return false
 	}
-
-	log.Println("[CertMagicStore] EXISTS ", keyPath, res.Count)
 
 	return res.Count > 0
 }
@@ -177,7 +173,6 @@ func (cms *CertMagicStore) Store(ctx context.Context, key string, value []byte) 
 	keyPath := path.Join(cms.basePath, key)
 
 	_, err := cms.etcd.Put(ctx, keyPath, string(value))
-	log.Println("[CertMagicStore] STORE ", key, keyPath, len(value), err)
 
 	return err
 }
@@ -186,13 +181,10 @@ func (cms *CertMagicStore) Load(ctx context.Context, key string) ([]byte, error)
 	keyPath := path.Join(cms.basePath, key)
 
 	res, err := cms.etcd.Get(ctx, keyPath)
-	log.Println("[CertMagicStore] LOAD ", key, keyPath, err)
 
 	if err != nil {
 		return nil, err
 	}
-
-	log.Println("[CertMagicStore] LOAD ", keyPath, res.Count, len(res.Kvs))
 
 	if res.Count == 0 {
 		return nil, fs.ErrNotExist
@@ -210,14 +202,11 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 	keyPath := path.Join(cms.basePath, key)
 
 	delResp, err := cms.etcd.Delete(ctx, keyPath)
-	log.Println("[CertMagicStore] DELETE ", key, keyPath, err)
 
 	if err != nil {
 
 		return err
 	}
-
-	log.Println("[CertMagicStore] DELETE ", keyPath, delResp.Deleted)
 
 	if delResp.Deleted == 0 {
 
@@ -226,13 +215,10 @@ func (cms *CertMagicStore) Delete(ctx context.Context, key string) error {
 		}
 
 		delResp, err := cms.etcd.Delete(ctx, keyPath, clientv3.WithPrefix())
-		log.Println("[CertMagicStore] DELETE Directory", key, keyPath, err)
 
 		if err != nil {
 			return err
 		}
-
-		log.Println("[CertMagicStore] DELETE Directory", keyPath, delResp.Deleted)
 
 		if delResp.Deleted == 0 {
 
@@ -249,13 +235,10 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 	keyPath := path.Join(cms.basePath, pathPrefix)
 
 	response, err := cms.etcd.Get(context.Background(), keyPath, clientv3.WithPrefix(), clientv3.WithKeysOnly())
-	log.Println("[CertMagicStore] LIST ", pathPrefix, keyPath, recursive, err)
 
 	if err != nil {
 		return nil, err
 	}
-
-	log.Println("[CertMagicStore] LIST ", keyPath, response.Count)
 
 	if response.Count == 0 {
 		return nil, fs.ErrNotExist
@@ -267,8 +250,6 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 		key := strings.TrimPrefix(string(res.Key), cms.basePath+string(os.PathSeparator))
 		keys = append(keys, key)
 	}
-
-	log.Println("[CertMagicStore] LIST ", keyPath, keys)
 
 	if recursive {
 		return keys, nil
@@ -295,8 +276,6 @@ func (cms *CertMagicStore) List(ctx context.Context, pathPrefix string, recursiv
 		cKeys = append(cKeys, path.Join(pathPrefix, key))
 	}
 
-	log.Println("[CertMagicStore] LIST non-recursive", keyPath, cKeys)
-
 	return cKeys, nil
 }
 
@@ -304,13 +283,10 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 
 	keyPath := path.Join(cms.basePath, key)
 	res, err := cms.etcd.Get(ctx, keyPath)
-	log.Println("[CertMagicStore] Stat ", key, keyPath, err)
 
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
-
-	log.Println("[CertMagicStore] Stat ", keyPath, len(res.Kvs))
 
 	r := certmagic.KeyInfo{
 		Key: key,
@@ -327,13 +303,9 @@ func (cms *CertMagicStore) Stat(ctx context.Context, key string) (certmagic.KeyI
 	// look for directory
 	res, err = cms.etcd.Get(ctx, keyPath+string(os.PathSeparator), clientv3.WithPrefix(), clientv3.WithCountOnly(), clientv3.WithKeysOnly())
 
-	log.Println("[CertMagicStore] Stat directory ", key, keyPath, err)
-
 	if err != nil {
 		return certmagic.KeyInfo{}, err
 	}
-
-	log.Println("[CertMagicStore] Stat directory ", keyPath, res.Count)
 
 	if res.Count == 0 {
 		return certmagic.KeyInfo{}, fs.ErrNotExist
