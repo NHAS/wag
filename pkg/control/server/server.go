@@ -191,7 +191,8 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 		controlMux.HandleFunc("GET /clustering/ping", srvSock.getLastMemberPing)
 	}
 	srvSock.httpSrv = &http.Server{
-		Handler: controlMux,
+		Handler:     controlMux,
+		ReadTimeout: 1 * time.Second,
 	}
 
 	go func() {
