@@ -76,6 +76,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 	tunnel.HandleFunc("GET /api/routes", mfaPortal.routes)
 
 	tunnel.HandleFunc("POST /api/logout", mfaPortal.logout)
+	tunnel.HandleFunc("POST /api/login", mfaPortal.login)
 
 	tunnel.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		resources.Assets(w, r)
@@ -97,6 +98,23 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 	return m, nil
 }
 
+func (mp *MfaPortal) login(w http.ResponseWriter, r *http.Request) {
+
+	clientTunnelIp := utils.GetIPFromRequest(r)
+
+	user := users.GetUserFromContext(r.Context())
+
+	err := mp.db.AuthoriseDevice(user.Username, clientTunnelIp.String())
+
+	if err != nil {
+		log.Println(user.Username, clientTunnelIp, "could not authorise:", err)
+		http.Error(w, "Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Called AuthoriseDevice without any error")
+	w.WriteHeader(http.StatusNoContent)
+}
 func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 
 	if !Authed(r.Context()) {
