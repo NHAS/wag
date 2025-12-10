@@ -13,9 +13,6 @@ async function doLogin() {
     if (!resp) {
       throw new Error("Failed to login");
     }
-    // Login success logic
-    // Redirect to /success
-    router.push("/success")
   } catch (e) {
     catcher(e, "");
   }

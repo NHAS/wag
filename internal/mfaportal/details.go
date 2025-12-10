@@ -183,7 +183,7 @@ func (c *Challenger) deviceChanged(_ string, current, previous data.Device) erro
 	if c.db.HasDeviceAuthorised(current, previous) {
 		c.NotifyOfAuth(current)
 		// Notify auth sends a state update with it
-		sendUpdate = false
+		sendUpdate = true
 	}
 
 	if sendUpdate {
