@@ -99,13 +99,21 @@ async function initialRouting() {
       return
     }
 
-    if (info.isAuthorised) {
-      console.log("determined authed")
+    if (!info.isRegistered) {
+      router.push(getMFAPath())
+      return
+    } else {
+      console.log("Registered checking if it's authorized")
+      if (!info.isAuthorised) {
+        // Logic to authorize the device aka log in
+        console.log("not authorised, redirecting to authorise aka connect the tunnel")
+        router.push("/login")
+        return
+      }
       router.push("/success")
       return
     }
-
-    router.push(getMFAPath())
+    
 
     if (info.availableMfaMethods.length > 0) {
       if (info.isRegistered) {
@@ -136,8 +144,10 @@ async function stateUpdate() {
       return
     }
 
+
     const isLocked = currentState.account_locked || currentState.device_locked
     if (currentState.account_locked != previousState.account_locked || currentState.device_locked != previousState.device_locked) {
+      console.log("Checking change state lock")
       //if we have become locked
       if (isLocked) {
         notify("VPN Locked", "Your device has been locked. Please contact help")
@@ -152,6 +162,7 @@ async function stateUpdate() {
 
     const isAuthorised = currentState.is_authorized && currentState.has_registered
     if (currentState.is_authorized != previousState.is_authorized) {
+      console.log("Checking change state authorization")
       //we have authorised
       if (isAuthorised) {
         router.push("/success")
@@ -160,7 +171,7 @@ async function stateUpdate() {
 
       notify("VPN Authorisation Required", "Please authenticate with the VPN")
       // we have had a session expire, or logged out
-      router.push(getMFAPath())
+      router.push("/login")
       return
     }
 
@@ -203,7 +214,8 @@ if (window.location.pathname !== "/error") {
 
   // Set a watch to change the application state on any new updates
   watch(info, async newState => {
-
+    console.log("Printing info object from watcher")
+    console.log(info)
     if (route.path != "/error") {
       if (newState.isConnected) {
         console.log("state update: ", previousState == null, newState.state)

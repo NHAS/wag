@@ -13,3 +13,8 @@ export function logout(): Promise<boolean> {
     return (res.status === 204)
   });
 }
+export function login(): Promise<boolean> {
+  return client.post("/api/login").then((res) => {
+    return (res.status === 204)
+  });
+}
