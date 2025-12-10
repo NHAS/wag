@@ -2,6 +2,7 @@
 import { login } from '@/api';
 import { useToastError } from '@/composables/useToastError';
 import { useWebSocketStore } from '@/store/info';
+import router from "@/router";
 const { catcher } = useToastError();
 
 const info = useWebSocketStore()
@@ -13,11 +14,8 @@ async function doLogin() {
       throw new Error("Failed to login");
     }
     // Login success logic
-    if (info.state.userInfo) {
-    info.state.userInfo.is_authorized = resp
-    } else {
-      console.warn('userInfo is null, cannot update is_authorized')
-    }
+    // Redirect to /success
+    router.push("/success")
   } catch (e) {
     catcher(e, "");
   }
