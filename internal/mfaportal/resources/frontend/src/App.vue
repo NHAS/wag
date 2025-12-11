@@ -88,122 +88,134 @@ function getMFAPath(): string {
   return "/selection"
 }
 
+function isMfaMethodOidc(userMfaMethod: string): boolean {
+  return userMfaMethod === "oidc";
+}
+
+
+/*
+This function ensures navigation only happens when the router is fully ready,
+preventing navigation errors or hangs when pushing routes after async state changes.
+Specifically, it fixes the issue where closing and reopening the tab after deauthorizing
+would not redirect correctly on reauthorization.
+*/
+async function safeRouterPush(path: string) {
+  await router.isReady();
+  await router.push(path).catch((err) => {
+    console.error("Error detected when trying to redirect:", err);
+  });
+}
+
 async function initialRouting() {
   try {
-    await nextTick()
+    await nextTick();
 
     if (info.isDeviceLocked || info.isAccountLocked) {
-      console.log("determined locked")
-      router.push("/locked")
-      notify("VPN Locked", "Your device has been locked. Please contact help")
-      return
+      console.log("determined locked");
+      await safeRouterPush("/locked");
+      notify("VPN Locked", "Your device has been locked. Please contact help");
+      return;
     }
 
     if (!info.isRegistered) {
-      router.push(getMFAPath())
-      return
+      await safeRouterPush(getMFAPath());
+      return;
     } else {
-      console.log("Registered checking if it's authorized")
+      console.log("Registered checking if it's authorized");
       if (!info.isAuthorised) {
-        // Logic to authorize the device aka log in
-        console.log("not authorised, redirecting to authorise aka connect the tunnel")
-        router.push("/login")
-        return
+        console.log("not authorised, redirecting to authorise aka connect the tunnel");
+        if (isMfaMethodOidc(info.selectedMFAMethod)) {
+          await safeRouterPush("/login");
+          return;
+        }
+        await safeRouterPush(getMFAPath());
+        return;
       }
-      router.push("/success")
-      return
+      await safeRouterPush("/success");
+      return;
     }
-    
 
     if (info.availableMfaMethods.length > 0) {
       if (info.isRegistered) {
-        notify("VPN Authoirsation Required", "Please reauthenticate with the VPN")
+        notify("VPN Authoirsation Required", "Please reauthenticate with the VPN");
       } else {
-        notify("VPN Registration", "Please register an MFA method with the VPN")
+        notify("VPN Registration", "Please register an MFA method with the VPN");
       }
     }
 
   } catch (error) {
     console.error('Navigation error:', error);
   } finally {
-    previousState = info.state.userInfo
+    previousState = info.state.userInfo;
   }
 }
+
 
 async function stateUpdate() {
   try {
-    await nextTick()
+    await nextTick();
 
-
-    let currentState = info.state.userInfo
+    let currentState = info.state.userInfo;
     if (currentState == null) {
-      return
+      return;
     }
 
     if (previousState === null) {
-      return
+      return;
     }
 
-
-    const isLocked = currentState.account_locked || currentState.device_locked
+    const isLocked = currentState.account_locked || currentState.device_locked;
     if (currentState.account_locked != previousState.account_locked || currentState.device_locked != previousState.device_locked) {
-      console.log("Checking change state lock")
-      //if we have become locked
+      console.log("Checking change state lock");
       if (isLocked) {
-        notify("VPN Locked", "Your device has been locked. Please contact help")
-        router.push("/locked");
-        return
+        notify("VPN Locked", "Your device has been locked. Please contact help");
+        await safeRouterPush("/locked");
+        return;
       }
 
-      // we have become unlocked
-      router.push(getMFAPath())
-      return
+      await safeRouterPush(getMFAPath());
+      return;
     }
 
-    const isAuthorised = currentState.is_authorized && currentState.has_registered
+    const isAuthorised = currentState.is_authorized && currentState.has_registered;
     if (currentState.is_authorized != previousState.is_authorized) {
-      console.log("Checking change state authorization")
-      //we have authorised
       if (isAuthorised) {
-        router.push("/success")
-        return
+        console.log("Authorized");
+        await safeRouterPush("/success");
+        return;
+      }        
+      if (isMfaMethodOidc(currentState.user_mfa_method)) {
+        await safeRouterPush("/login");
+        return;
       }
-
-      notify("VPN Authorisation Required", "Please authenticate with the VPN")
-      // we have had a session expire, or logged out
-      router.push("/login")
-      return
+      notify("VPN Authorisation Required", "Please authenticate with the VPN");
+      await safeRouterPush(getMFAPath());
+      return;
     }
 
     if (currentState.has_registered != previousState.has_registered) {
-      router.push(getMFAPath())
-      return
+      await safeRouterPush(getMFAPath());
+      return;
     }
 
     if (router.currentRoute.value.name != null) {
-
-      const currentRouteName = router.currentRoute.value.name.toString()
-      const isAuthPage = currentRouteName.includes("auth") || currentRouteName.includes("register")
-
+      const currentRouteName = router.currentRoute.value.name.toString();
+      const isAuthPage = currentRouteName.includes("auth") || currentRouteName.includes("register");
       if (isAuthPage) {
         const currentMethods = new Map(currentState.available_mfa_methods.map((o) => [o.method, true]));
-
-        // If we are on an mfa method page (registration/authorisation) that has been disabled
         if (!currentMethods.has(currentRouteName.replace("_auth", "").replace("_register", ""))) {
-          router.push(getMFAPath())
-          return
+          await safeRouterPush(getMFAPath());
+          return;
         }
       }
-
     }
-
-
   } catch (error) {
     console.error('Navigation error:', error);
   } finally {
-    previousState = info.state.userInfo
+    previousState = info.state.userInfo;
   }
 }
+
 
 
 if (window.location.pathname !== "/error") {
@@ -214,8 +226,6 @@ if (window.location.pathname !== "/error") {
 
   // Set a watch to change the application state on any new updates
   watch(info, async newState => {
-    console.log("Printing info object from watcher")
-    console.log(info)
     if (route.path != "/error") {
       if (newState.isConnected) {
         console.log("state update: ", previousState == null, newState.state)
