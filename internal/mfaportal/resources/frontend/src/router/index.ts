@@ -27,7 +27,8 @@ const router = createRouter({
       path: "/register/pam",
       name: "pam_register",
       component: () => import("../pages/registration/Pam.vue"),
-    },    {
+    },
+    {
       path: "/authorise/pam",
       name: "pam_authorise",
       component: () => import("../pages/authorisation/Pam.vue"),
@@ -66,7 +67,7 @@ const router = createRouter({
       path: "/locked",
       name: "locked",
       component: () => import("../pages/Locked.vue"),
-    }
+    },
   ],
 });
 

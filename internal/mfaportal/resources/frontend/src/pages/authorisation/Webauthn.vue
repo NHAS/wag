@@ -1,27 +1,29 @@
 <script setup lang="ts">
-import { authoriseWebAuthn, finaliseWebauthnRegistration, getAuthorisationWebauthnDetails, getRegistrationWebauthnDetails } from "@/api";
-import WebAuthnInput from "@/components/WebAuthnInput.vue";
-import { useToastError } from "@/composables/useToastError";
-import router from "@/router";
-import { useWebSocketStore } from "@/store/info";
 import { ref } from "vue";
-import { useToast } from "vue-toastification";
+
+import WebAuthnInput from "@/components/WebAuthnInput.vue";
+
+import { useToastError } from "@/composables/useToastError";
+
+import { authoriseWebAuthn, getAuthorisationWebauthnDetails } from "@/api";
+import { useWebSocketStore } from "@/store/info";
 
 const infoStore = useWebSocketStore();
 
-const toast = useToast();
 const { catcher } = useToastError();
 
-
-const isLoading = ref(false)
+const isLoading = ref(false);
 
 // Base64 to ArrayBuffer
 function bufferDecode(value: string) {
-  return Uint8Array.from(atob(value.replace(/_/g, '/').replace(/-/g, '+')), c => c.charCodeAt(0));
+  return Uint8Array.from(
+    atob(value.replace(/_/g, "/").replace(/-/g, "+")),
+    (c) => c.charCodeAt(0),
+  );
 }
 
 async function authorise() {
-  isLoading.value = true
+  isLoading.value = true;
   try {
     const credentialRequestOptions = await getAuthorisationWebauthnDetails();
 
@@ -33,22 +35,22 @@ async function authorise() {
       throw new Error(credentialRequestOptions.error ?? "Failed");
     }
 
-    const creds = credentialRequestOptions.data
+    const creds = credentialRequestOptions.data;
 
     creds.publicKey.challenge = bufferDecode(creds.publicKey.challenge);
     creds.publicKey.allowCredentials.forEach(function (listItem: any) {
       listItem.id = bufferDecode(listItem.id);
     });
 
-    const newCreds = await navigator.credentials.get({
+    const newCreds = (await navigator.credentials.get({
       publicKey: creds.publicKey,
-    }) as PublicKeyCredential
+    })) as PublicKeyCredential;
 
     if (newCreds == null) {
-      throw new Error("Failed to get credentials from security key")
+      throw new Error("Failed to get credentials from security key");
     }
 
-    const resp = await authoriseWebAuthn(newCreds)
+    const resp = await authoriseWebAuthn(newCreds);
     if (resp.status === undefined) {
       throw new Error(resp.error ?? "Failed, unknown server response.");
     }
@@ -56,17 +58,21 @@ async function authorise() {
     if (resp.status !== "success") {
       throw new Error(resp.error ?? "Failed");
     }
-
   } catch (e: any) {
-    isLoading.value = false
+    isLoading.value = false;
 
-    console.log(e, e.lineNumber)
+    console.log(e, e.lineNumber);
     catcher(e, "");
   }
 }
 </script>
 
 <template>
-  <WebAuthnInput @submit="authorise" :help-mail="infoStore.helpMail" title="Verify Your Identity" :loading=isLoading
-    button-label="Verify with Security Key"></WebAuthnInput>
+  <WebAuthnInput
+    @submit="authorise"
+    :help-mail="infoStore.helpMail"
+    title="Verify Your Identity"
+    :loading="isLoading"
+    button-label="Verify with Security Key"
+  ></WebAuthnInput>
 </template>

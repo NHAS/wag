@@ -3,25 +3,20 @@ export interface MFAMethod {
   method: string;
 }
 
-export interface MFAMethod {
-	method: string
-	friendly_name: string
-}
-
-export interface VersionsDTO  {
-	web: string
-	wag: string
+export interface VersionsDTO {
+  web: string;
+  wag: string;
 }
 
 export interface UserInfoDTO {
-  versions: VersionsDTO
+  versions: VersionsDTO;
 
   has_registered: boolean;
   user_mfa_method: string;
   default_mfa: string;
   available_mfa_methods: MFAMethod[];
   username: string;
-  
+
   account_locked: boolean;
   device_locked: boolean;
 
@@ -36,11 +31,10 @@ export interface ChallengeAuthorisationRequestDTO {
 
 export interface AuthorisationResponseDTO {
   type: string;
-  authorisation_time: string
+  authorisation_time: string;
   challenge: string;
   info: UserInfoDTO;
 }
-
 
 export interface TOTPDetailsDTO {
   image_data: string;
@@ -54,19 +48,18 @@ export interface TOTPRequestDTO {
 
 export interface AuthResponse {
   status: string;
-	data: any;
-	error: string;
+  data: any;
+  error: string;
 }
 
 export interface PamAuthRequestDTO {
-  password: string
+  password: string;
 }
 
+export interface StatusDTO {
+  IsAuthorised: boolean;
 
-export interface  StatusDTO {
-	IsAuthorised: boolean
-
-	MFA:    string[]
-	Public: string[]
-	Deny:   string[]
+  MFA: string[];
+  Public: string[];
+  Deny: string[];
 }

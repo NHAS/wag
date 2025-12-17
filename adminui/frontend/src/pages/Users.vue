@@ -67,7 +67,7 @@ async function updateUser(usernames: string[], action: UserEditActions) {
     const resp = await editUser(data)
 
     usersStore.load(true)
-    
+
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
       return
@@ -87,10 +87,9 @@ async function tryDeleteUsers(users: string[]) {
   try {
     const resp = await deleteUsers(users)
     usersStore.load(true)
-    
+
     selectAll.value = false
     selectedUsers.value = []
-
 
     if (!resp.success) {
       toast.error(resp.message ?? 'Failed')
@@ -125,8 +124,6 @@ function sortUsers(by: keyof UserDTO) {
     })
   }
 }
-
-
 
 watch(selectAll, newValue => {
   if (newValue) {
@@ -169,23 +166,33 @@ const selectedUsersHasLocked = computed(() => {
                   Add User <font-awesome-icon :icon="Icons.Add" />
                 </button>
               </div>
-              <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'">
+              <div
+                :class="selectedUsers.length > 0 ? 'tooltip' : null"
+                :data-tip="(selectedUsersHasLocked ? 'Unlock ' : 'Lock ') + selectedUsers.length + ' users'"
+              >
                 <button
                   @click="updateUser(selectedUsers, selectedUsersHasLocked ? UserEditActions.Unlock : UserEditActions.Lock)"
-                  class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0"
+                  class="btn btn-ghost disabled:bg-white"
+                  :disabled="selectedUsers.length == 0"
                 >
                   {{ selectedUsersHasLocked ? 'Unlock' : 'Lock' }}
                   <font-awesome-icon :icon="selectedUsersHasLocked ? Icons.Unlocked : Icons.Locked" />
                 </button>
               </div>
               <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Reset ' + selectedUsers.length + ' users MFA'">
-                <button @click="updateUser(selectedUsers, UserEditActions.ResetMFA)" class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">
+                <button
+                  @click="updateUser(selectedUsers, UserEditActions.ResetMFA)"
+                  class="btn btn-ghost disabled:bg-white"
+                  :disabled="selectedUsers.length == 0"
+                >
                   Reset MFA <font-awesome-icon :icon="Icons.Refresh" />
                 </button>
               </div>
               <div :class="selectedUsers.length > 0 ? 'tooltip' : null" :data-tip="'Delete ' + selectedUsers.length + ' users'">
                 <ConfirmModal @on-confirm="() => tryDeleteUsers(selectedUsers)">
-                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">Bulk Delete<font-awesome-icon :icon="Icons.Delete" /></button>
+                  <button class="btn btn-ghost disabled:bg-white" :disabled="selectedUsers.length == 0">
+                    Bulk Delete<font-awesome-icon :icon="Icons.Delete" />
+                  </button>
                 </ConfirmModal>
               </div>
             </span>
@@ -233,7 +240,9 @@ const selectedUsersHasLocked = computed(() => {
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ user.devices }}</div>
                 </td>
                 <td class="font-mono">
-                  <div class="overflow-hidden text-ellipsis whitespace-nowrap"><span class="badge min-w-[100px]" :class="{'badge-primary': user.mfa_type != 'unset'}">{{ user.mfa_type }}</span></div>
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span class="badge min-w-[100px]" :class="{ 'badge-primary': user.mfa_type != 'unset' }">{{ user.mfa_type }}</span>
+                  </div>
                 </td>
                 <td class="font-mono relative">
                   <div>

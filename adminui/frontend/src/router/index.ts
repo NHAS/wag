@@ -55,8 +55,6 @@ const router = createRouter({
     route('/management/registration_tokens', 'Registration Tokens', () => import('@/pages/RegistrationTokens.vue')),
     route('/management/automation', 'Automation', () => import('@/pages/Automation.vue')),
 
-
-
     route('/settings', 'Settings', () => import('@/pages/Settings.vue')),
     route('/admin_users', 'Admin Users', () => import('@/pages/AdminUsers.vue'))
   ]

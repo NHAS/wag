@@ -4,7 +4,7 @@ import { getAllDevices } from '@/api/devices'
 import type { DeviceDTO } from '@/api/types'
 
 export type DevicesStore = {
-  devices: DeviceDTO[] 
+  devices: DeviceDTO[]
   loading: boolean
 }
 
@@ -37,6 +37,6 @@ export const useDevicesStore = defineStore({
   getters: {
     byAddress: state => (address: string) => state.devices.find(x => x.internal_ip == address),
     byOwner: state => (owner: string) => state.devices.find(x => x.owner == owner),
-    numDevices: state => () => state.devices?.length ?? 0,
+    numDevices: state => () => state.devices?.length ?? 0
   }
 })

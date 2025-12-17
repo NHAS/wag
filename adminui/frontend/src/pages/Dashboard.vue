@@ -12,7 +12,6 @@ import { useTokensStore } from '@/stores/registration_tokens'
 import { useInstanceDetailsStore } from '@/stores/serverInfo'
 import { useSessionsStore } from '@/stores/sessions'
 
-
 const sessionStore = useSessionsStore()
 sessionStore.load(false)
 
@@ -55,7 +54,9 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
             </div>
             <div class="card-body" v-else>
               <h5 class="card-title">Manage MFA</h5>
-              <div>{{ usersLackingMfa.length + ' user'+(usersLackingMfa.length > 1 ? "s" : "")+' have not completed MFA registration' }}</div>
+              <div>
+                {{ usersLackingMfa.length + ' user' + (usersLackingMfa.length > 1 ? 's' : '') + ' have not completed MFA registration' }}
+              </div>
             </div>
           </router-link>
           <router-link
@@ -65,7 +66,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
           >
             <div class="card-body" v-if="lockedDevices.length == 0">
               <h5 class="card-title">Manage Devices</h5>
-              <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() + " devices"}}</div>
+              <div>{{ devicesStore.numDevices() == 0 ? 'No devices' : devicesStore.numDevices() + ' devices' }}</div>
             </div>
             <div class="card-body" v-else>
               <h5 class="card-title">Unlock Device{{ lockedDevices.length > 1 ? 's' : '' }}</h5>
@@ -76,9 +77,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
             <div class="card-body">
               <h5 class="card-title">View Active Sessions</h5>
               <div>
-                {{
-                  sessionStore.numSessions() + ' active sessions'
-                }}
+                {{ sessionStore.numSessions() + ' active sessions' }}
               </div>
             </div>
           </router-link>
