@@ -6,58 +6,73 @@ import {
 } from ".";
 
 export function getTotpDetails(): Promise<TOTPDetailsDTO> {
-  return client.post("/api/totp/register/details").then((res) => {
-    if (res.data.status != "register_details") {
-      throw new Error(`API request returned unexpected type "${res.data.status}"`);
-    }
+  return client
+    .post("/api/totp/register/details")
+    .then((res) => {
+      if (res.data.status != "register_details") {
+        throw new Error(
+          `API request returned unexpected type "${res.data.status}"`,
+        );
+      }
 
-    return res.data.data
-  }).catch(e => {
-      if (e.response.data.status !== undefined && e.response.data.status == "error") {
-        throw new Error(e.response.data.error)
-    }
+      return res.data.data;
+    })
+    .catch((e) => {
+      if (
+        e.response.data.status !== undefined &&
+        e.response.data.status == "error"
+      ) {
+        throw new Error(e.response.data.error);
+      }
 
-    throw e
-  });
+      throw e;
+    });
 }
 
-export function registerTotp(
-  code: string,
-): Promise<AuthResponse> {
+export function registerTotp(code: string): Promise<AuthResponse> {
   const data: TOTPRequestDTO = {
     code: code,
   };
 
-  return client.post("/api/totp/register/complete", data).then((res) => {
-    return res.data
-  }).catch(e => {
-    if (e.status != 200) {
-      if (e.response.data.status !== undefined && e.response.data.status == "error") {
-        throw new Error(e.response.data.error)
+  return client
+    .post("/api/totp/register/complete", data)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      if (e.status != 200) {
+        if (
+          e.response.data.status !== undefined &&
+          e.response.data.status == "error"
+        ) {
+          throw new Error(e.response.data.error);
+        }
       }
-    }
 
-    throw e
-  });
+      throw e;
+    });
 }
 
-
-export function authoriseTotp(
-  code: string,
-): Promise<AuthResponse> {
+export function authoriseTotp(code: string): Promise<AuthResponse> {
   const data: TOTPRequestDTO = {
     code: code,
   };
 
-  return client.post("/api/totp/authorise", data).then((res) => {
-    return res.data
-  }).catch(e => {
-    if (e.status != 200) {
-      if (e.response.data.status !== undefined && e.response.data.status == "error") {
-        throw new Error(e.response.data.error)
+  return client
+    .post("/api/totp/authorise", data)
+    .then((res) => {
+      return res.data;
+    })
+    .catch((e) => {
+      if (e.status != 200) {
+        if (
+          e.response.data.status !== undefined &&
+          e.response.data.status == "error"
+        ) {
+          throw new Error(e.response.data.error);
+        }
       }
-    }
 
-    throw e
-  });
+      throw e;
+    });
 }

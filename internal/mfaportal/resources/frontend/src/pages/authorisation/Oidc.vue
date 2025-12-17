@@ -1,9 +1,7 @@
 <script setup lang="ts">
-
-setTimeout(function(){
-  window.location.href = "/api/oidc/authorise/start"
-}, 1500)
-
+setTimeout(function () {
+  window.location.href = "/api/oidc/authorise/start";
+}, 1500);
 </script>
 
 <template>

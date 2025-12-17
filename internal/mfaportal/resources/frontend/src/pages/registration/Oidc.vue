@@ -1,9 +1,7 @@
 <script setup lang="ts">
-
-setTimeout(function(){
-  window.location.href = "/api/oidc/register"
-}, 750)
-
+setTimeout(function () {
+  window.location.href = "/api/oidc/register";
+}, 750);
 </script>
 
 <template>

@@ -10,6 +10,6 @@ export * from "./pam";
 
 export function logout(): Promise<boolean> {
   return client.post("/api/logout").then((res) => {
-    return (res.status === 204)
+    return res.status === 204;
   });
 }
