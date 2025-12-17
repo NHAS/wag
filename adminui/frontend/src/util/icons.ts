@@ -19,7 +19,6 @@ export const Icons = {
   RegistrationKey: 'fa-solid fa-key',
   Robot: 'fa-solid fa-robot',
 
-
   Open: 'fa-solid fa-bars',
 
   Advanced: 'fa-solid circle-nodes',
