@@ -27,7 +27,8 @@ const router = createRouter({
       path: "/register/pam",
       name: "pam_register",
       component: () => import("../pages/registration/Pam.vue"),
-    },    {
+    },
+    {
       path: "/authorise/pam",
       name: "pam_authorise",
       component: () => import("../pages/authorisation/Pam.vue"),
@@ -45,12 +46,12 @@ const router = createRouter({
     {
       path: "/register/oidc",
       name: "oidc_register",
-      component: () => import("../pages/registration/Oidc.vue"),
+      component: () => import("../pages/Oidc.vue"),
     },
     {
       path: "/authorise/oidc",
       name: "oidc_auth",
-      component: () => import("../pages/authorisation/Oidc.vue"),
+      component: () => import("../pages/Oidc.vue"),
     },
     {
       path: "/success",
@@ -66,7 +67,7 @@ const router = createRouter({
       path: "/locked",
       name: "locked",
       component: () => import("../pages/Locked.vue"),
-    }
+    },
   ],
 });
 
