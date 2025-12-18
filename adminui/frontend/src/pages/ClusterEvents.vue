@@ -105,7 +105,12 @@ function openEventInspectionModal(error: GeneralEvent) {
           </p>
 
           <label for="members" class="block font-medium text-gray-900 pt-6">Error:</label>
-          <textarea class="disabled textarea textarea-bordered w-full font-mono" rows="3" disabled v-model="inspectedError.error"></textarea>
+          <textarea
+            class="disabled textarea textarea-bordered w-full font-mono"
+            rows="3"
+            disabled
+            v-model="inspectedError.error"
+          ></textarea>
 
           <label for="members" class="block font-medium text-gray-900 pt-6">Event JSON:</label>
           <textarea
@@ -176,7 +181,7 @@ function openEventInspectionModal(error: GeneralEvent) {
             <table class="table table-fixed">
               <tbody>
                 <tr
-                  class="hover group" 
+                  class="hover group"
                   v-for="(event, index) in currentEvents"
                   :key="'cluster-events-' + index"
                   v-on:dblclick="openEventInspectionModal(event)"

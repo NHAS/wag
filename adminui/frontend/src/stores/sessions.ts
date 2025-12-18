@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import type { SessionDTO } from '@/api/types'
+
 import { getAllSessions } from '@/api'
 
 export type SessionsStore = {
@@ -37,6 +38,6 @@ export const useSessionsStore = defineStore({
   getters: {
     deviceActive: state => (address: string) => state.sessions?.some(x => x.address == address) ?? false,
     byUser: state => (username: string) => state.sessions?.find(x => x.username == username) ?? [],
-    numSessions: state => () => state.sessions?.length ?? 0,
+    numSessions: state => () => state.sessions?.length ?? 0
   }
 })

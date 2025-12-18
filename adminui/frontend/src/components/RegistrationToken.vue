@@ -58,64 +58,64 @@ async function createToken() {
       <h3 class="text-lg font-bold">Create Registration Token</h3>
       <div class="mt-8">
         <form @submit.prevent="createToken()">
-        <div class="form-group">
-          <label for="username" class="block font-medium text-gray-900">Username</label>
-          <input type="text" id="username" class="input input-bordered input-sm w-full" required v-model="newToken.username" />
-        </div>
+          <div class="form-group">
+            <label for="username" class="block font-medium text-gray-900">Username</label>
+            <input type="text" id="username" class="input input-bordered input-sm w-full" required v-model="newToken.username" />
+          </div>
 
-        <div class="form-group">
-          <label for="token" class="block font-medium text-gray-900 pt-6">Token</label>
-          <input type="text" id="token" class="input input-bordered input-sm w-full" v-model="newToken.token" placeholder="(Optional)" />
-        </div>
+          <div class="form-group">
+            <label for="token" class="block font-medium text-gray-900 pt-6">Token</label>
+            <input type="text" id="token" class="input input-bordered input-sm w-full" v-model="newToken.token" placeholder="(Optional)" />
+          </div>
 
-        <div class="form-group">
-          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Static IP</label>
-          <input
-            type="text"
-            id="static_ip"
-            class="input input-bordered input-sm w-full"
-            v-model="newToken.static_ip"
-            placeholder="(Optional)"
-          />
-        </div>
+          <div class="form-group">
+            <label for="overwrites" class="block font-medium text-gray-900 pt-6">Static IP</label>
+            <input
+              type="text"
+              id="static_ip"
+              class="input input-bordered input-sm w-full"
+              v-model="newToken.static_ip"
+              placeholder="(Optional)"
+            />
+          </div>
 
-        <div class="form-group">
-          <label for="overwrites" class="block font-medium text-gray-900 pt-6">Overwrites</label>
-          <input
-            type="text"
-            id="overwrites"
-            class="input input-bordered input-sm w-full"
-            v-model="newToken.overwrites"
-            placeholder="(Optional)"
-          />
-        </div>
+          <div class="form-group">
+            <label for="overwrites" class="block font-medium text-gray-900 pt-6">Overwrites</label>
+            <input
+              type="text"
+              id="overwrites"
+              class="input input-bordered input-sm w-full"
+              v-model="newToken.overwrites"
+              placeholder="(Optional)"
+            />
+          </div>
 
-        <div class="form-group">
-          <label for="tag" class="block font-medium text-gray-900 pt-6">Tag</label>
-          <input
-            type="text"
-            id="tag"
-            class="input input-bordered input-sm w-full"
-            v-model="newToken.tag"
-            placeholder="(Optional)"
-          />
-        </div>
+          <div class="form-group">
+            <label for="tag" class="block font-medium text-gray-900 pt-6">Tag</label>
+            <input type="text" id="tag" class="input input-bordered input-sm w-full" v-model="newToken.tag" placeholder="(Optional)" />
+          </div>
 
-        <div class="form-group">
-          <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
-          <input type="text" id="groups" class="input input-bordered input-sm w-full" @input="(e: Event) => {
-             let target = e.target as HTMLInputElement
-            
-              newToken.groups =  target.value.split(' ')
+          <div class="form-group">
+            <label for="groups" class="block font-medium text-gray-900 pt-6">Groups</label>
+            <input
+              type="text"
+              id="groups"
+              class="input input-bordered input-sm w-full"
+              @input="
+                (e: Event) => {
+                  let target = e.target as HTMLInputElement
 
-          }" placeholder="(Optional)" />
-        </div>
+                  newToken.groups = target.value.split(' ')
+                }
+              "
+              placeholder="(Optional)"
+            />
+          </div>
 
-        <div class="form-group">
-          <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
-          <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
-        </div>
-
+          <div class="form-group">
+            <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
+            <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
+          </div>
         </form>
 
         <span class="mt-4 flex">

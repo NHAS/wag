@@ -1,9 +1,16 @@
 import { defineStore } from "pinia";
-import { ref, computed, inject } from "vue";
-import type { AuthorisationResponseDTO, ChallengeAuthorisationRequestDTO, UserInfoDTO } from "@/api/types";
+import { ref, computed } from "vue";
 import { useToast } from "vue-toastification";
 import type { ToastOptions } from "vue-toastification/dist/types/types";
-import { globalInstanceManager, type SingleInstanceManager } from "@/singleton";
+
+import type {
+  AuthorisationResponseDTO,
+  ChallengeAuthorisationRequestDTO,
+  UserInfoDTO,
+} from "@/api/types";
+
+import { globalInstanceManager } from "@/singleton";
+
 const toast = useToast();
 export interface WebSocketState {
   connection: WebSocket | null;
@@ -15,8 +22,6 @@ export interface WebSocketState {
   connectionError: string | null;
   challenge: string | null;
 }
-
-
 
 export const useWebSocketStore = defineStore("websocket", () => {
   // State
@@ -38,19 +43,22 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   // Connect to WebSocket
   const connect = () => {
-
-    if (state.value.isConnected || state.value.isConnecting || state.value.isClosed) {
+    if (
+      state.value.isConnected ||
+      state.value.isConnecting ||
+      state.value.isClosed
+    ) {
       return;
     }
 
-    state.value.challenge = localStorage.getItem(LOCAL_STORAGE_KEY)
+    state.value.challenge = localStorage.getItem(LOCAL_STORAGE_KEY);
 
     state.value.isConnecting = true;
     state.value.connectionError = null;
 
     try {
       // Get the WebSocket URL from environment or configuration
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${wsProtocol}//${window.location.host}/api/session?key=${globalInstanceManager?.getId()}`;
 
       const ws = new WebSocket(wsUrl);
@@ -76,46 +84,59 @@ export const useWebSocketStore = defineStore("websocket", () => {
   // Handle WebSocket messages
   const handleMessage = (event: MessageEvent) => {
     if (state.value.isClosed) {
-      return
+      return;
     }
 
     try {
       const data = JSON.parse(event.data);
 
       if (data.type === undefined) {
-        console.log("Server sent unknown object: ", data)
-        return
+        console.log("Server sent unknown object: ", data);
+        return;
       }
 
-      console.log("got object", data)
+      console.log("got object", data);
 
       switch (data.type) {
-        case "info":
-          updateState(data)
+        case "info": {
+          updateState(data);
           state.value.isConnected = true;
-          break
-        case "endpoint-change-challenge":
-          sendChallenge()
           break;
-        case "ping":
-          state.value.connection?.send(JSON.stringify({
-            "type": "pong",
-            "pong": true
-          }))
-          console.log("got ping")
+        }
+        case "endpoint-change-challenge": {
+          sendChallenge();
           break;
+        }
+        case "ping": {
+          state.value.connection?.send(
+            JSON.stringify({
+              type: "pong",
+              pong: true,
+            }),
+          );
+          console.log("got ping");
+          break;
+        }
+        case "authorised": {
+          const authorisationMessage = data as AuthorisationResponseDTO;
+          state.value.challenge = authorisationMessage.challenge;
+          localStorage.setItem(
+            LOCAL_STORAGE_KEY,
+            authorisationMessage.challenge,
+          );
 
-        case "authorised":
-          const authorisationMessage = data as AuthorisationResponseDTO
-          state.value.challenge = authorisationMessage.challenge
-          localStorage.setItem(LOCAL_STORAGE_KEY, authorisationMessage.challenge)
+          updateState(authorisationMessage.info);
 
-          updateState(authorisationMessage.info)
-
-          console.log("got authorised message: ", data)
-          break
-        default:
-          console.log("Server sent message with unknown type: ", data.type, data)
+          console.log("got authorised message: ", data);
+          break;
+        }
+        default: {
+          console.log(
+            "Server sent message with unknown type: ",
+            data.type,
+            data,
+          );
+        }
       }
 
       // Additional message handling can be added here
@@ -126,23 +147,25 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
   const updateState = (newState: UserInfoDTO) => {
     if (state.value.userInfo === null) {
-      state.value.userInfo = newState
-      return
+      state.value.userInfo = newState;
+      return;
     }
 
-    if (state.value.userInfo.versions !== null && state.value.userInfo.versions.web != newState.versions.web) {
-
-      toast.info("New version of Wag is available, reloading...")
+    if (
+      state.value.userInfo.versions !== null &&
+      state.value.userInfo.versions.web != newState.versions.web
+    ) {
+      toast.info("New version of Wag is available, reloading...");
       setTimeout(function () {
-        close()
-        window.location.reload()
-      }, 2000 * Math.random())
+        close();
+        window.location.reload();
+      }, 2000 * Math.random());
 
-      return
+      return;
     }
 
-    state.value.userInfo = newState
-  }
+    state.value.userInfo = newState;
+  };
 
   // Handle WebSocket errors
   const handleError = (event: Event) => {
@@ -158,27 +181,33 @@ export const useWebSocketStore = defineStore("websocket", () => {
     state.value.isConnecting = false;
 
     if (state.value.isClosed) {
-      return
+      return;
     }
 
-    let message = event.reason != null && event.reason != "" ? event.reason : "Disconnected."
+    let message =
+      event.reason != null && event.reason != ""
+        ? event.reason
+        : "Disconnected.";
 
-    let settings: ToastOptions & { type?: undefined } = {
+    const settings: ToastOptions & { type?: undefined } = {
       timeout: undefined,
       closeOnClick: false,
-      draggable: false
-    }
+      draggable: false,
+    };
     // Attempt to reconnect if not a normal closure or a going away message
     if (event.code !== 1000 && event.code !== 1001) {
       // 5 -> 7 seconds random delay
-      const delay = (state.value.reconnectAttempts == 0) ? 2 + Math.random() : 1000 * 5 + (2 * Math.random());
+      const delay =
+        state.value.reconnectAttempts == 0
+          ? 2 + Math.random()
+          : 1000 * 5 + 2 * Math.random();
 
       if (state.value.reconnectAttempts < 20) {
         state.value.reconnectAttempts++;
-        message = `Reconnecting, attempt ${state.value.reconnectAttempts}/20...`
+        message = `Reconnecting, attempt ${state.value.reconnectAttempts}/20...`;
       } else {
-        message = `Failed to reconnect to server. Please reload page.`
-        settings.timeout = false
+        message = `Failed to reconnect to server. Please reload page.`;
+        settings.timeout = false;
       }
 
       setTimeout(() => {
@@ -188,22 +217,22 @@ export const useWebSocketStore = defineStore("websocket", () => {
     }
 
     if (message.includes("Duplicate")) {
-      settings.timeout = false
+      settings.timeout = false;
 
       if (message.includes(globalInstanceManager?.getId() as string)) {
         setTimeout(() => {
           connect();
         }, 2);
-        return
+        return;
       }
 
-      let i = message.indexOf(". ")
-      if(i != -1) {
-        message = message.slice(0, i)
+      const i = message.indexOf(". ");
+      if (i != -1) {
+        message = message.slice(0, i);
       }
     }
 
-    toast.error(message, settings)
+    toast.error(message, settings);
   };
 
   // Send a challenge to the server
@@ -215,15 +244,15 @@ export const useWebSocketStore = defineStore("websocket", () => {
 
     const challengeData: ChallengeAuthorisationRequestDTO = {
       type: "challenge-response",
-      challenge: state.value.challenge ?? ""
+      challenge: state.value.challenge ?? "",
     };
     state.value.connection.send(JSON.stringify(challengeData));
   };
 
   const close = () => {
-    state.value.isClosed = true
-    disconnect()
-  }
+    state.value.isClosed = true;
+    disconnect();
+  };
 
   // Disconnect WebSocket
   const disconnect = () => {
@@ -236,17 +265,32 @@ export const useWebSocketStore = defineStore("websocket", () => {
     }
   };
 
-
   // Computed properties for easy access to user info
-  const isLoggedIn = computed(() => state.value.userInfo?.is_authorized ?? false);
+  const isLoggedIn = computed(
+    () => state.value.userInfo?.is_authorized ?? false,
+  );
   const username = computed(() => state.value.userInfo?.username ?? "");
-  const selectedMFAMethod = computed(() => state.value.userInfo?.user_mfa_method ?? "unset");
-  const availableMfaMethods = computed(() => state.value.userInfo?.available_mfa_methods ?? []);
-  const defaultMFAMethod = computed(() => state.value.userInfo?.default_mfa ?? "");
-  const isAccountLocked = computed(() => state.value.userInfo?.account_locked ?? false);
-  const isDeviceLocked = computed(() => state.value.userInfo?.device_locked ?? false);
-  const isAuthorised = computed(() => state.value.userInfo?.is_authorized ?? false);
-  const isRegistered = computed(() => state.value.userInfo?.has_registered ?? false);
+  const selectedMFAMethod = computed(
+    () => state.value.userInfo?.user_mfa_method ?? "unset",
+  );
+  const availableMfaMethods = computed(
+    () => state.value.userInfo?.available_mfa_methods ?? [],
+  );
+  const defaultMFAMethod = computed(
+    () => state.value.userInfo?.default_mfa ?? "",
+  );
+  const isAccountLocked = computed(
+    () => state.value.userInfo?.account_locked ?? false,
+  );
+  const isDeviceLocked = computed(
+    () => state.value.userInfo?.device_locked ?? false,
+  );
+  const isAuthorised = computed(
+    () => state.value.userInfo?.is_authorized ?? false,
+  );
+  const isRegistered = computed(
+    () => state.value.userInfo?.has_registered ?? false,
+  );
   const isConnected = computed(() => state.value.isConnected);
   const helpMail = computed(() => state.value.userInfo?.helpmail ?? "");
 
@@ -270,6 +314,6 @@ export const useWebSocketStore = defineStore("websocket", () => {
     isAuthorised,
     isRegistered,
     helpMail,
-    cleanup
+    cleanup,
   };
 });

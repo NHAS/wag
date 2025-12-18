@@ -5,11 +5,9 @@ import { fas } from "@fortawesome/free-solid-svg-icons";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import Toast, { useToast } from "vue-toastification";
 
-import { SingleInstanceManager } from './singleton';
-
+import { SingleInstanceManager } from "./singleton";
 import "vue-toastification/dist/index.css";
 import "./styles.css";
-
 import App from "./App.vue";
 import router from "./router";
 
@@ -18,14 +16,12 @@ const app = createApp(App);
 const instanceManager = new SingleInstanceManager(app);
 instanceManager.initialize();
 
-
 library.add(fas);
 
 app.component("font-awesome-icon", FontAwesomeIcon);
 app.use(createPinia());
 app.use(Toast, {});
 app.use(router);
-
 
 const toast = useToast();
 app.config.errorHandler = (err) => {
@@ -40,4 +36,3 @@ app.config.errorHandler = (err) => {
 };
 
 app.mount("#app");
-

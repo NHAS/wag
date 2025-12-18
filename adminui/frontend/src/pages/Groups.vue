@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 
 import Modal from '@/components/Modal.vue'
@@ -14,7 +14,16 @@ import { useToastError } from '@/composables/useToastError'
 
 import { Icons } from '@/util/icons'
 
-import { getAllGroups, type GroupDTO, type GroupEditDTO, editGroup, createGroup, deleteGroups, type GroupCreateDTO, type MemberInfo } from '@/api'
+import {
+  getAllGroups,
+  type GroupDTO,
+  type GroupEditDTO,
+  editGroup,
+  createGroup,
+  deleteGroups,
+  type GroupCreateDTO,
+  type MemberInfo
+} from '@/api'
 
 const { data: groupsData, isLoading: isLoadingRules, silentlyRefresh: refreshGroups } = useApi(() => getAllGroups())
 
@@ -58,7 +67,7 @@ type GroupType = {
 
 const Effects = ref<GroupType>({
   group: '',
-  is_edit: false,
+  is_edit: false
 })
 
 // Computed properties to track changes
@@ -95,7 +104,6 @@ function openEditGroup(group: GroupDTO) {
 
   Effects.value.is_edit = true
 
-
   Effects.value.group = group.group
   isGroupModalOpen.value = true
 }
@@ -107,7 +115,7 @@ function addMember() {
     currentMembers.value.push({
       joined: 0,
       name: name,
-      sso: false,
+      sso: false
     })
     newMemberInput.value = ''
   }
@@ -136,7 +144,7 @@ async function createGroupUI() {
   try {
     let data: GroupCreateDTO = {
       group: Effects.value.group.lastIndexOf('group:', 0) !== 0 ? 'group:' + Effects.value?.group : Effects.value?.group,
-      added: [],
+      added: []
     }
 
     // For new groups, send all members as additions
@@ -153,7 +161,6 @@ async function createGroupUI() {
 
     toast.success(Effects.value.group + ' updated!')
     isGroupModalOpen.value = false
-
   } catch (e) {
     catcher(e, 'failed to apply group change: ')
   }
@@ -169,9 +176,8 @@ async function updateGroup() {
     let data: GroupEditDTO = {
       group: Effects.value.group.lastIndexOf('group:', 0) !== 0 ? 'group:' + Effects.value?.group : Effects.value?.group,
       added: [],
-      removed: [],
+      removed: []
     }
-
 
     // For edits, send discrete changes
     if (addedMembers.value.length > 0) {
@@ -180,7 +186,6 @@ async function updateGroup() {
     if (removedMembers.value.length > 0) {
       data.removed = removedMembers.value.map(p => p.name)
     }
-
 
     let resp = await editGroup(data)
 
@@ -193,7 +198,6 @@ async function updateGroup() {
 
     toast.success(Effects.value.group + ' updated!')
     isGroupModalOpen.value = false
-
   } catch (e) {
     catcher(e, 'failed to apply group change: ')
   }
@@ -224,8 +228,7 @@ async function tryDeleteGroups(groups: string[]) {
       <div class="mt-4">
         <div class="form-group">
           <label for="group" class="block font-medium text-gray-900 pb-2">Group Name:</label>
-          <input type="text" id="group" class="input input-bordered w-full" required v-model="Effects.group"
-            :disabled="Effects.is_edit" />
+          <input type="text" id="group" class="input input-bordered w-full" required v-model="Effects.group" :disabled="Effects.is_edit" />
         </div>
 
         <div class="pt-2">
@@ -233,26 +236,35 @@ async function tryDeleteGroups(groups: string[]) {
 
           <!-- Add member input -->
           <div class="flex gap-2 mb-4">
-            <input type="text" v-model="newMemberInput" @keydown="handleMemberInputKeydown"
-              placeholder="Type username and press Enter..." class="input input-bordered flex-1" />
-            <button type="button" @click="addMember" class="btn btn-primary"
-              :disabled="!newMemberInput.trim() || currentMembers.some(p => p.name.includes(newMemberInput.trim()))">
+            <input
+              type="text"
+              v-model="newMemberInput"
+              @keydown="handleMemberInputKeydown"
+              placeholder="Type username and press Enter..."
+              class="input input-bordered flex-1"
+            />
+            <button
+              type="button"
+              @click="addMember"
+              class="btn btn-primary"
+              :disabled="!newMemberInput.trim() || currentMembers.some(p => p.name.includes(newMemberInput.trim()))"
+            >
               Add
             </button>
           </div>
 
           <!-- Members badges -->
           <div class="min-h-[80px] p-3 border border-gray-300 rounded-lg bg-gray-50">
-            <div v-if="currentMembers.length === 0" class="text-gray-500 text-sm">
-              No members added yet
-            </div>
+            <div v-if="currentMembers.length === 0" class="text-gray-500 text-sm">No members added yet</div>
             <div v-else class="flex flex-wrap gap-2">
-              <div v-for="member in currentMembers" :key="member.name" class="badge badge-primary py-3" :class="{  'badge-success': addedMembers.includes(member) && Effects.is_edit, 'badge-secondary': member.sso}" >
-                <span class="font-mono pr-2 max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"> {{
-                  member.name }}
-                </span>
-                <button @click="removeMember(member)" class="btn btn-xs btn-circle btn-ghost hover:btn-error"
-                  type="button">
+              <div
+                v-for="member in currentMembers"
+                :key="member.name"
+                class="badge badge-primary py-3"
+                :class="{ 'badge-success': addedMembers.includes(member) && Effects.is_edit, 'badge-secondary': member.sso }"
+              >
+                <span class="font-mono pr-2 max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"> {{ member.name }} </span>
+                <button @click="removeMember(member)" class="btn btn-xs btn-circle btn-ghost hover:btn-error" type="button">
                   <font-awesome-icon :icon="Icons.Close || 'times'" class="text-xs" />
                 </button>
               </div>
@@ -263,19 +275,34 @@ async function tryDeleteGroups(groups: string[]) {
           <div v-if="Effects.is_edit && hasChanges" class="mt-4 p-3 bg-info bg-opacity-10 rounded-lg">
             <h4 class="font-semibold text-sm mb-2">Changes:</h4>
             <div v-if="addedMembers.length > 0" class="text-sm text-success mb-1">
-              <strong>Added: </strong><span>{{ addedMembers.map(p => p.name).slice(0, 10).join(", ") }}</span><span
-                v-if="addedMembers.length > 10"> and {{ addedMembers.length - 10 }} more additions.</span>
+              <strong>Added: </strong
+              ><span>{{
+                addedMembers
+                  .map(p => p.name)
+                  .slice(0, 10)
+                  .join(', ')
+              }}</span
+              ><span v-if="addedMembers.length > 10"> and {{ addedMembers.length - 10 }} more additions.</span>
             </div>
             <div v-if="removedMembers.length > 0" class="text-sm text-error">
-              <strong>Removed: </strong><span>{{ removedMembers.map(p => p.name).slice(0, 10).join(", ") }}</span><span
-                v-if="removedMembers.length > 10"> and {{ removedMembers.length - 10 }} more removals.</span>
+              <strong>Removed: </strong
+              ><span>{{
+                removedMembers
+                  .map(p => p.name)
+                  .slice(0, 10)
+                  .join(', ')
+              }}</span
+              ><span v-if="removedMembers.length > 10"> and {{ removedMembers.length - 10 }} more removals.</span>
             </div>
           </div>
         </div>
 
         <span class="mt-6 flex">
-          <button class="btn btn-primary" @click="Effects.is_edit ? updateGroup() : createGroupUI()"
-            :disabled="Effects.is_edit && !hasChanges">
+          <button
+            class="btn btn-primary"
+            @click="Effects.is_edit ? updateGroup() : createGroupUI()"
+            :disabled="Effects.is_edit && !hasChanges"
+          >
             Apply
           </button>
 
@@ -297,13 +324,11 @@ async function tryDeleteGroups(groups: string[]) {
           <div class="card-body">
             <div class="flex flex-row justify-between">
               <div class="tooltip" data-tip="Add group">
-                <button class="btn btn-ghost btn-primary" @click="openAddGroup">Add Group <font-awesome-icon
-                    :icon="Icons.Add" /></button>
+                <button class="btn btn-ghost btn-primary" @click="openAddGroup">Add Group <font-awesome-icon :icon="Icons.Add" /></button>
               </div>
               <div class="form-control">
                 <label class="label">
-                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..."
-                    v-model="filterText" />
+                  <input type="text" class="input input-bordered input-sm" placeholder="Filter..." v-model="filterText" />
                 </label>
               </div>
             </div>
@@ -316,33 +341,37 @@ async function tryDeleteGroups(groups: string[]) {
                 </tr>
               </thead>
               <tbody>
-                <tr class="hover group" v-for="group in currentGroups" :key="group.group"
-                  v-on:dblclick="openEditGroup(group)">
+                <tr class="hover group" v-for="group in currentGroups" :key="group.group" v-on:dblclick="openEditGroup(group)">
                   <td class="font-mono">
                     <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ group.group }}</div>
                   </td>
                   <td class="relative">
                     <div class="flex flex-wrap gap-1">
                       <template v-if="group.members">
-                        <div v-for="member in group.members.slice(0, 10)" :key="member.name"
-                          class="badge badge-primary font-mono" :class="{'badge-secondary': member.sso, 'tooltip': member.sso}" :data-tip="member.sso ? 'Added via SSO' : null">
-                          {{ member.name.length > 12 ? member.name.slice(0, 12) + "..." : member.name }}
+                        <div
+                          v-for="member in group.members.slice(0, 10)"
+                          :key="member.name"
+                          class="badge badge-primary font-mono"
+                          :class="{ 'badge-secondary': member.sso, tooltip: member.sso }"
+                          :data-tip="member.sso ? 'Added via SSO' : null"
+                        >
+                          {{ member.name.length > 12 ? member.name.slice(0, 12) + '...' : member.name }}
                         </div>
                         <div v-if="group.members.length > 10">... {{ group.members.length - 10 }} more</div>
                       </template>
-                      <div v-if="!group.members || group.members.length === 0" class="text-gray-500">
-                        No members
-                      </div>
+                      <div v-if="!group.members || group.members.length === 0" class="text-gray-500">No members</div>
                     </div>
                     <div
-                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      class="mr-3 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    >
                       <button class="mr-3" @click="openEditGroup(group)">
                         <font-awesome-icon :icon="Icons.Edit" class="text-secondary hover:text-secondary-focus" />
                       </button>
                     </div>
                     <ConfirmModal @on-confirm="() => tryDeleteGroups([group.group])">
                       <button
-                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      >
                         <font-awesome-icon :icon="Icons.Delete" class="text-error hover:text-error-focus" />
                       </button>
                     </ConfirmModal>
@@ -354,8 +383,7 @@ async function tryDeleteGroups(groups: string[]) {
             <EmptyTable v-if="allGroups.length != 0 && filteredGroups.length == 0" text="No matching groups" />
 
             <div class="mt-2 w-full text-center">
-              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage"
-                :total-pages="totalPages" />
+              <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
             </div>
           </div>
         </div>

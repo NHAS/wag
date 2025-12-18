@@ -18,8 +18,8 @@ export function useToastError() {
         errorString = potentialString[messageProperty];
       }
 
-      if(e.message !== undefined) {
-        errorString = e.message
+      if (e.message !== undefined) {
+        errorString = e.message;
       }
     } else if (e instanceof Error) {
       errorString = e.message;

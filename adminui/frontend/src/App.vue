@@ -5,11 +5,11 @@ import { RouterView, useRouter } from 'vue-router'
 import { POSITION, useToast } from 'vue-toastification'
 
 import { type NotificationDTO } from './api'
+import { useSessionsStore } from './stores/sessions'
 
 import { useAuthStore } from '@/stores/auth'
 import { useDevicesStore } from '@/stores/devices'
 import { useUsersStore } from '@/stores/users'
-import { useSessionsStore } from './stores/sessions'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -61,7 +61,6 @@ onMounted(async () => {
 
 watch(hasCompletedAuth, (newHasCompletedAuth, prevHasCompletedAuth) => {
   if (newHasCompletedAuth && !prevHasCompletedAuth) {
-
     sessionsStore.load(true)
     devicesStore.load(true)
     usersStore.load(true)

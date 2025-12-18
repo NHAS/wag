@@ -12,11 +12,11 @@ import { usePagination } from '@/composables/usePagination'
 import { useToastError } from '@/composables/useToastError'
 
 import { useDevicesStore } from '@/stores/devices'
+import { useSessionsStore } from '@/stores/sessions'
 
 import { Icons } from '@/util/icons'
 
 import { deleteDevices, editDevice, DeviceEditActions, type EditDevicesDTO, type DeviceDTO } from '@/api'
-import { useSessionsStore } from '@/stores/sessions'
 
 
 const sessionStore = useSessionsStore()
