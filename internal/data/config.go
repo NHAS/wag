@@ -202,16 +202,13 @@ func (d *database) GetWebauthn() (wba Webauthn, err error) {
 
 	wba.Origin = tunnelURL
 	// Webauthn IDs should never contain the protocol, as they are
-	// required to be over HTTPS anyways.
-	wba.ID = stripProtocolPrefixFromDomain(tunnelConfig.Domain)
+	// required to be over HTTPS anyways; so we strip the prefixes away
+	// in case they were configured with protocol prefix.
+	wba.ID = tunnelConfig.Domain
+	wba.ID = strings.TrimPrefix(wba.ID, "https://")
+	wba.ID = strings.TrimPrefix(wba.ID, "http://")
 
 	return
-}
-
-func stripProtocolPrefixFromDomain(domain string) string {
-	domain = strings.TrimPrefix(domain, "https://")
-	domain = strings.TrimPrefix(domain, "http://")
-	return domain
 }
 
 func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
