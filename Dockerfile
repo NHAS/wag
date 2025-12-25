@@ -10,7 +10,11 @@ RUN apt-get update && \
 
 WORKDIR /app
 COPY . .
-RUN make release
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    GOMODCACHE=/go/pkg/mod \
+    GOCACHE=/root/.cache/go-build \
+    make release
 
 # hadolint ignore=DL3007
 FROM redhat/ubi9-minimal:latest
