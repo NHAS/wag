@@ -49,6 +49,11 @@ func TestDomainToUrl(t *testing.T) {
 		t.Fatal("got", url, "expected: ", expected)
 	}
 
+	expected = "https://vpn.test"
+	if url, err := domainToUrl("https://vpn.test", "127.0.0.1:80", false); url != expected || err != nil {
+		t.Fatal("got", url, "expected: ", expected)
+	}
+
 	if _, err := domainToUrl("", "127.0.0.1:8888", false); err == nil {
 		t.Fatal("expected error on empty domain")
 	}
