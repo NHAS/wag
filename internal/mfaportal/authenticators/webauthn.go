@@ -196,7 +196,12 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 		})
 
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		var protoErr *protocol.Error
+		if errors.As(err, &protoErr) {
+			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error(), " details:", protoErr.Details, " devInfo:", protoErr.DevInfo)
+		} else {
+			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		}
 
 		msg, status := resultMessage(wa.db, err)
 
