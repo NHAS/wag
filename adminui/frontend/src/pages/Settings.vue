@@ -661,7 +661,7 @@ const activeTab = ref('general')
 
                       <template v-if="server.static_certificates">
                         <div class="form-control">
-                          <label class="label font-bold" for="certificate">
+                          <label class="label font-bold" :for="`certificate-${server.server_name}`">
                             <span class="truncate max-w-[350px] min-w-[350px]">{{
                               server.certificate == '' ? 'Please add certificate' : parseCert(server.certificate)
                             }}</span>
@@ -669,7 +669,7 @@ const activeTab = ref('general')
                           </label>
                           <input
                             type="file"
-                            id="certificate"
+                            :id="`certificate-${server.server_name}`"
                             class="hidden"
                             accept=".crt,.pem,.cert"
                             @change="
@@ -691,6 +691,7 @@ const activeTab = ref('general')
 
                                   // Read the file content
                                   const fileContent = await readFileAsText(file)
+
                                   server.certificate = fileContent
                                 } catch (error) {
                                   toast.error('Error reading file:' + error)
@@ -701,7 +702,7 @@ const activeTab = ref('general')
                         </div>
 
                         <div class="form-control">
-                          <label class="label font-bold" for="privateKey">
+                          <label class="label font-bold" :for="`privateKey-${server.server_name}`">
                             <span class="w-full">{{
                               server.private_key === 'Valid'
                                 ? 'Valid Private Key'
@@ -715,7 +716,7 @@ const activeTab = ref('general')
                           </label>
                           <input
                             type="file"
-                            id="privateKey"
+                            :id="`privateKey-${server.server_name}`"
                             class="hidden"
                             accept=".key,.pem"
                             @change="
