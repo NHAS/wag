@@ -98,7 +98,7 @@ Wag must be run as root, to manage `iptables` and the `wireguard` device.
 Binary release (requires glibc 2.31+):  
 ```sh
 curl -L $(curl -s https://api.github.com/repos/NHAS/wag/releases/latest | jq -M -r '.assets[0].browser_download_url') -o wag
-
+chmod o+x wag
 sudo ./wag start -config <generated_config_name>
 ```
   
