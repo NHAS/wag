@@ -46,12 +46,12 @@ const router = createRouter({
     {
       path: "/register/oidc",
       name: "oidc_register",
-      component: () => import("../pages/registration/Oidc.vue"),
+      component: () => import("../pages/Oidc.vue"),
     },
     {
       path: "/authorise/oidc",
       name: "oidc_auth",
-      component: () => import("../pages/authorisation/Oidc.vue"),
+      component: () => import("../pages/Oidc.vue"),
     },
     {
       path: "/success",
