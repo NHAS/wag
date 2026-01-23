@@ -56,8 +56,9 @@ type Config struct {
 	NumberProxies int
 	DevMode       bool `json:",omitempty"`
 
-	ExposePorts []string `json:",omitempty"`
-	NAT         *bool    `json:",omitempty"`
+	ExposePorts      []string `json:",omitempty"`
+	NAT              *bool    `json:",omitempty"`
+	NATExcludeRanges []string `json:",omitempty"`
 
 	Webserver struct {
 		Acme struct {

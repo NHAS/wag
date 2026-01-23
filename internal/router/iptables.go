@@ -97,10 +97,19 @@ func (f *Firewall) setupIptables() error {
 
 	shouldNAT := config.Values.NAT == nil || (config.Values.NAT != nil && *config.Values.NAT)
 	if shouldNAT {
-
 		err = ipt.NewChain("nat", natPostRoutingRulesChain)
 		if err != nil {
 			return err
+		}
+
+		// Exclude private networks from NAT if configured
+		if len(config.Values.NATExcludeRanges) > 0 {
+			for _, rangeToExclude := range config.Values.NATExcludeRanges {
+				err = ipt.Append("nat", natPostRoutingRulesChain, "-s", config.Values.Wireguard.Range.String(), "-d", rangeToExclude, "-j", "RETURN")
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		err = ipt.Append("nat", natPostRoutingRulesChain, "-s", config.Values.Wireguard.Range.String(), "-j", "MASQUERADE")
