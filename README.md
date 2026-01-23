@@ -288,7 +288,8 @@ The web interface itself cannot add administrative users.
 `Socket`: Wag control socket, changing this will allow multiple wag instances to run on the same machine  
 `GID`: The group ID that the wag control socket (`/tmp/wag*`) should be set to  
 
-`NAT`: Turn on or off masquerading  
+`NAT`: Turn on or off masquerading. If enabled, all traffic appears as if it was originated from the VPN server.  
+`NATExcludeRanges`: (only relevant if `NAT=true`) - an array of CIDR ranges to exclude from NAT. For example, if you set this to `["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]`, then NAT will only be applied to traffic flowing to the public internet, but not to private networks.
 `ExposePorts`: Expose ports on the VPN server to the client (adds rules to IPtables) example: [ "443/tcp", "100-200/udp" ]  
 `CheckUpdates`: If enabled (off by default) the management UI will show an alert if a new version of wag is available. This talks to `api.github.com`   
 
