@@ -11,25 +11,25 @@ require (
 	github.com/coreos/go-iptables v0.8.0
 	github.com/gaissmai/bart v0.26.0
 	github.com/go-playground/validator/v10 v10.30.1
-	github.com/gorilla/websocket v1.5.3
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/libdns/cloudflare v0.2.2
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/mdlayher/netlink v1.8.0
 	github.com/msteinert/pam v1.2.0
 	github.com/pquerna/otp v1.5.0
 	github.com/stretchr/testify v1.11.1
-	github.com/zitadel/oidc/v3 v3.45.1
+	github.com/zitadel/oidc/v3 v3.45.3
 	go.etcd.io/etcd/api/v3 v3.6.7
 	go.etcd.io/etcd/client/pkg/v3 v3.6.7
 	go.etcd.io/etcd/client/v3 v3.6.7
 	go.etcd.io/etcd/server/v3 v3.6.7
-	golang.org/x/crypto v0.46.0
-	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
-	golang.org/x/net v0.48.0
+	golang.org/x/crypto v0.47.0
+	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
+	golang.org/x/net v0.49.0
 	golang.org/x/sys v0.40.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	tailscale.com v1.92.5
+	tailscale.com v1.94.1
 )
 
 require (
@@ -61,7 +61,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.4 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.5 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -69,7 +69,7 @@ require (
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mholt/acmez/v3 v3.1.4 // indirect
-	github.com/miekg/dns v1.1.70 // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -78,14 +78,14 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
-	github.com/zitadel/logging v0.6.2 // indirect
+	github.com/zitadel/logging v0.7.0 // indirect
 	github.com/zitadel/schema v1.3.2 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.6.7 // indirect
@@ -109,10 +109,10 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	golang.org/x/tools v0.40.0 // indirect
+	golang.org/x/tools v0.41.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251222181119-0a764e51fe1b // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251222181119-0a764e51fe1b // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260122232226-8e98ce8d340d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260122232226-8e98ce8d340d // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
