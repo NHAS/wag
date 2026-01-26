@@ -195,7 +195,7 @@ func (d *database) GetWebauthn() (wba Webauthn, err error) {
 		return wba, err
 	}
 
-	tunnelURL, err := domainToUrl(tunnelConfig.Domain, tunnelConfig.ListenAddress, tunnelConfig.TLS)
+	tunnelURL, err := webserverUrl(tunnelConfig.Domain, tunnelConfig.ListenAddress, tunnelConfig.TLS)
 	if err != nil {
 		return wba, err
 	}
@@ -211,41 +211,51 @@ func (d *database) GetWebauthn() (wba Webauthn, err error) {
 	return
 }
 
-func domainToUrl(domain, listenAddress string, isTLS bool) (string, error) {
+func webserverUrl(domain, listenAddress string, isTLS bool) (string, error) {
 	if strings.HasPrefix(domain, "http://") || strings.HasPrefix(domain, "https://") {
 		// keep domain as is, if specified with full prefix
 		return domain, nil
 	}
-	if domain == "" {
-		return "", errors.New("domain was empty")
+
+	if domain == "" && listenAddress == "" {
+		return "", fmt.Errorf("both domain and listenAddress are empty")
 	}
 
-	scheme := "http://"
+	var (
+		scheme string = "http://"
+		host   string
+		port   string
+
+		err error
+	)
+
 	if isTLS {
 		scheme = "https://"
 	}
-	url := scheme + domain
 
-	// if the domain has a port specified, dont use the listen address, only do that by default
-	_, port, err := net.SplitHostPort(domain)
-	if err != nil {
-		_, port, err = net.SplitHostPort(listenAddress)
-		if err != nil {
-			// if we cant get a port from either domain or address, then just default to nothing
-			return url, nil
+	host, port, err = net.SplitHostPort(domain)
+	if err != nil && domain != "" {
+		host = domain
+	}
+
+	listenAddressHost, listenAddressPort, _ := net.SplitHostPort(listenAddress)
+
+	if host == "" {
+		host = listenAddressHost
+		if listenAddressHost == "" {
+			return "", fmt.Errorf("unable to determine a host for the webserver, both listenaddress and domain are host empty")
 		}
-		url = url + ":" + port
 	}
 
-	if isTLS && port == "443" {
-		url = strings.TrimSuffix(url, ":443")
+	if port == "" {
+		port = listenAddressPort
 	}
 
-	if !isTLS && port == "80" {
-		url = strings.TrimSuffix(url, ":80")
+	if isTLS && port == "443" || !isTLS && port == "80" {
+		return scheme + host, nil
 	}
 
-	return url, nil
+	return scheme + host + ":" + port, nil
 }
 
 func (d *database) GetWireguardConfigName() string {
@@ -287,9 +297,9 @@ func (d *database) GetTunnelDomainUrl() (string, error) {
 		return "", err
 	}
 
-	url, err := domainToUrl(details.Domain, details.ListenAddress, details.TLS)
+	url, err := webserverUrl(details.Domain, details.ListenAddress, details.TLS)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return url, nil

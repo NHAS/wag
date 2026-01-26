@@ -648,9 +648,17 @@ Example:
 ## Running vite
 
 ```sh
-export DEV_API_URL=http://127.0.0.1:4433
+# This will set the IP address of any incoming requests to the tunnel to a clients IP
+# This env variable is only loaded if DevMode is set to true in the config
+export CLIENT_IP_6da8a04fc2f3=<client IP>
+export DEV_API_URL=http://127.0.0.1:4433 # For management, or whatever port you've configured for dev
 make debug
 sudo ./wag start -config docker-test-config.json
+
+# tunnel frontend
+cd internal/mfaportal/resources/frontend
+export DEV_API_URL=http://127.0.0.1:81
+npm run dev
 ```
 
 ## Testing

@@ -457,7 +457,7 @@ const activeTab = ref('general')
                       <div
                         class="tooltip"
                         :data-tip="
-                          !doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')
+                          !doesTunnelHaveDomain() && (method.method == 'webauthn')
                             ? 'This method requires that the tunnel has a domain'
                             : !doesTunnelHaveTLS() && method.method == 'webauthn'
                               ? 'The tunnel requires TLS to use this authentication method'
@@ -471,7 +471,7 @@ const activeTab = ref('general')
                           :value="method.method"
                           v-model="loginSettingsData.enabled_mfa_methods"
                           :disabled="
-                            (!doesTunnelHaveDomain() && (method.method == 'oidc' || method.method == 'webauthn')) ||
+                            (!doesTunnelHaveDomain() && (method.method == 'webauthn')) ||
                             (!doesTunnelHaveTLS() && method.method == 'webauthn')
                           "
                           :checked="loginSettingsData.enabled_mfa_methods.indexOf(method.method) != -1"

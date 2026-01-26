@@ -1,12 +1,24 @@
 <script setup lang="ts">
-setTimeout(function () {
+
+async function register() {
   window.location.href = "/api/oidc/register";
-}, 750);
+}
+
+
 </script>
 
 <template>
-  <h4 class="card-title text-center">
-    Redirecting you to your SSO provider to register...
-    <span class="ml-4 loading loading-spinner loading-lg"></span>
-  </h4>
+  <!-- Header Section -->
+  <h3 class="text-2xl font-bold text-center">Register Your Identity</h3>
+
+  <p class="text-lg text-center mb-6">
+    To access restricted resources, please register your identity with your single sign on provider.
+  </p>
+
+  <div class="divider my-1"></div>
+
+  <button @click="register" class="btn btn-primary btn-lg w-full">
+    Register
+  </button>
+
 </template>
