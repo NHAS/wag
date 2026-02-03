@@ -4,10 +4,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sort"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
@@ -17,7 +18,8 @@ import (
 func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
 	adminUsers, err := au.ctrl.ListAdminUsers("")
 	if err != nil {
-		log.Println("failed to get list of admin users: ", err)
+		log.Error().Err(err).Msg("error getting list of admin users")
+
 		w.WriteHeader(http.StatusInternalServerError)
 
 		return
@@ -30,7 +32,7 @@ func (au *AdminUI) adminUsersData(w http.ResponseWriter, r *http.Request) {
 func (au *AdminUI) getGeneralSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := au.ctrl.GetGeneralSettings()
 	if err != nil {
-		log.Println("failed to get list of admin users: ", err)
+		log.Error().Err(err).Msg("failed to get general settings")
 		w.WriteHeader(http.StatusInternalServerError)
 
 		return
@@ -49,13 +51,16 @@ func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 
 	err = safedecoder.Decoder(r.Body).Decode(&generalSettings)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to parse json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.SetGeneralSettings(generalSettings)
 	if err != nil {
-		log.Println("failed to get general settings: ", err)
+		log.Error().Err(err).Msg("failed to get general settings")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -64,9 +69,9 @@ func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request)
 func (au *AdminUI) getLoginSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := au.ctrl.GetLoginSettings()
 	if err != nil {
-		log.Println("failed to get login settings: ", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Error().Err(err).Msg("failed to get login settings")
 
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -83,13 +88,15 @@ func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&loginSettings)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.SetLoginSettings(loginSettings)
 	if err != nil {
-		log.Println("failed to set login settings: ", err)
+		log.Error().Err(err).Msg("failed to update login settings")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -112,6 +119,8 @@ func (au *AdminUI) getAllWebserverConfigs(w http.ResponseWriter, _ *http.Request
 
 	confs, err := au.ctrl.GetAllWebserversSettings()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to get web server settings")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -141,6 +150,8 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 	err = safedecoder.Decoder(r.Body).Decode(&s)
 	r.Body.Close()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -149,12 +160,16 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		err = fmt.Errorf("listen address was not in host:port format: %q", s.ListenAddress)
+		log.Error().Err(err).Str("webserver", s.ServerName).Str("listen_address", s.ListenAddress).Msg("listen address invalid")
+
 		return
 	}
 
 	details, err := au.ctrl.GetSingleWebserverSettings(data.Webserver(s.ServerName))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		log.Error().Err(err).Str("webserver", s.ServerName).Msg("invalid server name")
+
 		err = fmt.Errorf("unable to get %q webserver configuration to check ip: %w", s.ServerName, err)
 		return
 	}
@@ -166,6 +181,8 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 
 		storedHost, _, err = net.SplitHostPort(details.ListenAddress)
 		if err != nil {
+			log.Error().Err(err).Str("webserver", s.ServerName).Str("listen_address", details.ListenAddress).Msg("value of stored listen address for webserver was invalid")
+
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -173,6 +190,8 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		if storedHost != host {
 			w.WriteHeader(http.StatusBadRequest)
 			err = fmt.Errorf("cannot change tunnel address")
+			log.Error().Err(err).Str("webserver", s.ServerName).Msg("user attempted to edit vpn tunnel address, invalid action")
+
 			return
 		}
 
@@ -189,6 +208,8 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			err = fmt.Errorf("invalid custom certificate and key, %w", err)
+			log.Error().Err(err).Str("webserver", s.ServerName).Msg("invalid static tls keypair uploaded")
+
 			return
 		}
 	}
@@ -206,6 +227,8 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 
 	err = au.ctrl.SetSingleWebserverSetting(data.Webserver(s.ServerName), serverUpdate)
 	if err != nil {
+		log.Error().Err(err).Str("webserver", s.ServerName).Msg("failed to update webserver")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -219,11 +242,26 @@ func (au *AdminUI) getAcmeDetails(w http.ResponseWriter, _ *http.Request) {
 	)
 
 	cfToken, err := au.ctrl.GetAcmeDNS01CloudflareToken()
-	results.CloudflareToken = (err == nil && cfToken.APIToken != "")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get DNS01 cloudflare token")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	results.CloudflareToken = (cfToken.APIToken != "")
 
-	results.ProviderURL, _ = au.ctrl.GetAcmeProvider()
+	results.ProviderURL, err = au.ctrl.GetAcmeProvider()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get acme provider details")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	results.Email, _ = au.ctrl.GetAcmeEmail()
+	results.Email, err = au.ctrl.GetAcmeEmail()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get acme email")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("content-type", "application/json")
 	json.NewEncoder(w).Encode(results)
@@ -240,12 +278,16 @@ func (au *AdminUI) editAcmeEmail(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&email)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.SetAcmeEmail(email.Data)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to set acme email")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -263,12 +305,16 @@ func (au *AdminUI) editAcmeProvider(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&provider)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.SetAcmeProvider(provider.Data)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to set acme provider")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -286,12 +332,15 @@ func (au *AdminUI) editCloudflareApiToken(w http.ResponseWriter, r *http.Request
 
 	err = safedecoder.Decoder(r.Body).Decode(&token)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.SetAcmeDNS01CloudflareToken(token.Data)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to set cloudflare dns01 token")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

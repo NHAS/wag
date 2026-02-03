@@ -4,12 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/adminui"
 	"github.com/NHAS/wag/debug"
@@ -153,7 +154,7 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 		}
 
 		if lastState != stateText {
-			log.Println("node entered state: ", stateText)
+			log.Info().Str("state", stateText).Msg("node entered new state")
 			lastState = stateText
 		}
 
@@ -162,11 +163,11 @@ func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, compl
 			if !wasDead {
 
 				if !config.Values.Clustering.Witness {
-					log.Println("Tearing down node")
+					log.Info().Msg("Tearing down node")
 					teardown()
-					log.Println("Tear down complete")
+					log.Info().Msg("Tear down complete")
 				} else {
-					log.Println("refusing to tear down witness node (nothing to tear down)")
+					log.Info().Msg("refusing to tear down witness node (nothing to tear down)")
 				}
 
 				// Only teardown if we were at one point alive
@@ -258,11 +259,11 @@ func (g *start) Run() error {
 		}
 
 		if config.Values.Clustering.Witness {
-			log.Println("this node is a witness, and will not start a wireguard device")
+			log.Info().Msg("this node is a witness, not starting wireguard device")
 		}
 
 		if g.DB.IsCurrentNodeLearner() {
-			log.Println("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
+			log.Info().Msg("Node has successfully joined cluster! This node is currently a learner, and needs to be promoted in the UI before wireguard device will start")
 		}
 	} else {
 		wagType += " (remote cluster)"
@@ -275,17 +276,17 @@ func (g *start) Run() error {
 		s := <-signalChan
 		go func(chan os.Signal) {
 			<-signalChan
-			log.Println("got force quit, killing without exiting nicely")
+			log.Info().Msg("got force quit, killing without exiting nicely")
 			os.Exit(1)
 		}(signalChan)
 
 		errorChan <- errors.New("ignore me I am signal")
 
-		log.Printf("Got signal %s gracefully exiting\n", s)
+		log.Info().Str("signal", s.String()).Msg("Got singal gracefully exiting")
 
 	}()
 
-	log.Printf("%s (%s) starting, Ctrl + C to stop", wagType, config.Version)
+	log.Info().Str("wag_type", wagType).Str("version", config.Version).Msg("Wag starting, Ctrl + C to stop")
 
 	if config.Values.DevMode {
 		debug.StartPprof()

@@ -3,11 +3,12 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/pkg/control"
@@ -111,7 +112,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 			return
 		}
 
-		log.Println(tokenType, "token for ", username, "created.")
+		log.Info().Str("registration", tokenType).Str("username", username).Str("action", "created").Send()
 
 		w.Write(b)
 		return
@@ -131,7 +132,8 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	log.Println(tokenType, "token for ", username, "created")
+	log.Info().Str("registration", tokenType).Str("username", username).Str("action", "created").Send()
+
 	w.Write(b)
 }
 
@@ -151,7 +153,7 @@ func (wsg *WagControlSocketServer) deleteRegistration(w http.ResponseWriter, r *
 		return
 	}
 
-	log.Println("registration token deleted")
+	log.Info().Str("registration", id).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK"))
 }

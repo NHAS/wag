@@ -2,10 +2,11 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/users"
@@ -67,25 +68,25 @@ func (wsg *WagControlSocketServer) lockDevice(w http.ResponseWriter, r *http.Req
 
 	user, err := users.GetUserFromAddress(wsg.db, net.ParseIP(address))
 	if err != nil {
-		http.Error(w, "not found in database: "+err.Error(), 404)
+		http.Error(w, "not found in database: "+err.Error(), http.StatusNotFound)
 
 		return
 	}
 
 	lockout, err := wsg.db.GetLockout()
 	if err != nil {
-		http.Error(w, "could not get lockout number: "+err.Error(), 404)
+		http.Error(w, "could not get lockout number: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// This will need to be changed at some point to make it that lockout is a state, rather than a simple int
 	err = user.SetDeviceAuthAttempts(address, lockout+1)
 	if err != nil {
-		http.Error(w, "could not lock device in db: "+err.Error(), 404)
+		http.Error(w, "could not lock device in db: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	log.Println(user.Username, " device", address, "has been locked")
+	log.Info().Str("device", address).Str("username", user.Username).Str("action", "locked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -116,7 +117,7 @@ func (wsg *WagControlSocketServer) unlockDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	log.Println(user.Username, " device", address, "has been unlocked")
+	log.Info().Str("device", address).Str("username", user.Username).Str("action", "unlocked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -158,7 +159,7 @@ func (wsg *WagControlSocketServer) addDevice(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Println(device.Username, " device", device.Address, "created")
+	log.Info().Str("device", device.Address).Str("username", device.Username).Str("action", "created").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -184,7 +185,7 @@ func (wsg *WagControlSocketServer) deleteDevice(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	log.Println(user.Username, " device", address, "deleted")
+	log.Info().Str("device", address).Str("username", user.Username).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK"))
 }

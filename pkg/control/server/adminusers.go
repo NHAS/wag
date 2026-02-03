@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 func (wsg *WagControlSocketServer) getAdminUser(w http.ResponseWriter, r *http.Request) {
@@ -81,11 +82,11 @@ func (wsg *WagControlSocketServer) lockAdminUser(w http.ResponseWriter, r *http.
 
 	err = wsg.db.SetAdminUserLock(username)
 	if err != nil {
-		http.Error(w, "could not lock admin user: "+err.Error(), 404)
+		http.Error(w, "could not lock admin user: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	log.Println(username, "admin locked")
+	log.Info().Str("admin_username", username).Str("action", "locked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -105,7 +106,7 @@ func (wsg *WagControlSocketServer) unlockAdminUser(w http.ResponseWriter, r *htt
 		return
 	}
 
-	log.Println(username, "admin unlocked")
+	log.Info().Str("admin_username", username).Str("action", "unlocked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -121,11 +122,11 @@ func (wsg *WagControlSocketServer) deleteAdminUser(w http.ResponseWriter, r *htt
 
 	err = wsg.db.DeleteAdminUser(username)
 	if err != nil {
-		http.Error(w, "not found: "+err.Error(), 404)
+		http.Error(w, "not found: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	log.Println(username, "admin deleted")
+	log.Info().Str("admin_username", username).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -142,11 +143,11 @@ func (wsg *WagControlSocketServer) resetAdminUser(w http.ResponseWriter, r *http
 
 	err = wsg.db.SetAdminPassword(username, password)
 	if err != nil {
-		http.Error(w, "unable to set admin user password: "+err.Error(), 404)
+		http.Error(w, "unable to set admin user password: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	log.Println(username, "admin password reset")
+	log.Info().Str("admin_username", username).Str("action", "password reset").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -165,11 +166,11 @@ func (wsg *WagControlSocketServer) addAdminUser(w http.ResponseWriter, r *http.R
 
 	err = wsg.db.CreateLocalAdminUser(username, password, shouldChange)
 	if err != nil {
-		http.Error(w, "unable to create admin user: "+err.Error(), 404)
+		http.Error(w, "unable to create admin user: "+err.Error(), http.StatusNotFound)
 		return
 	}
 
-	log.Println(username, "admin added")
+	log.Info().Str("admin_username", username).Str("action", "added").Send()
 
 	w.Write([]byte("OK"))
 }

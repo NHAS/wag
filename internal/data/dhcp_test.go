@@ -1,9 +1,10 @@
 package data
 
 import (
-	"log"
 	"net"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 func TestIncrementIP(t *testing.T) {

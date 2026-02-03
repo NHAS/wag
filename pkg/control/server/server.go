@@ -3,11 +3,12 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
@@ -109,7 +110,7 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 		}
 	}
 
-	log.Println("[CONTROL] Started socket: ", config.Values.Socket)
+	log.Info().Str("socket", config.Values.Socket).Msg("Started socket")
 
 	controlMux := http.NewServeMux()
 
@@ -198,7 +199,8 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 	go func() {
 		err := srvSock.httpSrv.Serve(srvSock.socket)
 		if err != nil && err != http.ErrServerClosed {
-			log.Println("failed to serve control socket: ", err)
+			log.Error().Err(err).Str("socket", config.Values.Socket).Msg("failed to serve control socket")
+
 		}
 	}()
 

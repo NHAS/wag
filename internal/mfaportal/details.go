@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -135,7 +137,8 @@ func (c *Challenger) userChanged(_ string, current, previous data.UserModel) err
 }
 
 func (c *Challenger) sessionDeleted(_ string, current, previous data.DeviceSession) error {
-	log.Println(current.Username, current.Address, "device session deleted")
+
+	log.Info().Str("username", current.Username).Str("device", current.Address).Msg("device session deleted")
 
 	c.UpdateState(current.Username, current.Address)
 
@@ -202,7 +205,7 @@ func (c *Challenger) UpdateAll() {
 		go func(connection *websocket.Conn) {
 			info, err := c.createInfoDTO(address)
 			if err != nil {
-				log.Printf("failed to get state update for device %q, err: %s", address, err)
+				log.Error().Err(err).Str("address", address).Msg("failed to create state update for device")
 				return
 			}
 
@@ -210,7 +213,7 @@ func (c *Challenger) UpdateAll() {
 			err = wsjson.Write(ctx, connection, info)
 			cancel()
 			if err != nil {
-				log.Printf("failed to write state to %s, err: %s", address, err)
+				log.Error().Err(err).Str("address", address).Msg("failed to write state update for device")
 				return
 			}
 		}(conn)
@@ -262,7 +265,7 @@ func (c *Challenger) Challenge(username, address string) error {
 		if err == nil {
 			err = c.db.AuthoriseDevice(username, address)
 			if err != nil {
-				log.Println("User device had correct challenge, but cluster failed to authorise: ", err)
+				log.Error().Err(err).Str("username", username).Str("device", address).Msg("User device had correct challenge, but cluster failed to authorise")
 			}
 		}
 	}
@@ -362,14 +365,15 @@ func (c *Challenger) NotifyOfAuth(device data.Device) {
 
 	info, err := c.createInfoDTO(device.Address)
 	if err != nil {
-		log.Printf("failed to get state update for device %q, err: %s", device.Address, err)
+		log.Error().Err(err).Str("address", device.Address).Msg("failed to get state update for device")
 		c.Disconnect(device.Username, device.Address, "Failed to create dto", true)
 		return
 	}
 
 	challenge, err := device.GetSensitiveChallenge(c.db.Raw())
 	if err != nil {
-		log.Printf("failed to get challenge %q, err: %s", device.Address, err)
+		log.Error().Err(err).Str("address", device.Address).Msg("failed to get challenge")
+
 		c.Disconnect(device.Username, device.Address, "Failed to get challenge from device", true)
 		return
 	}
@@ -392,7 +396,8 @@ func (c *Challenger) UpdateState(username, address string) {
 
 	info, err := c.createInfoDTO(address)
 	if err != nil {
-		log.Printf("failed to get state update for device %q, err: %s", address, err)
+		log.Error().Err(err).Str("address", address).Msg("ailed to get state update for device")
+
 		c.Disconnect(username, address, "Failed to create dto", true)
 		return
 	}
@@ -401,7 +406,7 @@ func (c *Challenger) UpdateState(username, address string) {
 	err = wsjson.Write(ctx, conn, info)
 	cancel()
 	if err != nil {
-		log.Printf("failed to write state to %s, err: %s", address, err)
+		log.Error().Err(err).Str("address", address).Msg("ailed to write state update for device")
 		c.Disconnect(username, address, "Failed to write", true)
 		return
 	}
@@ -441,9 +446,11 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 
 	user := users.GetUserFromContext(r.Context())
 
+	logger := zerolog.Ctx(r.Context())
+
 	domain, err := c.db.GetTunnelDomainUrl()
 	if err != nil {
-		log.Println("was unable to get the wag domain: ", err)
+		logger.Error().Msg("was unable to get the vpn tunnel domain")
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -452,7 +459,8 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 		OriginPatterns: []string{domain},
 	})
 	if err != nil {
-		log.Println("failed to accept websocket connection: ", err)
+		logger.Error().Msg("failed to accept websocket connection")
+
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -501,14 +509,14 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	if ok && prev != nil {
 		prev.Close(websocket.StatusNormalClosure, "Duplicate connection, you may have Wag open in two separate browsers. "+uniqueKey)
 
-		log.Printf("Duplicate connection for device %s, closing previous", clientTunnelIp.String())
+		logger.Debug().Msg("Duplicate connection for device closed previous")
 	}
 
-	log.Println(user.Username, clientTunnelIp, "established new challenge connection!")
+	logger.Info().Msg("established new challenge connection!")
 
 	info, err := c.createInfoDTO(clientTunnelIp.String())
 	if err != nil {
-		log.Println("failed to create initial state. Err ", err)
+		logger.Error().Err(err).Msg("failed to create initial state")
 		return
 	}
 
@@ -516,7 +524,8 @@ func (c *Challenger) WS(w http.ResponseWriter, r *http.Request) {
 	err = wsjson.Write(ctx, conn, info)
 	cancel()
 	if err != nil {
-		log.Println("Failed to write initial data to client, closing connection. Err", err)
+		logger.Error().Err(err).Msg("Failed to write initial data to client, closing connection")
+
 		return
 	}
 

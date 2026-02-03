@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/session"
 	"github.com/NHAS/wag/adminui/frontend"
@@ -58,7 +59,8 @@ type clonerWriter struct {
 }
 
 func (c *clonerWriter) Write(b []byte) (int, error) {
-	return c.w.Write(string(b))
+	_, err := c.w.Write(string(b))
+	return len(b), err
 }
 
 func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
@@ -113,8 +115,9 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		}
 
 		u.Path = path.Join(u.Path, "/login/oidc/callback")
-		log.Println("[ADMINUI] OIDC callback: ", u.String())
-		log.Println("[ADMINUI] Connecting to OIDC provider: ", config.Values.Webserver.Management.OIDC.IssuerURL)
+
+		log.Info().Str("oidc_callback", u.String()).Send()
+		log.Info().Str("provider", config.Values.Webserver.Management.OIDC.IssuerURL).Msg("Connecting to OIDC provider")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
@@ -124,7 +127,8 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 			return nil, fmt.Errorf("unable to connect to oidc provider for admin ui. err %s", err)
 		}
 
-		log.Println("[ADMINUI] Connected to admin oidc provider!")
+		log.Info().Str("provider", config.Values.Webserver.Management.OIDC.IssuerURL).Msg("Connected to admin OIDC provider!")
+
 	}
 
 	if *config.Values.Webserver.Management.Password.Enabled {
@@ -135,7 +139,6 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		}
 
 		if len(admins) == 0 {
-			log.Println("[ADMINUI] *************** Web interface enabled but no administrator users exist, generating new ones CREDENTIALS FOLLOW ***************")
 
 			username, err := utils.GenerateRandomHex(8)
 			if err != nil {
@@ -147,10 +150,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 				return nil, fmt.Errorf("failed to generate random password: %s", err)
 			}
 
-			log.Println("[ADMINUI] Username: ", username)
-			log.Println("[ADMINUI] Password: ", password)
-
-			log.Println("[ADMINUI] This information will not be shown again. ")
+			log.Info().Bool("credentials", true).Str("username", username).Str("password", password).Msg("********** ONE TIME CREDENTIALS This information will not be shown again. ********")
 
 			err = adminUI.ctrl.AddAdminUser(username, password, true)
 			if err != nil {
@@ -180,7 +180,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		}
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stdout, adminUI.logQueue))
+	log.Logger = log.Output(io.MultiWriter(os.Stdout, adminUI.logQueue)).With().Caller().Logger()
 
 	protectedRoutes := http.NewServeMux()
 	allRoutes := http.NewServeMux()
@@ -303,7 +303,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	if err == nil {
 		adminUI.listenerEvents.watchers = append(adminUI.listenerEvents.watchers, errorNotf)
 	} else {
-		log.Println("failed to register websockets listener: ", err)
+		log.Warn().Err(err).Msg("failed to register websockets listener")
 	}
 
 	if db.ClusterManagementEnabled() {
@@ -330,7 +330,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		return nil, err
 	}
 
-	log.Println("[ADMINUI] Started Management UI listening:", config.Values.Webserver.Management.ListenAddress)
+	log.Info().Str("listen_address", config.Values.Webserver.Management.ListenAddress).Msg("Started Management UI")
 
 	return &adminUI, nil
 }
@@ -366,6 +366,7 @@ func (au *AdminUI) doAuthRefresh(w http.ResponseWriter, r *http.Request) {
 
 	resp.CsrfToken, err = au.sessionManager.GenerateCSRFFromSession(sessId)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to generate CSRF token")
 		return
 	}
 
@@ -380,6 +381,8 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Header.Get("content-type") != "application/json" {
+		log.Warn().Msg("failed to generate CSRF token")
+
 		http.Error(w, "Error", http.StatusBadRequest)
 		return
 	}
@@ -391,8 +394,8 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 
 	err := safedecoder.Decoder(r.Body).Decode(&loginDetails)
 	if err != nil {
-		log.Println("bad json value: ", err)
-		http.Error(w, "Error", http.StatusInternalServerError)
+		log.Warn().Err(err).Msg("failed to json body")
+		http.Error(w, "Error", http.StatusBadRequest)
 		return
 	}
 	defer func() {
@@ -408,37 +411,35 @@ func (au *AdminUI) doLogin(w http.ResponseWriter, r *http.Request) {
 
 	err = au.db.IncrementAdminAuthenticationAttempt(loginDetails.Username)
 	if err != nil {
-		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
+		log.Warn().Err(err).Str("username", loginDetails.Username).Msg("admin login failed for user")
 		return
 	}
 
 	err = au.db.CompareAdminKeys(loginDetails.Username, loginDetails.Password)
 	if err != nil {
-		log.Println("admin login failed for user", loginDetails.Username, ": ", err)
-
+		log.Warn().Err(err).Str("username", loginDetails.Username).Msg("admin login failed for user")
 		return
 	}
 
 	if err := au.db.SetLastLoginInformation(loginDetails.Username, r.RemoteAddr); err != nil {
-		log.Println("unable to login: ", err)
-
+		log.Error().Err(err).Str("username", loginDetails.Username).Msg("unable to login could not set last login information")
 		return
 	}
 
 	loginResponse.User, err = au.ctrl.GetAdminUser(loginDetails.Username)
 	if err != nil {
-		log.Println("unable to login: ", err)
+		log.Error().Err(err).Str("username", loginDetails.Username).Msg("could not fetch admin user information")
 		return
 	}
 
 	sessId := au.sessionManager.StartSession(w, r, loginResponse.User, nil)
 	loginResponse.CsrfToken, err = au.sessionManager.GenerateCSRFFromSession(sessId)
 	if err != nil {
-		log.Println("unable to login: ", err)
+		log.Error().Err(err).Msg("unable to login")
 		return
 	}
 
-	log.Println(loginDetails.Username, r.RemoteAddr, "admin logged in")
+	log.Info().Str("username", loginDetails.Username).Str("remote_addr", r.RemoteAddr).Msg("admin logged in")
 }
 
 func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
@@ -447,22 +448,26 @@ func (au *AdminUI) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 		adminLogin, err := au.ctrl.GetAdminUser(info.Subject)
 		if err != nil {
-			log.Printf("new admin user logged in via oidc: %q", info.PreferredUsername)
+			log.Info().Str("idp_admin_username", info.PreferredUsername).Msg("new admin user logged in via oidc")
 
 			adminLogin, err = au.db.CreateOidcAdminUser(info.PreferredUsername, info.Subject)
 			if err != nil {
-				log.Println("unable to create oidc admin entry: ", err)
+				log.Error().Err(err).Msg("unable to create OIDC user admin entry")
+
 				http.Error(w, "Server Error", http.StatusInternalServerError)
 				return
 			}
 		}
 
-		log.Println(info.PreferredUsername, info.Subject, r.RemoteAddr, "oidc admin logged in")
-
 		err = au.db.SetLastLoginInformation(info.Subject, r.RemoteAddr)
 		if err != nil {
-			log.Println("Failed to set last log in information: ", err)
+			log.Error().Err(err).Str("username", info.PreferredUsername).Str("subject", info.Subject).Str("remote_addr", r.RemoteAddr).Bool("oidc", true).Msg("unable to login could not set last login information")
+			http.Error(w, "Server Error", http.StatusInternalServerError)
+			return
+
 		}
+
+		log.Info().Str("username", info.PreferredUsername).Str("subject", info.Subject).Str("remote_addr", r.RemoteAddr).Bool("oidc", true).Msg("admin logged in")
 
 		au.sessionManager.StartSession(w, r, adminLogin, nil)
 		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
@@ -476,9 +481,8 @@ func (au *AdminUI) Close() {
 	autotls.Do.Close(data.Management)
 
 	if config.Values.Webserver.Management.Enabled {
-		log.Println("Stopped Management UI")
+		log.Info().Msg("Stopped Management UI")
 	}
-
 }
 
 func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
@@ -491,6 +495,8 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	if u.Type != data.LocalUser {
 		http.NotFound(w, r)
+		log.Info().Str("username", u.Username).Str("subject", u.OidcGUID).Msg("oidc user attempted to change their local password")
+
 		return
 	}
 
@@ -503,13 +509,16 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 	err = safedecoder.Decoder(r.Body).Decode(&req)
 	r.Body.Close()
 	if err != nil {
+		log.Warn().Str("username", u.Username).Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.db.CompareAdminKeys(u.Username, req.CurrentPassword)
 	if err != nil {
-		log.Println("bad password for admin (password change)")
+		log.Warn().Err(err).Str("username", u.Username).Msg("bad password for admin (password change)")
+
 		err = errors.New("current password is incorrect")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -517,7 +526,7 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = au.ctrl.SetAdminUserPassword(u.Username, req.NewPassword)
 	if err != nil {
-		log.Println("unable to set new admin password for ", u.Username)
+		log.Error().Err(err).Str("username", u.Username).Msg("unable to set new admin password")
 
 		err = fmt.Errorf("error setting password: %w", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -528,6 +537,5 @@ func (au *AdminUI) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	au.sessionManager.UpdateSession(sessKey, *u)
 
-	log.Printf("admin %q changed their password", u.Username)
-
+	log.Info().Str("username", u.Username).Msg("changed their password")
 }

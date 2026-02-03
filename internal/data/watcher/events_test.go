@@ -2,9 +2,10 @@ package watcher
 
 import (
 	"context"
-	"log"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -132,14 +133,15 @@ func TestWatcher(t *testing.T) {
 func TestMain(m *testing.M) {
 
 	if err := config.Load("../../config/testing_config2.json"); err != nil {
-		log.Println("failed to load config: ", err)
+		log.Error().Err(err).Msg("failed to load config")
+
 		os.Exit(1)
 	}
 
 	var err error
 	db, err = data.Load("", true)
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Msg("failed to load db")
 		os.Exit(1)
 	}
 

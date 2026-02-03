@@ -2,8 +2,10 @@ package adminui
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -13,7 +15,7 @@ func (au *AdminUI) getAllGroups(w http.ResponseWriter, r *http.Request) {
 
 	data, err := au.ctrl.GetGroups()
 	if err != nil {
-		log.Println("unable to get group data from server: ", err)
+		log.Error().Err(err).Msg("unable to get group data")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -31,14 +33,15 @@ func (au *AdminUI) editGroup(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&group)
 	if err != nil {
-		log.Println("error decoding group data to edit new group/s: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.EditGroup(group)
 	if err != nil {
-		log.Println("error editing group: ", err)
+		log.Error().Err(err).Str("group", group.Group).Msg("error editing group")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -54,14 +57,14 @@ func (au *AdminUI) createGroup(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&group)
 	if err != nil {
-		log.Println("error decoding group data to add new group: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.AddGroup(group)
 	if err != nil {
-		log.Println("error adding group: ", err)
+		log.Error().Err(err).Str("group", group.Group).Msg("error creating group")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -76,14 +79,14 @@ func (au *AdminUI) deleteGroups(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&groupsToRemove)
 	if err != nil {
-		log.Println("error decoding group names to remove: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.RemoveGroup(groupsToRemove)
 	if err != nil {
-		log.Println("error removing groups: ", err)
+		log.Error().Err(err).Str("groups", strings.Join(groupsToRemove, ",")).Msg("error removing group/s")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

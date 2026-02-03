@@ -1,8 +1,9 @@
 package mfaportal
 
 import (
-	"log"
 	"slices"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
@@ -54,7 +55,7 @@ func (mp *MfaPortal) oidcChanged(_ string, current data.OIDC, previous data.OIDC
 	// Oidc and other mfa methods pull data from the etcd store themselves. So as dirty as this seems, its really just a notification to reinitialise themselves
 	methods, err := mp.db.GetEnabledMFAMethods()
 	if err != nil {
-		log.Println("Couldnt get authenication methods to enable oidc: ", err)
+		log.Error().Err(err).Msg("Couldnt get authenication methods to reinitialise oidc")
 		return err
 	}
 
@@ -73,7 +74,7 @@ func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverCon
 
 	methods, err := mp.db.GetEnabledMFAMethods()
 	if err != nil {
-		log.Println("Couldnt get authenication methods to enable oidc: ", err)
+		log.Error().Err(err).Msg("Couldnt get authenication methods to reinitialise oidc")
 		return err
 	}
 
@@ -110,7 +111,7 @@ func (mp *MfaPortal) issuerKeyChanged(_ string, et data.EventType, current, prev
 
 		methods, err := mp.db.GetEnabledMFAMethods()
 		if err != nil {
-			log.Println("Couldnt get authenication methods to enable oidc: ", err)
+			log.Error().Err(err).Msg("Couldnt get authenication methods to reinitialise totp and webauth")
 			return err
 		}
 

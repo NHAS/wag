@@ -3,9 +3,10 @@ package adminui
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
@@ -15,21 +16,21 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 	for _, member := range au.db.GetClusterMembers() {
 		drained, err := au.db.IsClusterNodeDrained(member.ID.String())
 		if err != nil {
-			log.Println("unable to get drained state: ", err)
+			log.Error().Err(err).Msg("unable to get node state")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		witness, err := au.db.IsClusterNodeWitness(member.ID.String())
 		if err != nil {
-			log.Println("unable to witness state: ", err)
+			log.Error().Err(err).Msg("unable to witness state")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		version, err := au.db.GetClusterNodeVersion(member.ID.String())
 		if err != nil {
-			log.Println("unable to get version: ", err)
+			log.Error().Err(err).Msg("unable to get version")
 			version = "unknown"
 		}
 
@@ -46,7 +47,7 @@ func (au *AdminUI) members(w http.ResponseWriter, r *http.Request) {
 		if status != "learner" {
 			lastPing, err := au.db.GetClusterNodeLastPing(member.ID.String())
 			if err != nil {
-				log.Println("unable to fetch last ping: ", err)
+				log.Warn().Err(err).Str("node", member.ID.String()).Msg("unable to fetch node last ping")
 				status = "no last ping"
 			} else {
 
@@ -99,19 +100,19 @@ func (au *AdminUI) newNode(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&newNodeReq)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to json body")
 		w.WriteHeader(http.StatusBadRequest)
-
 		return
 	}
 
 	newNodeResp.JoinToken, err = au.db.AddClusterMember(newNodeReq.NodeName, newNodeReq.ConnectionURL, newNodeReq.ManagerURL)
 	if err != nil {
-		log.Println("failed to add member: ", err)
+		log.Error().Err(err).Str("node_name", newNodeReq.NodeName).Str("url", newNodeReq.ConnectionURL).Msg("failed to add member node")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Println("added new node: ", newNodeReq.NodeName, newNodeReq.ConnectionURL)
+	log.Info().Str("node_name", newNodeReq.NodeName).Str("url", newNodeReq.ConnectionURL).Msg("new node added")
 }
 
 func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +131,7 @@ func (au *AdminUI) getClusterEvents(w http.ResponseWriter, r *http.Request) {
 
 	es.Errors, err = au.db.GetAllErrors()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to get cluster errors")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -148,43 +150,49 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&ncR)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	switch ncR.Action {
 	case "promote":
-		log.Println("promoting node ", ncR.Node)
 
 		err = au.db.PromoteClusterMember(ncR.Node)
 		if err != nil {
-			log.Println("failed to promote member: ", err)
+			log.Error().Err(err).Str("node", ncR.Node).Msg("failed to promote node")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
+		log.Info().Str("node", ncR.Node).Msg("node promoted to full member")
+
 	case "drain", "restore":
-		log.Println(ncR.Action, "node", ncR.Node)
 		// Doesnt do anything to the node itself, just marks it as unhealthy so load balancers will no longer direct clients its way.
 		err = au.db.SetDrained(ncR.Node, ncR.Action == "drain")
 		if err != nil {
-			log.Println("failed to set/reset node drain: ", err)
+			log.Error().Err(err).Str("node", ncR.Node).Str("action", ncR.Action).Msg("failed")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
+		log.Info().Str("node", ncR.Node).Str("action", ncR.Action).Msg("succeeded")
+
 	case "stepdown":
-		log.Println("node instructed to step down from leadership")
 		err = au.db.ClusterNodeStepDown()
 		if err != nil {
-			log.Println("failed to step down from leadership makenode: ", err)
+			log.Error().Err(err).Str("node", ncR.Node).Msg("failed to make node step down from leadership")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		log.Info().Str("node", ncR.Node).Msg("node instructed to step down from leadership")
+
 	case "remove":
 
-		log.Println("attempting to remove node ", ncR.Node)
-
 		if au.db.GetCurrentNodeID().String() == ncR.Node {
-			log.Println("user tried to remove current operating node from cluster")
+			log.Error().Err(err).Str("node", ncR.Node).Msg("user tried to remove current operating node from cluster")
+
 			err = errors.New("cannot remove current node")
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -192,10 +200,12 @@ func (au *AdminUI) nodeControl(w http.ResponseWriter, r *http.Request) {
 
 		err = au.db.RemoveClusterMember(ncR.Node)
 		if err != nil {
-			log.Println("failed to remove member from cluster: ", err)
+			log.Error().Err(err).Str("node", ncR.Node).Msg("unable to remove node from cluster")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
+		log.Info().Str("node", ncR.Node).Msg("node removed from cluster")
 
 	default:
 		err = errors.New("unknown action")
@@ -215,13 +225,17 @@ func (au *AdminUI) clusterEventsAcknowledge(w http.ResponseWriter, r *http.Reque
 
 	err = safedecoder.Decoder(r.Body).Decode(&acknowledgeError)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.db.ResolveError(acknowledgeError.ErrorID)
 	if err != nil {
-		log.Println("failed to resolve error: ", err)
+		log.Error().Err(err).Str("wag_error_id", acknowledgeError.ErrorID).Msg("failed to acknowledge wag error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+
+	log.Info().Err(err).Str("wag_error_id", acknowledgeError.ErrorID).Msg("wag error acknowledged & cleared")
+
 }

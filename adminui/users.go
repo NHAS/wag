@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
@@ -13,7 +14,8 @@ import (
 func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := au.ctrl.ListUsers("")
 	if err != nil {
-		log.Println("error getting users: ", err)
+		log.Error().Err(err).Msg("error getting users")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -22,14 +24,14 @@ func (au *AdminUI) getUsers(w http.ResponseWriter, r *http.Request) {
 	for _, u := range users {
 		devices, err := au.ctrl.ListDevice(u.Username)
 		if err != nil {
-			log.Printf("failed to get devices for %q err: %s", u.Username, err)
+			log.Error().Err(err).Str("username", u.Username).Msg("failed to get devices")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		groups, err := au.ctrl.UserGroups(u.Username)
 		if err != nil {
-			log.Printf("unable to get users groups for user %q: %s", u.Username, err)
+			log.Error().Err(err).Str("username", u.Username).Msg("failed to get groups")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -56,6 +58,7 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&action)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to decode json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -86,6 +89,8 @@ func (au *AdminUI) editUser(w http.ResponseWriter, r *http.Request) {
 	err = errors.Join(errs...)
 
 	if err != nil {
+		log.Error().Err(err).Str("action", action.Action).Msg("failed to edit user/s")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		err = fmt.Errorf("%d/%d failed to %s\n%s", len(errs), len(action.Usernames), action.Action, errors.Join(errs...).Error())
 		return
@@ -103,6 +108,8 @@ func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&usernames)
 	if err != nil {
+		log.Warn().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -118,7 +125,7 @@ func (au *AdminUI) removeUsers(w http.ResponseWriter, r *http.Request) {
 
 	err = errors.Join(errs...)
 	if err != nil {
-		log.Println("failed to delete users: ", errs)
+		log.Error().Err(err).Msg("failed to delete users")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

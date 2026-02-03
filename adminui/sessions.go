@@ -2,14 +2,15 @@ package adminui
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 func (au *AdminUI) getSessions(w http.ResponseWriter, r *http.Request) {
 	allSessions, err := au.ctrl.Sessions()
 	if err != nil {
-		log.Println("error getting sessions: ", err)
+		log.Error().Err(err).Msg("error getting active device sessions")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

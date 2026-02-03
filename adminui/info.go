@@ -2,8 +2,9 @@ package adminui
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 )
@@ -12,15 +13,15 @@ func (au *AdminUI) serverInfo(w http.ResponseWriter, r *http.Request) {
 
 	pubkey, port, err := au.firewall.ServerDetails()
 	if err != nil {
-		log.Println("error getting server details: ", err)
+		log.Error().Err(err).Msg("failed to get server details")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	s, err := au.ctrl.GetGeneralSettings()
 	if err != nil {
-		log.Println("error getting server settings: ", err)
-
+		log.Error().Err(err).Msg("failed to get server settings")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

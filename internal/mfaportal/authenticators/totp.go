@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image/png"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -78,11 +77,12 @@ func (t *Totp) FriendlyName() string {
 
 func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 
-	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
 
+	logger := getLogger(r, t.Type(), false)
+
 	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
+		logger.Warn().Msg("tried to re-register mfa despite already being registered")
 
 		jsonResponse(w, AuthResponse{
 			Status: "error",
@@ -93,7 +93,7 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 
 	issuer, err := t.db.GetIssuer()
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to get issuer from datastore")
+		logger.Error().Err(err).Msg("unable to get issuer from database")
 
 		jsonResponse(w, AuthResponse{
 			Status: "error",
@@ -106,7 +106,8 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 		AccountName: user.Username,
 	})
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "generate key failed:", err)
+		logger.Error().Err(err).Msg("generating totp key failed")
+
 		jsonResponse(w, AuthResponse{
 			Status: "error",
 			Error:  "Generating TOTP code failed",
@@ -116,7 +117,8 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 
 	err = t.db.SetUserMfa(user.Username, key.URL(), t.Type())
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to save totp key to db:", err)
+		logger.Error().Err(err).Msg("saving totp key failed")
+
 		jsonResponse(w, AuthResponse{
 			Status: "error",
 			Error:  "Saving TOTP code failed",
@@ -126,7 +128,8 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 
 	image, err := key.Image(200, 200)
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "generating image failed:", err)
+		logger.Error().Err(err).Msg("generating totp qr code image failed")
+
 		jsonResponse(w, AuthResponse{
 			Status: "error",
 			Error:  "Failed to generate TOTP png",
@@ -137,7 +140,8 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 	var buff bytes.Buffer
 	err = png.Encode(&buff, image)
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "encoding mfa secret as png failed:", err)
+		logger.Error().Err(err).Msg("encoding totp qr code image as png failed")
+
 		jsonResponse(w, AuthResponse{
 			Status: "error",
 			Error:  "encoding TOTP QRCode PNG failed",
@@ -156,14 +160,18 @@ func (t *Totp) getTotpSecret(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Totp) authorise(failureMessage string) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := getLogger(r, t.Type(), false)
+
 		clientTunnelIp := utils.GetIPFromRequest(r)
 		user := users.GetUserFromContext(r.Context())
 
 		err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 
 		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+			logger.Error().Err(err).Msg("failed to authorise")
+
 			jsonResponse(w, AuthResponse{
 				Status: Error,
 				Error:  failureMessage,
@@ -171,7 +179,7 @@ func (t *Totp) authorise(failureMessage string) http.HandlerFunc {
 			return
 		}
 
-		log.Println(user.Username, clientTunnelIp, "authorised")
+		logger.Info().Bool("authorised", true).Send()
 
 		jsonResponse(w, AuthResponse{
 			Status: "success",

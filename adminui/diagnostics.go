@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/safedecoder"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -17,7 +18,7 @@ func (au *AdminUI) getFirewallState(w http.ResponseWriter, r *http.Request) {
 
 	rules, err := au.ctrl.FirewallRules()
 	if err != nil {
-		log.Println("error getting firewall rules data", err)
+		log.Error().Err(err).Msg("error getting firewall rules data")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -40,7 +41,8 @@ func (au *AdminUI) wgDiagnositicsData(w http.ResponseWriter, r *http.Request) {
 
 	peers, err = au.firewall.ListPeers()
 	if err != nil {
-		log.Println("unable to list wg peers: ", err)
+		log.Error().Err(err).Msg("unable to list wg peers")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -85,14 +87,16 @@ func (au *AdminUI) aclsTest(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&req)
 	if err != nil {
-		log.Println("decoding json failed: ", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Warn().Err(err).Msg("failed to json body")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	r.Body.Close()
 
 	resp.Acls, err = au.ctrl.GetUsersAcls(req.Username)
 	if err != nil {
+		log.Error().Err(err).Str("username", req.Username).Msg("fetching user acls failed")
+
 		resp.Message = fmt.Sprintf("failed fetch user acls: %s", err)
 	} else {
 		resp.Success = true
@@ -115,12 +119,14 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	err = safedecoder.Decoder(r.Body).Decode(&t)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Println("firewallCheckTest unknown json field: ", err)
+		log.Error().Err(err).Msg("failed to decode json body")
 		return
 	}
 
 	err = t.Validate()
 	if err != nil {
+		log.Error().Err(err).Msg("firewall test request validation failed")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -128,19 +134,22 @@ func (au *AdminUI) firewallCheckTest(w http.ResponseWriter, r *http.Request) {
 	checkerDecision, err := au.firewall.CheckRoute(t.Address, net.ParseIP(t.Target), t.Protocol, t.Port)
 	if err != nil {
 		decision = err.Error()
-	} else {
-
-		isAuthed := "(unauthorised)"
-		if au.firewall.IsAuthed(t.Address) {
-			isAuthed = "(authorised)"
-		}
-
-		displayProto := fmt.Sprintf("%d/%s", t.Port, t.Protocol)
-		if t.Protocol == "icmp" {
-			displayProto = t.Protocol
-		}
-		decision = fmt.Sprintf("%s -%s-> %s, decided: %s %s", t.Address, displayProto, t.Target, checkerDecision, isAuthed)
+		log.Error().Err(err).Str("address", t.Address).Str("target", t.Target).Str("protocol", t.Protocol).Int("port", t.Port).Msg("testing firewall route resulted in error")
+		return
 	}
+
+	isAuthed := "(unauthorised)"
+	if au.firewall.IsAuthed(t.Address) {
+		isAuthed = "(authorised)"
+	}
+
+	displayProto := fmt.Sprintf("%d/%s", t.Port, t.Protocol)
+	if t.Protocol == "icmp" {
+		displayProto = t.Protocol
+	}
+	decision = fmt.Sprintf("%s -%s-> %s, decided: %s %s", t.Address, displayProto, t.Target, checkerDecision, isAuthed)
+	log.Info().Str("decision", decision).Msg("firewall check route used")
+
 }
 
 func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +163,8 @@ func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&t)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -161,4 +172,6 @@ func (au *AdminUI) testNotifications(w http.ResponseWriter, r *http.Request) {
 	b, _ := json.Marshal(t)
 
 	au.db.RaiseError(errors.New(t.Message), b)
+	log.Info().Str("message", t.Message).Msg("test notification message issued")
+
 }

@@ -2,8 +2,9 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data"
@@ -57,7 +58,8 @@ func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int) err
 	if err := f.SetInactivityTimeout(current); err != nil {
 		return fmt.Errorf("unable to set inactivity timeout: %s", err)
 	}
-	log.Println("inactivity timeout changed")
+
+	log.Info().Msg("inactivity timeout changed")
 
 	return nil
 }
@@ -69,7 +71,8 @@ func (f *Firewall) addDevice(_ string, current, previous data.Device) error {
 		return fmt.Errorf("unable to create peer: %s: err: %s", current.Address, err)
 	}
 
-	log.Println("added peer: ", current.Address)
+	log.Info().Str("address", current.Address).Msg("added peer")
+
 	return nil
 }
 
@@ -86,13 +89,19 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error 
 		if err != nil {
 			return fmt.Errorf("failed to replace peer pub key: %s", err)
 		}
-		log.Println("replaced peer public key: ", current.Address)
+
+		log.Info().Str("address", current.Address).Msg("replaced peer public key")
+
 	}
 
 	if f.IsAuthed(current.Address) {
 		if current.Endpoint.String() != previous.Endpoint.String() {
 
-			log.Printf("challenging %s:%s device, as endpoint changed: %s -> %s", current.Username, current.Address, current.Endpoint.String(), previous.Endpoint.String())
+			log.Info().Str("username", current.Username).
+				Str("address", current.Address).
+				Str("new_endpoint", current.Endpoint.String()).
+				Str("previous_endpoint", previous.Endpoint.String()).
+				Msg("device has changed endpoint, setting challenge")
 
 			err := f.Deauthenticate(current.Address)
 			if err != nil {
@@ -123,7 +132,9 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error 
 				return fmt.Errorf("cannot deauthenticate device %s: %s", current.Address, err)
 			}
 
-			log.Printf("deauthed %s:%s device, reason: %s ", current.Username, current.Address, strings.Join(reasons, ","))
+			log.Info().Str("address", current.Address).
+				Str("username", current.Username).
+				Str("reason", strings.Join(reasons, ",")).Msg("deauthed device")
 
 		}
 	}
@@ -134,7 +145,12 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error 
 			return fmt.Errorf("cannot change device node association %s:%s: %s", current.Address, current.Username, err)
 		}
 
-		log.Printf("changed device (%s:%s) node association: %s -> %s", current.Address, current.Username, previous.AssociatedNode, current.AssociatedNode)
+		log.Info().Str("address", current.Address).
+			Str("username", current.Username).
+			Str("previous_node", previous.AssociatedNode.String()).
+			Str("current_node", current.AssociatedNode.String()).
+			Msg("changed device node association")
+
 	}
 
 	// If the authorisation state has changed and is not disabled
@@ -144,7 +160,10 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error 
 		if err != nil {
 			return fmt.Errorf("cannot authorize device %s: %s", current.Address, err)
 		}
-		log.Println("authorized device: ", current.Address)
+
+		log.Info().Str("address", current.Address).
+			Str("username", current.Username).
+			Msg("authorized device")
 
 	}
 
@@ -156,7 +175,10 @@ func (f *Firewall) delDevice(_ string, current, previous data.Device) error {
 	if err != nil {
 		return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
 	}
-	log.Println("removed peer: ", current.Address)
+
+	log.Info().Str("address", current.Address).
+		Str("username", current.Username).
+		Msg("removed peer")
 	return nil
 }
 
@@ -165,7 +187,9 @@ func (f *Firewall) addUser(_ string, current, previous data.UserModel) error {
 	if err != nil {
 		return fmt.Errorf("cannot create user %s: %s", current.Username, err)
 	}
-	log.Printf("added user: %q", current.Username)
+
+	log.Info().Str("username", current.Username).
+		Msg("added user")
 	return nil
 }
 
@@ -199,7 +223,10 @@ func (f *Firewall) userChanges(_ string, current, previous data.UserModel) error
 
 	if current.Locked != previous.Locked || current.Locked {
 
-		log.Printf("locked %t user: %q", current.Locked, current.Username)
+		log.Info().
+			Str("username", current.Username).
+			Bool("locked", current.Locked).
+			Msg("locked user")
 
 		err := f.SetLockAccount(current.Username, current.Locked)
 		if err != nil {
@@ -209,7 +236,9 @@ func (f *Firewall) userChanges(_ string, current, previous data.UserModel) error
 
 	if f.shouldDeauthenticateUser(current, previous) {
 
-		log.Printf("deauthenticated user: %q", current.Username)
+		log.Info().
+			Str("username", current.Username).
+			Msg("deauthenticated user")
 
 		err := f.DeauthenticateAllDevices(current.Username)
 		if err != nil {
@@ -225,7 +254,11 @@ func (f *Firewall) delUser(_ string, current, previous data.UserModel) error {
 	if err != nil {
 		return fmt.Errorf("cannot remove user %s: %s", current.Username, err)
 	}
-	log.Printf("removed user: %q", current.Username)
+
+	log.Info().
+		Str("username", current.Username).
+		Msg("removed user")
+
 	return nil
 }
 
@@ -237,7 +270,8 @@ func (f *Firewall) aclsChanges(_ string, et data.EventType, _, _ acls.Acl) error
 		if err != nil {
 			return fmt.Errorf("failed to refresh configuration: %s", err)
 		}
-		log.Printf("refreshed configuration")
+		log.Info().Msg("refreshed configuration")
+
 	}
 
 	return nil
@@ -260,8 +294,7 @@ func (f *Firewall) groupChanges(key string, et data.EventType, _, _ any) error {
 			return fmt.Errorf("failed to refresh acls for user %s: %s", username, err)
 		}
 
-		log.Printf("refreshed acls for %q user", username)
-
+		log.Info().Str("username", username).Msg("refreshed acls")
 	}
 	return nil
 }

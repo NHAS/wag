@@ -2,19 +2,15 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"net/netip"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
 	"golang.zx2c4.com/wireguard/tun"
 )
-
-func newDebugFirewall(db interfaces.Database, testDev tun.Device) (*Firewall, error) {
-	return newFw(db, true, false, testDev)
-
-}
 
 func New(db interfaces.Database, iptables bool) (*Firewall, error) {
 	return newFw(db, false, iptables, nil)
@@ -22,7 +18,8 @@ func New(db interfaces.Database, iptables bool) (*Firewall, error) {
 
 func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
 
-	log.Println("[ROUTER] Starting up")
+	log.Info().Msg("Starting up")
+
 	fw = &Firewall{
 		userPolicies: make(map[string]*Policies),
 		userIsLocked: make(map[string]bool),
@@ -69,15 +66,15 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 		return nil, fmt.Errorf("failed to create wireguard device: err: %s", err)
 	}
 
-	log.Println("[ROUTER] Adding users")
+	log.Info().Msg("Adding users")
 
 	err = fw.setupUsers(initialUsers)
 	if err != nil {
-		log.Println(initialUsers, fw.userIsLocked)
 		return nil, fmt.Errorf("failed to setup users: %s", err)
 	}
 
-	log.Println("[ROUTER] Adding wireguard devices")
+	log.Info().Msg("Adding wireguard devices")
+
 	err = fw.setupDevices(knownDevices)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup devices: %s", err)
@@ -90,7 +87,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 			routeMode = "RAW (No NAT)"
 		}
 
-		log.Printf("[ROUTER] Setting up iptables in %s mode", routeMode)
+		log.Info().Str("mode", routeMode).Msg("Setting up iptables")
 
 		err := fw.setupIptables()
 		if err != nil {
@@ -98,7 +95,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 		}
 	}
 
-	log.Println("[ROUTER] Registering event handlers")
+	log.Info().Msg("Registering event handlers")
 
 	// This must be the last thing that occurs otherwise we may get events before we're ready to serve them
 	err = fw.handleEvents()
@@ -106,7 +103,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
 	}
 
-	log.Println("[ROUTER] Setup finished")
+	log.Info().Msg("Setup finished")
 
 	return fw, nil
 }
@@ -115,12 +112,12 @@ func (f *Firewall) Close() {
 	f.Lock()
 	defer f.Unlock()
 
-	log.Println("Removing handlers")
+	log.Info().Msg("Removing handlers")
 	for _, w := range f.watchers {
 		w.Close()
 	}
 
-	log.Println("Removing wireguard device")
+	log.Info().Msg("Removing wireguard device")
 	if f.device != nil {
 		f.device.Close()
 	}
@@ -129,7 +126,7 @@ func (f *Firewall) Close() {
 		f.ctrl.Close()
 	}
 
-	log.Println("Wireguard device removed")
+	log.Info().Msg("Wireguard device removed")
 
 	if f.hasIptables {
 		f.teardownIptables()

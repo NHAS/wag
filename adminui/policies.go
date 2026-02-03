@@ -2,8 +2,10 @@ package adminui
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -13,38 +15,32 @@ func (au *AdminUI) getAllPolicies(w http.ResponseWriter, r *http.Request) {
 	data, err := au.ctrl.GetPolicies()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Println("unable to get policies: ", err)
-		return
-	}
+		log.Error().Err(err).Msg("unable to get policies")
 
-	b, err := json.Marshal(data)
-	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		log.Println("unable to marshal policies data: ", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(b)
+	json.NewEncoder(w).Encode(data)
 }
 
 func (au *AdminUI) editPolicy(w http.ResponseWriter, r *http.Request) {
 	var (
-		group control.PolicyData
-		err   error
+		policy control.PolicyData
+		err    error
 	)
 	defer func() { au.respond(err, w) }()
 
-	err = safedecoder.Decoder(r.Body).Decode(&group)
+	err = safedecoder.Decoder(r.Body).Decode(&policy)
 	if err != nil {
-		log.Println("error decoding policy data to edit new group/s: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	err = au.ctrl.EditPolicies(group)
+	err = au.ctrl.EditPolicies(policy)
 	if err != nil {
-		log.Println("error editing policy: ", err)
+		log.Error().Err(err).Str("policy", policy.Effects).Msg("failed to apply policy change")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -59,14 +55,14 @@ func (au *AdminUI) createPolicy(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&policy)
 	if err != nil {
-		log.Println("error decoding group data to add new group: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 
 		return
 	}
 
 	if err = au.ctrl.AddPolicy(policy); err != nil {
-		log.Println("error adding policy: ", err)
+		log.Error().Err(err).Str("policy", policy.Effects).Msg("failed to create new policy")
 		w.WriteHeader(http.StatusInternalServerError)
 
 		return
@@ -82,13 +78,13 @@ func (au *AdminUI) deletePolices(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&policiesToRemove)
 	if err != nil {
-		log.Println("error decoding policy names to remove: ", err)
+		log.Error().Err(err).Msg("failed to parse json body")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if err = au.ctrl.RemovePolicies(policiesToRemove); err != nil {
-		log.Println("error removing policy: ", err)
+		log.Error().Err(err).Str("policies", strings.Join(policiesToRemove, ", ")).Msg("remove policies")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

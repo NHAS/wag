@@ -4,11 +4,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -173,19 +174,19 @@ func (f *Firewall) endpointChange(e device.Event) {
 
 		k, err := wgtypes.NewKey(e.Pk[:])
 		if err != nil {
-			log.Println("[BUG]: KEY WAS NOT WIREGUARD KEY: ", err)
+			log.Error().Err(err).Msg("[BUG]: KEY WAS NOT WIREGUARD KEY")
 			return
 		}
 
 		device, ok := f.pubkeyToDevice[k.String()]
 		if !ok {
-			log.Println("found unknown device,", k.String())
+			log.Error().Str("public_key", k.String()).Msg("found unknown device")
 			return
 		}
 
 		addrPort, err := netip.ParseAddrPort(e.Endpoint)
 		if err != nil {
-			log.Println("invalid endpoint string: ", err, e.Endpoint)
+			log.Error().Err(err).Str("endpoint", e.Endpoint).Msg("invalid endpoint strin")
 			return
 		}
 
@@ -201,13 +202,13 @@ func (f *Firewall) endpointChange(e device.Event) {
 			// Otherwise, just update the node association
 			err = f.db.UpdateDeviceConnectionDetails(device.address.String(), udpAddr)
 			if err != nil {
-				log.Printf("unable to update device (%s:%s) endpoint: %s", device.address, device.username, err)
+				log.Error().Err(err).Str("address", device.address.String()).Str("username", device.username).Msg("unable to update device")
 			}
 
 		}
 
 	default:
-		log.Println("unknown event type: ", e.Type)
+		log.Error().Int("type", int(e.Type)).Msg("unknown event type")
 	}
 }
 

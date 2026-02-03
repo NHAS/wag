@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -101,8 +100,9 @@ func (wa *Webauthn) FriendlyName() string {
 }
 
 func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
+
+	logger := getLogger(r, wa.Type(), false)
 
 	webauthnUser := NewUser(user.Username, user.Username)
 
@@ -115,7 +115,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 	)
 
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "error creating registration request for webauthn")
+		logger.Error().Err(err).Msg("error creating registration request for webauthn")
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Failed to create webauthn registration.",
@@ -127,7 +127,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 
 	webauthdata, err := webauthnUser.MarshalJSON()
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "cant marshal json from webauthn")
+		logger.Error().Err(err).Msg("cant marshal json from webauthn")
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Save webauthn registration.",
@@ -137,7 +137,7 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 
 	err = wa.db.SetUserMfa(user.Username, string(webauthdata), wa.Type())
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "cant set user db to webauth user")
+		logger.Error().Err(err).Msg("cant save webauthn registration data")
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Save MFA settings for user.",
@@ -149,11 +149,16 @@ func (wa *Webauthn) getRegistrationDetails(w http.ResponseWriter, r *http.Reques
 		Status: Details,
 		Data:   options,
 	}, http.StatusOK)
+
+	logger.Info().Msg("fetched webauthn registration data")
+
 }
 
 func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
+
+	logger := getLogger(r, wa.Type(), false)
 
 	err := user.Authenticate(clientTunnelIp.String(), wa.Type(),
 
@@ -198,9 +203,9 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		var protoErr *protocol.Error
 		if errors.As(err, &protoErr) {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error(), " details:", protoErr.Details, " devInfo:", protoErr.DevInfo)
+			logger.Error().Err(err).Str("details", protoErr.Details).Str("webauth_info", protoErr.DevInfo).Msg("failed to authorise")
 		} else {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+			logger.Error().Err(err).Msg("failed to authorise")
 		}
 
 		msg, status := resultMessage(wa.db, err)
@@ -212,8 +217,8 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 
 		return
 	}
-	log.Println(user.Username, clientTunnelIp, "registered new webauthn key")
-	log.Println(user.Username, clientTunnelIp, "authorised")
+	logger.Info().Msg("registered new webauthn key")
+	logger.Info().Bool("authorised", true).Send()
 
 	jsonResponse(w, AuthResponse{
 		Status: Success,
@@ -222,8 +227,8 @@ func (wa *Webauthn) completeRegistration(w http.ResponseWriter, r *http.Request)
 
 func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 
-	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
+	logger := getLogger(r, wa.Type(), false)
 
 	if !user.IsEnforcingMFA() {
 		jsonResponse(w, AuthResponse{
@@ -235,7 +240,7 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 
 	webauthUserData, err := user.MFA()
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "could not get webauthn MFA details from db:", err)
+		logger.Error().Err(err).Msg("could not get webauthn MFA details from db")
 
 		jsonResponse(w, AuthResponse{
 			Status: Error,
@@ -247,7 +252,8 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 	var webauthnUser WebauthnUser
 	err = webauthnUser.UnmarshalJSON([]byte(webauthUserData))
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to unmarshal db object:", err)
+
+		logger.Error().Err(err).Msg("failed to unmarshal db object")
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Failed to parse webauthn data.",
@@ -260,7 +266,8 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 		pkcro.UserVerification = "discouraged"
 	})
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to generate challenge (webauthn):", err)
+		logger.Error().Err(err).Msg("unable to generate webauthn challenge")
+
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Failed to generate challenge.",
@@ -274,14 +281,15 @@ func (wa *Webauthn) startAuthorisation(w http.ResponseWriter, r *http.Request) {
 		Status: Success,
 		Data:   options,
 	}, http.StatusOK)
-	log.Println(user.Username, clientTunnelIp, "begun webauthn login process (sent challenge)")
 
+	logger.Info().Msg("user has begun webauthn login process, challenge sent")
 }
 
 func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) {
 
 	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
+	logger := getLogger(r, wa.Type(), false)
 
 	if !user.IsEnforcingMFA() {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
@@ -294,7 +302,7 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 			var webauthnUser WebauthnUser
 			err := webauthnUser.UnmarshalJSON([]byte(mfaSecret))
 			if err != nil {
-				log.Println("failed to unmarshal db object:", err)
+				logger.Error().Err(err).Msg("failed to unmarshal db object")
 				return err
 			}
 
@@ -329,7 +337,8 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 		})
 
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err)
+		logger.Error().Err(err).Msg("failed to authorise")
+
 		msg, status := resultMessage(wa.db, err)
 		jsonResponse(w, AuthResponse{
 			Status: Error,
@@ -342,7 +351,7 @@ func (wa *Webauthn) finishAuthorisation(w http.ResponseWriter, r *http.Request) 
 		Status: Success,
 	}, http.StatusOK)
 
-	log.Println(user.Username, clientTunnelIp, "authorised")
+	logger.Info().Bool("authorised", true).Send()
 }
 
 // WebauthnUser represents the user model

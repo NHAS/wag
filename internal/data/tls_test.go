@@ -6,9 +6,10 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"log"
 	"os"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"

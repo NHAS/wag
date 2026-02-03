@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/autoetcdtls/manager"
 	"github.com/NHAS/wag/internal/config"
@@ -73,7 +74,7 @@ func (d *database) parseUrls(values ...string) []url.URL {
 	for _, s := range values {
 		u, err := url.Parse(s)
 		if err != nil {
-			log.Printf("Invalid url %s: %s", s, err.Error())
+			log.Error().Err(err).Msg("Invalid URL")
 			continue
 		}
 		urls = append(urls, *u)
@@ -139,13 +140,13 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 				"config.json": func(name, data string) {
 					err := os.WriteFile("config.json", []byte(data), 0600)
 					if err != nil {
-						log.Fatal("failed to create config.json from other cluster members config: ", err)
+						log.Fatal().Err(err).Msg("failed to create config.json from other cluster members config")
 					}
 
-					log.Println("got additional, loading config file")
+					log.Info().Msg("got additional, loading config file")
 					err = config.Load("config.json")
 					if err != nil {
-						log.Fatal("config supplied by other cluster member was invalid (potential version issues?): ", err)
+						log.Fatal().Err(err).Msg("config supplied by other cluster member was invalid (potential version issues?)")
 					}
 				},
 			})
@@ -219,7 +220,7 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 		return nil, err
 	}
 
-	log.Println("Successfully connected to etcd")
+	log.Info().Msg("Successfully connected to etcd")
 
 	if !db.etcdServer.Server.IsLearner() {
 
@@ -272,13 +273,13 @@ func (d *database) doMigrations() error {
 					var memberCurrentGroups []string
 					err = json.Unmarshal(kv.Value, &memberCurrentGroups)
 					if err != nil {
-						log.Println("FAILED TO migrate group: ", key, err)
+						log.Error().Err(err).Str("group", key).Msg("failed to migrate group, unmarshalling json")
 						continue
 					}
 
 					parts, err := d.SplitKey(1, GroupMembershipPrefix, key)
 					if err != nil {
-						log.Println("FAILED TO migrate group: ", key, err)
+						log.Error().Err(err).Str("group", key).Msg("failed to migrate group")
 						continue
 					}
 
@@ -367,7 +368,7 @@ func (d *database) loadInitialSettings() error {
 	}
 
 	if len(response.Kvs) == 0 {
-		log.Println("no acls found in database, importing from .json file (from this point the json file will be ignored)")
+		log.Info().Msg("no acls found in database, importing from .json file (from this point the json file will be ignored)")
 
 		for aclName, acl := range config.Values.Acls.Policies {
 			aclJson, _ := json.Marshal(acl)
@@ -384,7 +385,8 @@ func (d *database) loadInitialSettings() error {
 	}
 
 	if len(response.Kvs) == 0 {
-		log.Println("no groups found in database, importing from .json file (from this point the json file will be ignored)")
+
+		log.Info().Msg("no groups found in database, importing from .json file (from this point the json file will be ignored)")
 
 		for groupName, members := range config.Values.Acls.Groups {
 			if err := d.CreateGroup(groupName, members); err != nil {
@@ -491,7 +493,7 @@ func (d *database) loadInitialSettings() error {
 		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
 
 		if err != nil {
-			log.Printf("WARNING, failed to read tunnel TLS material: %s", err)
+			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Tunnel.CertificatePath).Str("key_path", config.Values.Webserver.Tunnel.PrivateKeyPath).Msg("WARNING, failed to read tunnel TLS material")
 		} else {
 			tunnelWebserverConfig.StaticCerts = true
 		}
@@ -512,7 +514,8 @@ func (d *database) loadInitialSettings() error {
 		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
 
 		if err != nil {
-			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+
+			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Public.CertificatePath).Str("key_path", config.Values.Webserver.Public.PrivateKeyPath).Msg("WARNING, failed to read public webserver TLS material")
 		} else {
 			publicWebserverConfig.StaticCerts = true
 		}
@@ -534,7 +537,7 @@ func (d *database) loadInitialSettings() error {
 		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
 
 		if err != nil {
-			log.Printf("WARNING, failed to read public webserver TLS material: %s", err)
+			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Management.CertificatePath).Str("key_path", config.Values.Webserver.Management.PrivateKeyPath).Msg("WARNING, failed to read management webserver TLS material")
 		} else {
 			managementWebserverConfig.StaticCerts = true
 		}
@@ -587,7 +590,7 @@ func putIfNotFound[T any](etcd *clientv3.Client, key string, value T, set string
 	}
 
 	if resp.Succeeded {
-		log.Printf("setting %s from json, importing from .json file (from this point the json file will be ignored)", set)
+		log.Info().Msgf("setting %s from json, importing from .json file (from this point the json file will be ignored)", set)
 	}
 
 	return nil
@@ -674,7 +677,8 @@ func (d *database) doSafeUpdate(ctx context.Context, key string, create bool, mu
 
 		if !txnResp.Succeeded {
 			origState = (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-			log.Println("Updating state failed")
+			log.Debug().Err(err).Msg("updating state failed")
+
 			continue
 		}
 
@@ -797,7 +801,8 @@ func (d *database) checkClusterHealth() {
 
 	<-d.exit
 
-	log.Println("etcd server was instructed to terminate")
+	log.Info().Msg("etcd server was instructed to terminate")
+
 	leaderMonitor.Stop()
 	clusterMonitor.Stop()
 
@@ -809,7 +814,8 @@ func (d *database) testCluster() {
 	_, err := d.etcd.Put(ctx, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "ping"), time.Now().Format(time.RFC1123Z))
 	cancel()
 	if err != nil {
-		log.Println("unable to write liveness value")
+		log.Error().Err(err).Msg("unable to write liveness value")
+
 		d.notifyClusterHealthListeners("dead")
 		return
 	}

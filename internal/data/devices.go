@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"path"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/client/v3/clientv3util"
@@ -550,7 +551,7 @@ func (d *database) DeleteDevices(username string) error {
 		var dev Device
 		err := json.Unmarshal(reference.Value, &dev)
 		if err != nil {
-			log.Printf("Failed to delete device for user %q, err: %s", username, err)
+			log.Error().Err(err).Str("username", username).Msg("Failed to delete device")
 			continue
 		}
 

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
@@ -38,7 +40,8 @@ func (mp *MfaPortal) Close() {
 		w.Close()
 	}
 
-	log.Println("Stopped MFA portal")
+	log.Info().Msg("Stopped MFA portal")
+
 }
 
 func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
@@ -81,11 +84,14 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 		resources.Assets(w, r)
 	})
 
-	if err := autotls.Do.DynamicListener(data.Tunnel, utils.SetSecurityHeaders(fetchState(tunnel, db, mfaPortal.firewall))); err != nil {
+	if err := autotls.Do.DynamicListener(data.Tunnel,
+		utils.SetSecurityHeaders(
+			fetchState(tunnel, db, mfaPortal.firewall),
+		)); err != nil {
 		return nil, err
 	}
 
-	log.Println("[PORTAL] Captive portal started listening, port", config.Values.Webserver.Tunnel.Port)
+	log.Info().Str("port", config.Values.Webserver.Tunnel.Port).Msg("Captive portal started listening")
 
 	// For any change to the authentication config re-up
 	// This should always be done at the bottom
@@ -108,9 +114,12 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 
 	user := users.GetUserFromContext(r.Context())
 
+	logger := zerolog.Ctx(r.Context())
+
 	err := user.Deauthenticate(clientTunnelIp.String())
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "could not deauthenticate:", err)
+
+		logger.Error().Err(err).Msg("could not deauthenticate")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -121,9 +130,12 @@ func (mp *MfaPortal) logout(w http.ResponseWriter, r *http.Request) {
 func (mp *MfaPortal) routes(w http.ResponseWriter, r *http.Request) {
 	user := users.GetUserFromContext(r.Context())
 
+	logger := zerolog.Ctx(r.Context())
+
 	routes, err := mp.firewall.GetRoutes(user.Username)
 	if err != nil {
-		log.Println(user.Username, "Getting routes from firewall failed: ", err)
+		logger.Error().Err(err).Msg("getting routes from firewall failed")
+
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -154,9 +166,11 @@ func (mp *MfaPortal) publicKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=pubkey")
 	w.Header().Set("Content-Type", "text/plain")
 
+	logger := zerolog.Ctx(r.Context())
+
 	wgPublicKey, _, err := mp.firewall.ServerDetails()
 	if err != nil {
-		log.Println("unable access wireguard device: ", err)
+		logger.Error().Err(err).Msg("unable access wireguard device")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}

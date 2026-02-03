@@ -2,8 +2,9 @@ package router
 
 import (
 	"errors"
-	"log"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 
@@ -184,7 +185,7 @@ func (f *Firewall) teardownIptables() {
 		panic("something called teardown on an already torn down firewall instance")
 	}
 
-	log.Println("Removing Firewall rules...")
+	log.Info().Msg("Removing Firewall rules...")
 
 	var (
 		err error
@@ -197,11 +198,12 @@ func (f *Firewall) teardownIptables() {
 	}
 
 	if err != nil {
-		log.Println("Unable to clean up firewall rules: ", err)
+		log.Error().Err(err).Msg("Unable to clean up firewall rules")
 		return
 	}
 
 	f.clearChains(ipt)
 
-	log.Println("Firewall rules removed.")
+	log.Info().Msg("Firewall rules removed.")
+
 }

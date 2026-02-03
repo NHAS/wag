@@ -2,9 +2,10 @@ package authenticators
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/interfaces"
 )
@@ -46,7 +47,7 @@ func jsonResponse(w http.ResponseWriter, d interface{}, c int) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(d)
 	if err != nil {
-		log.Println("failed to write json: ", err)
+		log.Error().Err(err).Msg("failed to write json")
 	}
 
 }

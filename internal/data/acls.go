@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"sort"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
@@ -94,7 +95,9 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	)
 	resp, err := txn.Commit()
 	if err != nil {
-		log.Println("failed to get policy data for user", username, "err:", err)
+
+		log.Error().Err(err).Str("username", username).Msg("failed to get policy data for user")
+
 		return acls.Acl{
 			Allow: []string{hostIPWithMask(config.Values.Wireguard.ServerAddress)},
 		}
@@ -115,7 +118,8 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 			addAcls(acl)
 		} else {
 			d.RaiseError(err, []byte("failed to unmarshal default acls policy"))
-			log.Println("failed to unmarshal default acls policy: ", err)
+			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal default acls policy")
+
 		}
 	}
 
@@ -127,7 +131,9 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 		if err == nil {
 			addAcls(acl)
 		} else {
-			log.Println("failed to unmarshal user specific acls: ", err)
+			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal user specific acls")
+			d.RaiseError(err, []byte(fmt.Sprintf("failed to decode %q acls check policies", username)))
+
 		}
 	}
 
@@ -140,7 +146,8 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 			// strips [wag-membership-username-]groupnames
 			resultParts, err := d.SplitKey(1, userMembershipKey, string(kv.Key))
 			if err != nil {
-				log.Println("failed to get group membership: ", err)
+				log.Error().Err(err).Str("username", username).Str("membership_key", userMembershipKey).Msg("failed to get group membership")
+
 				continue
 			}
 
@@ -151,7 +158,8 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 		txn := d.etcd.Txn(context.Background())
 		resp, err := txn.Then(ops...).Commit()
 		if err != nil {
-			log.Println("failed to fetch acls from db groups: ", err)
+			log.Error().Err(err).Str("username", username).Msg("failed to fetch acls from db groups")
+
 			d.RaiseError(err, []byte("failed to fetch acls from db groups"))
 			return acls.Acl{}
 		}
@@ -164,7 +172,7 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 
 				err := json.Unmarshal(r.Kvs[0].Value, &acl)
 				if err != nil {
-					log.Println("failed to unmarshal acl from response: ", err, string(r.Kvs[0].Value))
+					log.Error().Err(err).Str("username", username).Str("response", string(r.Kvs[0].Value)).Msg("failed to decode acl from database")
 					continue
 				}
 				addAcls(acl)
@@ -184,7 +192,7 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 				d.insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
 			}
 		} else {
-			log.Println("failed to unmarshal dns setting: ", err)
+			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal dns setting")
 		}
 	}
 

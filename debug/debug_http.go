@@ -1,9 +1,10 @@
 package debug
 
 import (
-	"log"
 	"net/http"
 	_ "net/http/pprof"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 )
@@ -11,8 +12,9 @@ import (
 func StartPprof() {
 	go func() {
 		if config.Values.DevMode {
-			log.Println("debug pprof server started on :6060")
-			log.Println(http.ListenAndServe(":6060", nil))
+			log.Info().Msg("debug pprof server started on :6060")
+
+			http.ListenAndServe(":6060", nil)
 		}
 	}()
 }

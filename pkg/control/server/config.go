@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/pkg/control"
@@ -38,7 +39,7 @@ func (wsg *WagControlSocketServer) newPolicy(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("new policy '%s' added", acl.Effects)
+	log.Info().Str("policy", acl.Effects).Str("action", "created").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -57,7 +58,7 @@ func (wsg *WagControlSocketServer) editPolicy(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Printf("policy '%s' edited", polciyData.Effects)
+	log.Info().Str("policy", polciyData.Effects).Str("action", "edited").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -72,13 +73,13 @@ func (wsg *WagControlSocketServer) deletePolicies(w http.ResponseWriter, r *http
 
 	for _, policyName := range policyNames {
 		if err := wsg.db.RemoveAcl(policyName); err != nil {
-			log.Println("Unable to set remove policy: ", err)
+			log.Error().Err(err).Str("policy", policyName).Msg("unable to set remove policy")
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-
-	log.Printf("policy '%s' deleted", policyNames)
+	log.Info().Strs("policy", policyNames).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -111,7 +112,7 @@ func (wsg *WagControlSocketServer) newGroup(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	log.Printf("new group '%s' added", gData.Group)
+	log.Info().Str("group", gData.Group).Strs("added_members", gData.AddedMembers).Str("action", "added").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -135,7 +136,7 @@ func (wsg *WagControlSocketServer) editGroup(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("group '%s' edited", gdata.Group)
+	log.Info().Str("group", gdata.Group).Strs("added_members", gdata.AddedMembers).Strs("removed_members", gdata.RemovedMembers).Str("action", "edited").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -156,7 +157,7 @@ func (wsg *WagControlSocketServer) deleteGroup(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	log.Printf("group/s '%s' deleted", groupNames)
+	log.Info().Strs("group", groupNames).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK!"))
 }
@@ -174,6 +175,8 @@ func (wsg *WagControlSocketServer) getDBKey(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "No key specified", http.StatusInternalServerError)
 		return
 	}
+
+	log.Info().Str("get", key).Str("action", "get etcd key").Send()
 
 	data, err := wsg.db.Get(key)
 	if err != nil {
@@ -197,6 +200,8 @@ func (wsg *WagControlSocketServer) putDBKey(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "No key specified", http.StatusInternalServerError)
 		return
 	}
+
+	log.Info().Str("put", toWrite.Key).Str("action", "put etcd key").Send()
 
 	err := wsg.db.Put(toWrite.Key, toWrite.Value)
 	if err != nil {

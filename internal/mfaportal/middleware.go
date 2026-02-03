@@ -2,8 +2,9 @@ package mfaportal
 
 import (
 	"context"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
@@ -24,7 +25,7 @@ func (d *userChecks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userObj, err := users.GetUserFromAddress(d.db, clientTunnelIp)
 	if err != nil {
 		http.Error(w, "Server Error", http.StatusInternalServerError)
-		log.Printf("device with unknown ip %q (%q, xff %q, NumberOfProxies: %d) used vpn endpoint CHECK CONFIG", clientTunnelIp, r.Host, r.Header.Get("X-forwarded-for"), config.Values.NumberProxies)
+		log.Error().Err(err).IPAddr("address", clientTunnelIp).Str("X-forwarded-for", r.Header.Get("X-forwarded-for")).Int("expected_number_of_proxies", config.Values.NumberProxies).Msg("device with unknown ip used VPN endpoint. CHECK YOUR CONFIG")
 		return
 	}
 
@@ -32,7 +33,15 @@ func (d *userChecks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if clientTunnelIp != nil {
 		ctx = context.WithValue(ctx, authContext, d.f.IsAuthed(clientTunnelIp.String()))
+
+		logger := log.With().
+			Str("username", userObj.Username).
+			IPAddr("client_ip", clientTunnelIp).
+			Logger()
+
+		ctx = logger.WithContext(ctx)
 	}
+
 	// Create new request with updated context
 	r = r.WithContext(ctx)
 

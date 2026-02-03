@@ -7,9 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"path"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/go-playground/validator/v10"
@@ -131,7 +132,7 @@ func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 			var t time.Time
 			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &t)
 			if err != nil {
-				log.Printf("could not unmarshal last request time from webhook: %s: %v", string(resp.Responses[i].GetResponseRange().Kvs[0].Key), err)
+				log.Error().Err(err).Str("last_request", string(resp.Responses[i].GetResponseRange().Kvs[0].Key)).Msg("could not unmarshal last request time from webhook")
 				continue
 			}
 
@@ -154,8 +155,8 @@ func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 			var status string
 			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &status)
 			if err != nil {
-				log.Println(string(resp.Responses[i].GetResponseRange().Kvs[0].Value))
-				log.Printf("could not unmarshal last request status from webhook: %s: %v", string(resp.Responses[i].GetResponseRange().Kvs[0].Key), err)
+
+				log.Info().Err(err).Str("last_request", string(resp.Responses[i].GetResponseRange().Kvs[0].Key)).Msg("could not unmarshal last request status from webhook")
 				continue
 			}
 
@@ -235,8 +236,6 @@ func (d *database) WebhookRecordLastRequest(id, authHeader, request string) erro
 		go d.actionWebhook(hookSettings, &request)
 
 	} else if !res.Responses[0].GetResponseTxn().Succeeded {
-		log.Println("here 1")
-
 		return fmt.Errorf("webhook not found")
 	}
 
@@ -306,8 +305,9 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 
 	status := "OK"
 	if err != nil {
-		log.Println("failed to action webhook: ", err)
+
 		status = err.Error()
+		log.Error().Err(err).Str("action", hook.Action).Str("hook_id", hook.ID).Msg("failed to action webhook")
 		d.RaiseError(fmt.Errorf("unable to do %q via webhook %q as error occured: %w", hook.Action, hook.ID, err), nil)
 	}
 

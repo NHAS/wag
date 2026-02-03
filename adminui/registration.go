@@ -3,9 +3,10 @@ package adminui
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -14,7 +15,7 @@ import (
 func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Request) {
 	registrations, err := au.ctrl.Registrations()
 	if err != nil {
-		log.Println("error getting registrations: ", err)
+		log.Error().Err(err).Msg("error getting registrations")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -49,6 +50,8 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 	defer r.Body.Close()
 	err = safedecoder.Decoder(r.Body).Decode(&req)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to parse json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -59,12 +62,15 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 	if req.Uses <= 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		err = errors.New("cannot create token with <= 0 uses")
+		log.Error().Err(err).Str("token", req.Token).Msg("invalid token creation request")
+
 		return
 	}
 
 	res, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.StaticIP, req.Uses, req.Tag, req.Groups...)
 	if err != nil {
-		log.Println("unable to create new registration token: ", err)
+		log.Error().Err(err).Msg("unable to create new registration token")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -81,6 +87,8 @@ func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Reque
 
 	err = safedecoder.Decoder(r.Body).Decode(&tokens)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to parse json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -95,6 +103,8 @@ func (au *AdminUI) deleteRegistrationTokens(w http.ResponseWriter, r *http.Reque
 	err = errors.Join(errs...)
 
 	if err != nil {
+		log.Error().Err(err).Msg("failed to delete registration token")
+
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

@@ -1,11 +1,12 @@
 package integration
 
 import (
-	"log"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/commands"
 	"github.com/NHAS/wag/internal/config"

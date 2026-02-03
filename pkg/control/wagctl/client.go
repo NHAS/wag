@@ -46,7 +46,7 @@ func (c *CtrlClient) simplepost(path string, form url.Values) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -67,7 +67,7 @@ func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -90,7 +90,7 @@ func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -118,7 +118,7 @@ func (c *CtrlClient) CreateDevice(dev control.CreateDeviceDTO) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -166,7 +166,7 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO,
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -189,7 +189,7 @@ func (c *CtrlClient) GetAdminUser(username string) (user data.AdminUserDTO, err 
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return user, err
@@ -258,7 +258,7 @@ func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return user, err
@@ -281,7 +281,7 @@ func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -304,7 +304,7 @@ func (c *CtrlClient) UserGroups(username string) (userGroups []string, err error
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -361,7 +361,7 @@ func (c *CtrlClient) GetUsersAcls(username string) (acl acls.Acl, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return acls.Acl{}, err
@@ -387,7 +387,7 @@ func (c *CtrlClient) FirewallRules() (rules map[string]router.FirewallRules, err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return rules, err
@@ -435,7 +435,7 @@ func (c *CtrlClient) AddPolicy(policies control.PolicyData) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -460,7 +460,7 @@ func (c *CtrlClient) EditPolicies(policy control.PolicyData) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -484,7 +484,7 @@ func (c *CtrlClient) RemovePolicies(policyNames []string) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -530,7 +530,7 @@ func (c *CtrlClient) AddGroup(group control.GroupCreateData) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -559,7 +559,7 @@ func (c *CtrlClient) EditGroup(group control.GroupEditData) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -583,7 +583,7 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -603,7 +603,7 @@ func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return allSettings, err
@@ -632,7 +632,7 @@ func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettings) (err e
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -652,7 +652,7 @@ func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return allSettings, err
@@ -681,7 +681,7 @@ func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettings) (err error
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -701,7 +701,7 @@ func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.Webserve
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -726,7 +726,7 @@ func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result d
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return data.WebserverConfiguration{}, err
@@ -756,7 +756,7 @@ func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig 
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -775,7 +775,7 @@ func (c *CtrlClient) GetAcmeDNS01CloudflareToken() (result data.CloudflareToken,
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return data.CloudflareToken{}, err
@@ -803,7 +803,7 @@ func (c *CtrlClient) SetAcmeDNS01CloudflareToken(token string) (err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -823,7 +823,7 @@ func (c *CtrlClient) GetAcmeProvider() (result string, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -852,7 +852,7 @@ func (c *CtrlClient) SetAcmeProvider(providerURL string) (err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -871,7 +871,7 @@ func (c *CtrlClient) GetAcmeEmail() (result string, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -899,7 +899,7 @@ func (c *CtrlClient) SetAcmeEmail(email string) (err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -920,7 +920,7 @@ func (c *CtrlClient) GetLockout() (lockout int, err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return 0, err
@@ -962,7 +962,7 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -1014,7 +1014,7 @@ func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return control.RegistrationResult{}, err
@@ -1055,7 +1055,7 @@ func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err er
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -1079,7 +1079,7 @@ func (c *CtrlClient) GetClusterMembers() (clusterMembers []*membership.Member, e
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, err
@@ -1103,7 +1103,7 @@ func (c *CtrlClient) GetClusterMemberLastPing(id string) (t time.Time, err error
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return t, err
@@ -1162,7 +1162,7 @@ func (c *CtrlClient) PutDBKey(key, value string) error {
 		return err
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		return errors.New(string(result))
 	}
 
@@ -1178,7 +1178,7 @@ func (c *CtrlClient) CreateTempWebhook() (result control.TempWebhookResponseDTO,
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		r, err := io.ReadAll(response.Body)
 		if err != nil {
 			return result, err
@@ -1203,7 +1203,7 @@ func (c *CtrlClient) GetWebhooks() (result []data.WebhookGetResponseDTO, err err
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		r, err := io.ReadAll(response.Body)
 		if err != nil {
 			return result, err
@@ -1228,7 +1228,7 @@ func (c *CtrlClient) GetWebhookLastRequest(id string) (result string, err error)
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		r, err := io.ReadAll(response.Body)
 		if err != nil {
 			return result, err
@@ -1258,7 +1258,7 @@ func (c *CtrlClient) CreateWebhook(hook data.WebhookCreateRequestDTO) (err error
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -1288,7 +1288,7 @@ func (c *CtrlClient) DeleteWebhooks(ids []string) (err error) {
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err

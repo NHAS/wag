@@ -1,11 +1,12 @@
 package adminui
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -52,7 +53,7 @@ func (au *AdminUI) notificationsWS(notifications <-chan NotificationDTO) func(w 
 		// Upgrade HTTP connection to WebSocket connection
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println(err)
+			log.Error().Err(err).Msg("failed to upgrade http connection to websocket")
 			return
 		}
 
@@ -109,7 +110,7 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 		for {
 			resp, err := http.Get("https://api.github.com/repos/NHAS/wag/releases/latest")
 			if err != nil {
-				log.Println("unable to fetch updates: ", err)
+				log.Error().Err(err).Msg("unable to fetch wag updates from api.github.com")
 				return
 			}
 
@@ -117,7 +118,7 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 			err = safedecoder.Decoder(resp.Body).Decode(&gr)
 			resp.Body.Close()
 			if err != nil {
-				log.Println("unable to parse update json: ", err)
+				log.Error().Err(err).Msg("failed to decode response from api.github.com")
 				return
 			}
 
@@ -166,7 +167,7 @@ func (au *AdminUI) monitorClusterMembers(notifications chan<- NotificationDTO) {
 	for {
 		currentMembers, err := au.ctrl.GetClusterMembers()
 		if err != nil {
-			log.Println("unable to get cluster members, err: ", err)
+			log.Error().Err(err).Msg("failed to get cluster members")
 		} else {
 
 			if len(currentMembers) == 2 {

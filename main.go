@@ -4,9 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"syscall"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/commands"
 )
@@ -96,7 +97,11 @@ func main() {
 	syscall.Umask(017)
 
 	if err := root(os.Args[1:]); err != nil {
-		log.Println(err)
+		event := log.Error().Err(err)
+		if len(os.Args[1:]) > 0 {
+			event.Str("command", os.Args[0])
+		}
+		event.Msg("failed to run command")
 		os.Exit(1)
 	}
 

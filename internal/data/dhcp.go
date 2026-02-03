@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
@@ -145,7 +146,7 @@ func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
 
 			d.etcd.Delete(ctx, string(resp.Kvs[0].Key))
 
-			log.Printf("%q was marked as abandoned, but still has a device reference, this may be bug. ", string(resp.Kvs[0].Key))
+			log.Debug().Str("dhcp_lease", string(resp.Kvs[0].Key)).Msgf("lease was marked as abandoned, but still has a device reference, this may be bug. ")
 			continue
 		}
 

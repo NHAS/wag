@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/netip"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/interfaces"
@@ -597,10 +598,13 @@ func (fwd *FirewallDevice) timeout(db interfaces.Database) func() {
 		fwd.inactive = true
 		err := db.DeauthenticateDevice(fwd.address.String())
 		if err != nil {
-			log.Println("failed to deauthenticate device on inactivity timeout: ", err)
+
+			log.Error().Err(err).Msg("failed to deauthenticate device on inactivity timeout")
+
 			return
 		}
-		log.Printf("Device %q %q became inactive", fwd.username, fwd.address)
+
+		log.Info().Str("username", fwd.username).Str("address", fwd.address.String()).Msg("Device became inactive")
 	}
 }
 

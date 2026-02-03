@@ -2,10 +2,11 @@ package data
 
 import (
 	"encoding/json"
-	"log"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -79,7 +80,7 @@ func redact[T any](input T) (redacted []byte) {
 
 	defer func() {
 		if e := recover(); e != nil {
-			log.Println("redacting panicked: ", e)
+			log.Debug().Msgf("redacting panicked: %v", e)
 		}
 	}()
 
@@ -112,7 +113,7 @@ func redact[T any](input T) (redacted []byte) {
 				if field.CanSet() {
 					field.Set(reflect.Zero(field.Type()))
 				} else {
-					log.Printf("cannot redact field %s: field cannot be set", fieldType.Name)
+					log.Debug().Str("field", fieldType.Name).Msg("cannot redact field")
 				}
 			}
 		}
@@ -120,7 +121,7 @@ func redact[T any](input T) (redacted []byte) {
 
 	b, err := json.MarshalIndent(copied.Interface(), "", "    ")
 	if err != nil {
-		log.Println("could not marshal: ", err)
+		log.Error().Err(err).Msg("could not marshal")
 		return nil
 	}
 	return b

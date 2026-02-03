@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/interfaces"
@@ -98,7 +100,8 @@ func (o *Oidc) Initialise(db interfaces.Database) error {
 	}
 
 	u.Path = path.Join(u.Path, "/api/oidc/authorise/callback")
-	log.Println("[PORTAL] OIDC callback: ", u.String())
+
+	log.Info().Str("oidc_callback", u.String()).Send()
 
 	if len(o.details.Scopes) == 0 {
 		o.details.Scopes = []string{"openid"}
@@ -109,10 +112,13 @@ func (o *Oidc) Initialise(db interfaces.Database) error {
 	o.provider, err = rp.NewRelyingPartyOIDC(ctx, o.details.IssuerURL, o.details.ClientID, o.details.ClientSecret, u.String(), o.details.Scopes, options...)
 	cancel()
 	if err != nil {
+		log.Error().Err(err).Str("oidc_provider", o.details.IssuerURL).Msg("failed to connect")
+
 		return err
 	}
 
-	log.Println("[PORTAL] Connected to OIDC provider: ", o.details.IssuerURL)
+	log.Info().Str("oidc_provider", o.details.IssuerURL).Msg("successfully connected")
+
 	return nil
 }
 
@@ -125,16 +131,16 @@ func (o *Oidc) FriendlyName() string {
 }
 
 func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
-
 	user := users.GetUserFromContext(r.Context())
+
+	logger := zerolog.Ctx(r.Context()).With().Bool("registering", true).Logger()
+
 	if user.IsEnforcingMFA() {
-		log.Println(user.Username, clientTunnelIp, "tried to re-register mfa despite already being registered")
+
+		logger.Warn().Msg("tried to re-register mfa despite already being registered")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-
-	log.Println(user.Username, clientTunnelIp, "registering with oidc")
 
 	value, _ := json.Marshal(issuer{
 		Issuer:  o.provider.Issuer(),
@@ -143,7 +149,7 @@ func (o *Oidc) register(w http.ResponseWriter, r *http.Request) {
 
 	err := o.db.SetUserMfa(user.Username, string(value), o.Type())
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to set authentication method as oidc key to db:", err)
+		logger.Error().Err(err).Msg("unable to set authentication method as oidc in database")
 		http.Redirect(w, r, "/error", http.StatusSeeOther)
 		return
 	}
@@ -178,12 +184,14 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := users.GetUserFromContext(r.Context())
+	logger := getLogger(r, o.Type(), false)
 
 	marshalUserinfo := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty, info *oidc.UserInfo) {
 
 		groupsIntf, ok := tokens.IDTokenClaims.Claims[o.details.GroupsClaimName].([]interface{})
 		if !ok {
-			log.Println("Error, could not convert group claim to []string, probably error in oidc idP configuration")
+
+			logger.Error().Str("error", "could not convert group claim to []string, probably error in oidc idP configuration").Send()
 			http.Redirect(w, r, "/error?m="+url.QueryEscape("IDP Server configuration error, could not get groups"), http.StatusSeeOther)
 			return
 		}
@@ -194,7 +202,7 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 
 			deviceUsernameClaim, ok := tokens.IDTokenClaims.Claims[o.details.DeviceUsernameClaim].(string)
 			if !ok {
-				log.Println("Error, Device Username Claim set but idP has not set attribute in users token")
+				logger.Error().Str("error", "Device Username Claim set but idP has not set attribute in users token").Send()
 				http.Redirect(w, r, "/error?m="+url.QueryEscape("IDP Server configuration error, device username claim not set in token"), http.StatusSeeOther)
 				return
 			}
@@ -208,7 +216,8 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 		for i := range groupsIntf {
 			conv, ok := groupsIntf[i].(string)
 			if !ok {
-				log.Println("Error, could not convert group claim to string, probably mistake in your OIDC idP configuration")
+				logger.Error().Str("error", "could not convert group claim to string, probably mistake in your OIDC idP configuration").Send()
+
 				http.Redirect(w, r, "/error?m="+url.QueryEscape("IDP configuration error, malformed groups configuration"), http.StatusSeeOther)
 				return
 			}
@@ -242,12 +251,14 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if issuerDetails.Subject != info.Subject {
-				log.Printf("Error logging in user, idP supplied device username (%q) does not equal expected username (%q)", suppliedUsername, username)
+				logger.Error().Str("idp_subject", info.Subject).Str("associated_subject", issuerDetails.Subject).Str("error", "idp subject is not equal to subject associated with username").Send()
+
 				return fmt.Errorf("idp subject %q is not equal to subject %q associated with username %q", info.Subject, issuerDetails.Subject, username)
 			}
 
 			if suppliedUsername != username {
-				log.Printf("Error logging in user, idP supplied username (%q) does not equal username (%q) associated with device", suppliedUsername, username)
+				logger.Error().Str("idp_username", suppliedUsername).Str("error", "idP supplied username does not equal username associated with device").Send()
+
 				return errors.New("user is not associated with device")
 			}
 
@@ -255,14 +266,12 @@ func (o *Oidc) oidcCallbackFinishAuth(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+			logger.Warn().Err(err).Msg("failed to authorise")
 			http.Redirect(w, r, "/error?m="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 			return
 		}
 
-		log.Println(user.Username, clientTunnelIp, "used sso to login with groups: ", groups)
-
-		log.Println(user.Username, clientTunnelIp, "authorised")
+		logger.Info().Strs("groups", groups).Bool("authorised", true).Msg("authorised")
 
 		http.Redirect(w, r, "/success", http.StatusSeeOther)
 	}

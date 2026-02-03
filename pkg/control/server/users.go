@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/users"
@@ -107,7 +108,7 @@ func (wsg *WagControlSocketServer) lockUser(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	log.Println(username, "locked")
+	log.Info().Str("username", username).Str("action", "locked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -134,7 +135,7 @@ func (wsg *WagControlSocketServer) unlockUser(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Println(username, "unlocked")
+	log.Info().Str("username", username).Str("action", "unlocked").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -160,7 +161,7 @@ func (wsg *WagControlSocketServer) deleteUser(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Println(username, "deleted")
+	log.Info().Str("username", username).Str("action", "deleted").Send()
 
 	w.Write([]byte("OK"))
 }
@@ -186,7 +187,7 @@ func (wsg *WagControlSocketServer) resetMfaUser(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	log.Println(username, "MFA has been reset and will be shown")
+	log.Info().Str("username", username).Str("action", "mfa reset").Send()
 
 	w.Write([]byte("OK"))
 }

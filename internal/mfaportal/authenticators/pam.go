@@ -2,7 +2,6 @@ package authenticators
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"path"
 
@@ -56,9 +55,12 @@ func (t *Pam) doAuth(w http.ResponseWriter, r *http.Request) {
 	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
 
+	logger := getLogger(r, t.Type(), false)
+
 	err := user.Authenticate(clientTunnelIp.String(), t.Type(), t.AuthoriseFunc(w, r))
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "failed to authorise: ", err.Error())
+		logger.Error().Err(err).Msg("failed to authorise")
+
 		msg, status := resultMessage(t.db, err)
 		jsonResponse(w, AuthResponse{
 			Status: Error,
@@ -70,13 +72,13 @@ func (t *Pam) doAuth(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, AuthResponse{
 		Status: Success,
 	}, http.StatusOK)
-	log.Println(user.Username, clientTunnelIp, "authorised")
 
+	logger.Info().Bool("authorised", true).Send()
 }
 
 func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
-	clientTunnelIp := utils.GetIPFromRequest(r)
 	user := users.GetUserFromContext(r.Context())
+	logger := getLogger(r, t.Type(), false)
 
 	if user.IsEnforcingMFA() {
 		jsonResponse(w, AuthResponse{
@@ -88,7 +90,7 @@ func (t *Pam) completeRegistration(w http.ResponseWriter, r *http.Request) {
 
 	err := t.db.SetUserMfa(user.Username, "PAMauth", t.Type())
 	if err != nil {
-		log.Println(user.Username, clientTunnelIp, "unable to save PAM key to db:", err)
+		logger.Error().Err(err).Msg("unable to save PAM key to db")
 		jsonResponse(w, AuthResponse{
 			Status: Error,
 			Error:  "Server error",
@@ -114,10 +116,10 @@ func (t *Pam) authorise(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.AuthenticatorFunc {
+	logger := getLogger(r, t.Type(), false)
+
 	return func(mfaSecret, username string) error {
 		defer r.Body.Close()
-
-		clientTunnelIp := utils.GetIPFromRequest(r)
 
 		dec := safedecoder.Decoder(r.Body)
 		dec.DisallowUnknownFields()
@@ -140,7 +142,7 @@ func (t *Pam) AuthoriseFunc(w http.ResponseWriter, r *http.Request) types.Authen
 			pamRulesFile = "default PAM /etc/pam.d/login"
 		}
 
-		log.Printf("%q %s attempting to authorise with PAM (using %q )", username, clientTunnelIp, pamRulesFile)
+		logger.Info().Str("pam_rules", pamRulesFile).Msg("authorise with PAM")
 		t, err := pam.StartFunc(pamDetails.ServiceName, username, func(s pam.Style, msg string) (string, error) {
 
 			switch s {

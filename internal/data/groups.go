@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -130,7 +131,7 @@ func (d *database) GetGroups() (result []*control.GroupData, err error) {
 		for _, kv := range kvs {
 			resultParts, err := d.SplitKey(3, GroupsPrefix, string(kv.Key))
 			if err != nil {
-				log.Println("failed to get group: ", err)
+				log.Error().Err(err).Str("group", string(kv.Key)).Msg("failed to get group")
 				continue
 			}
 			// 1 = -members-
@@ -138,6 +139,8 @@ func (d *database) GetGroups() (result []*control.GroupData, err error) {
 			var info MembershipInfo
 			err = json.Unmarshal(kv.Value, &info)
 			if err != nil {
+				log.Error().Err(err).Str("group", string(kv.Key)).Msg("failed to unmarshal membership info")
+
 				d.RaiseError(fmt.Errorf("failed to unmarshal membership info from %s: %w", kv.Key, err), []byte(""))
 				continue
 			}

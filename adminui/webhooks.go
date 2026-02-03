@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
@@ -19,14 +20,15 @@ import (
 func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 	config, err := au.ctrl.GetSingleWebserverSettings(data.Public)
 	if err != nil {
-		log.Printf("failed to get web server config for public server: %s", err)
+		log.Error().Err(err).Msg("failed to get web server config for public server")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
-		log.Println("failed to accept websocket connection: ", err)
+		log.Error().Err(err).Msg("failed to accept websocket connection")
+
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -39,7 +41,9 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	details, err := au.ctrl.CreateTempWebhook()
 	if err != nil {
-		log.Printf("unable to create temporary webhook: %s", err)
+		log.Error().Err(err).Msg("unable to create temporary webhook")
+
+		// At this point we're in a websocket so just die
 		return
 
 	}
@@ -100,9 +104,8 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 			cancel()
 
 			if err != nil {
-				log.Println("failed to write to websocket: ", err)
+				log.Error().Err(err).Msg("failed to write to websocket")
 				conn.CloseNow()
-
 			}
 
 			return nil
@@ -119,7 +122,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		cancel()
 
 		if err != nil {
-			log.Println("failed to write to websocket: ", err)
+			log.Error().Err(err).Msg("failed to write to websocket")
 			conn.CloseNow()
 		}
 
@@ -135,7 +138,7 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		watcher.OnDelete(onDelete),
 	)
 	if err != nil {
-		log.Println("failed to start watcher on temporary webhook: ", err)
+		log.Error().Err(err).Msg("failed to start watcher on temporary webhook")
 		return
 	}
 
@@ -145,6 +148,8 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		err = wsjson.Read(ctx, conn, &ping)
 		cancel()
 		if err != nil {
+			log.Debug().Err(err).Msg("failed to read from webhook")
+
 			return
 		}
 	}
@@ -155,7 +160,7 @@ func (au *AdminUI) getWebhooks(w http.ResponseWriter, r *http.Request) {
 
 	hooks, err := au.ctrl.GetWebhooks()
 	if err != nil {
-		log.Printf("failed to get all webhook err: %s", err)
+		log.Error().Err(err).Msg("failed to get all webhooks")
 
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -176,14 +181,16 @@ func (au *AdminUI) getWebhookLastRequest(w http.ResponseWriter, r *http.Request)
 
 	err = safedecoder.Decoder(r.Body).Decode(&webhook)
 	if err != nil {
+		log.Debug().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	req, err := au.ctrl.GetWebhookLastRequest(webhook.ID)
 	if err != nil {
-		log.Printf("failed to get webhook request: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Error().Err(err).Msg("failed to get webhook request")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -200,14 +207,16 @@ func (au *AdminUI) createWebhook(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&webhook)
 	if err != nil {
+		log.Debug().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.CreateWebhook(webhook)
 	if err != nil {
-		log.Printf("failed to create webhook: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Error().Err(err).Msg("failed to create webhook")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -223,14 +232,17 @@ func (au *AdminUI) deleteWebhooks(w http.ResponseWriter, r *http.Request) {
 
 	err = safedecoder.Decoder(r.Body).Decode(&webhooks)
 	if err != nil {
+		log.Debug().Err(err).Msg("failed to decode json body")
+
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = au.ctrl.DeleteWebhooks(webhooks)
 	if err != nil {
-		log.Printf("failed to delete webhook: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Error().Err(err).Msg("failed to delete webhook")
+
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }

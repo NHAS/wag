@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
@@ -99,7 +100,7 @@ func Initialise(db interfaces.Database) error {
 
 	err = ret.startAutoRedirector()
 	if err != nil {
-		log.Println("could not start port 80 redirector, this will break HTTP-01 TLS transactions: ", err)
+		log.Warn().Err(err).Msg("could not start port 80 redirector, this will break HTTP-01 TLS transactions")
 	}
 
 	err = ret.registerEventListeners()
@@ -124,7 +125,8 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 
 	if a.http01Challenge != nil {
 		if _, port, err := net.SplitHostPort(initialDetails.ListenAddress); err == nil && port == "80" {
-			log.Println("Shutdown default 80/tcp http listener in favor of: ", forWhat, "configuration.")
+			log.Info().Err(err).Str("webserver", string(forWhat)).Msg("Shutdown default 80/tcp http listener as webserver is listening on 80/tcp")
+
 			a.http01Challenge.Close()
 			a.http01Challenge = nil
 		}
@@ -132,7 +134,7 @@ func (a *AutoTLS) DynamicListener(forWhat data.Webserver, mux http.Handler) erro
 
 	if err := a.refreshListeners(forWhat, mux, &initialDetails); err != nil {
 		a.db.RaiseError(err, []byte(""))
-		log.Printf("could not start web server for %q, err: %s", forWhat, err)
+		log.Info().Err(err).Str("webserver", string(forWhat)).Msg("could not start web server")
 	}
 
 	return nil
@@ -407,7 +409,7 @@ func (a *AutoTLS) startAutoRedirector() error {
 		return err
 	}
 
-	log.Printf("Started http redirector on port 80")
+	log.Info().Msg("Started http redirector on port 80")
 
 	a.http01Challenge = &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,

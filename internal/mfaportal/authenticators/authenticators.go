@@ -3,12 +3,14 @@ package authenticators
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
@@ -65,7 +67,7 @@ func DisableMethods(method ...types.MFA) {
 	lck.Lock()
 	defer lck.Unlock()
 
-	log.Println("disabling: ", method)
+	log.Info().Msgf("disabling MFA methods: %v", method)
 
 	for _, m := range method {
 		if a, ok := allMfa[m]; ok {
@@ -196,7 +198,8 @@ func AddMFARoutes(db interfaces.Database, mux *http.ServeMux, firewall *router.F
 	}
 
 	depreciatedMessage := func(w http.ResponseWriter, r *http.Request) {
-		log.Println("SSO ERROR. YOU ARE USING A DEPRECATED PATH /authorise/oidc/, please update to /api/oidc/authorise/callback/")
+		log.Error().Msg("SSO ERROR. YOU ARE USING A DEPRECATED PATH /authorise/oidc/, please update to /api/oidc/authorise/callback/")
+
 		http.Error(w, "Deprecated sso path", http.StatusBadRequest)
 	}
 
@@ -212,18 +215,18 @@ func AddMFARoutes(db interfaces.Database, mux *http.ServeMux, firewall *router.F
 
 		routes, err := handler.GetRoutes(firewall)
 		if err != nil {
-
-			log.Println("failed to get routes for mfa method: ", method, "err: ", err)
+			log.Error().Err(err).Str("mfa_method", string(method)).Msg("failed to get routes for mfa method")
 			continue
 		}
 
-		log.Printf("[PORTAL] MFA %s registered (enabled: %t)", method, isEnabled)
+		log.Info().Bool("enabled", isEnabled).Str("method", string(method)).Send()
 
 		if isEnabled {
 			err = handler.Initialise(db)
 			if err != nil {
 				handler.Disable()
-				log.Println("failed to initialise mfa method: ", method, "err: ", err)
+
+				log.Error().Err(err).Str("mfa_method", string(method)).Msg("failed to initialise mfa method")
 				continue
 			}
 
@@ -317,4 +320,10 @@ func isUnregisteredFunc(f http.HandlerFunc) http.HandlerFunc {
 
 		f(w, r)
 	}
+}
+
+// tiny little helper function to just move away all the mess of this syntax
+func getLogger(r *http.Request, method string, registering bool) zerolog.Logger {
+	logger := zerolog.Ctx(r.Context()).With().Str("method", method).Bool("registering", registering).Logger()
+	return logger
 }

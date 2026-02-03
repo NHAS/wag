@@ -3,12 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/data/validators"
@@ -185,8 +186,7 @@ func load(path string) (c Config, err error) {
 
 		if c.Clustering.TLSManagerListenURL == "" {
 			c.Clustering.TLSManagerListenURL = "https://127.0.0.1:4455"
-			log.Println("WARNING no TLSManagerListenURL specified adding another cluster member will be disabled.")
-
+			log.Warn().Msg("no TLSManagerListenURL specified adding another cluster member will be disabled")
 		}
 
 		if !strings.HasPrefix(c.Clustering.TLSManagerListenURL, "https://") {

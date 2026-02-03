@@ -3,9 +3,10 @@ package data
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"path"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -38,14 +39,14 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 	var err error
 	ee.ErrorID, err = utils.GenerateRandomHex(16)
 	if err != nil {
-		log.Printf("failed raise error with cluster, failed to generate unique error ID: %v, cluster error: %v", err, raisedError)
+		log.Error().Err(err).Str("cluster_error", raisedError.Error()).Msg("failed to generate unique error ID")
 
 		return
 	}
 
 	err = Set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
 	if err != nil {
-		log.Printf("failed raise error with cluster, failed to write to cluster: %v, cluster error: %v", err, raisedError)
+		log.Error().Err(err).Str("cluster_error", raisedError.Error()).Msg("failed to write error to cluster")
 
 		return
 	}

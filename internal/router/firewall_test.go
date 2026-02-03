@@ -4,13 +4,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand/v2"
 	"net"
 	"net/netip"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -58,7 +59,7 @@ var (
 func createPacketTests(src, dst net.IP, proto, port int) []byte {
 	packet, err := createPacket(src, dst, proto, port)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
 	return packet
@@ -1147,14 +1148,14 @@ func addDevices() error {
 func TestMain(m *testing.M) {
 
 	if err := config.Load("../config/testing_config.json"); err != nil {
-		log.Println("failed to load config: ", err)
+		log.Error().Err(err).Msg("failed to load config")
 		os.Exit(1)
 	}
 
 	var err error
 	db, err = data.Load("", true)
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
 
@@ -1162,13 +1163,14 @@ func TestMain(m *testing.M) {
 
 	testFw, err = newDebugFirewall(db, mockTun.TUN())
 	if err != nil {
-		log.Println(err)
+		log.Error().Err(err).Send()
 		os.Exit(1)
 	}
 
 	err = addDevices()
 	if err != nil {
-		log.Println("unable to add devices: ", err)
+		log.Error().Err(err).Msg("unable to add devices")
+
 		os.Exit(1)
 	}
 

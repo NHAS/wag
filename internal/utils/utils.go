@@ -4,13 +4,14 @@ import (
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 )
@@ -26,7 +27,9 @@ func EmbeddedStatic(fs embed.FS) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if fileContent, err = fs.ReadFile(r.URL.Path); err != nil {
-			log.Println("Error getting static: ", err)
+
+			log.Error().Err(err).Msg("failed to get static embedded files")
+
 			http.NotFound(w, r)
 			return
 		}
@@ -49,8 +52,9 @@ func EmbeddedStatic(fs embed.FS) func(w http.ResponseWriter, r *http.Request) {
 
 		_, err = w.Write(fileContent)
 		if err != nil {
-			log.Println("Unable to write static resource: ", err, " path: ", r.URL.Path)
-			http.Error(w, "Server Error", 500)
+			log.Error().Err(err).Str("path", r.URL.Path).Msg("failed to get static embedded files")
+
+			http.Error(w, "Server Error", http.StatusInternalServerError)
 		}
 	}
 }
@@ -90,15 +94,18 @@ func (sh *security) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		u, err := url.Parse(r.Header.Get("Origin"))
 		if err != nil {
-			log.Println("No Origin header")
-			http.Error(w, "Bad Request", 400)
+
+			log.Error().Err(err).Str("path", r.URL.Path).Msg("No Origin header")
+
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
 		//If origin != host header
 		if r.Host != u.Host {
-			log.Printf("Bad Origin: got %q expected %q", r.Host, u.Host)
-			http.Error(w, "Bad Request", 400)
+			log.Error().Err(err).Str("expected_origin", u.Host).Str("real_origin", r.Host).Str("path", r.URL.Path).Msg("No Origin header")
+
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 	}
@@ -129,7 +136,8 @@ func GetIPFromRequest(r *http.Request) net.IP {
 		if ips != "" && len(addresses) > 0 {
 
 			if len(addresses)-config.Values.NumberProxies < 0 {
-				log.Println("WARNING XFF parsing may be broken: ", len(addresses)-config.Values.NumberProxies, " check config.Values.NumberProxies")
+				log.Error().Int("number_proxies", len(addresses)-config.Values.NumberProxies).Msg("ERROR XFF parsing may be broken must be > 1")
+
 				return net.ParseIP(strings.TrimSpace(addresses[len(addresses)-1]))
 			}
 

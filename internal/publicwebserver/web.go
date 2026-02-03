@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
@@ -43,22 +44,25 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(key) == 0 {
-		log.Println("unknown", remoteAddr, "no registration key specified, ignoring")
+		log.Info().IPAddr("remote_address", remoteAddr).Msg("no registration key specified, ignoring")
 		http.NotFound(w, r)
 		return
 	}
 
 	username, overwrites, staticIp, groups, tag, err := es.db.GetRegistrationToken(key)
+
 	if err != nil {
-		log.Println(username, remoteAddr, "failed to get registration key:", err)
+		log.Error().IPAddr("remote_address", remoteAddr).Err(err).Msg("failed to get registration key")
 		http.NotFound(w, r)
 		return
 	}
 
+	logger := log.With().Str("username", username).Str("overwrites", overwrites).Str("static_ip", staticIp).IPAddr("remote_address", remoteAddr).Logger()
+
 	var publickey, privatekey wgtypes.Key
 	pubkeyParam, err := url.PathUnescape(r.URL.Query().Get("pubkey"))
 	if err != nil {
-		log.Println(username, remoteAddr, "failed to url decode public key paramter:", err)
+		logger.Error().Err(err).Msg("failed to url decode public key paramter")
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
@@ -66,14 +70,14 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	if len(pubkeyParam) != 0 {
 		publickey, err = wgtypes.ParseKey(pubkeyParam)
 		if err != nil {
-			log.Println(username, remoteAddr, "failed to unmarshal wireguard public key:", err)
+			logger.Error().Err(err).Msg("failed to unmarshal wireguard public key")
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		privatekey, err = wgtypes.GeneratePrivateKey()
 		if err != nil {
-			log.Println(username, remoteAddr, "failed to generate wireguard keys:", err)
+			logger.Error().Err(err).Msg("failed to generate wireguard keys")
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
@@ -84,7 +88,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		user, err = users.CreateUser(es.db, username)
 		if err != nil {
-			log.Println(username, remoteAddr, "unable create new user: "+err.Error())
+			logger.Error().Err(err).Msg("unable create new user")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -93,7 +97,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	if len(groups) != 0 {
 		err := es.db.SetUserGroupMembership(username, groups, false)
 		if err != nil {
-			log.Println(username, remoteAddr, "could not set user membership from registration token:", err)
+			logger.Error().Err(err).Msg("could not set user membership from registration token")
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			return
 		}
@@ -106,7 +110,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 		err = user.SetDevicePublicKey(publickey.String(), overwrites)
 		if err != nil {
-			log.Printf("%s %s couldnt update %q: %s", username, remoteAddr, overwrites, err)
+			logger.Error().Err(err).Str("public_key", publickey.String()).Msg("couldnt update previous device")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -119,8 +123,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		var device data.Device
 		device, err = user.AddDevice(publickey, staticIp, tag)
 		if err != nil {
-			log.Println(username, remoteAddr, "unable to add device: ", err)
-
+			logger.Error().Err(err).Msg("unable to add device")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -129,10 +132,11 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		defer func() {
 
 			if err != nil {
-				log.Println(username, remoteAddr, "removing device (due to registration failure)")
+				logger.Error().Err(err).Msg("removing device (due to registration failure)")
+
 				err := user.DeleteDevice(device.Address)
 				if err != nil {
-					log.Println(username, remoteAddr, "unable to remove wg device: ", err)
+					logger.Error().Err(err).Msg("unable to remove wg device")
 				}
 			}
 		}()
@@ -142,7 +146,8 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 	wgPublicKey, wgPort, err := es.firewall.ServerDetails()
 	if err != nil {
-		log.Println(username, remoteAddr, "unable access wireguard device: ", err)
+		logger.Error().Err(err).Msg("unable access wireguard device")
+
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -155,14 +160,14 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 	presharedKey, err := user.GetDevicePresharedKey(address)
 	if err != nil {
-		log.Println(username, remoteAddr, "unable access device preshared key: ", err)
+		logger.Error().Err(err).Msg("unable access device preshared key")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	dnsWithOutSubnet, err := es.db.GetDNS()
 	if err != nil {
-		log.Println(username, remoteAddr, "unable get dns: ", err)
+		logger.Error().Err(err).Msg("unable get dns")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -173,7 +178,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 	routes, err := routetypes.AclsToRoutes(append(acl.Allow, acl.Mfa...))
 	if err != nil {
-		log.Println(username, remoteAddr, "unable access parse acls to produce routes: ", err)
+		logger.Error().Err(err).Msg("unable access parse acls to produce routes")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -189,7 +194,8 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 
 	externalAddress, err := es.db.GetExternalAddress()
 	if err != nil {
-		log.Println(username, remoteAddr, "unable to get server external address from datastore: ", err)
+		logger.Error().Err(err).Msg("unable to get server external address from database")
+
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -209,16 +215,18 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		"Unescape":    func(s string) template.HTML { return template.HTML(s) },
 	})
 	if err != nil {
-		log.Println(username, remoteAddr, "failed to execute template to generate wireguard config:", err)
+		logger.Error().Err(err).Msg("failed to execute template to generate wireguard config")
+
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	logMsg := "registered as"
+	logMsg := "registered"
 	if overwrites != "" {
 		logMsg = "overwrote"
 	}
-	log.Println(username, remoteAddr, "successfully", logMsg, address, ":", publickey.String())
+
+	logger.Info().Msgf("%s", logMsg)
 }
 
 func (es *PublicWebserver) reachability(w http.ResponseWriter, _ *http.Request) {
@@ -263,14 +271,16 @@ func (es *PublicWebserver) webhooks(w http.ResponseWriter, r *http.Request) {
 	buffer := bytes.NewBuffer(nil)
 	_, err := io.Copy(buffer, r.Body)
 	if err != nil {
-		log.Println("failed to read webhook request: ", err)
+		log.Error().Err(err).Msg("failed to read webhook request")
+
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	err = es.db.WebhookRecordLastRequest(id, authHeader, buffer.String())
 	if err != nil {
-		log.Println("failed to update webhook last request: ", err)
+		log.Error().Err(err).Msg("failed to update webhook last request")
+
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -297,7 +307,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 		return nil, err
 	}
 
-	log.Println("[ENROLMENT] Public enrolment listening: ", config.Values.Webserver.Public.ListenAddress)
+	log.Info().Str("listen_address", config.Values.Webserver.Public.ListenAddress).Msg("Public enrolment listening")
 
 	return &es, nil
 
