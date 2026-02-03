@@ -11,8 +11,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 )
@@ -162,7 +160,7 @@ func TestRegistrationTokenDelete(t *testing.T) {
 
 	tokens, err := ctrl.Registrations()
 	if err != nil {
-		log.Fatal("should be able to get tokens: ", err)
+		t.Fatal("should be able to get tokens: ", err)
 	}
 
 	if slices.ContainsFunc(tokens, func(token control.RegistrationResult) bool {

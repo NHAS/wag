@@ -25,7 +25,7 @@ func TestMain(m *testing.M) {
 
 	err := startCommand.Check()
 	if err != nil {
-		log.Println("check failed, this should be a valid config: ", err)
+		log.Print("check failed, this should be a valid config: ", err)
 		os.Exit(1)
 	}
 
@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			os.RemoveAll("temp")
 
-			log.Fatal("could not start integration wag: ", err)
+			log.Fatal().Msgf("could not start integration wag: %v", err)
 
 		}
 	}()
@@ -59,11 +59,11 @@ func TestMain(m *testing.M) {
 				continue
 			}
 
-			log.Println("Error connecting to wag socket: ", err)
+			log.Printf("Error connecting to wag socket: %v", err)
 			os.Exit(2)
 		}
 
-		log.Println("connected tests to: ", version)
+		log.Printf("connected tests to: %s", version)
 		break
 	}
 
