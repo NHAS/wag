@@ -12,6 +12,11 @@ import (
 	"golang.zx2c4.com/wireguard/tun"
 )
 
+func newDebugFirewall(db interfaces.Database, testDev tun.Device) (*Firewall, error) {
+	return newFw(db, true, false, testDev)
+
+}
+
 func New(db interfaces.Database, iptables bool) (*Firewall, error) {
 	return newFw(db, false, iptables, nil)
 }

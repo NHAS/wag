@@ -26,13 +26,13 @@ var (
 func TestMain(m *testing.M) {
 
 	if err := config.Load("../config/testing_config3.json"); err != nil {
-		log.Println("failed to load config: ", err)
+		log.Printf("failed to load config: %v", err)
 		os.Exit(1)
 	}
 
 	db, err := Load("", true)
 	if err != nil {
-		log.Println(err)
+		log.Printf("%v", err)
 		os.Exit(1)
 	}
 

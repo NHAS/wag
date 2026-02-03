@@ -3,8 +3,6 @@ package data
 import (
 	"net"
 	"testing"
-
-	"github.com/rs/zerolog/log"
 )
 
 func TestIncrementIP(t *testing.T) {
@@ -82,7 +80,7 @@ func TestIncrementIP(t *testing.T) {
 			result := incrementIP(ip, tt.inc)
 			if result.String() != tt.expected {
 
-				log.Println(len(ip), len(result))
+				t.Log(len(ip), len(result))
 
 				t.Errorf("incrementIP(%s, %d) = %s; want %s",
 					tt.ip, tt.inc, result.String(), tt.expected)
