@@ -31,10 +31,8 @@ type webserverDetails struct {
 }
 
 type Acls struct {
-	Groups map[string][]string `json:",omitempty"`
-	//Username -> groups name
-	rGroupLookup map[string]map[string]bool
-	Policies     map[string]*acls.Acl
+	Groups   map[string][]string `json:",omitempty"`
+	Policies map[string]*acls.Acl
 }
 
 type ClusteringDetails struct {
@@ -100,11 +98,11 @@ type Config struct {
 				GroupsClaimName     string   `json:",omitempty"`
 				DeviceUsernameClaim string   `json:",omitempty"`
 				Scopes              []string `json:",omitempty"`
-			} `json:",omitempty"`
+			} `json:",omitzero"`
 
 			PAM struct {
 				ServiceName string
-			} `json:",omitempty"`
+			} `json:",omitzero"`
 		}
 
 		Management struct {
@@ -114,15 +112,15 @@ type Config struct {
 
 			Password struct {
 				Enabled *bool `json:",omitempty"`
-			} `json:",omitempty"`
+			} `json:",omitzero"`
 
 			OIDC struct {
 				IssuerURL    string
 				ClientSecret string
 				ClientID     string
 				Enabled      bool
-			} `json:",omitempty"`
-		} `json:",omitempty"`
+			} `json:",omitzero"`
+		}
 	}
 
 	Clustering ClusteringDetails
@@ -303,22 +301,6 @@ func load(path string) (c Config, err error) {
 			}
 		default:
 			return c, errors.New(port + " invalid protocol (supports tcp/udp)")
-		}
-	}
-
-	c.Acls.rGroupLookup = map[string]map[string]bool{}
-
-	for group, members := range c.Acls.Groups {
-		if !strings.HasPrefix(group, "group:") {
-			return c, fmt.Errorf("group does not have 'group:' prefix: %s", group)
-		}
-
-		for _, user := range members {
-			if c.Acls.rGroupLookup[user] == nil {
-				c.Acls.rGroupLookup[user] = make(map[string]bool)
-			}
-
-			c.Acls.rGroupLookup[user][group] = true
 		}
 	}
 

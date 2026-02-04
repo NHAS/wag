@@ -39,7 +39,6 @@ const (
 	AclsPrefix            = "wag-acls-"
 	GroupsPrefix          = "wag-groups-"
 	GroupsIndexPrefix     = "wag-index-groups-"
-	ConfigPrefix          = "wag-config-"
 	AuthenticationPrefix  = "wag-config-authentication-"
 	NodeInfo              = "wag/node/"
 	NodeErrors            = "wag/node/errors"
