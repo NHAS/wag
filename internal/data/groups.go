@@ -98,7 +98,7 @@ func (d *database) GetGroups() (result []*control.GroupData, err error) {
 
 	resp, err := d.etcd.Get(context.Background(), GroupsIndexPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get groups index from etcd: %s", err)
+		return nil, fmt.Errorf("failed to get groups index from etcd: %w", err)
 	}
 
 	groups := map[string]*control.GroupData{}

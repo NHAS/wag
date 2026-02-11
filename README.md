@@ -639,7 +639,7 @@ Example:
 
 
 # Limitations
-- Only supports clients with one `AllowedIP`, which is perfect for site to site, or client -> server based architecture.  
+- Only supports clients with one `AllowedIP`, which is perfect for a client -> server based architecture.  
 - Primarily Linux only but windows may work with some effort
 
 
