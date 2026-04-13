@@ -116,7 +116,7 @@ async function initialRouting() {
     if (info.availableMfaMethods.length > 0) {
       if (info.isRegistered) {
         notify(
-          "VPN Authoirsation Required",
+          "VPN Authorisation Required",
           "Please reauthenticate with the VPN",
         );
       } else {
