@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -61,43 +60,37 @@ func (d *database) ValidateChallenge(username, address, challenge string) error 
 	return nil
 }
 
-func (d Device) ChallengeExists(etcd *clientv3.Client) error {
-	_, err := Get[DeviceChallenge](etcd, DeviceChallengePrefix+d.Username+"-"+d.Address)
+func (d *database) ChallengeExists(device config.Device) error {
+
+	_, err := InternalConfig.Devices.Challenges().Key(device.Username).Key(device.Address).Get(context.Background(), d.etcd)
 	return err
 }
 
-func (d Device) GetSensitiveChallenge(etcd *clientv3.Client) (string, error) {
-	deviceWithChallenge, err := Get[Device](etcd, DevicesPrefix+d.Username+"-"+d.Address)
+func (d *database) GetSensitiveChallenge(device config.Device) (string, error) {
+	deviceWithChallenge, err := InternalConfig.Devices.Challenges().Key(device.Username).Key(device.Address).Get(context.Background(), d.etcd)
+	if err != nil {
+		return "", err
+	}
 
-	return deviceWithChallenge.Challenge, err
+	return deviceWithChallenge.Challenge, nil
 }
 
-func (d Device) SetChallenge(etcd *clientv3.Client) error {
-
-	lease, err := clientv3.NewLease(etcd).Grant(context.Background(), 30)
+func (d *database) SetChallenge(device config.Device) error {
+	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 30)
 	if err != nil {
 		return err
 	}
 
-	var dc DeviceChallenge
-	dc.Challenge = d.Challenge
-	dc.Address = d.Address
-	dc.Username = d.Username
-
-	b, _ := json.Marshal(dc)
-
-	_, err = etcd.Put(context.Background(), DeviceChallengePrefix+d.Username+"-"+d.Address, string(b), clientv3.WithLease(lease.ID))
-	return err
-}
-
-func (d Device) String() string {
-
-	authorised := "no"
-	if !d.Authorised.Equal(time.Time{}) {
-		authorised = d.Authorised.Format(time.DateTime)
+	dc := config.DeviceChallenge{
+		Challenge: device.Challenge,
+		Address:   device.Address,
+		Username:  device.Username,
 	}
 
-	return fmt.Sprintf("device[%s:%s:%s][attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Attempts, authorised)
+	return InternalConfig.Devices.Challenges().
+		Key(device.Username).
+		Key(device.Address).
+		Put(context.Background(), d.etcd, dc, clientv3.WithLease(lease.ID))
 }
 
 // UpdateDeviceConnectionDetails updates the endpoint we are receiving packets from and the associated cluster node

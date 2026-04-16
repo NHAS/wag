@@ -2,6 +2,8 @@ package router
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -131,7 +133,13 @@ func (f *Firewall) setupIptables() error {
 
 	if config.Values.NumberProxies == 0 {
 		//Allow input to authorize web server on the tunnel, if we're not behind a proxy
-		err = ipt.Append("filter", filterInputRulesChain, "-m", "tcp", "-p", "tcp", "--dport", config.Values.Webserver.Tunnel.Port, "-j", "ACCEPT")
+
+		_, port, err := net.SplitHostPort(config.Values.Webserver.Tunnel.HTTPSettings.ListenAddress)
+		if err != nil {
+			return fmt.Errorf("Tunnel listening address is malformed and has no port: %w", err)
+		}
+
+		err = ipt.Append("filter", filterInputRulesChain, "-m", "tcp", "-p", "tcp", "--dport", port, "-j", "ACCEPT")
 		if err != nil {
 			return err
 		}

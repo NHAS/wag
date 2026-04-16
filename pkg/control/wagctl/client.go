@@ -596,7 +596,7 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 }
 
 // Get the settings object related to help email, etc
-func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettingsDTO) err error) {
+func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettingsDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/general")
 	if err != nil {

@@ -678,7 +678,7 @@ func (d *database) doSafeUpdate(ctx context.Context, key string, create bool, mu
 	}
 }
 
-func (d *database) GetInitialData() (users []UserModel, devices []Device, err error) {
+func (d *database) GetInitialData() (users []config.UserModel, devices []config.Device, err error) {
 	txn := d.etcd.Txn(context.Background())
 	txn.Then(clientv3.OpGet(UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
 		clientv3.OpGet(DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
@@ -690,7 +690,7 @@ func (d *database) GetInitialData() (users []UserModel, devices []Device, err er
 
 	// users
 	for _, res := range resp.Responses[0].GetResponseRange().Kvs {
-		var user UserModel
+		var user config.UserModel
 		err := json.Unmarshal(res.Value, &user)
 		if err != nil {
 			return nil, nil, err
@@ -701,7 +701,7 @@ func (d *database) GetInitialData() (users []UserModel, devices []Device, err er
 
 	//devices
 	for _, res := range resp.Responses[1].GetResponseRange().Kvs {
-		var device Device
+		var device config.Device
 		err := json.Unmarshal(res.Value, &device)
 		if err != nil {
 			return nil, nil, err

@@ -12,6 +12,9 @@ type DeviceReader interface {
 	GetDevicesByUser(username string) (devices []config.Device, err error)
 	GetAllDevices() (devices []config.Device, err error)
 	GetDeviceByAddress(address string) (device config.Device, err error)
+	ChallengeExists(device config.Device) error
+	GetSensitiveChallenge(device config.Device) (string, error)
+	SetChallenge(device config.Device) error
 }
 
 type DeviceWriter interface {

@@ -163,7 +163,7 @@ func (c *Challenger) deviceChanged(_ string, current, previous config.Device) er
 	if current.Endpoint.String() != previous.Endpoint.String() {
 		sendUpdate = true
 		// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
-		if err := current.ChallengeExists(c.db.Raw()); err == nil {
+		if err := c.db.ChallengeExists(current); err == nil {
 			c.Challenge(current.Username, current.Address)
 		}
 	}
@@ -370,7 +370,7 @@ func (c *Challenger) NotifyOfAuth(device config.Device) {
 		return
 	}
 
-	challenge, err := device.GetSensitiveChallenge(c.db.Raw())
+	challenge, err := c.db.GetSensitiveChallenge(device)
 	if err != nil {
 		log.Error().Err(err).Str("address", device.Address).Msg("failed to get challenge")
 

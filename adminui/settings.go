@@ -45,7 +45,7 @@ func (au *AdminUI) getGeneralSettings(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) updateGeneralSettings(w http.ResponseWriter, r *http.Request) {
 	var (
-		generalSettings data.GeneralSettings
+		generalSettings data.GeneralSettingsDTO
 		err             error
 	)
 	defer func() { au.respond(err, w) }()
@@ -82,7 +82,7 @@ func (au *AdminUI) getLoginSettings(w http.ResponseWriter, r *http.Request) {
 
 func (au *AdminUI) updateLoginSettings(w http.ResponseWriter, r *http.Request) {
 	var (
-		loginSettings data.LoginSettings
+		loginSettings data.LoginSettingsDTO
 		err           error
 	)
 	defer func() { au.respond(err, w) }()

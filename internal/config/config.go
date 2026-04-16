@@ -194,6 +194,16 @@ type Device struct {
 	Tag            string
 }
 
+func (d Device) String() string {
+
+	authorised := "no"
+	if !d.Authorised.Equal(time.Time{}) {
+		authorised = d.Authorised.Format(time.DateTime)
+	}
+
+	return fmt.Sprintf("device[%s:%s:%s][attempts: %d, authorised: %s]", d.Username, d.Address, d.AssociatedNode, d.Attempts, authorised)
+}
+
 type DeviceSession struct {
 	Address  string    `json:"address"`
 	Username string    `json:"username"`

@@ -109,9 +109,9 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 			rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
 		}
 
-		u, err := url.Parse(config.Values.Webserver.Management.Domain)
+		u, err := url.Parse(config.Values.Webserver.Management.HTTPSettings.Domain)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.Webserver.Management.Domain, err)
+			return nil, fmt.Errorf("failed to parse admin url: %q, err: %s", config.Values.Webserver.Management.HTTPSettings.Domain, err)
 		}
 
 		u.Path = path.Join(u.Path, "/login/oidc/callback")
@@ -330,7 +330,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		return nil, err
 	}
 
-	log.Info().Str("listen_address", config.Values.Webserver.Management.ListenAddress).Msg("Started Management UI")
+	log.Info().Str("listen_address", config.Values.Webserver.Management.HTTPSettings.ListenAddress).Msg("Started Management UI")
 
 	return &adminUI, nil
 }

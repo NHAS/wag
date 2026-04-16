@@ -307,7 +307,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 		return nil, err
 	}
 
-	log.Info().Str("listen_address", config.Values.Webserver.Public.ListenAddress).Msg("Public enrolment listening")
+	log.Info().Str("listen_address", config.Values.Webserver.Public.HTTPSettings.ListenAddress).Msg("Public enrolment listening")
 
 	return &es, nil
 

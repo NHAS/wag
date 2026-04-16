@@ -23,14 +23,14 @@ func TestSetInvalidLoginSettings(t *testing.T) {
 
 	loginSettingsCopy := loginSettings
 
-	loginSettingsCopy.DefaultMFAMethod = "wombo"
+	loginSettingsCopy.DefaultMethod = "wombo"
 	err = ctrl.SetLoginSettings(loginSettingsCopy)
 	if err == nil {
 		t.Fatal("should not be able to set a made up mfa method")
 	}
 
 	loginSettingsCopy = loginSettings
-	loginSettingsCopy.EnabledMFAMethods = []string{
+	loginSettingsCopy.Methods = []string{
 		"wambo",
 	}
 	err = ctrl.SetLoginSettings(loginSettingsCopy)
@@ -39,7 +39,7 @@ func TestSetInvalidLoginSettings(t *testing.T) {
 	}
 
 	loginSettingsCopy = loginSettings
-	loginSettingsCopy.OidcDetails.IssuerURL = "not_a_url"
+	loginSettingsCopy.OIDC.IssuerURL = "not_a_url"
 	err = ctrl.SetLoginSettings(loginSettingsCopy)
 	if err == nil {
 		t.Fatal("should not be able to set oidc url as something other than a url")
@@ -74,7 +74,7 @@ func TestSetInvalidGeneralSettings(t *testing.T) {
 	}
 
 	generalSettingsCopy = generalSettings
-	generalSettingsCopy.WireguardConfigFilename = ""
+	generalSettingsCopy.DownloadConfigFileName = ""
 
 	err = ctrl.SetGeneralSettings(generalSettingsCopy)
 	if err == nil {

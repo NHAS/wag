@@ -15,8 +15,8 @@ func TestChangeWebserverDetails(t *testing.T) {
 		t.Fatal("should be able to fetch management webserver details: ", err)
 	}
 
-	if mgmtConfig.ListenAddress != config.Values.Webserver.Management.ListenAddress {
-		t.Fatal("management address not expected: ", mgmtConfig.ListenAddress, "vs", config.Values.Webserver.Management.ListenAddress)
+	if mgmtConfig.ListenAddress != config.Values.Webserver.Management.HTTPSettings.ListenAddress {
+		t.Fatal("management address not expected: ", mgmtConfig.ListenAddress, "vs", config.Values.Webserver.Management.HTTPSettings.ListenAddress)
 	}
 
 	mgmtConfig.ListenAddress = "127.0.0.1:4444"

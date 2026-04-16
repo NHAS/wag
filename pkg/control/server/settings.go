@@ -28,7 +28,7 @@ func (wsg *WagControlSocketServer) getGeneralSettings(w http.ResponseWriter, r *
 
 func (wsg *WagControlSocketServer) setGeneralSettings(w http.ResponseWriter, r *http.Request) {
 	var (
-		generalSettings data.GeneralSettings
+		generalSettings data.GeneralSettingsDTO
 		err             error
 	)
 
@@ -66,7 +66,7 @@ func (wsg *WagControlSocketServer) getLoginSettings(w http.ResponseWriter, r *ht
 
 func (wsg *WagControlSocketServer) setLoginSettings(w http.ResponseWriter, r *http.Request) {
 	var (
-		loginSettings data.LoginSettings
+		loginSettings data.LoginSettingsDTO
 		err           error
 	)
 

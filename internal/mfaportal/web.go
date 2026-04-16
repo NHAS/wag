@@ -91,7 +91,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error
 		return nil, err
 	}
 
-	log.Info().Str("port", config.Values.Webserver.Tunnel.Port).Msg("Captive portal started listening")
+	log.Info().Str("port", config.Values.Webserver.Tunnel.HTTPSettings.ListenAddress).Msg("Captive portal started listening")
 
 	// For any change to the authentication config re-up
 	// This should always be done at the bottom
