@@ -40,7 +40,7 @@ type PamRespository interface {
 }
 
 type WebauthnRespository interface {
-	GetWebauthn() (wba data.Webauthn, err error)
+	GetWebauthn() (wba data.WebauthnDTO, err error)
 }
 
 type AuthenticationActions interface {

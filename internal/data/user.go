@@ -11,14 +11,6 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-type UserModel struct {
-	Username  string
-	Mfa       string `sensitive:"yes"`
-	MfaType   string
-	Locked    bool
-	Enforcing bool
-}
-
 // IncrementAuthenticationAttempt Make sure that the attempts is always incremented first to stop race condition attacks
 func (d *database) IncrementAuthenticationAttempt(username, device string) error {
 	return d.doSafeUpdate(context.Background(), d.deviceKey(username, device), false, func(gr *clientv3.GetResponse) (value string, err error) {

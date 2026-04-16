@@ -1,15 +1,15 @@
 package data
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd"
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -24,29 +24,23 @@ func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error
 		return err
 	}
 
-	return Set(d.etcd, AclsPrefix+effects, true, policy)
+	return Config.Acls.Policies().Key(effects).Put(context.Background(), d.etcd, &policy)
 }
 
 func (d *database) GetPolicies() (result []control.PolicyData, err error) {
 
-	resp, err := d.etcd.Get(context.Background(), AclsPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	order, values, err := Config.Acls.Policies().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, r := range resp.Kvs {
-
-		var policy acls.Acl
-		err := json.Unmarshal(r.Value, &policy)
-		if err != nil {
-			return nil, err
-		}
+	for _, r := range order {
 
 		result = append(result, control.PolicyData{
-			Effects:      string(bytes.TrimPrefix(r.Key, []byte(AclsPrefix))),
-			PublicRoutes: policy.Allow,
-			MfaRoutes:    policy.Mfa,
-			DenyRoutes:   policy.Deny,
+			Effects:      r,
+			PublicRoutes: values[r].Allow,
+			MfaRoutes:    values[r].Mfa,
+			DenyRoutes:   values[r].Deny,
 		})
 	}
 
@@ -54,7 +48,7 @@ func (d *database) GetPolicies() (result []control.PolicyData, err error) {
 }
 
 func (d *database) RemoveAcl(effects string) error {
-	_, err := d.etcd.Delete(context.Background(), AclsPrefix+effects)
+	_, err := Config.Acls.Policies().Key(effects).Delete(context.Background(), d.etcd)
 	return err
 }
 
@@ -84,17 +78,15 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 
 	d.insertMap(allowSet, hostIPWithMask(config.Values.Wireguard.ServerAddress))
 
-	userMembershipKey := fmt.Sprintf("%s%s-", GroupMembershipPrefix, username)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(
-		clientv3.OpGet(AclsPrefix+"*"),
-		clientv3.OpGet(AclsPrefix+username),
-		clientv3.OpGet(userMembershipKey, clientv3.WithKeysOnly(), clientv3.WithPrefix()),
-		clientv3.OpGet(dnsKey),
-	)
-	resp, err := txn.Commit()
-	if err != nil {
+	globalPolicy := tetcd.GetTx(then, Config.Acls.Policies().Key("*"))
+	userPolicies := tetcd.GetTx(then, Config.Acls.Policies().Key(username))
+	dnsServers := tetcd.GetTx(then, Config.Wireguard.DNS())
+	usersGroups := tetcd.ListTx(then, InternalConfig.Indexes.UserMembership().Key(username), clientv3.WithKeysOnly())
+
+	if err := txn.Commit(); err != nil {
 
 		log.Error().Err(err).Str("username", username).Msg("failed to get policy data for user")
 
@@ -110,89 +102,70 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	}
 
 	// the default policy contents
-	if resp.Responses[0].GetResponseRange().GetCount() != 0 {
-		var acl acls.Acl
-
-		err := json.Unmarshal(resp.Responses[0].GetResponseRange().Kvs[0].Value, &acl)
-		if err == nil {
-			addAcls(acl)
-		} else {
-			d.RaiseError(err, []byte("failed to unmarshal default acls policy"))
-			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal default acls policy")
-
-		}
-	}
-
-	// User specific acls
-	if resp.Responses[1].GetResponseRange().GetCount() != 0 {
-		var acl acls.Acl
-
-		err := json.Unmarshal(resp.Responses[1].GetResponseRange().Kvs[0].Value, &acl)
-		if err == nil {
-			addAcls(acl)
-		} else {
-			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal user specific acls")
-			d.RaiseError(err, []byte(fmt.Sprintf("failed to decode %q acls check policies", username)))
-
-		}
-	}
-
-	// Membership map for finding all the other policies
-	if membership := resp.Responses[2].GetResponseRange(); membership.GetCount() != 0 {
-
-		var ops []clientv3.Op
-		for _, kv := range membership.Kvs {
-
-			// strips [wag-membership-username-]groupnames
-			resultParts, err := d.SplitKey(1, userMembershipKey, string(kv.Key))
-			if err != nil {
-				log.Error().Err(err).Str("username", username).Str("membership_key", userMembershipKey).Msg("failed to get group membership")
-
-				continue
-			}
-
-			group := resultParts[0]
-			ops = append(ops, clientv3.OpGet(AclsPrefix+group))
-		}
-
-		txn := d.etcd.Txn(context.Background())
-		resp, err := txn.Then(ops...).Commit()
-		if err != nil {
-			log.Error().Err(err).Str("username", username).Msg("failed to fetch acls from db groups")
-
-			d.RaiseError(err, []byte("failed to fetch acls from db groups"))
-			return acls.Acl{}
-		}
-
-		for m := range resp.Responses {
-			r := resp.Responses[m].GetResponseRange()
-			if r.Count > 0 {
-
-				var acl acls.Acl
-
-				err := json.Unmarshal(r.Kvs[0].Value, &acl)
-				if err != nil {
-					log.Error().Err(err).Str("username", username).Str("response", string(r.Kvs[0].Value)).Msg("failed to decode acl from database")
-					continue
-				}
-				addAcls(acl)
-			}
-		}
-
+	acl, err := globalPolicy.Value()
+	if err == nil {
+		addAcls(*acl)
+	} else {
+		d.RaiseError(err, []byte("failed to unmarshal default acls policy"))
+		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal default acls policy")
 	}
 
 	// Add dns servers if defined
 	// Restrict dns servers to only having 53/any by default as per #49
-	if resp.Responses[3].GetResponseRange().GetCount() != 0 {
 
-		var dns []string
-		err = json.Unmarshal(resp.Responses[3].GetResponseRange().Kvs[0].Value, &dns)
-		if err == nil {
-			for _, server := range dns {
-				d.insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
+	dns, err := dnsServers.Value()
+	if err == nil {
+		for _, server := range dns {
+			d.insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
+		}
+	} else {
+		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal dns setting")
+	}
+
+	// User specific acls
+	acl, err = userPolicies.Value()
+	if err == nil {
+		addAcls(*acl)
+	} else {
+		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal user specific acls")
+		d.RaiseError(err, []byte(fmt.Sprintf("failed to decode %q acls check policies", username)))
+	}
+
+	groups, err := usersGroups.Keys()
+	if err != nil {
+		log.Error().Err(err).Str("username", username).Msg("failed to fetch acls from db groups")
+		d.RaiseError(err, []byte("failed to fetch acls from db groups"))
+	}
+
+	// Membership map for finding all the other policies
+	membersTxn := tetcd.NewTxn(context.Background(), d.etcd)
+
+	then = membersTxn.Then()
+	membershipAcls := make([]*tetcd.GetHandle[*acls.Acl], 0, len(groups))
+	for _, group := range groups {
+		membershipAcls = append(membershipAcls, tetcd.GetTx(then, Config.Acls.Policies().Key(group)))
+	}
+
+	err = membersTxn.Commit()
+	if err != nil {
+		log.Error().Err(err).Str("username", username).Msg("failed to fetch acls from db groups")
+
+		d.RaiseError(err, []byte("failed to fetch acls from db groups"))
+	} else {
+		var errs []error
+		for i := range membershipAcls {
+			acl, err := membershipAcls[i].Value()
+			if err != nil {
+				errs = append(errs, err)
+				continue
 			}
-		} else {
-			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal dns setting")
+
+			addAcls(*acl)
+		}
+
+		if err := errors.Join(errs...); err != nil {
+			log.Error().Err(err).Str("username", username).Msg("failed to unmarshal group specific acls")
+			d.RaiseError(err, []byte("failed to unmarshal group specific acls"))
 		}
 	}
 

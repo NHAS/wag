@@ -264,10 +264,10 @@ func (d *database) AddClusterMember(name, etcPeerUrlAddress, newManagerAddressUR
 	copyValues.Clustering.TLSManagerListenURL = newManagerAddressURL
 
 	copyValues.Acls = config.Acls{}
-	copyValues.Acls.Groups = map[string][]string{}
+	copyValues.Acls.Groups = map[string]map[string]config.MembershipInfo{}
 
 	copyValues.Webserver.Management.Enabled = false
-	copyValues.Webserver.Management.ListenAddress = ""
+	copyValues.Webserver.Management.HTTPSettings.ListenAddress = ""
 
 	b, _ := json.Marshal(copyValues)
 	token.SetAdditional("config.json", string(b))

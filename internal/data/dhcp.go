@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -11,16 +10,13 @@ import (
 	"net"
 	"time"
 
+	"github.com/NHAS/tetcd"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/rs/zerolog/log"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/client/v3/concurrency"
-)
-
-const (
-	dhcpPrefix          = "wag/dhcp"
-	dhcpAbandonedPrefix = dhcpPrefix + "/abandoned/"
 )
 
 func incrementIP(ip net.IP, inc uint) net.IP {
@@ -69,88 +65,88 @@ func broadcastAddr(n *net.IPNet) net.IP {
 
 func (d *database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (net.IP, error) {
 
-	txn := d.etcd.Txn(ctx)
+	txn := tetcd.NewTxn(ctx, d.etcd)
+	then, elseTxn := txn.Conditional(clientv3util.KeyExists(InternalConfig.Devices.DHCP.End().Key()))
+
+	endH := tetcd.GetTx(then, InternalConfig.Devices.DHCP.End())
 
 	// As a migration step, if the dhcp end key isnt found, we place it with the ip address next to the servers ip address within the cidr
-	txn.If(
-		clientv3util.KeyExists(dhcpPrefix + "/end"),
-	).Then(
-		clientv3.OpGet(dhcpPrefix + "/end"),
-	).Else(
-		clientv3.OpPut(dhcpPrefix+"/end", fmt.Sprintf("%q", incrementIP(serverIP, 1))),
-	)
+	tetcd.PutTx(elseTxn, InternalConfig.Devices.DHCP.End(), incrementIP(serverIP, 1).String())
 
-	resp, err := txn.Commit()
-	if err != nil {
+	if err := txn.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to get end of ip range: %w", err)
 	}
 
 	// set the default as one next to the server
 	var addr net.IP = incrementIP(serverIP, 1)
-	if resp.Succeeded {
+	if txn.Succeeded() {
 
-		err = json.Unmarshal(resp.Responses[0].GetResponseRange().Kvs[0].Value, &addr)
+		strAddr, err := endH.Value()
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal end dhcp ip address %s: %w", string(resp.Responses[0].GetResponseRange().Kvs[0].Value), err)
+			return nil, fmt.Errorf("failed to unmarshal end dhcp ip address %s: %w", addr, err)
 		}
 
+		addr = net.ParseIP(strAddr)
 	}
 
 	return addr, nil
 }
 
 func (d *database) countAbandonedKeys(ctx context.Context) (int64, error) {
-	resp, err := d.etcd.Get(ctx, dhcpAbandonedPrefix, clientv3.WithPrefix(), clientv3.WithCountOnly())
+
+	count, err := InternalConfig.Devices.DHCP.Abandoned().Count(ctx, d.etcd)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count abandoned keys: %w", err)
 	}
 
-	return resp.Count, nil
+	return count, nil
 }
 
 func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
-	var addr net.IP
 
 	for i := 0; i < 3; i++ {
-		resp, err := d.etcd.Get(ctx, dhcpAbandonedPrefix, clientv3.WithPrefix(), clientv3.WithLimit(1))
+
+		addr, err := InternalConfig.Devices.DHCP.Abandoned().Keys(ctx, d.etcd, clientv3.WithLimit(1))
 		if err != nil {
 			return "", fmt.Errorf("could not find dhcp lease by recycling old addresses: %w", err)
 		}
 
-		if len(resp.Kvs) != 1 {
+		if len(addr) != 1 {
 			return "", errors.New("subnet is full and no more abandoned dhcp leases exist")
 		}
 
-		err = json.Unmarshal(resp.Kvs[0].Value, &addr)
-		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal end dhcp ip address: %w", err)
+		if net.ParseIP(addr[0]) == nil {
+			return "", fmt.Errorf("failed to parse end dhcp ip address: %w", err)
 		}
 
-		txn := d.etcd.Txn(ctx)
-		txn.If(
-			clientv3util.KeyMissing(deviceRef+addr.String()),
-		).Then(
-			clientv3.OpPut(deviceRef+addr.String(), ""),
-			clientv3.OpDelete(string(resp.Kvs[0].Key)),
-		)
+		abandonedPath := InternalConfig.Devices.DHCP.Abandoned().Key(addr[0])
+		deviceAddressRef := InternalConfig.References.Devices.Address().Key(addr[0])
 
-		txnResp, err := txn.Commit()
+		txn := tetcd.NewTxn(ctx, d.etcd)
+		then, _ := txn.Conditional(clientv3util.KeyMissing(deviceAddressRef.Key()))
+
+		tetcd.DeleteTx(then, abandonedPath)
+		err = tetcd.PutTx(then, deviceAddressRef, config.DeviceRef{})
 		if err != nil {
+			return "", fmt.Errorf("failed to create put value: %w", err)
+		}
+
+		if err := txn.Commit(); err != nil {
 			return "", err
 		}
 
-		if !txnResp.Succeeded {
+		if !txn.Succeeded() {
 			// if there was a deviceRef despite it being marked abandoned
 			// delete the abandoned entry and log it
 			// then try again
 
-			d.etcd.Delete(ctx, string(resp.Kvs[0].Key))
+			abandonedPath.Delete(ctx, d.etcd)
 
-			log.Debug().Str("dhcp_lease", string(resp.Kvs[0].Key)).Msgf("lease was marked as abandoned, but still has a device reference, this may be bug. ")
+			log.Debug().Str("dhcp_lease", abandonedPath.Key()).Msgf("lease was marked as abandoned, but still has a device reference, this may be bug. ")
 			continue
 		}
 
-		return addr.String(), nil
+		return addr[0], nil
 	}
 
 	return "", fmt.Errorf("failed to get dhcp lease in allotted time, your subnet maybe full")
@@ -175,21 +171,27 @@ func (d *database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cid
 			newEnd = start
 		}
 
-		// update the end pointer if it is still within the cidr
-		txn := d.etcd.Txn(ctx)
-		txn.If(
-			clientv3util.KeyMissing(deviceRef+start.String()),
-		).Then(
-			clientv3.OpPut(deviceRef+start.String(), ""),
-			clientv3.OpPut(dhcpPrefix+"/end", fmt.Sprintf("%q", newEnd)),
-		)
+		deviceAddressRef := InternalConfig.References.Devices.Address().Key(start.String())
 
-		resp, err := txn.Commit()
+		// update the end pointer if it is still within the cidr
+		txn := tetcd.NewTxn(ctx, d.etcd)
+		then, _ := txn.Conditional(clientv3util.KeyMissing(deviceAddressRef.Key()))
+
+		err := tetcd.PutTx(then, InternalConfig.Devices.DHCP.End(), newEnd.String())
 		if err != nil {
+			return "", fmt.Errorf("failed to create put value: %w", err)
+		}
+
+		err = tetcd.PutTx(then, deviceAddressRef, config.DeviceRef{})
+		if err != nil {
+			return "", fmt.Errorf("failed to create put value: %w", err)
+		}
+
+		if err := txn.Commit(); err != nil {
 			return "", err
 		}
 
-		if resp.Succeeded {
+		if txn.Succeeded() {
 			return start.String(), nil
 		}
 
@@ -223,7 +225,7 @@ func (d *database) getNextIP(subnet string) (string, error) {
 	}
 	defer session.Close()
 
-	mutex := concurrency.NewMutex(session, dhcpPrefix+"/locks")
+	mutex := concurrency.NewMutex(session, InternalConfig.Devices.DHCP.Locks().Key())
 
 	err = mutex.Lock(ctx)
 	if err != nil {

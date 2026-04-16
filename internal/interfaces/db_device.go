@@ -11,7 +11,6 @@ type DeviceReader interface {
 	GetDevice(username, id string) (device data.Device, err error)
 	GetDevicesByUser(username string) (devices []data.Device, err error)
 	GetAllDevices() (devices []data.Device, err error)
-	GetAllDevicesAsMap() (devices map[string]data.Device, err error)
 	GetDeviceByAddress(address string) (device data.Device, err error)
 }
 

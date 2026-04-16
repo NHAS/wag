@@ -2,12 +2,12 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
 	"strings"
 
+	"github.com/NHAS/tetcd"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -15,24 +15,20 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-func (d *database) registrationKey(token string) string {
-	return fmt.Sprintf("tokens-%s", token)
-}
-
 func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, tag string, err error) {
 
-	tokenKey := d.registrationKey(token)
+	path := InternalConfig.RegistrationTokens().Key(token)
 
 	var result control.RegistrationResult
 
 	resp, err := concurrency.NewSTM(d.etcd, func(s concurrency.STM) error {
 
-		startingValue := s.Get(tokenKey)
+		startingValue := s.Get(path.Key())
 		if startingValue == "" {
 			return fmt.Errorf("no token")
 		}
 
-		token, err := Unmarshal[control.RegistrationResult](startingValue)
+		token, err := path.Codec().Decode([]byte(startingValue))
 		if err != nil {
 			return err
 		}
@@ -45,9 +41,9 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 				return err
 			}
 
-			s.Put(tokenKey, value)
+			s.Put(path.Key(), value)
 		} else {
-			s.Del(tokenKey)
+			s.Del(path.Key())
 		}
 
 		// this feels horribly wrong
@@ -72,26 +68,20 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 // Returns list of tokens
 func (d *database) GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 
-	response, err := d.etcd.Get(context.Background(), tokensKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	order, tokens, err := InternalConfig.RegistrationTokens().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, res := range response.Kvs {
-		var result control.RegistrationResult
-		err := json.Unmarshal(res.Value, &result)
-		if err != nil {
-			return nil, err
-		}
-
-		results = append(results, result)
+	for _, token := range order {
+		results = append(results, tokens[token])
 	}
 
 	return results, nil
 }
 
 func (d *database) DeleteRegistrationToken(identifier string) error {
-	_, err := d.etcd.Delete(context.Background(), d.registrationKey(identifier))
+	_, err := InternalConfig.RegistrationTokens().Key(identifier).Delete(context.Background(), d.etcd)
 	return err
 }
 
@@ -138,16 +128,19 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 
 	if overwrite != "" {
 
-		response, err := d.etcd.Get(context.Background(), deviceRef+overwrite)
+		deviceRef, err := InternalConfig.References.Devices.Address().Key(overwrite).Get(context.Background(), d.etcd)
 		if err != nil {
 			return err
 		}
 
-		if len(response.Kvs) < 1 {
+		if deviceRef.Empty() {
 			return errors.New("no device with that ip")
 		}
 
-		device, err := Get[Device](d.etcd, deviceRef+overwrite)
+		device, err := InternalConfig.Devices.Machines().
+			Key(username).
+			Key(deviceRef.Address).
+			Get(context.Background(), d.etcd)
 		if err != nil {
 			return fmt.Errorf("could not find device that this token is intended to overwrite: %w", err)
 		}
@@ -158,9 +151,10 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 	}
 
 	if len(groups) > 0 {
+
 		checks := []clientv3.Cmp{}
 		for _, group := range groups {
-			checks = append(checks, clientv3util.KeyExists(GroupsPrefix+group))
+			checks = append(checks, clientv3util.KeyExists(InternalConfig.Indexes.Groups().Key(group).Key()))
 		}
 
 		txn := d.etcd.Txn(context.Background())
@@ -186,6 +180,20 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 		Tag:        tag,
 	}
 
-	return Set(d.etcd, tokensKey+token, false, result)
+	newRegistrationToken := InternalConfig.RegistrationTokens().Key(token)
+
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(clientv3util.KeyMissing(newRegistrationToken.Key()))
+	tetcd.PutTx(then, newRegistrationToken, result)
+
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to add registration token: %w", err)
+	}
+
+	if !txn.Succeeded() {
+		return fmt.Errorf("%q already exists", token)
+	}
+
+	return nil
 
 }

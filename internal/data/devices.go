@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"path"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
-	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 
 	"github.com/NHAS/wag/internal/config"
@@ -22,55 +20,24 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const (
-	DevicesPrefix         = "devices-"
-	DeviceChallengePrefix = "devicechallenge-"
-	DeviceSessionPrefix   = "devicesession-"
-
-	deviceTagsPrefix = "devicetags/"
-)
-
-type Device struct {
-	Version        int
-	Address        string
-	Publickey      string
-	Username       string
-	PresharedKey   string `sensitive:"yes"`
-	Endpoint       *net.UDPAddr
-	Attempts       int
-	Authorised     time.Time
-	Challenge      string `sensitive:"yes"`
-	AssociatedNode types.ID
-	Tag            string
-}
-
-type DeviceChallenge struct {
-	Address   string
-	Username  string
-	Challenge string `sensitive:"yes"`
-}
-
-func (d *database) getTagPath(tag string) string {
-	return path.Join(deviceTagsPrefix, "tags", tag)
-}
-
 func (d *database) DeleteDeviceByTag(tag string) error {
 
-	tagPath := d.getTagPath(tag)
-	resp, err := d.etcd.Delete(context.Background(), tagPath, clientv3.WithPrevKV())
+	tagPath := InternalConfig.References.Devices.Tag().Key(tag)
+	device, err := tagPath.Get(context.Background(), d.etcd)
 	if err != nil {
-		return fmt.Errorf("unable to delete tag: %q: %w", tagPath, err)
+		return fmt.Errorf("unable to delete device by tag: %q: %w", tagPath, err)
 	}
 
-	if len(resp.PrevKvs) > 0 {
-		return d.deleteDevice(string(resp.PrevKvs[0].Value))
+	if device != "" {
+		return d.deleteDevice(device)
 	}
 
 	return nil
 }
 
 func (d *database) ValidateChallenge(username, address, challenge string) error {
-	dc, err := Get[DeviceChallenge](d.etcd, DeviceChallengePrefix+username+"-"+address)
+
+	dc, err := InternalConfig.Devices.Challenges().Key(username).Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return err
 	}
@@ -139,74 +106,55 @@ func (d Device) String() string {
 // this stops a race condition where an attacker uses a wireguard profile, but gets load balanced to another node member
 func (d *database) UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
 
-	realKey, err := d.etcd.Get(context.Background(), deviceRef+address)
+	realKey, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return err
 	}
 
-	if realKey.Count == 0 {
-		return errors.New("device was not found")
-	}
+	return InternalConfig.Devices.Machines().
+		Key(realKey.Username).
+		Key(realKey.Address).
+		Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
 
-	return d.doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("user device has multiple keys")
-		}
+			device.Endpoint = endpoint
+			device.AssociatedNode = d.GetCurrentNodeID()
+			device.Challenge, err = utils.GenerateRandomHex(32)
+			if err != nil {
+				return device, fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
+			}
 
-		var device Device
-		err := json.Unmarshal(gr.Kvs[0].Value, &device)
-		if err != nil {
-			return "", err
-		}
-
-		device.Endpoint = endpoint
-		device.AssociatedNode = d.GetCurrentNodeID()
-		device.Challenge, err = utils.GenerateRandomHex(32)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
-		}
-
-		b, _ := json.Marshal(device)
-
-		return string(b), err
-	})
+			return device, nil
+		})
 }
 
-func (d *database) GetDevice(username, id string) (device Device, err error) {
-	return Get[Device](d.etcd, d.deviceKey(username, id))
+func (d *database) GetDevice(username, id string) (device config.Device, err error) {
+
+	return InternalConfig.Devices.Machines().Key(username).Key(id).Get(context.Background(), d.etcd)
 }
 
-func (d *database) HasDeviceAuthorised(current, previous Device) bool {
+func (d *database) HasDeviceAuthorised(current, previous config.Device) bool {
 	lockout, err := d.GetLockout()
 	if err != nil {
 		return false
 	}
 
-	return current.Authorised != previous.Authorised && !current.Authorised.IsZero() && current.Attempts <= lockout && (current.AssociatedNode == previous.AssociatedNode || previous.AssociatedNode == 0)
+	return current.Authorised != previous.Authorised &&
+		!current.Authorised.IsZero() &&
+		current.Attempts <= lockout &&
+		(current.AssociatedNode == previous.AssociatedNode || previous.AssociatedNode == 0)
 }
 
 // Set device as authorized and clear authentication attempts
 func (d *database) AuthoriseDevice(username, address string) error {
-
-	err := d.doSafeUpdate(context.Background(), d.deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("user device has multiple keys")
-		}
-
-		var device Device
-		err := json.Unmarshal(gr.Kvs[0].Value, &device)
-		if err != nil {
-			return "", err
-		}
-
+	err := InternalConfig.Devices.Machines().Key(username).Key(address).Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
 		u, err := d.GetUserData(device.Username)
 		if err != nil {
 			// We may want to make this lock the device if the user is not found. At the moment settle with doing nothing
-			return "", err
+			return device, err
 		}
 
 		if u.Locked {
-			return "", errors.New("account is locked")
+			return device, errors.New("account is locked")
 		}
 
 		device.AssociatedNode = d.GetCurrentNodeID()
@@ -214,12 +162,10 @@ func (d *database) AuthoriseDevice(username, address string) error {
 		device.Attempts = 0
 		device.Challenge, err = utils.GenerateRandomHex(32)
 		if err != nil {
-			return "", err
+			return device, fmt.Errorf("failed to generate random challenge on device authorisation: %s", err)
 		}
 
-		b, _ := json.Marshal(device)
-
-		return string(b), err
+		return device, nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update device authorisation state: %s", err)
@@ -228,29 +174,17 @@ func (d *database) AuthoriseDevice(username, address string) error {
 	return d.markDeviceSessionStarted(address, username)
 }
 
-type DeviceSession struct {
-	Address  string    `json:"address"`
-	Username string    `json:"username"`
-	Started  time.Time `json:"session_started"`
-}
+func (d *database) GetAllSessions() (sessions []config.DeviceSession, err error) {
 
-func (d *database) GetAllSessions() (sessions []DeviceSession, err error) {
-
-	response, err := d.etcd.Get(context.Background(), DeviceSessionPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	order, data, err := InternalConfig.Devices.Sessions().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
 	// otherwise json returns null
-	sessions = []DeviceSession{}
-	for _, res := range response.Kvs {
-		var session DeviceSession
-		err := json.Unmarshal(res.Value, &session)
-		if err != nil {
-			return nil, err
-		}
-
-		sessions = append(sessions, session)
+	sessions = []config.DeviceSession{}
+	for _, session := range order {
+		sessions = append(sessions, data[session])
 	}
 
 	return sessions, nil
@@ -276,50 +210,39 @@ func (d *database) markDeviceSessionStarted(address, username string) error {
 		ops = append(ops, clientv3.WithLease(lease.ID))
 	}
 
-	var ds DeviceSession
-	ds.Address = address
-	ds.Username = username
-	ds.Started = time.Now()
+	ds := config.DeviceSession{
+		Address:  address,
+		Username: username,
+		Started:  time.Now(),
+	}
 
-	b, _ := json.Marshal(ds)
-
-	_, err = d.etcd.Put(context.Background(), DeviceSessionPrefix+address, string(b), ops...)
-	return err
+	return InternalConfig.Devices.Sessions().Key(address).Put(context.Background(), d.etcd, ds, ops...)
 }
 
 func (d *database) MarkDeviceSessionEnded(address string) error {
-	_, err := d.etcd.Delete(context.Background(), DeviceSessionPrefix+address)
+
+	_, err := InternalConfig.Devices.Sessions().Key(address).Delete(context.Background(), d.etcd)
 	return err
 }
 
 func (d *database) DeauthenticateDevice(address string) error {
 
-	realKey, err := d.etcd.Get(context.Background(), deviceRef+address)
+	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return err
 	}
 
-	if realKey.Count == 0 {
+	if ref.Empty() {
 		return errors.New("device was not found")
 	}
 
-	err = d.doSafeUpdate(context.Background(), string(realKey.Kvs[0].Value), false, func(gr *clientv3.GetResponse) (string, error) {
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("user device has multiple keys")
-		}
-
-		var device Device
-		err := json.Unmarshal(gr.Kvs[0].Value, &device)
-		if err != nil {
-			return "", err
-		}
-
-		device.Authorised = time.Time{}
-
-		b, _ := json.Marshal(device)
-
-		return string(b), err
-	})
+	err = InternalConfig.Devices.Machines().
+		Key(ref.Username).
+		Key(ref.Address).
+		Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
+			device.Authorised = time.Time{}
+			return device, err
+		})
 	if err != nil {
 		return err
 	}
@@ -328,67 +251,20 @@ func (d *database) DeauthenticateDevice(address string) error {
 }
 
 func (d *database) SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
-	return d.doSafeUpdate(context.Background(), d.deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("user device has multiple keys")
-		}
-
-		var device Device
-		err := json.Unmarshal(gr.Kvs[0].Value, &device)
-		if err != nil {
-			return "", err
-		}
-
-		device.Attempts = attempts
-
-		b, _ := json.Marshal(device)
-
-		return string(b), err
-	})
+	return InternalConfig.Devices.Machines().
+		Key(username).
+		Key(address).
+		Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
+			device.Attempts = attempts
+			return device, nil
+		})
 }
 
-func (d *database) GetAllDevices() (devices []Device, err error) {
-
-	response, err := d.etcd.Get(context.Background(), DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	for _, res := range response.Kvs {
-		var device Device
-		err := json.Unmarshal(res.Value, &device)
-		if err != nil {
-			return nil, err
-		}
-
-		devices = append(devices, device)
-	}
-
-	return devices, nil
+func (d *database) GetAllDevices() (devices []config.Device, err error) {
+	return InternalConfig.Devices.Machines().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
-func (d *database) GetAllDevicesAsMap() (devices map[string]Device, err error) {
-
-	devices = make(map[string]Device)
-	response, err := d.etcd.Get(context.Background(), DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	for _, res := range response.Kvs {
-		var device Device
-		err := json.Unmarshal(res.Value, &device)
-		if err != nil {
-			return nil, err
-		}
-
-		devices[device.Address] = device
-	}
-
-	return devices, nil
-}
-
-func (d *database) AddDevice(username, publickey, staticIp, tag string) (Device, error) {
+func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.Device, error) {
 
 	preshared_key, err := wgtypes.GenerateKey()
 	if err != nil {
@@ -474,11 +350,6 @@ func (d *database) deleteDevice(key string) error {
 
 	return nil
 
-}
-
-// devices-username-address
-func (d *database) deviceKey(username, address string) string {
-	return fmt.Sprintf(DevicesPrefix+"%s-%s", username, address)
 }
 
 // DeleteDevice removes a single device from etcd

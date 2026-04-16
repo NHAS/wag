@@ -2,58 +2,42 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-type GroupInfo struct {
-	Group   string
-	Created int64
-}
-
-type MembershipInfo struct {
-	Joined int64
-	SSO    bool
-}
-
 // joined is a unix timestamp
-func (d *database) generateOpsForGroupAddition(joined int64, group string, usernames []string, sso bool, groupIsNew bool) clientv3.Op {
+func (d *database) generateOpsForGroupAddition(branch *tetcd.TxnConditional, joined int64, group string, usernames []string, sso bool) error {
 
-	membership := MembershipInfo{
+	membership := config.MembershipInfo{
 		Joined: joined,
 		SSO:    sso,
 	}
 
-	membershipInfoBytes, _ := json.Marshal(membership)
-
-	c := string(membershipInfoBytes)
-
-	operations := make([]clientv3.Op, 0, len(usernames)*2)
 	for _, username := range usernames {
-
-		membershipOps := []clientv3.Op{
-			clientv3.OpPut(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, username, group), c),
-			clientv3.OpPut(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username), c),
+		err := tetcd.PutTx(branch, InternalConfig.Indexes.UserMembership().Key(username).Key(group), membership)
+		if err != nil {
+			return err
 		}
 
-		operations = append(operations, membershipOps...)
+		err = tetcd.PutTx(branch, Config.Acls.Groups().Key(group).Key(username), membership)
+		if err != nil {
+			return err
+		}
 	}
 
-	checks := []clientv3.Cmp{}
-	if !groupIsNew {
-		checks = []clientv3.Cmp{clientv3util.KeyExists(GroupsPrefix + group)}
-	}
-
-	return clientv3.OpTxn(checks, operations, nil)
+	return nil
 }
 
 func (d *database) CreateGroup(group string, initialMembers []string) error {
@@ -62,32 +46,26 @@ func (d *database) CreateGroup(group string, initialMembers []string) error {
 		return errors.New("group name cannot contain -")
 	}
 
-	info := GroupInfo{
+	index := InternalConfig.Indexes.Groups().Key(group)
+
+	info := config.GroupInfo{
 		Group:   group,
 		Created: time.Now().Unix(),
 	}
 
-	groupInfoBytes, _ := json.Marshal(info)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(clientv3util.KeyMissing(index.Key()))
+	tetcd.PutTx(then, index, info)
+	tetcd.PutTx(then, index, info)
 
-	operations := []clientv3.Op{
-		clientv3.OpPut(fmt.Sprintf("%s%s", GroupsIndexPrefix, group), ""),
-		clientv3.OpPut(fmt.Sprintf("%s%s", GroupsPrefix, group), string(groupInfoBytes)),
-	}
+	d.generateOpsForGroupAddition(then, info.Created, group, initialMembers, false)
 
-	operations = append(operations, d.generateOpsForGroupAddition(info.Created, group, initialMembers, false, true))
-
-	txn := d.etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyMissing(GroupsIndexPrefix + group))
-	txn.Then(
-		operations...,
-	)
-
-	resp, err := txn.Commit()
+	err := txn.Commit()
 	if err != nil {
 		return fmt.Errorf("failed to complete transaction: %w", err)
 	}
 
-	if !resp.Succeeded {
+	if !txn.Succeeded() {
 		return errors.New("group already exists")
 	}
 
@@ -96,18 +74,21 @@ func (d *database) CreateGroup(group string, initialMembers []string) error {
 
 func (d *database) GetGroups() (result []*control.GroupData, err error) {
 
-	resp, err := d.etcd.Get(context.Background(), GroupsIndexPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	keys, err := InternalConfig.Indexes.Groups().Keys(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get groups index from etcd: %w", err)
 	}
 
 	groups := map[string]*control.GroupData{}
 
-	result = make([]*control.GroupData, 0, len(resp.Kvs))
+	result = make([]*control.GroupData, 0, len(keys))
 
-	ops := []clientv3.Op{}
-	for _, r := range resp.Kvs {
-		groupName := strings.TrimPrefix(string(r.Key), GroupsIndexPrefix)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+
+	memberHandles := make([]*tetcd.ListHandle[config.MembershipInfo], 0, len(keys))
+
+	then := txn.Then()
+	for _, groupName := range keys {
 
 		group := &control.GroupData{
 			Group: groupName,
@@ -115,45 +96,32 @@ func (d *database) GetGroups() (result []*control.GroupData, err error) {
 		groups[groupName] = group
 		result = append(result, group)
 
-		ops = append(ops, clientv3.OpGet(fmt.Sprintf("%s%s-members-", GroupsPrefix, groupName), clientv3.WithPrefix()))
+		memberHandles = append(memberHandles, tetcd.ListTx(then, Config.Acls.Groups().Key(groupName)))
 	}
 
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(ops...)
-	response, err := txn.Commit()
-	if err != nil {
+	if err := txn.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to get group members")
 	}
 
 	// yet another O(MxN), pain
-	for _, resp := range response.Responses {
-		kvs := resp.GetResponseRange().Kvs
-		for _, kv := range kvs {
-			resultParts, err := d.SplitKey(3, GroupsPrefix, string(kv.Key))
-			if err != nil {
-				log.Error().Err(err).Str("group", string(kv.Key)).Msg("failed to get group")
-				continue
-			}
-			// 1 = -members-
+	for _, handle := range memberHandles {
+		users, err := handle.Entries()
+		if err != nil {
+			log.Error().Err(err).Str("group", handle.Prefix()).Msg("failed to get users for group")
+			continue
+		}
 
-			var info MembershipInfo
-			err = json.Unmarshal(kv.Value, &info)
-			if err != nil {
-				log.Error().Err(err).Str("group", string(kv.Key)).Msg("failed to unmarshal membership info")
+		for username, membership := range users {
 
-				d.RaiseError(fmt.Errorf("failed to unmarshal membership info from %s: %w", kv.Key, err), []byte(""))
-				continue
-			}
-
-			// 0 = groupName
-			// 2 = username
-			if gd, ok := groups[resultParts[0]]; ok {
+			if gd, ok := groups[filepath.Base(handle.Prefix())]; ok {
 
 				gd.Members = append(gd.Members, control.MemberInfo{
-					Name:   resultParts[2],
-					SSO:    info.SSO,
-					Joined: info.Joined,
+					Name:   username,
+					SSO:    membership.SSO,
+					Joined: membership.Joined,
 				})
+			} else {
+				log.Info().Str("group", filepath.Base(handle.Prefix())).Msg("group not found in map")
 			}
 		}
 
@@ -168,55 +136,36 @@ func (d *database) RemoveGroup(group string) error {
 		return fmt.Errorf("cannot delete default group")
 	}
 
-	// Get main group info key
-	groupKey := fmt.Sprintf("%s%s", GroupsPrefix, group)
-	groupResp, err := d.etcd.Get(context.Background(), groupKey)
-	if err != nil {
-		return fmt.Errorf("failed to remove group %q, getting group metadata failed: %w", group, err)
-	}
+	index := InternalConfig.Indexes.Groups().Key(group)
 
-	if groupResp.Count == 0 {
-		return fmt.Errorf("could not find group %q", group)
-	}
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(clientv3util.KeyExists(index.Key()))
 
-	// Get all members
-	membersKey := fmt.Sprintf("%s%s-members-", GroupsPrefix, group)
-	membersResp, err := d.etcd.Get(
-		context.Background(),
-		membersKey,
-		clientv3.WithPrefix(),
-		clientv3.WithKeysOnly(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to get group members of %q: %w", group, err)
-	}
+	tetcd.DeleteTx(then, index)
+	membersH := tetcd.DeleteTx(then, Config.Acls.Groups().Key(group).All(), clientv3.WithPrefix(), clientv3.WithPrevKV())
 
-	// Delete the group, then delete all the members
-
-	ops := []clientv3.Op{
-		clientv3.OpDelete(fmt.Sprintf("%s%s", GroupsIndexPrefix, group)),
-		clientv3.OpDelete(groupKey),
-		clientv3.OpDelete(membersKey, clientv3.WithPrefix()),
-	}
-
-	for _, member := range membersResp.Kvs {
-		user := strings.TrimPrefix(string(member.Key), membersKey)
-		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, user, group)))
-	}
-
-	txn := d.etcd.Txn(context.Background())
-	txn.If(clientv3util.KeyExists(groupKey)) // Ensure group still exists
-	txn.Then(
-		ops...,
-	)
-
-	resp, err := txn.Commit()
-	if err != nil {
+	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to remove group %q: %w", group, err)
 	}
 
-	if !resp.Succeeded {
+	if !txn.Succeeded() {
 		return fmt.Errorf("group %q was deleted by another user", group)
+	}
+
+	txn = tetcd.NewTxn(context.Background(), d.etcd)
+	then = txn.Then()
+
+	members, err := membersH.PrevKeys()
+	if err != nil {
+		return fmt.Errorf("failed to get group membership indexes: %w", err)
+	}
+
+	for _, member := range members {
+		tetcd.DeleteTx(then, InternalConfig.Indexes.UserMembership().Key(member).Key(group))
+	}
+
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to remove group membership indexes: %w", err)
 	}
 
 	return nil
@@ -224,20 +173,15 @@ func (d *database) RemoveGroup(group string) error {
 
 func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 
-	membershipsKey := fmt.Sprintf(GroupMembershipPrefix+"%s-", username)
-	response, err := d.etcd.Get(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	groups, err := InternalConfig.Indexes.UserMembership().Key(username).Keys(context.Background(), d.etcd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get membership information: %s", err)
-	}
-
-	if len(response.Kvs) == 0 {
-		return []string{"*"}, nil
+		return nil, fmt.Errorf("failed to get user group memberships: %w", err)
 	}
 
 	groupMembership := []string{"*"}
 
-	for _, group := range response.Kvs {
-		groupMembership = append(groupMembership, strings.TrimPrefix(strings.TrimPrefix(string(group.Key), membershipsKey), "group:"))
+	for _, group := range groups {
+		groupMembership = append(groupMembership, strings.TrimPrefix(group, "group:"))
 	}
 
 	return groupMembership, nil
@@ -245,31 +189,44 @@ func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 
 func (d *database) RemoveUserAllGroups(username string) error {
 
-	membershipsKey := fmt.Sprintf(GroupMembershipPrefix+"%s-", username)
-	response, err := d.etcd.Delete(context.Background(), membershipsKey, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithKeysOnly())
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
+	groupsH := tetcd.DeleteTx(then, InternalConfig.Indexes.UserMembership().Key(username).All(), clientv3.WithPrefix(), clientv3.WithPrevKV())
+
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to remove user group memberships: %w", err)
+	}
+
+	groups, err := groupsH.PrevKeys()
 	if err != nil {
-		return fmt.Errorf("failed to get membership information: %s", err)
+		return fmt.Errorf("failed to get previous group keys: %w", err)
 	}
 
-	if len(response.PrevKvs) == 0 {
-		return nil
+	txn = tetcd.NewTxn(context.Background(), d.etcd)
+	then = txn.Then()
+
+	results := make([]*tetcd.DeleteHandle[config.MembershipInfo], 0, len(groups))
+	for _, group := range groups {
+		results = append(results, tetcd.DeleteTx(then, Config.Acls.Groups().Key(group).Key(username)))
 	}
 
-	ops := make([]clientv3.Op, 0, len(response.PrevKvs))
-	for _, groupKvs := range response.PrevKvs {
-		group := strings.TrimPrefix(string(groupKvs.Key), membershipsKey)
-		// delete all references within the group itself
-		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username)))
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to remove user %q from groups: %w", username, err)
 	}
 
-	// delete all subkeys for the user membership information
-	ops = append(ops, clientv3.OpDelete(membershipsKey, clientv3.WithPrefix()))
+	var errs []error
+	for _, result := range results {
+		_, err := result.Deleted()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to delete %q: %w", result.Key(), err))
+		}
+	}
 
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(ops...)
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
 
-	_, err = txn.Commit()
-	return err
+	return nil
 }
 
 func (d *database) RemoveUserFromGroup(usernames []string, group string) error {
@@ -277,20 +234,30 @@ func (d *database) RemoveUserFromGroup(usernames []string, group string) error {
 		return fmt.Errorf("cannot remove user from default group")
 	}
 
-	ops := []clientv3.Op{}
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
+
+	responses := make([]*tetcd.DeleteHandle[config.MembershipInfo], 0, len(usernames))
+
 	for _, username := range usernames {
-		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-%s", GroupMembershipPrefix, username, group)))
-		ops = append(ops, clientv3.OpDelete(fmt.Sprintf("%s%s-members-%s", GroupsPrefix, group, username)))
+		responses = append(responses, tetcd.DeleteTx(then, InternalConfig.Indexes.UserMembership().Key(username).Key(group)))
+		responses = append(responses, tetcd.DeleteTx(then, Config.Acls.Groups().Key(group).Key(username)))
 	}
 
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(
-		ops...,
-	)
-
-	_, err := txn.Commit()
-	if err != nil {
+	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to remove %d users from group %s: %w", len(usernames), group, err)
+	}
+
+	var errs []error
+	for _, result := range responses {
+		_, err := result.Deleted()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to remove %q: %w", result.Key(), err))
+		}
+	}
+
+	if err := errors.Join(errs...); err != nil {
+		return err
 	}
 
 	return nil
@@ -300,18 +267,37 @@ func (d *database) AddUserToGroups(usernames []string, groups []string, fromSSO 
 
 	addition := time.Now().Unix()
 
-	ops := []clientv3.Op{}
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
+
+	subtxns := make([]*tetcd.SubTxn, 0, len(groups))
 	// Ugh O(NxM)
 	for _, group := range groups {
-		ops = append(ops, d.generateOpsForGroupAddition(addition, group, usernames, fromSSO, false))
+
+		subtxn := tetcd.SubTx(then)
+		subtxns = append(subtxns, subtxn)
+
+		then, _ := subtxn.Conditional(clientv3util.KeyExists(Config.Acls.Groups().Key(group).All().Key()))
+
+		err := d.generateOpsForGroupAddition(then, addition, group, usernames, fromSSO)
+		if err != nil {
+			return fmt.Errorf("failed to generate ops for group addition: %w", err)
+		}
 	}
 
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(ops...)
-
-	_, err := txn.Commit()
-	if err != nil {
+	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to add user %q to groups %s: %w", usernames, groups, err)
+	}
+
+	failures := 0
+	for i := range subtxns {
+		if !subtxns[i].Succeeded() {
+			failures++
+		}
+	}
+
+	if failures > 0 {
+		return fmt.Errorf("failed to add %d groups", failures)
 	}
 
 	return nil

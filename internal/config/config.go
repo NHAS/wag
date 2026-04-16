@@ -6,8 +6,10 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -16,22 +18,42 @@ import (
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
+	"go.etcd.io/etcd/client/pkg/v3/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var Version string
 
-type webserverDetails struct {
-	ListenAddress   string
-	Domain          string
-	TLS             bool
-	CertificatePath string
-	PrivateKeyPath  string
+// use to be WebserverConfiguration
+type WebserverDetails struct {
+	ListenAddress string `json:"listen_address"`
+	Domain        string `json:"domain"`
+	TLS           bool   `json:"tls"`
+	StaticCerts   bool   `json:"static_certificates"`
+
+	CertificatePath string `json:"certificate_path"`
+	PrivateKeyPath  string `json:"private_key_path"`
+
+	// These are the user supplied certs, not the ones given by certmagic, which are managed internally
+	CertificatePEM string `json:"certificate"`
+	PrivateKeyPEM  string `json:"private_key" sensitive:"yes"`
+}
+
+func (a *WebserverDetails) Equals(b *WebserverDetails) bool {
+	if a == b {
+		return true
+	}
+
+	if a == nil {
+		return false
+	}
+
+	return a.Domain == b.Domain && a.TLS == b.TLS && a.ListenAddress == b.ListenAddress && a.CertificatePEM == b.CertificatePEM && a.PrivateKeyPEM == b.PrivateKeyPEM
 }
 
 type Acls struct {
-	Groups   map[string][]string `json:",omitempty"`
+	Groups   map[string]map[string]MembershipInfo `json:",omitempty"`
 	Policies map[string]*acls.Acl
 }
 
@@ -48,16 +70,41 @@ type ClusteringDetails struct {
 	TLSManagerListenURL string
 }
 
+type TunnelOidc struct {
+	IssuerURL           string   `json:"issuer" validate:"omitempty,url" `
+	ClientSecret        string   `json:"client_secret" validate:"omitempty,min=1,max=255" sensitive:"yes"`
+	ClientID            string   `json:"client_id" validate:"omitempty,min=1,max=255"`
+	GroupsClaimName     string   `json:"group_claim_name,omitempty"`
+	DeviceUsernameClaim string   `json:"device_username_claim,omitempty"`
+	Scopes              []string `json:"scopes,omitempty" tetcd:"compress"`
+}
+
+func (o *TunnelOidc) Equals(b *TunnelOidc) bool {
+	if o == b {
+		return true
+	}
+
+	if o == nil {
+		return false
+	}
+
+	return o.IssuerURL == b.IssuerURL && o.ClientSecret == b.ClientSecret && o.ClientID == b.ClientID && o.DeviceUsernameClaim == b.DeviceUsernameClaim && slices.Equal(o.Scopes, b.Scopes)
+}
+
+type PAM struct {
+	ServiceName string `json:"service_name" validate:"omitempty,min=1"`
+}
+
 type Config struct {
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
-	CheckUpdates  bool   `json:",omitempty"`
+	CheckUpdates  bool   `json:"check_updates,omitempty"`
 	NumberProxies int
 	DevMode       bool `json:",omitempty"`
 
-	ExposePorts      []string `json:",omitempty"`
+	ExposePorts      []string `json:",omitempty" tetcd:"compress"`
 	NAT              *bool    `json:",omitempty"`
-	NATExcludeRanges []string `json:",omitempty"`
+	NATExcludeRanges []string `json:",omitempty" tetcd:"compress"`
 
 	Webserver struct {
 		Acme struct {
@@ -67,46 +114,32 @@ type Config struct {
 		}
 
 		Public struct {
-			webserverDetails
-			DownloadConfigFileName string `json:",omitempty"`
-			ExternalAddress        string
+			HTTPSettings           WebserverDetails
+			DownloadConfigFileName string `json:"wireguard_config_filename,omitempty" validate:"required"`
+			ExternalAddress        string `validate:"required,hostname|hostname_port|ip" json:"external_address"`
 		}
 
-		Lockout int
+		Lockout int `validate:"required,number" json:"lockout"`
 
 		Tunnel struct {
-			Port   string
-			Domain string
-			TLS    bool
+			HTTPSettings WebserverDetails
 
-			CertificatePath string
-			PrivateKeyPath  string
+			HelpMail string `validate:"required,email" json:"help_mail"`
 
-			HelpMail string
+			MaxSessionLifetimeMinutes       int `validate:"required,number" json:"max_session_lifetime_minutes"`
+			SessionInactivityTimeoutMinutes int `validate:"required,number" json:"session_inactivity_timeout_minutes"`
 
-			MaxSessionLifetimeMinutes       int
-			SessionInactivityTimeoutMinutes int
+			DefaultMethod string   `json:",omitempty"`
+			Issuer        string   `validate:"required" json:"issuer"`
+			Methods       []string `json:",omitempty" tetcd:"compress"`
 
-			DefaultMethod string `json:",omitempty"`
-			Issuer        string
-			Methods       []string `json:",omitempty"`
+			OIDC TunnelOidc `json:"oidc,omitzero"`
 
-			OIDC struct {
-				IssuerURL           string
-				ClientSecret        string
-				ClientID            string
-				GroupsClaimName     string   `json:",omitempty"`
-				DeviceUsernameClaim string   `json:",omitempty"`
-				Scopes              []string `json:",omitempty"`
-			} `json:",omitzero"`
-
-			PAM struct {
-				ServiceName string
-			} `json:",omitzero"`
+			PAM PAM `json:"pam,omitzero"`
 		}
 
 		Management struct {
-			webserverDetails
+			HTTPSettings WebserverDetails
 
 			Enabled bool
 
@@ -123,9 +156,9 @@ type Config struct {
 		}
 	}
 
-	Clustering ClusteringDetails
+	Clustering ClusteringDetails `tetcd:"-"`
 
-	RemoteCluster *clientv3.ConfigSpec
+	RemoteCluster *clientv3.ConfigSpec `tetcd:"-"`
 
 	Wireguard struct {
 		DevName    string
@@ -137,14 +170,118 @@ type Config struct {
 		LogLevel int
 
 		//Not externally configurable
-		Range                     *net.IPNet `json:"-"`
-		ServerAddress             net.IP     `json:"-"`
+		Range                     *net.IPNet `json:"-" tetcd:"-"`
+		ServerAddress             net.IP     `json:"-" tetcd:"-"`
 		ServerPersistentKeepAlive int
 
-		DNS []string `json:",omitempty"`
+		DNS []string `json:"dns,omitempty" tetcd:"compress" validate:"omitempty,dive,hostname|ip"`
 	}
 
 	Acls Acls
+}
+
+type Device struct {
+	Version        int
+	Address        string
+	Publickey      string
+	Username       string
+	PresharedKey   string `sensitive:"yes"`
+	Endpoint       *net.UDPAddr
+	Attempts       int
+	Authorised     time.Time
+	Challenge      string `sensitive:"yes"`
+	AssociatedNode types.ID
+	Tag            string
+}
+
+type DeviceSession struct {
+	Address  string    `json:"address"`
+	Username string    `json:"username"`
+	Started  time.Time `json:"session_started"`
+}
+
+type DeviceChallenge struct {
+	Address   string
+	Username  string
+	Challenge string `sensitive:"yes"`
+}
+
+type UserModel struct {
+	Username  string
+	Mfa       string `sensitive:"yes"`
+	MfaType   string
+	Locked    bool
+	Enforcing bool
+}
+
+type InternalConfig struct {
+	RegistrationTokens map[string]control.RegistrationResult
+
+	Devices Devices
+
+	Users map[string]UserModel
+
+	Indexes    Indexes
+	References References
+}
+
+type Devices struct {
+	// Username -> Device address -> Device
+	Machines map[string]map[string]Device
+
+	// Address -> Session
+	Sessions map[string]DeviceSession
+
+	// Username -> Device address -> Challenge
+	Challenges map[string]map[string]DeviceChallenge
+
+	DHCP DHCP
+}
+
+type GroupInfo struct {
+	Group   string
+	Created int64
+}
+
+type MembershipInfo struct {
+	Joined int64
+	SSO    bool
+}
+
+type Indexes struct {
+	Groups         map[string]GroupInfo
+	UserMembership map[string]map[string]MembershipInfo
+}
+
+type References struct {
+	Devices DevicesReferences
+}
+
+type DeviceRef struct {
+	Username string
+	Address  string
+}
+
+func (d *DeviceRef) Empty() bool {
+	return d.Username == "" || d.Address == ""
+}
+
+type DevicesReferences struct {
+	// IP Address -> device key
+	Address map[string]DeviceRef
+
+	// Wireguard public key -> device key
+	PublicKey map[string]DeviceRef
+
+	// Arbitrary tag -> device key
+	Tag map[string]DeviceRef
+}
+
+type DHCP struct {
+	Abandoned map[string]bool
+	End       string
+	// used to lock mutexes for selection
+	Locks string
 }
 
 var (
@@ -251,11 +388,7 @@ func load(path string) (c Config, err error) {
 		return c, errors.New("session inactivity timeout policy is not set (may be disabled by setting it to -1)")
 	}
 
-	if c.Webserver.Tunnel.Port == "" {
-		return c, fmt.Errorf("tunnel listener port is not set (Tunnel.ListenAddress.Port)")
-	}
-
-	if c.Webserver.Public.ListenAddress == "" {
+	if c.Webserver.Public.HTTPSettings.ListenAddress == "" {
 		return c, fmt.Errorf("public listen address is not set (Public.ListenAddress)")
 	}
 
@@ -275,7 +408,7 @@ func load(path string) (c Config, err error) {
 		}
 
 		if c.NumberProxies > 0 {
-			_, port, _ := net.SplitHostPort(c.Webserver.Public.ListenAddress)
+			_, port, _ := net.SplitHostPort(c.Webserver.Public.HTTPSettings.ListenAddress)
 			if port == parts[0] {
 				return c, errors.New("you have tried to expose the vpn service (with ExposedPorts) while also having 'Proxied' set to true, this will cause wag to respect X-Forwarded-For from an external source which will result in a security vulnerablity, as such this is an error")
 			}
