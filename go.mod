@@ -34,7 +34,7 @@ require (
 )
 
 require (
-	github.com/NHAS/tetcd v0.0.22-beta // indirect
+	github.com/NHAS/tetcd v0.0.26-beta // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/caddyserver/zerossl v0.1.4 // indirect

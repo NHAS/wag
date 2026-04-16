@@ -278,7 +278,7 @@ type DevicesReferences struct {
 }
 
 type DHCP struct {
-	Abandoned map[string]bool
+	Abandoned map[string]string
 	End       string
 	// used to lock mutexes for selection
 	Locks string

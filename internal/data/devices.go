@@ -10,10 +10,9 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"go.etcd.io/etcd/client/v3/clientv3util"
 
+	"github.com/NHAS/tetcd"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -23,13 +22,13 @@ import (
 func (d *database) DeleteDeviceByTag(tag string) error {
 
 	tagPath := InternalConfig.References.Devices.Tag().Key(tag)
-	device, err := tagPath.Get(context.Background(), d.etcd)
+	ref, err := tagPath.Get(context.Background(), d.etcd)
 	if err != nil {
 		return fmt.Errorf("unable to delete device by tag: %q: %w", tagPath, err)
 	}
 
-	if device != "" {
-		return d.deleteDevice(device)
+	if !ref.Empty() {
+		return d.DeleteDevice(ref.Address)
 	}
 
 	return nil
@@ -268,22 +267,22 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.
 
 	preshared_key, err := wgtypes.GenerateKey()
 	if err != nil {
-		return Device{}, err
+		return config.Device{}, err
 	}
 
 	if len(tag) > 100 {
-		return Device{}, fmt.Errorf("tag was too large")
+		return config.Device{}, fmt.Errorf("tag was too large")
 	}
 
 	address := staticIp
 	if _, err = netip.ParseAddr(staticIp); err != nil || staticIp == "" {
 		address, err = d.getNextIP(config.Values.Wireguard.Address)
 		if err != nil {
-			return Device{}, err
+			return config.Device{}, err
 		}
 	}
 
-	dev := Device{
+	dev := config.Device{
 		Address:      address,
 		Publickey:    publickey,
 		Username:     username,
@@ -291,232 +290,162 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.
 		Tag:          tag,
 	}
 
-	b, _ := json.Marshal(dev)
-
-	key := d.deviceKey(username, address)
-
-	createOps := []clientv3.Op{
-		clientv3.OpPut(key, string(b)),
-		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", address), key),
-		clientv3.OpPut(fmt.Sprintf(deviceRef+"%s", publickey), key),
+	ref := config.DeviceRef{
+		Address:  address,
+		Username: username,
 	}
 
+	devicePath := InternalConfig.Devices.Machines().Key(username).Key(address)
+	tagPath := InternalConfig.References.Devices.Tag().Key(tag)
+
 	cmp := []clientv3.Cmp{
-		clientv3util.KeyMissing(key), clientv3util.KeyExists(UsersPrefix + username + "-"),
+		clientv3util.KeyMissing(devicePath.Key()), clientv3util.KeyExists(InternalConfig.Users().Key(username).Key()),
 	}
 
 	if len(tag) != 0 {
-		createOps = append(createOps, clientv3.OpPut(d.getTagPath(tag), key))
-		cmp = append(cmp, clientv3util.KeyMissing(d.getTagPath(tag)))
-
+		cmp = append(cmp, clientv3util.KeyMissing(tagPath.Key()))
 	}
 
-	response, err := d.etcd.Txn(context.Background()).If(cmp...).Then(createOps...).Commit()
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(cmp...)
+
+	err = tetcd.PutTx(then, devicePath, dev)
 	if err != nil {
-		return Device{}, err
+		return config.Device{}, err
 	}
 
-	if !response.Succeeded {
+	err = tetcd.PutTx(then, InternalConfig.References.Devices.Address().Key(address), ref)
+	if err != nil {
+		return config.Device{}, err
+	}
+
+	err = tetcd.PutTx(then, InternalConfig.References.Devices.PublicKey().Key(publickey), ref)
+	if err != nil {
+		return config.Device{}, err
+	}
+
+	if len(tag) != 0 {
+		err = tetcd.PutTx(then, tagPath, ref)
+		if err != nil {
+			return config.Device{}, err
+		}
+	}
+
+	if err := txn.Commit(); err != nil {
+		return config.Device{}, err
+	}
+
+	if !txn.Succeeded() {
 
 		if len(tag) > 0 {
-			return Device{}, fmt.Errorf("device with %q address or tag %q already exists", address, tag)
-
+			return config.Device{}, fmt.Errorf("device with %q address or tag %q already exists", address, tag)
 		}
 
-		return Device{}, fmt.Errorf("device with %q address already exists", address)
+		return config.Device{}, fmt.Errorf("device with %q address already exists", address)
 	}
 
 	return dev, err
 }
 
-func (d *database) deleteDevice(key string) error {
-	resp, err := d.etcd.Delete(context.Background(), key, clientv3.WithPrevKV())
-	if err != nil {
-		return fmt.Errorf("could not delete device by direct key: %q: %w", key, err)
-	}
+// DeleteDevice removes a single device from etcd by ip address
+func (d *database) DeleteDevice(address string) error {
 
-	if len(resp.PrevKvs) != 0 {
-
-		var dev Device
-		err := json.Unmarshal(resp.PrevKvs[0].Value, &dev)
-		if err != nil {
-			return fmt.Errorf("could not parse device: %w", err)
-		}
-
-		_, err = d.etcd.Txn(context.Background()).Then(d.deleteDeviceOps(dev)...).Commit()
-		return err
-
-	}
-
-	return nil
-
-}
-
-// DeleteDevice removes a single device from etcd
-// id can be a public key, or ip address
-func (d *database) DeleteDevice(id string) error {
-
-	refKey := deviceRef + id
-
-	realKey, err := d.etcd.Get(context.Background(), refKey)
+	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return err
 	}
 
-	if realKey.Count == 0 {
-		return errors.New("no reference found")
+	if ref.Empty() {
+		return errors.New("no address reference found")
 	}
 
-	deviceEntry, err := d.etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	device, err := InternalConfig.Devices.Machines().Key(ref.Username).Key(ref.Address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return fmt.Errorf("unable to get real device entry from reference: %s", err)
 	}
 
-	var dev Device
-	err = json.Unmarshal(deviceEntry.Kvs[0].Value, &dev)
-	if err != nil {
-		return err
-	}
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
-	_, err = d.etcd.Txn(context.Background()).Then(d.deleteDeviceOps(dev)...).Commit()
+	d.applyDeleteDeviceOps(then, device)
 
-	return err
+	return txn.Commit()
 }
 
 // Generate the operations to delete a device
-func (d *database) deleteDeviceOps(dev Device) []clientv3.Op {
+func (d *database) applyDeleteDeviceOps(txn *tetcd.TxnConditional, dev config.Device) {
 
-	key := d.deviceKey(dev.Username, dev.Address)
-	ipRef := deviceRef + dev.Address
-	publicKeyRef := deviceRef + dev.Publickey
+	// mark that the ip address is no longer in use
+	tetcd.PutTx(txn, InternalConfig.Devices.DHCP.Abandoned().Key(dev.Address), dev.Address)
 
-	sessionRef := DeviceSessionPrefix + dev.Address
+	// Delete the device itself
+	tetcd.DeleteTx(txn, InternalConfig.Devices.Machines().Key(dev.Username).Key(dev.Address))
 
-	challengeKey := DeviceChallengePrefix + dev.Username + "-" + dev.Address
+	// clean up the 3 reference types
+	tetcd.DeleteTx(txn, InternalConfig.References.Devices.Address().Key(dev.Address))
+	tetcd.DeleteTx(txn, InternalConfig.References.Devices.PublicKey().Key(dev.Publickey))
+	tetcd.DeleteTx(txn, InternalConfig.References.Devices.Tag().Key(dev.Tag))
 
-	return []clientv3.Op{
-		clientv3.OpPut(dhcpAbandonedPrefix+dev.Address, fmt.Sprintf("%q", dev.Address)),
+	// clean up challenges
+	tetcd.DeleteTx(txn, InternalConfig.Devices.Challenges().Key(dev.Username).Key(dev.Address))
 
-		clientv3.OpDelete(key),
+	// clean up any existing sessions
+	tetcd.DeleteTx(txn, InternalConfig.Devices.Sessions().Key(dev.Address))
 
-		clientv3.OpDelete(ipRef),
-		clientv3.OpDelete(publicKeyRef),
-
-		clientv3.OpDelete(sessionRef),
-		clientv3.OpDelete(challengeKey),
-
-		clientv3.OpDelete(d.getTagPath(dev.Tag)),
-	}
 }
 
 func (d *database) DeleteDevices(username string) error {
 
-	deleted, err := d.etcd.Delete(context.Background(), fmt.Sprintf("%s%s-", DevicesPrefix, username), clientv3.WithPrefix(), clientv3.WithPrevKV())
+	result, err := InternalConfig.Devices.Machines().Key(username).DeleteAll(context.Background(), d.etcd, clientv3.WithPrevKV())
 	if err != nil {
 		return err
 	}
 
-	var ops []clientv3.Op
-	for _, reference := range deleted.PrevKvs {
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
-		var dev Device
-		err := json.Unmarshal(reference.Value, &dev)
-		if err != nil {
-			log.Error().Err(err).Str("username", username).Msg("Failed to delete device")
-			continue
-		}
-
-		ops = append(ops, d.deleteDeviceOps(dev)...)
-
+	for _, device := range result.PrevValues {
+		d.applyDeleteDeviceOps(then, device)
 	}
 
-	_, err = d.etcd.Txn(context.Background()).Then(ops...).Commit()
-	return err
+	return txn.Commit()
 }
 
 func (d *database) UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 
-	beforeUpdate, err := d.GetDeviceByAddress(address)
-	if err != nil {
-		return err
-	}
+	beforeUpdate := publicKey.String()
 
-	err = d.doSafeUpdate(context.Background(), d.deviceKey(username, address), false, func(gr *clientv3.GetResponse) (string, error) {
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("user device has multiple keys")
-		}
-
-		var device Device
-		err := json.Unmarshal(gr.Kvs[0].Value, &device)
-		if err != nil {
-			return "", err
-		}
-
+	err := InternalConfig.Devices.Machines().Key(username).Key(address).Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
 		device.Publickey = publicKey.String()
-
-		b, _ := json.Marshal(device)
-
-		return string(b), err
+		return device, nil
 	})
 
 	if err != nil {
 		return err
 	}
 
-	_, err = d.etcd.Delete(context.Background(), deviceRef+beforeUpdate.Publickey)
-
-	return err
+	return InternalConfig.References.Devices.PublicKey().Delete(context.Background(), d.etcd, beforeUpdate)
 }
 
-func (d *database) GetDeviceByAddress(address string) (device Device, err error) {
+func (d *database) GetDeviceByAddress(address string) (config.Device, error) {
 
-	realKey, err := d.etcd.Get(context.Background(), deviceRef+address)
+	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
-		return Device{}, err
+		return config.Device{}, err
 	}
 
-	if len(realKey.Kvs) == 0 {
-		return Device{}, errors.New("not device found for address: " + address)
+	if ref.Empty() {
+		return config.Device{}, errors.New("not device found for address: " + address)
 	}
 
-	if len(realKey.Kvs) != 1 {
-		return Device{}, errors.New("incorrect number of keys for device reference")
-	}
-
-	response, err := d.etcd.Get(context.Background(), string(realKey.Kvs[0].Value))
+	device, err := InternalConfig.Devices.Machines().Key(ref.Username).Key(ref.Address).Get(context.Background(), d.etcd)
 	if err != nil {
-		return Device{}, err
+		return config.Device{}, err
 	}
 
-	if len(response.Kvs) == 0 {
-		return Device{}, errors.New("device was not found")
-	}
-
-	if len(response.Kvs) > 1 {
-		return Device{}, errors.New("user device has multiple keys")
-	}
-
-	err = json.Unmarshal(response.Kvs[0].Value, &device)
-
-	return
+	return device, nil
 }
 
-func (d *database) GetDevicesByUser(username string) (devices []Device, err error) {
-
-	response, err := d.etcd.Get(context.Background(), fmt.Sprintf(DevicesPrefix+"%s-", username), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	for _, res := range response.Kvs {
-		var device Device
-		err := json.Unmarshal(res.Value, &device)
-		if err != nil {
-			return nil, err
-		}
-
-		devices = append(devices, device)
-	}
-
-	return
+func (d *database) GetDevicesByUser(username string) (devices []config.Device, err error) {
+	return InternalConfig.Devices.Machines().Key(username).Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
