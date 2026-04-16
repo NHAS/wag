@@ -13,6 +13,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
@@ -23,7 +24,7 @@ import (
 type webserver struct {
 	listener *http.Server
 	mux      http.Handler
-	details  *data.WebserverConfiguration
+	details  *config.WebserverDetails
 }
 
 type AutoTLS struct {
@@ -224,7 +225,7 @@ func (a *AutoTLS) registerEventListeners() error {
 		return err
 	}
 
-	webserverEventsFunc := func(key string, ev data.EventType, current, previous data.WebserverConfiguration) error {
+	webserverEventsFunc := func(key string, ev data.EventType, current, previous config.WebserverDetails) error {
 
 		webserverTarget := data.Webserver(strings.TrimPrefix(key, data.WebServerConfigKey))
 		a.RLock()
@@ -269,14 +270,14 @@ func (a *AutoTLS) registerEventListeners() error {
 		data.PublicWebServerConfigKey,
 		data.ManagementWebServerConfigKey,
 	}, false,
-		watcher.WatcherCallbacks[data.WebserverConfiguration]{
+		watcher.WatcherCallbacks[config.WebserverDetails]{
 			All: webserverEventsFunc,
 		})
 
 	return err
 }
 
-func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, details *data.WebserverConfiguration) error {
+func (a *AutoTLS) refreshListeners(forWhat data.Webserver, mux http.Handler, details *config.WebserverDetails) error {
 	ctx := context.Background()
 
 	a.Lock()

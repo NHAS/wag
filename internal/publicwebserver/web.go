@@ -120,7 +120,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	} else {
 
 		// Make sure not to accidentally shadow the global err here as we're using a defer to monitor failures to delete the device
-		var device data.Device
+		var device config.Device
 		device, err = user.AddDevice(publickey, staticIp, tag)
 		if err != nil {
 			logger.Error().Err(err).Msg("unable to add device")

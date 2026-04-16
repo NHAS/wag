@@ -3,19 +3,19 @@ package interfaces
 import (
 	"net"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 type DeviceReader interface {
-	GetDevice(username, id string) (device data.Device, err error)
-	GetDevicesByUser(username string) (devices []data.Device, err error)
-	GetAllDevices() (devices []data.Device, err error)
-	GetDeviceByAddress(address string) (device data.Device, err error)
+	GetDevice(username, id string) (device config.Device, err error)
+	GetDevicesByUser(username string) (devices []config.Device, err error)
+	GetAllDevices() (devices []config.Device, err error)
+	GetDeviceByAddress(address string) (device config.Device, err error)
 }
 
 type DeviceWriter interface {
-	AddDevice(username, publickey, staticIp, tag string) (data.Device, error)
+	AddDevice(username, publickey, staticIp, tag string) (config.Device, error)
 
 	DeleteDevice(id string) error
 	DeleteDevices(username string) error

@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
@@ -66,7 +67,7 @@ func (mp *MfaPortal) oidcChanged(_ string, current data.OIDC, previous data.OIDC
 	return nil
 }
 
-func (mp *MfaPortal) domainChanged(_ string, current, previous data.WebserverConfiguration) error {
+func (mp *MfaPortal) domainChanged(_ string, current, previous config.WebserverDetails) error {
 
 	if current.Equals(&previous) {
 		return nil

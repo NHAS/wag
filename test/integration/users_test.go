@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/pkg/control"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -34,7 +34,7 @@ func TestApiUserCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !slices.ContainsFunc(allUsers, func(u data.UserModel) bool {
+	if !slices.ContainsFunc(allUsers, func(u config.UserModel) bool {
 		return u.Username == username
 	}) {
 		t.Fatal("user should be part of all users list")
@@ -90,7 +90,7 @@ func TestTokenUserCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !slices.ContainsFunc(allUsers, func(u data.UserModel) bool {
+	if !slices.ContainsFunc(allUsers, func(u config.UserModel) bool {
 		return u.Username == username
 	}) {
 		t.Fatal("user should be part of all users list")
@@ -245,7 +245,7 @@ func TestDeleteUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if slices.ContainsFunc(devices, func(d data.Device) bool {
+	if slices.ContainsFunc(devices, func(d config.Device) bool {
 		return d.Username == username
 	}) {
 		t.Fatal("device should not still be present after user delete")

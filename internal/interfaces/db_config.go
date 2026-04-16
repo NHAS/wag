@@ -1,32 +1,35 @@
 package interfaces
 
-import "github.com/NHAS/wag/internal/data"
+import (
+	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/wag/internal/data"
+)
 
 type ConfigReader interface {
 	GetTunnelDomainUrl() (string, error)
 
-	GetGeneralSettings() (s data.GeneralSettings, err error)
+	GetGeneralSettings() (s data.GeneralSettingsDTO, err error)
 
 	GetWireguardConfigName() string
-	GetAllWebserverConfigs() (details map[string]data.WebserverConfiguration, err error)
-	GetWebserverConfig(forWhat data.Webserver) (details data.WebserverConfiguration, err error)
+	GetAllWebserverConfigs() (details map[string]config.WebserverDetails, err error)
+	GetWebserverConfig(forWhat data.Webserver) (details config.WebserverDetails, err error)
 
 	GetDNS() ([]string, error)
 	GetExternalAddress() (string, error)
 	GetHelpMail() string
 	GetIssuer() (string, error)
 	ShouldCheckUpdates() (bool, error)
-	GetLoginSettings() (s data.LoginSettings, err error)
+	GetLoginSettings() (s data.LoginSettingsDTO, err error)
 }
 
 type ConfigWriter interface {
-	SetWebserverConfig(forWhat data.Webserver, details data.WebserverConfiguration) (err error)
-	SetGeneralSettings(generalSettings data.GeneralSettings) error
+	SetWebserverConfig(forWhat data.Webserver, details config.WebserverDetails) (err error)
+	SetGeneralSettings(generalSettings data.GeneralSettingsDTO) error
 	SetHelpMail(helpMail string) error
 	SetIssuer(issuer string) error
 	SetLastLoginInformation(username, ip string) error
 
-	SetLoginSettings(loginSettings data.LoginSettings) error
+	SetLoginSettings(loginSettings data.LoginSettingsDTO) error
 	SetDNS(dns []string) error
 }
 

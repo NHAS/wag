@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
@@ -21,7 +22,7 @@ func (f *Firewall) handleEvents() error {
 	}
 	f.watchers = append(f.watchers, t)
 
-	d, err := watcher.Watch(f.db, data.DevicesPrefix, true, watcher.OnCreate(f.addDevice), watcher.OnModification(f.deviceChanges), watcher.OnDelete(f.delDevice))
+	d, err := watcher.Watch(f.db, config.DevicesPrefix, true, watcher.OnCreate(f.addDevice), watcher.OnModification(f.deviceChanges), watcher.OnDelete(f.delDevice))
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (f *Firewall) inactivityTimeoutChanges(_ string, current, previous int) err
 	return nil
 }
 
-func (f *Firewall) addDevice(_ string, current, previous data.Device) error {
+func (f *Firewall) addDevice(_ string, current, previous config.Device) error {
 	key, _ := wgtypes.ParseKey(current.Publickey)
 	err := f.AddPeer(key, current.Username, current.Address, current.PresharedKey, current.AssociatedNode)
 	if err != nil {
@@ -76,7 +77,7 @@ func (f *Firewall) addDevice(_ string, current, previous data.Device) error {
 	return nil
 }
 
-func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error {
+func (f *Firewall) deviceChanges(_ string, current, previous config.Device) error {
 
 	lockout, err := f.db.GetLockout()
 	if err != nil {
@@ -170,7 +171,7 @@ func (f *Firewall) deviceChanges(_ string, current, previous data.Device) error 
 	return nil
 }
 
-func (f *Firewall) delDevice(_ string, current, previous data.Device) error {
+func (f *Firewall) delDevice(_ string, current, previous config.Device) error {
 	err := f.RemovePeer(current.Publickey, current.Address)
 	if err != nil {
 		return fmt.Errorf("unable to remove peer: %s: err: %s", current.Address, err)
@@ -182,7 +183,7 @@ func (f *Firewall) delDevice(_ string, current, previous data.Device) error {
 	return nil
 }
 
-func (f *Firewall) addUser(_ string, current, previous data.UserModel) error {
+func (f *Firewall) addUser(_ string, current, previous config.UserModel) error {
 	err := f.AddUser(current.Username)
 	if err != nil {
 		return fmt.Errorf("cannot create user %s: %s", current.Username, err)
@@ -195,7 +196,7 @@ func (f *Firewall) addUser(_ string, current, previous data.UserModel) error {
 
 // shouldDeauthenticateUser determines if a user should be deauthenticated
 // based on changes to their security settings
-func (f *Firewall) shouldDeauthenticateUser(current, previous data.UserModel) bool {
+func (f *Firewall) shouldDeauthenticateUser(current, previous config.UserModel) bool {
 	// MFA settings changed
 	if current.Mfa != previous.Mfa {
 		return true
@@ -219,7 +220,7 @@ func (f *Firewall) shouldDeauthenticateUser(current, previous data.UserModel) bo
 	return false
 }
 
-func (f *Firewall) userChanges(_ string, current, previous data.UserModel) error {
+func (f *Firewall) userChanges(_ string, current, previous config.UserModel) error {
 
 	if current.Locked != previous.Locked || current.Locked {
 
@@ -249,7 +250,7 @@ func (f *Firewall) userChanges(_ string, current, previous data.UserModel) error
 	return nil
 }
 
-func (f *Firewall) delUser(_ string, current, previous data.UserModel) error {
+func (f *Firewall) delUser(_ string, current, previous config.UserModel) error {
 	err := f.RemoveUser(current.Username)
 	if err != nil {
 		return fmt.Errorf("cannot remove user %s: %s", current.Username, err)

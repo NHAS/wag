@@ -6,7 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
@@ -29,7 +29,7 @@ func (wsg *WagControlSocketServer) listUsers(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		users := []data.UserModel{user}
+		users := []config.UserModel{user}
 		b, err := json.Marshal(users)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

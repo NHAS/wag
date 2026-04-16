@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/data"
 	"github.com/mdlayher/netlink"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"golang.org/x/sys/unix"
@@ -328,7 +327,7 @@ func (f *Firewall) openWireguard(tdev tun.Device) error {
 	return nil
 }
 
-func (f *Firewall) setupUsers(users []data.UserModel) error {
+func (f *Firewall) setupUsers(users []config.UserModel) error {
 
 	var errs []error
 
@@ -355,7 +354,7 @@ func (f *Firewall) hostIPWithMask(s string) string {
 	return s + mask
 }
 
-func (f *Firewall) setupDevices(devices []data.Device) error {
+func (f *Firewall) setupDevices(devices []config.Device) error {
 	f.Lock()
 	defer f.Unlock()
 
@@ -546,7 +545,7 @@ func (f *Firewall) ServerDetails() (key wgtypes.Key, port int, err error) {
 	return dev.PublicKey, dev.ListenPort, nil
 }
 
-func (f *Firewall) setPeerEndpoint(device data.Device, endpoint *net.UDPAddr) error {
+func (f *Firewall) setPeerEndpoint(device config.Device, endpoint *net.UDPAddr) error {
 
 	id, err := wgtypes.ParseKey(device.Publickey)
 	if err != nil {
@@ -630,7 +629,7 @@ func (f *Firewall) _removePeer(publickey, address string) error {
 }
 
 // Takes the device to replace and returns the address of said device
-func (f *Firewall) ReplacePeer(device data.Device, newPublicKey wgtypes.Key) error {
+func (f *Firewall) ReplacePeer(device config.Device, newPublicKey wgtypes.Key) error {
 
 	f.Lock()
 	defer f.Unlock()

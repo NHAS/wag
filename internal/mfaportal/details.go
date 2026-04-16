@@ -62,13 +62,13 @@ func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challeng
 	}
 
 	var err error
-	w, err := watcher.Watch(db, data.DevicesPrefix, true, watcher.OnDelete(r.deviceDeleted), watcher.OnModification(r.deviceChanged))
+	w, err := watcher.Watch(db, config.DevicesPrefix, true, watcher.OnDelete(r.deviceDeleted), watcher.OnModification(r.deviceChanged))
 	if err != nil {
 		return nil, err
 	}
 	r.watchers = append(r.watchers, w)
 
-	s, err := watcher.Watch(db, data.DeviceSessionPrefix, true, watcher.OnDelete(r.sessionDeleted))
+	s, err := watcher.Watch(db, config.DeviceSessionPrefix, true, watcher.OnDelete(r.sessionDeleted))
 	if err != nil {
 		return nil, err
 	}
@@ -116,18 +116,18 @@ func (c *Challenger) mfaChanged(_ string, current, previous []string) error {
 	return nil
 }
 
-func (c *Challenger) userDeleted(_ string, current, previous data.UserModel) error {
+func (c *Challenger) userDeleted(_ string, current, previous config.UserModel) error {
 
 	c.DisconnectAllDevices(current.Username, "Account deleted")
 
 	return nil
 }
 
-func hasUserStateChanged(current, previous *data.UserModel) bool {
+func hasUserStateChanged(current, previous *config.UserModel) bool {
 	return current.Enforcing != previous.Enforcing || current.Locked != previous.Locked || current.Mfa != previous.Mfa
 }
 
-func (c *Challenger) userChanged(_ string, current, previous data.UserModel) error {
+func (c *Challenger) userChanged(_ string, current, previous config.UserModel) error {
 
 	if hasUserStateChanged(&current, &previous) {
 		c.UpdateUserState(current.Username)
@@ -136,7 +136,7 @@ func (c *Challenger) userChanged(_ string, current, previous data.UserModel) err
 	return nil
 }
 
-func (c *Challenger) sessionDeleted(_ string, current, previous data.DeviceSession) error {
+func (c *Challenger) sessionDeleted(_ string, current, previous config.DeviceSession) error {
 
 	log.Info().Str("username", current.Username).Str("device", current.Address).Msg("device session deleted")
 
@@ -145,12 +145,12 @@ func (c *Challenger) sessionDeleted(_ string, current, previous data.DeviceSessi
 	return nil
 }
 
-func (c *Challenger) deviceDeleted(_ string, current, previous data.Device) error {
+func (c *Challenger) deviceDeleted(_ string, current, previous config.Device) error {
 	c.Disconnect(current.Username, current.Address, "Device deleted.", true)
 	return nil
 }
 
-func (c *Challenger) deviceChanged(_ string, current, previous data.Device) error {
+func (c *Challenger) deviceChanged(_ string, current, previous config.Device) error {
 
 	lockout, err := c.db.GetLockout()
 	if err != nil {
@@ -356,7 +356,7 @@ func (c *Challenger) getAlluserConnections(username string) []string {
 	return addresses
 }
 
-func (c *Challenger) NotifyOfAuth(device data.Device) {
+func (c *Challenger) NotifyOfAuth(device config.Device) {
 
 	conn := c.getConnection(device.Address)
 	if conn == nil {

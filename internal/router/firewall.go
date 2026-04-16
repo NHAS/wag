@@ -11,7 +11,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/gaissmai/bart"
@@ -213,7 +213,7 @@ func (f *Firewall) Evaluate(src, dst netip.AddrPort, proto uint16) bool {
 	return action
 }
 
-func (f *Firewall) UpdateNodeAssociation(device data.Device) error {
+func (f *Firewall) UpdateNodeAssociation(device config.Device) error {
 	f.Lock()
 	defer f.Unlock()
 

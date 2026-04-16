@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/pkg/control"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -23,7 +23,7 @@ func (wsg *WagControlSocketServer) listDevices(w http.ResponseWriter, r *http.Re
 
 	username := r.FormValue("username")
 
-	var devices []data.Device
+	var devices []config.Device
 	if username != "" {
 
 		user, err := users.GetUser(wsg.db, username)

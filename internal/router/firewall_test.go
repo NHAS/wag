@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	devices = map[string]data.Device{
+	devices = map[string]config.Device{
 		"tester": {
 			Address:   "192.168.1.2",
 			Publickey: "dc99y+fmhaHwFToSIw/1MSVXewbiyegBMwNGA6LG8yM=",
@@ -1114,8 +1114,8 @@ func addDevices() error {
 
 	c := make(chan bool)
 	numDevices := 0
-	w, err := watcher.Watch(db, data.DevicesPrefix, true,
-		watcher.OnCreate(func(key string, newState, previousState data.Device) error {
+	w, err := watcher.Watch(db, config.DevicesPrefix, true,
+		watcher.OnCreate(func(key string, newState, previousState config.Device) error {
 			numDevices++
 			if numDevices >= len(devices) {
 				c <- true

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 )
 
@@ -10,7 +11,7 @@ type AuthenticationSettingsReader interface {
 	GetLockout() (int, error)
 	GetSessionInactivityTimeoutMinutes() (int, error)
 	GetSessionLifetimeMinutes() (int, error)
-	HasDeviceAuthorised(current, previous data.Device) bool
+	HasDeviceAuthorised(current, previous config.Device) bool
 	GetEffectiveAcl(username string) acls.Acl
 }
 
@@ -32,11 +33,11 @@ type AuthenticationSettingsWriter interface {
 }
 
 type OidcRepository interface {
-	GetOidc() (details data.OIDC, err error)
+	GetOidc() (details config.TunnelOidc, err error)
 }
 
 type PamRespository interface {
-	GetPAM() (details data.PAM, err error)
+	GetPAM() (details config.PAM, err error)
 }
 
 type WebauthnRespository interface {

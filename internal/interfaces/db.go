@@ -2,13 +2,14 @@ package interfaces
 
 import (
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/control"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type SessionsRepository interface {
-	GetAllSessions() (sessions []data.DeviceSession, err error)
+	GetAllSessions() (sessions []config.DeviceSession, err error)
 }
 
 type RawRV interface {
@@ -35,7 +36,7 @@ type Errors interface {
 }
 
 type BootstrapRepositoryReader interface {
-	GetInitialData() (users []data.UserModel, devices []data.Device, err error)
+	GetInitialData() (users []config.UserModel, devices []config.Device, err error)
 }
 
 type EventQueueReader interface {

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/pkg/control"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -31,7 +31,7 @@ func TestAddDevice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !slices.ContainsFunc(devices, func(d data.Device) bool {
+	if !slices.ContainsFunc(devices, func(d config.Device) bool {
 		return d.Username == username && d.Publickey == k.String()
 	}) {
 		t.Fatal("device should be present in list of all devices")

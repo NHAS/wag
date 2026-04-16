@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/pkg/control"
@@ -59,7 +60,7 @@ func (c *CtrlClient) simplepost(path string, form url.Values) error {
 }
 
 // Return a list of all wireguard devicess, optionally take a username and list the devices for that specific user.
-func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
+func (c *CtrlClient) ListDevice(username string) (d []config.Device, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -82,7 +83,7 @@ func (c *CtrlClient) ListDevice(username string) (d []data.Device, err error) {
 }
 
 // Sessions returns a list of active MFA sessions across the whole cluster
-func (c *CtrlClient) Sessions() (d []data.DeviceSession, err error) {
+func (c *CtrlClient) Sessions() (d []config.DeviceSession, err error) {
 
 	response, err := c.httpClient.Get("http://unix/device/sessions")
 	if err != nil {
@@ -245,7 +246,7 @@ func (c *CtrlClient) UnlockAdminUser(username string) error {
 }
 
 // Create a user with no devices in database, defaulty has unset mfa
-func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
+func (c *CtrlClient) AddUser(username string) (user config.UserModel, err error) {
 
 	b, err := json.Marshal(username)
 	if err != nil {
@@ -273,7 +274,7 @@ func (c *CtrlClient) AddUser(username string) (user data.UserModel, err error) {
 }
 
 // If the username field is empty, list all users, otherwise list single user.
-func (c *CtrlClient) ListUsers(username string) (users []data.UserModel, err error) {
+func (c *CtrlClient) ListUsers(username string) (users []config.UserModel, err error) {
 
 	response, err := c.httpClient.Get("http://unix/users/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -595,7 +596,7 @@ func (c *CtrlClient) RemoveGroup(groupNames []string) error {
 }
 
 // Get the settings object related to help email, etc
-func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err error) {
+func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettingsDTO) err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/general")
 	if err != nil {
@@ -619,7 +620,7 @@ func (c *CtrlClient) GetGeneralSettings() (allSettings data.GeneralSettings, err
 	return allSettings, nil
 }
 
-func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettings) (err error) {
+func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettingsDTO) (err error) {
 
 	settingsByte, err := json.Marshal(allSettings)
 	if err != nil {
@@ -644,7 +645,7 @@ func (c *CtrlClient) SetGeneralSettings(allSettings data.GeneralSettings) (err e
 }
 
 // Get information about what MFA methods are enabled
-func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err error) {
+func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettingsDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/login")
 	if err != nil {
@@ -668,7 +669,7 @@ func (c *CtrlClient) GetLoginSettings() (allSettings data.LoginSettings, err err
 	return allSettings, nil
 }
 
-func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettings) (err error) {
+func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettingsDTO) (err error) {
 
 	settingsByte, err := json.Marshal(allSettings)
 	if err != nil {
@@ -693,7 +694,7 @@ func (c *CtrlClient) SetLoginSettings(allSettings data.LoginSettings) (err error
 }
 
 // Get all wag running webserver configurations, this includes if they are doing TLS and ACME
-func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.WebserverConfiguration, err error) {
+func (c *CtrlClient) GetAllWebserversSettings() (result map[string]config.WebserverDetails, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/webservers")
 	if err != nil {
@@ -718,25 +719,25 @@ func (c *CtrlClient) GetAllWebserversSettings() (result map[string]data.Webserve
 }
 
 // Get a single web server configuration
-func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result data.WebserverConfiguration, err error) {
+func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result config.WebserverDetails, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/webserver?name=" + url.QueryEscape(string(server)))
 	if err != nil {
-		return data.WebserverConfiguration{}, err
+		return config.WebserverDetails{}, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
-			return data.WebserverConfiguration{}, err
+			return config.WebserverDetails{}, err
 		}
-		return data.WebserverConfiguration{}, errors.New(string(result))
+		return config.WebserverDetails{}, errors.New(string(result))
 	}
 
 	err = safedecoder.Decoder(response.Body).Decode(&result)
 	if err != nil {
-		return data.WebserverConfiguration{}, err
+		return config.WebserverDetails{}, err
 	}
 
 	return result, nil
@@ -744,7 +745,7 @@ func (c *CtrlClient) GetSingleWebserverSettings(server data.Webserver) (result d
 
 // Update a webservers configuration, this can be used to turn on/off TLS, set domain, set listening address and more
 // If ths update fails to apply the wag server will attempt to roll back the change
-func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig data.WebserverConfiguration) (err error) {
+func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig config.WebserverDetails) (err error) {
 	settingsByte, err := json.Marshal(webConfig)
 	if err != nil {
 		return fmt.Errorf("unable to marshal general settings to json: %w", err)

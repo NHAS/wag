@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
@@ -33,7 +33,7 @@ type Oidc struct {
 	enable
 
 	provider rp.RelyingParty
-	details  data.OIDC
+	details  config.TunnelOidc
 	fw       *router.Firewall
 	db       interfaces.Database
 }

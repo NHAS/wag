@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -60,7 +60,7 @@ func (u *user) GetDevicePresharedKey(address string) (presharedKey string, err e
 	return device.PresharedKey, nil
 }
 
-func (u *user) AddDevice(publickey wgtypes.Key, staticIp, tag string) (device data.Device, err error) {
+func (u *user) AddDevice(publickey wgtypes.Key, staticIp, tag string) (device config.Device, err error) {
 
 	return u.db.AddDevice(u.Username, publickey.String(), staticIp, tag)
 }
@@ -70,11 +70,11 @@ func (u *user) DeleteDevice(address string) (err error) {
 	return u.db.DeleteDevice(address)
 }
 
-func (u *user) GetDevice(id string) (device data.Device, err error) {
+func (u *user) GetDevice(id string) (device config.Device, err error) {
 	return u.db.GetDevice(u.Username, id)
 }
 
-func (u *user) GetDevices() (device []data.Device, err error) {
+func (u *user) GetDevices() (device []config.Device, err error) {
 	return u.db.GetDevicesByUser(u.Username)
 }
 

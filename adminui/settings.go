@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/pkg/safedecoder"
@@ -214,7 +215,7 @@ func (au *AdminUI) editWebserverConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	serverUpdate := data.WebserverConfiguration{
+	serverUpdate := config.WebserverDetails{
 		ListenAddress: s.ListenAddress,
 		Domain:        s.Domain,
 		TLS:           s.TLS,

@@ -1,9 +1,9 @@
 package interfaces
 
-import "github.com/NHAS/wag/internal/data"
+import "github.com/NHAS/wag/internal/config"
 
 type UserWriter interface {
-	CreateUserDataAccount(username string) (data.UserModel, error)
+	CreateUserDataAccount(username string) (config.UserModel, error)
 
 	SetUserMfa(username, value, mfaType string) error
 
@@ -20,9 +20,9 @@ type UserWriter interface {
 }
 
 type UserReader interface {
-	GetUserData(username string) (u data.UserModel, err error)
-	GetUserDataFromAddress(address string) (u data.UserModel, err error)
-	GetAllUsers() (users []data.UserModel, err error)
+	GetUserData(username string) (u config.UserModel, err error)
+	GetUserDataFromAddress(address string) (u config.UserModel, err error)
+	GetAllUsers() (users []config.UserModel, err error)
 	GetUserGroupMembership(username string) ([]string, error)
 }
 

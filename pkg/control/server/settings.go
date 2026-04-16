@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/pkg/safedecoder"
 )
@@ -145,7 +146,7 @@ func (wsg *WagControlSocketServer) getSingleWebserverSettings(w http.ResponseWri
 
 func (wsg *WagControlSocketServer) setSingleWebserverSettings(w http.ResponseWriter, r *http.Request) {
 	var (
-		ws  data.WebserverConfiguration
+		ws  config.WebserverDetails
 		err error
 	)
 

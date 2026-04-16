@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/NHAS/wag/internal/acls"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/go-playground/validator/v10"
 )
@@ -220,7 +221,7 @@ type WebServerConfigDTO struct {
 	PrivateKeyPEM  string `json:"private_key"`
 }
 
-func CreateWebServerConfigDTO(serverName string, config data.WebserverConfiguration) WebServerConfigDTO {
+func CreateWebServerConfigDTO(serverName string, config config.WebserverDetails) WebServerConfigDTO {
 	var output WebServerConfigDTO
 	output.ServerName = serverName
 	output.ListenAddress = config.ListenAddress
