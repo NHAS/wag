@@ -1,9 +1,9 @@
 package mfaportal
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -25,8 +25,9 @@ type MfaPortal struct {
 	firewall *router.Firewall
 	session  *Challenger
 
-	watchers []io.Closer
-	db       interfaces.Database
+	watchersCancel context.CancelFunc
+
+	db interfaces.Database
 }
 
 func (mp *MfaPortal) Close() {
@@ -36,9 +37,7 @@ func (mp *MfaPortal) Close() {
 		mp.session.Close()
 	}
 
-	for _, w := range mp.watchers {
-		w.Close()
-	}
+	mp.watchersCancel()
 
 	log.Info().Msg("Stopped MFA portal")
 

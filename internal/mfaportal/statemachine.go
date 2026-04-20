@@ -1,42 +1,47 @@
 package mfaportal
 
 import (
+	"context"
 	"slices"
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/config"
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 )
 
 func (mp *MfaPortal) registerListeners() error {
 
-	o, err := watcher.Watch(mp.db, data.OidcDetailsKey, false, watcher.OnDelete(mp.oidcDeleted), watcher.OnCreate(mp.oidcChanged), watcher.OnModification(mp.oidcChanged))
-	if err != nil {
-		return err
-	}
-	mp.watchers = append(mp.watchers, o)
+	ctx, cancel := context.WithCancel(context.Background())
+	mp.watchersCancel = cancel
 
-	d, err := watcher.Watch(mp.db, data.TunnelWebServerConfigKey, false, watcher.OnModification(mp.domainChanged))
+	o, err := watch.Watch(mp.db, data.OidcDetailsKey, false, watch.OnDelete(mp.oidcDeleted), watch.OnCreate(mp.oidcChanged), watch.OnModification(mp.oidcChanged))
 	if err != nil {
 		return err
 	}
-	mp.watchers = append(mp.watchers, d)
 
-	m, err := watcher.WatchAll(mp.db, data.MFAMethodsEnabledKey, false, mp.enabledMethodsChanged)
+	err = data.Config.Webserver.Tunnel.HTTPSettings.Domain().Watch(ctx, mp.db.Raw()).Start(
+		watch.Modified(mp.domainChanged),
+	)
 	if err != nil {
 		return err
 	}
-	mp.watchers = append(mp.watchers, m)
 
-	i, err := watcher.WatchAll(mp.db, data.IssuerKey, false, mp.issuerKeyChanged)
+	err = data.Config.Webserver.Tunnel.Methods().Watch(ctx, mp.db.Raw()).Start(
+		watch.All(mp.enabledMethodsChanged),
+	)
 	if err != nil {
 		return err
 	}
-	mp.watchers = append(mp.watchers, i)
+
+	err = data.Config.Webserver.Tunnel.Issuer().Watch(ctx, mp.db.Raw()).Start(
+		watch.All(mp.issuerKeyChanged),
+	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -67,9 +72,9 @@ func (mp *MfaPortal) oidcChanged(_ string, current data.OIDC, previous data.OIDC
 	return nil
 }
 
-func (mp *MfaPortal) domainChanged(_ string, current, previous config.WebserverDetails) error {
+func (mp *MfaPortal) domainChanged(ctx context.Context, event watch.Event[string]) error {
 
-	if current.Equals(&previous) {
+	if event.Current == event.Previous {
 		return nil
 	}
 
@@ -87,13 +92,18 @@ func (mp *MfaPortal) domainChanged(_ string, current, previous config.WebserverD
 }
 
 // MethodsEnabledKey    = "wag-config-authentication-methods"
-func (mp *MfaPortal) enabledMethodsChanged(_ string, et data.EventType, current, previous []string) (err error) {
-	switch et {
-	case data.DELETED:
-		authenticators.DisableMethods(authenticators.StringsToMFA(previous)...)
-	case data.CREATED, data.MODIFIED:
-		if !slices.Equal(current, previous) {
-			err = authenticators.SetEnabledMethods(mp.db, authenticators.StringsToMFA(current)...)
+func (mp *MfaPortal) enabledMethodsChanged(ctx context.Context, event watch.Event[[]string]) (err error) {
+
+	switch event.Type {
+	case watch.DELETED:
+		authenticators.DisableMethods(authenticators.StringsToMFA(event.Previous)...)
+	case watch.CREATED, watch.MODIFIED:
+		if event.Current == nil {
+			return nil
+		}
+
+		if !slices.Equal(event.Current, event.Previous) {
+			err = authenticators.SetEnabledMethods(mp.db, authenticators.StringsToMFA(event.Current)...)
 		}
 	}
 
@@ -101,12 +111,12 @@ func (mp *MfaPortal) enabledMethodsChanged(_ string, et data.EventType, current,
 }
 
 // IssuerKey    = "wag-config-authentication-issuer"
-func (mp *MfaPortal) issuerKeyChanged(_ string, et data.EventType, current, previous string) error {
-	switch et {
-	case data.DELETED:
+func (mp *MfaPortal) issuerKeyChanged(ctx context.Context, event watch.Event[string]) error {
+	switch event.Type {
+	case watch.DELETED:
 		authenticators.DisableMethods(types.Totp, types.Webauthn)
-	case data.CREATED, data.MODIFIED:
-		if current == previous {
+	case watch.CREATED, watch.MODIFIED:
+		if event.Current == event.Previous {
 			return nil
 		}
 

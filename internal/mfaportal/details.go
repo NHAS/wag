@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"sync"
@@ -13,9 +12,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
@@ -46,9 +45,8 @@ type Challenger struct {
 
 	userToConnections map[string]map[string]bool
 
-	watchers []io.Closer
-
-	firewall *router.Firewall
+	watchersCancel context.CancelFunc
+	firewall       *router.Firewall
 
 	db interfaces.Database
 }
@@ -61,30 +59,38 @@ func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challeng
 		db:                db,
 	}
 
-	var err error
-	w, err := watcher.Watch(db, config.DevicesPrefix, true, watcher.OnDelete(r.deviceDeleted), watcher.OnModification(r.deviceChanged))
-	if err != nil {
-		return nil, err
-	}
-	r.watchers = append(r.watchers, w)
+	ctx, cancel := context.WithCancel(context.Background())
+	r.watchersCancel = cancel
 
-	s, err := watcher.Watch(db, config.DeviceSessionPrefix, true, watcher.OnDelete(r.sessionDeleted))
+	err := data.InternalConfig.Devices.Machines().Watch(ctx, db.Raw()).Start(
+		watch.Deleted(r.deviceDeleted),
+		watch.Modified(r.deviceChanged),
+	)
 	if err != nil {
 		return nil, err
 	}
-	r.watchers = append(r.watchers, s)
 
-	u, err := watcher.Watch(db, data.UsersPrefix, true, watcher.OnDelete(r.userDeleted), watcher.OnModification(r.userChanged))
+	err = data.InternalConfig.Devices.Sessions().Watch(ctx, db.Raw()).Start(
+		watch.Deleted(r.sessionDeleted),
+	)
 	if err != nil {
 		return nil, err
 	}
-	r.watchers = append(r.watchers, u)
 
-	m, err := watcher.Watch(db, data.MFAMethodsEnabledKey, false, watcher.OnModification(r.mfaChanged))
+	err = data.InternalConfig.Users().Watch(ctx, db.Raw()).Start(
+		watch.Deleted(r.userDeleted),
+		watch.Modified(r.userChanged),
+	)
 	if err != nil {
 		return nil, err
 	}
-	r.watchers = append(r.watchers, m)
+
+	err = data.Config.Webserver.Tunnel.Methods().Watch(ctx, db.Raw()).Start(
+		watch.Modified(r.mfaChanged),
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	return r, nil
 }
@@ -100,57 +106,55 @@ func (c *Challenger) Close() error {
 	clear(c.connections)
 	clear(c.userToConnections)
 
-	for _, w := range c.watchers {
-		w.Close()
-	}
+	c.watchersCancel()
 
 	return nil
 }
 
-func (c *Challenger) mfaChanged(_ string, current, previous []string) error {
+func (c *Challenger) mfaChanged(ctx context.Context, event watch.Event[[]string]) error {
 
-	if !slices.Equal(current, previous) {
+	if !slices.Equal(event.Current, event.Previous) {
 		c.UpdateAll()
 	}
 
 	return nil
 }
 
-func (c *Challenger) userDeleted(_ string, current, previous config.UserModel) error {
+func (c *Challenger) userDeleted(ctx context.Context, event watch.Event[config.UserModel]) error {
 
-	c.DisconnectAllDevices(current.Username, "Account deleted")
+	c.DisconnectAllDevices(event.Current.Username, "Account deleted")
 
 	return nil
 }
 
-func hasUserStateChanged(current, previous *config.UserModel) bool {
+func hasUserStateChanged(current, previous config.UserModel) bool {
 	return current.Enforcing != previous.Enforcing || current.Locked != previous.Locked || current.Mfa != previous.Mfa
 }
 
-func (c *Challenger) userChanged(_ string, current, previous config.UserModel) error {
+func (c *Challenger) userChanged(ctx context.Context, event watch.Event[config.UserModel]) error {
 
-	if hasUserStateChanged(&current, &previous) {
-		c.UpdateUserState(current.Username)
+	if hasUserStateChanged(event.Current, event.Previous) {
+		c.UpdateUserState(event.Current.Username)
 	}
 
 	return nil
 }
 
-func (c *Challenger) sessionDeleted(_ string, current, previous config.DeviceSession) error {
+func (c *Challenger) sessionDeleted(ctx context.Context, event watch.Event[config.DeviceSession]) error {
 
-	log.Info().Str("username", current.Username).Str("device", current.Address).Msg("device session deleted")
+	log.Info().Str("username", event.Current.Username).Str("device", event.Current.Address).Msg("device session deleted")
 
-	c.UpdateState(current.Username, current.Address)
-
+	c.UpdateState(event.Current.Username, event.Current.Address)
 	return nil
 }
 
-func (c *Challenger) deviceDeleted(_ string, current, previous config.Device) error {
-	c.Disconnect(current.Username, current.Address, "Device deleted.", true)
+func (c *Challenger) deviceDeleted(ctx context.Context, event watch.Event[config.Device]) error {
+
+	c.Disconnect(event.Current.Username, event.Current.Address, "Device deleted.", true)
 	return nil
 }
 
-func (c *Challenger) deviceChanged(_ string, current, previous config.Device) error {
+func (c *Challenger) deviceChanged(ctx context.Context, event watch.Event[config.Device]) error {
 
 	lockout, err := c.db.GetLockout()
 	if err != nil {
@@ -160,37 +164,37 @@ func (c *Challenger) deviceChanged(_ string, current, previous config.Device) er
 	sendUpdate := false
 
 	// If the real world ip endpoint has changed
-	if current.Endpoint.String() != previous.Endpoint.String() {
+	if event.Current.Endpoint.String() != event.Previous.Endpoint.String() {
 		sendUpdate = true
 		// If we have a challenge on that device (i.e we've deauthed it recently because of network move)
-		if err := c.db.ChallengeExists(current); err == nil {
-			c.Challenge(current.Username, current.Address)
+		if err := c.db.ChallengeExists(event.Current); err == nil {
+			c.Challenge(event.Current.Username, event.Current.Address)
 		}
 	}
 
-	if current.Attempts != previous.Attempts &&
+	if event.Current.Attempts != event.Previous.Attempts &&
 		(
 		// If the device has become locked
-		current.Attempts > lockout ||
+		event.Current.Attempts > lockout ||
 			// if the device has become unlocked
-			current.Attempts < lockout) {
+			event.Current.Attempts < lockout) {
 
 		sendUpdate = true
 	}
 
 	// If we've explicitly deauthorised a device (logout)
-	if !current.Authorised.Equal(previous.Authorised) && current.Authorised.IsZero() {
+	if !event.Current.Authorised.Equal(event.Previous.Authorised) && event.Current.Authorised.IsZero() {
 		sendUpdate = true
 	}
 
-	if c.db.HasDeviceAuthorised(current, previous) {
-		c.NotifyOfAuth(current)
+	if c.db.HasDeviceAuthorised(event.Current, event.Previous) {
+		c.NotifyOfAuth(event.Current)
 		// Notify auth sends a state update with it
 		sendUpdate = false
 	}
 
 	if sendUpdate {
-		c.UpdateState(current.Username, current.Address)
+		c.UpdateState(event.Current.Username, event.Current.Address)
 	}
 
 	return nil

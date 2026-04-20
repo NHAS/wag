@@ -118,9 +118,7 @@ func (f *Firewall) Close() {
 	defer f.Unlock()
 
 	log.Info().Msg("Removing handlers")
-	for _, w := range f.watchers {
-		w.Close()
-	}
+	f.watchersCancel()
 
 	log.Info().Msg("Removing wireguard device")
 	if f.device != nil {

@@ -1,9 +1,9 @@
 package router
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/netip"
 	"sync"
@@ -48,7 +48,7 @@ type Firewall struct {
 
 	nodeID types.ID
 
-	watchers []io.Closer
+	watchersCancel context.CancelFunc
 
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string

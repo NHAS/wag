@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -13,9 +14,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/routetypes"
 	"golang.org/x/net/ipv4"
@@ -1114,14 +1115,18 @@ func addDevices() error {
 
 	c := make(chan bool)
 	numDevices := 0
-	w, err := watcher.Watch(db, config.DevicesPrefix, true,
-		watcher.OnCreate(func(key string, newState, previousState config.Device) error {
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	err := data.InternalConfig.Devices.Machines().Watch(ctx, db.Raw()).Start(
+		watch.Created(func(ctx context.Context, e watch.Event[config.Device]) error {
 			numDevices++
 			if numDevices >= len(devices) {
 				c <- true
 			}
 			return nil
-		}))
+		}),
+	)
 	if err != nil {
 		return err
 	}
@@ -1141,7 +1146,7 @@ func addDevices() error {
 	<-c
 	close(c)
 
-	w.Close()
+	cancel()
 	return nil
 }
 

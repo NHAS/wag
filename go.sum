@@ -42,6 +42,10 @@ github.com/NHAS/tetcd v0.0.25-beta h1:KHgIzUSBZad899u5XkiW8xFgTKg11nAdLWAf5bPmQh
 github.com/NHAS/tetcd v0.0.25-beta/go.mod h1:YskRbp5UvrsA8XDF3yTsw8t1GctEAP+pKNKHjceVO3k=
 github.com/NHAS/tetcd v0.0.26-beta h1:ZP0UapHkf7FsLIk6k1fFPkY5sv90YU05HaPg6d/bJfQ=
 github.com/NHAS/tetcd v0.0.26-beta/go.mod h1:YskRbp5UvrsA8XDF3yTsw8t1GctEAP+pKNKHjceVO3k=
+github.com/NHAS/tetcd v0.0.27-beta h1:qo62v1omTMVPtJUV720EL7/MctNB7dLsNvZdMjqjgls=
+github.com/NHAS/tetcd v0.0.27-beta/go.mod h1:YskRbp5UvrsA8XDF3yTsw8t1GctEAP+pKNKHjceVO3k=
+github.com/NHAS/tetcd v0.0.28-beta h1:lMWkDq8DbPZ/hLSKk9nxr6DlQn8x/N9AC6j++SbgaPM=
+github.com/NHAS/tetcd v0.0.28-beta/go.mod h1:YskRbp5UvrsA8XDF3yTsw8t1GctEAP+pKNKHjceVO3k=
 github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa h1:z8Lo9+R9h4ZF5qvq2NTrWGVjL8gE92cPUv9J4i4yYKg=
 github.com/NHAS/webauthn v0.0.0-20240606085832-ea3172ef4dfa/go.mod h1:WfTnekCrJZ8MTDSlOeFACJTeGFvQnLInNzbZLRpoqTU=
 github.com/NHAS/wireguard-go v0.0.0-20250612003640-64654948f25c h1:85LIaUo0uEVO16vrRfuY+8SVLqYqdsANf3RPC7QNTyQ=
