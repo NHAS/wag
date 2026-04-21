@@ -142,7 +142,7 @@ func (d *database) RemoveGroup(group string) error {
 	then, _ := txn.Conditional(clientv3util.KeyExists(index.Key()))
 
 	tetcd.DeleteTx(then, index)
-	membersH := tetcd.DeleteTx(then, Config.Acls.Groups().Key(group).All(), clientv3.WithPrefix(), clientv3.WithPrevKV())
+	membersH := tetcd.DeletePrefixTx(then, Config.Acls.Groups().Key(group), clientv3.WithPrevKV())
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to remove group %q: %w", group, err)
@@ -191,7 +191,7 @@ func (d *database) RemoveUserAllGroups(username string) error {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
-	groupsH := tetcd.DeleteTx(then, InternalConfig.Indexes.UserMembership().Key(username).All(), clientv3.WithPrefix(), clientv3.WithPrevKV())
+	groupsH := tetcd.DeletePrefixTx(then, InternalConfig.Indexes.UserMembership().Key(username), clientv3.WithPrevKV())
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to remove user group memberships: %w", err)
@@ -277,7 +277,7 @@ func (d *database) AddUserToGroups(usernames []string, groups []string, fromSSO 
 		subtxn := tetcd.SubTx(then)
 		subtxns = append(subtxns, subtxn)
 
-		then, _ := subtxn.Conditional(clientv3util.KeyExists(Config.Acls.Groups().Key(group).All().Key()))
+		then, _ := subtxn.Conditional(clientv3util.KeyExists(Config.Acls.Groups().Key(group).Prefix()))
 
 		err := d.generateOpsForGroupAddition(then, addition, group, usernames, fromSSO)
 		if err != nil {
