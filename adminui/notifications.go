@@ -1,6 +1,7 @@
 package adminui
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -8,7 +9,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/data"
+	"github.com/NHAS/tetcd/watch"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/gorilla/websocket"
 )
@@ -136,27 +138,27 @@ func (au *AdminUI) startUpdateChecker(notifications chan<- NotificationDTO) {
 	}()
 }
 
-func (au *AdminUI) receiveErrorNotifications(notifications chan<- NotificationDTO) func(key string, et data.EventType, current, previous data.EventError) error {
+func (au *AdminUI) receiveErrorNotifications(notifications chan<- NotificationDTO) func(ctx context.Context, event watch.Event[config.EventError]) error {
 
-	return func(key string, et data.EventType, current, previous data.EventError) error {
-		switch et {
-		case data.CREATED:
+	return func(ctx context.Context, event watch.Event[config.EventError]) error {
+		switch event.Type {
+		case watch.CREATED:
 
 			msg := NotificationDTO{
-				ID:         current.ErrorID,
+				ID:         event.Current.ErrorID,
 				Heading:    "Node Error",
-				Message:    []string{"Node " + current.NodeID, current.Error},
+				Message:    []string{"Node " + event.Current.NodeID, event.Current.Error},
 				Url:        "/cluster/events/",
-				Time:       current.Time,
+				Time:       event.Current.Time,
 				OpenNewTab: false,
 				Color:      "#db0b3c",
 			}
 
 			notifications <- msg
-		case data.DELETED:
+		case watch.DELETED:
 
 			notificationsMapLck.Lock()
-			delete(notificationsMap, previous.ErrorID)
+			delete(notificationsMap, event.Previous.ErrorID)
 			notificationsMapLck.Unlock()
 		}
 		return nil

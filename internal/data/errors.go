@@ -8,17 +8,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
-
-type EventError struct {
-	NodeID          string    `json:"node_id"`
-	ErrorID         string    `json:"error_id"`
-	FailedEventData string    `json:"failed_event_data"`
-	Error           string    `json:"error"`
-	Time            time.Time `json:"time"`
-}
 
 // RaiseError creates an entry in the etcd database that will be presented to the user as a notification
 // Parameters:
@@ -29,7 +22,7 @@ type EventError struct {
 //   - error: Will error if it cannot generate a unique ID or add it to the etcd db
 func (d *database) RaiseError(raisedError error, value []byte) {
 
-	ee := EventError{
+	ee := config.EventError{
 		NodeID:          d.GetCurrentNodeID().String(),
 		FailedEventData: string(value),
 		Error:           raisedError.Error(),
@@ -52,14 +45,14 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 	}
 }
 
-func (d *database) GetAllErrors() (ret []EventError, err error) {
+func (d *database) GetAllErrors() (ret []config.EventError, err error) {
 	response, err := d.etcd.Get(context.Background(), path.Join(NodeErrors), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
 	for _, res := range response.Kvs {
-		var ee EventError
+		var ee config.EventError
 		err := json.Unmarshal(res.Value, &ee)
 		if err != nil {
 			return nil, err

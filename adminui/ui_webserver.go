@@ -15,11 +15,11 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/session"
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/adminui/frontend"
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/utils"
@@ -42,8 +42,8 @@ type AdminUI struct {
 	logQueue *clonerWriter
 
 	listenerEvents struct {
-		clusterHealth string
-		watchers      []io.Closer
+		clusterHealth  string
+		watchersCancel context.CancelFunc
 	}
 
 	clusterState   string
@@ -299,10 +299,12 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 	notifications := make(chan NotificationDTO, 1)
 	protectedRoutes.HandleFunc("GET /api/notifications", adminUI.notificationsWS(notifications))
 
-	errorNotf, err := watcher.WatchAll(db, data.NodeErrors, true, adminUI.receiveErrorNotifications(notifications))
-	if err == nil {
-		adminUI.listenerEvents.watchers = append(adminUI.listenerEvents.watchers, errorNotf)
-	} else {
+	ctx, cancel := context.WithCancel(context.Background())
+	adminUI.listenerEvents.watchersCancel = cancel
+	err = data.InternalConfig.Node.Errors().Watch(ctx, db.Raw()).Start(
+		watch.All(adminUI.receiveErrorNotifications(notifications)),
+	)
+	if err != nil {
 		log.Warn().Err(err).Msg("failed to register websockets listener")
 	}
 

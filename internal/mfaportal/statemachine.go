@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/tetcd/watch"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
@@ -17,7 +18,11 @@ func (mp *MfaPortal) registerListeners() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	mp.watchersCancel = cancel
 
-	o, err := watch.Watch(mp.db, data.OidcDetailsKey, false, watch.OnDelete(mp.oidcDeleted), watch.OnCreate(mp.oidcChanged), watch.OnModification(mp.oidcChanged))
+	err := data.Config.Webserver.Tunnel.OIDC().Watch(ctx, mp.db.Raw()).Start(
+		watch.Created(mp.oidcChanged),
+		watch.Modified(mp.oidcChanged),
+		watch.Deleted(mp.oidcDeleted),
+	)
 	if err != nil {
 		return err
 	}
@@ -46,15 +51,14 @@ func (mp *MfaPortal) registerListeners() error {
 	return nil
 }
 
-func (mp *MfaPortal) oidcDeleted(_ string, current data.OIDC, previous data.OIDC) error {
+func (mp *MfaPortal) oidcDeleted(ctx context.Context, event watch.Event[config.TunnelOidc]) error {
 	authenticators.DisableMethods(types.Oidc)
 	return nil
 }
 
-// OidcDetailsKey = "wag-config-authentication-oidc"
-func (mp *MfaPortal) oidcChanged(_ string, current data.OIDC, previous data.OIDC) error {
+func (mp *MfaPortal) oidcChanged(ctx context.Context, event watch.Event[config.TunnelOidc]) error {
 
-	if current.Equals(&previous) {
+	if event.Current.Equals(&event.Previous) {
 		return nil
 	}
 

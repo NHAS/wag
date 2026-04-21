@@ -9,6 +9,7 @@ import (
 	config "github.com/NHAS/wag/internal/config"
 	control "github.com/NHAS/wag/pkg/control"
 	v3 "go.etcd.io/etcd/client/v3"
+	"time"
 )
 
 type autoTypeDevicesDHCP struct{}
@@ -141,6 +142,27 @@ func (a autoTypeInternalConfigIndexes) Get(ctx context.Context, cli *v3.Client) 
 	return result, nil
 }
 
+type autoTypeInternalConfigNode struct{}
+
+// Errors() is a map path with prefix wag-config-internal/InternalConfig/Node/Errors, value type github.com/NHAS/wag/internal/config.EventError
+func (autoTypeInternalConfigNode) Errors() paths.MapPath[config.EventError] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Node/Errors", codecs.NewJsonCodec[config.EventError](), false)
+}
+
+// Get fetches all fields of Node in one or more transactions pinned to the same etcd revision.
+func (a autoTypeInternalConfigNode) Get(ctx context.Context, cli *v3.Client) (result config.Node, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli)
+	h0_0 := tetcd.ListTx(txn0.Then(), a.Errors())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.Errors, err = h0_0.Entries()
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 type autoTypeReferencesDevices struct{}
 
 // Address() is a map path with prefix wag-config-internal/InternalConfig/References/Devices/Address, value type github.com/NHAS/wag/internal/config.DeviceRef
@@ -210,10 +232,111 @@ func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Clien
 	return result, nil
 }
 
+type autoTypeWebhooksLastRequests struct{}
+
+// Data() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/LastRequests/Data, value type string
+func (autoTypeWebhooksLastRequests) Data() paths.MapPath[string] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/LastRequests/Data", codecs.NewJsonCodec[string](), false)
+}
+
+// Status() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/LastRequests/Status, value type string
+func (autoTypeWebhooksLastRequests) Status() paths.MapPath[string] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/LastRequests/Status", codecs.NewJsonCodec[string](), false)
+}
+
+// Time() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/LastRequests/Time, value type time.Time
+func (autoTypeWebhooksLastRequests) Time() paths.MapPath[time.Time] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/LastRequests/Time", codecs.NewJsonCodec[time.Time](), false)
+}
+
+// Get fetches all fields of LastRequests in one or more transactions pinned to the same etcd revision.
+func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client) (result config.LastRequests, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli)
+	h0_0 := tetcd.ListTx(txn0.Then(), a.Data())
+	h0_1 := tetcd.ListTx(txn0.Then(), a.Status())
+	h0_2 := tetcd.ListTx(txn0.Then(), a.Time())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.Data, err = h0_0.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.Status, err = h0_1.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.Time, err = h0_2.Entries()
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+type autoTypeInternalConfigWebhooks struct {
+	LastRequests autoTypeWebhooksLastRequests
+}
+
+// Active() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Active, value type any
+func (autoTypeInternalConfigWebhooks) Active() paths.MapPath[any] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Active", codecs.NewJsonCodec[any](), false)
+}
+
+// Auth() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Auth, value type string
+func (autoTypeInternalConfigWebhooks) Auth() paths.MapPath[string] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Auth", codecs.NewJsonCodec[string](), false)
+}
+
+// Temporary() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Temporary, value type any
+func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[any] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Temporary", codecs.NewJsonCodec[any](), false)
+}
+
+// Get fetches all fields of Webhooks in one or more transactions pinned to the same etcd revision.
+func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client) (result config.Webhooks, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli)
+	h0_0 := tetcd.ListTx(txn0.Then(), a.Active())
+	h0_1 := tetcd.ListTx(txn0.Then(), a.Auth())
+	h0_2 := tetcd.ListTx(txn0.Then(), a.LastRequests.Data())
+	h0_3 := tetcd.ListTx(txn0.Then(), a.LastRequests.Status())
+	h0_4 := tetcd.ListTx(txn0.Then(), a.LastRequests.Time())
+	h0_5 := tetcd.ListTx(txn0.Then(), a.Temporary())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.Active, err = h0_0.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.Auth, err = h0_1.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.LastRequests.Data, err = h0_2.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.LastRequests.Status, err = h0_3.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.LastRequests.Time, err = h0_4.Entries()
+	if err != nil {
+		return result, err
+	}
+	result.Temporary, err = h0_5.Entries()
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 type autoTypeInternalConfig struct {
 	Devices    autoTypeInternalConfigDevices
 	Indexes    autoTypeInternalConfigIndexes
+	Node       autoTypeInternalConfigNode
 	References autoTypeInternalConfigReferences
+	Webhooks   autoTypeInternalConfigWebhooks
 }
 
 // RegistrationTokens() is a map path with prefix wag-config-internal/InternalConfig/RegistrationTokens, value type github.com/NHAS/wag/pkg/control.RegistrationResult

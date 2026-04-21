@@ -121,7 +121,7 @@ func (d *database) GetPAM() (details config.PAM, err error) {
 }
 
 func (d *database) GetOidc() (details config.TunnelOidc, err error) {
-	return Config.Webserver.Tunnel.OIDC.Get(context.Background(), d.etcd)
+	return Config.Webserver.Tunnel.OIDC().Get(context.Background(), d.etcd)
 }
 
 type WebauthnDTO struct {
@@ -413,12 +413,7 @@ func (d *database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
 	tetcd.PutTx(then, Config.Webserver.Tunnel.Issuer(), loginSettings.Issuer)
 	tetcd.PutTx(then, Config.Webserver.Tunnel.Methods(), loginSettings.Methods)
 
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.ClientID(), loginSettings.OIDC.ClientID)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.ClientSecret(), loginSettings.OIDC.ClientSecret)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.DeviceUsernameClaim(), loginSettings.OIDC.DeviceUsernameClaim)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.GroupsClaimName(), loginSettings.OIDC.GroupsClaimName)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.Scopes(), loginSettings.OIDC.Scopes)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC.IssuerURL(), loginSettings.OIDC.IssuerURL)
+	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC(), loginSettings.OIDC)
 
 	tetcd.PutTx(then, Config.Webserver.Tunnel.PAM.ServiceName(), loginSettings.PAM.ServiceName)
 	tetcd.PutTx(then, Config.Webserver.Lockout(), loginSettings.Lockout)

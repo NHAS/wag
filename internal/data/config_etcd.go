@@ -629,77 +629,6 @@ func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client) (re
 	return result, nil
 }
 
-type autoTypeTunnelOIDC struct{}
-
-// ClientID() KV should contain type string
-func (autoTypeTunnelOIDC) ClientID() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/ClientID", codecs.NewJsonCodec[string]())
-}
-
-// ClientSecret() KV should contain type string
-func (autoTypeTunnelOIDC) ClientSecret() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/ClientSecret", codecs.NewJsonCodec[string]())
-}
-
-// DeviceUsernameClaim() KV should contain type string
-func (autoTypeTunnelOIDC) DeviceUsernameClaim() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/DeviceUsernameClaim", codecs.NewJsonCodec[string]())
-}
-
-// GroupsClaimName() KV should contain type string
-func (autoTypeTunnelOIDC) GroupsClaimName() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/GroupsClaimName", codecs.NewJsonCodec[string]())
-}
-
-// IssuerURL() KV should contain type string
-func (autoTypeTunnelOIDC) IssuerURL() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/IssuerURL", codecs.NewJsonCodec[string]())
-}
-
-// Scopes() KV should contain type []string
-func (autoTypeTunnelOIDC) Scopes() paths.Path[[]string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC/Scopes", codecs.NewJsonCodec[[]string]())
-}
-
-// Get fetches all fields of TunnelOidc in one or more transactions pinned to the same etcd revision.
-func (a autoTypeTunnelOIDC) Get(ctx context.Context, cli *v3.Client) (result config.TunnelOidc, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.ClientID())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.ClientSecret())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.DeviceUsernameClaim())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.GroupsClaimName())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.IssuerURL())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.Scopes())
-	if err := txn0.Commit(); err != nil {
-		return result, err
-	}
-	result.ClientID, err = h0_0.Value()
-	if err != nil {
-		return result, err
-	}
-	result.ClientSecret, err = h0_1.Value()
-	if err != nil {
-		return result, err
-	}
-	result.DeviceUsernameClaim, err = h0_2.Value()
-	if err != nil {
-		return result, err
-	}
-	result.GroupsClaimName, err = h0_3.Value()
-	if err != nil {
-		return result, err
-	}
-	result.IssuerURL, err = h0_4.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Scopes, err = h0_5.Value()
-	if err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
 type autoTypeTunnelPAM struct{}
 
 // ServiceName() KV should contain type string
@@ -723,7 +652,6 @@ func (a autoTypeTunnelPAM) Get(ctx context.Context, cli *v3.Client) (result conf
 
 type autoTypeWebserverTunnel struct {
 	HTTPSettings autoTypeTunnelHTTPSettings
-	OIDC         autoTypeTunnelOIDC
 	PAM          autoTypeTunnelPAM
 }
 
@@ -750,6 +678,11 @@ func (autoTypeWebserverTunnel) MaxSessionLifetimeMinutes() paths.Path[int] {
 // Methods() KV should contain type []string
 func (autoTypeWebserverTunnel) Methods() paths.Path[[]string] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/Methods", codecs.NewJsonCodec[[]string]())
+}
+
+// OIDC() KV should contain type struct{IssuerURL string "json:\"issuer\" validate:\"omitempty,url\" "; ClientSecret string "json:\"client_secret\" validate:\"omitempty,min=1,max=255\" sensitive:\"yes\""; ClientID string "json:\"client_id\" validate:\"omitempty,min=1,max=255\""; GroupsClaimName string "json:\"group_claim_name,omitempty\""; DeviceUsernameClaim string "json:\"device_username_claim,omitempty\""; Scopes []string "json:\"scopes,omitempty\" tetcd:\"compress\""}
+func (autoTypeWebserverTunnel) OIDC() paths.Path[config.TunnelOidc] {
+	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC", codecs.NewJsonCodec[config.TunnelOidc]())
 }
 
 // SessionInactivityTimeoutMinutes() KV should contain type int
@@ -785,14 +718,9 @@ func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client) (resul
 	h0_10 := tetcd.GetTx(txn0.Then(), a.Issuer())
 	h0_11 := tetcd.GetTx(txn0.Then(), a.MaxSessionLifetimeMinutes())
 	h0_12 := tetcd.GetTx(txn0.Then(), a.Methods())
-	h0_13 := tetcd.GetTx(txn0.Then(), a.OIDC.ClientID())
-	h0_14 := tetcd.GetTx(txn0.Then(), a.OIDC.ClientSecret())
-	h0_15 := tetcd.GetTx(txn0.Then(), a.OIDC.DeviceUsernameClaim())
-	h0_16 := tetcd.GetTx(txn0.Then(), a.OIDC.GroupsClaimName())
-	h0_17 := tetcd.GetTx(txn0.Then(), a.OIDC.IssuerURL())
-	h0_18 := tetcd.GetTx(txn0.Then(), a.OIDC.Scopes())
-	h0_19 := tetcd.GetTx(txn0.Then(), a.PAM.ServiceName())
-	h0_20 := tetcd.GetTx(txn0.Then(), a.SessionInactivityTimeoutMinutes())
+	h0_13 := tetcd.GetTx(txn0.Then(), a.OIDC())
+	h0_14 := tetcd.GetTx(txn0.Then(), a.PAM.ServiceName())
+	h0_15 := tetcd.GetTx(txn0.Then(), a.SessionInactivityTimeoutMinutes())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -848,35 +776,15 @@ func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client) (resul
 	if err != nil {
 		return result, err
 	}
-	result.OIDC.ClientID, err = h0_13.Value()
+	result.OIDC, err = h0_13.Value()
 	if err != nil {
 		return result, err
 	}
-	result.OIDC.ClientSecret, err = h0_14.Value()
+	result.PAM.ServiceName, err = h0_14.Value()
 	if err != nil {
 		return result, err
 	}
-	result.OIDC.DeviceUsernameClaim, err = h0_15.Value()
-	if err != nil {
-		return result, err
-	}
-	result.OIDC.GroupsClaimName, err = h0_16.Value()
-	if err != nil {
-		return result, err
-	}
-	result.OIDC.IssuerURL, err = h0_17.Value()
-	if err != nil {
-		return result, err
-	}
-	result.OIDC.Scopes, err = h0_18.Value()
-	if err != nil {
-		return result, err
-	}
-	result.PAM.ServiceName, err = h0_19.Value()
-	if err != nil {
-		return result, err
-	}
-	result.SessionInactivityTimeoutMinutes, err = h0_20.Value()
+	result.SessionInactivityTimeoutMinutes, err = h0_15.Value()
 	if err != nil {
 		return result, err
 	}
@@ -977,14 +885,9 @@ func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client) (resul
 	h0_38 := tetcd.GetTx(txn0.Then(), a.Tunnel.Issuer())
 	h0_39 := tetcd.GetTx(txn0.Then(), a.Tunnel.MaxSessionLifetimeMinutes())
 	h0_40 := tetcd.GetTx(txn0.Then(), a.Tunnel.Methods())
-	h0_41 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.ClientID())
-	h0_42 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.ClientSecret())
-	h0_43 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.DeviceUsernameClaim())
-	h0_44 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.GroupsClaimName())
-	h0_45 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.IssuerURL())
-	h0_46 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC.Scopes())
-	h0_47 := tetcd.GetTx(txn0.Then(), a.Tunnel.PAM.ServiceName())
-	h0_48 := tetcd.GetTx(txn0.Then(), a.Tunnel.SessionInactivityTimeoutMinutes())
+	h0_41 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC())
+	h0_42 := tetcd.GetTx(txn0.Then(), a.Tunnel.PAM.ServiceName())
+	h0_43 := tetcd.GetTx(txn0.Then(), a.Tunnel.SessionInactivityTimeoutMinutes())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -1152,35 +1055,15 @@ func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client) (resul
 	if err != nil {
 		return result, err
 	}
-	result.Tunnel.OIDC.ClientID, err = h0_41.Value()
+	result.Tunnel.OIDC, err = h0_41.Value()
 	if err != nil {
 		return result, err
 	}
-	result.Tunnel.OIDC.ClientSecret, err = h0_42.Value()
+	result.Tunnel.PAM.ServiceName, err = h0_42.Value()
 	if err != nil {
 		return result, err
 	}
-	result.Tunnel.OIDC.DeviceUsernameClaim, err = h0_43.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Tunnel.OIDC.GroupsClaimName, err = h0_44.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Tunnel.OIDC.IssuerURL, err = h0_45.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Tunnel.OIDC.Scopes, err = h0_46.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Tunnel.PAM.ServiceName, err = h0_47.Value()
-	if err != nil {
-		return result, err
-	}
-	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_48.Value()
+	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_43.Value()
 	if err != nil {
 		return result, err
 	}

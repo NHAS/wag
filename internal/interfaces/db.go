@@ -30,7 +30,7 @@ type AclsRepository interface {
 }
 
 type Errors interface {
-	GetAllErrors() (ret []data.EventError, err error)
+	GetAllErrors() (ret []config.EventError, err error)
 	RaiseError(raisedError error, value []byte)
 	ResolveError(errorId string) error
 }
@@ -60,7 +60,6 @@ type Webhooks interface {
 	GetWebhooks() (hooks []data.WebhookGetResponseDTO, err error)
 	DeleteWebhooks(ids []string) error
 
-	GetLastWebhookRequestPath(id string, additionals ...string) string
 	GetWebhookLastRequest(id string) (string, error)
 	CheckWebhookAuth(id, authHeader string) bool
 }

@@ -1049,7 +1049,7 @@ func (c *CtrlClient) Shutdown(cleanup bool) (err error) {
 }
 
 // Return all error events that are stored in the etcd database
-func (c *CtrlClient) GetClusterErrors() (clusterErrors []data.EventError, err error) {
+func (c *CtrlClient) GetClusterErrors() (clusterErrors []config.EventError, err error) {
 	response, err := c.httpClient.Get("http://unix/clustering/errors")
 	if err != nil {
 		return nil, err

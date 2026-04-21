@@ -130,7 +130,7 @@ type LoginResponsetDTO struct {
 
 type EventsResponseDTO struct {
 	EventLog []data.GeneralEvent `json:"events"`
-	Errors   []data.EventError   `json:"errors"`
+	Errors   []config.EventError `json:"errors"`
 }
 
 type GenericResponseDTO struct {

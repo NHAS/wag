@@ -10,8 +10,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/pkg/safedecoder"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -75,14 +75,14 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lastRequestWatcher *watcher.Watcher[string]
+	var lastRequestWatcher *watch.Watcher[string]
 	defer func() {
 		if lastRequestWatcher != nil {
 			lastRequestWatcher.Close()
 		}
 	}()
 
-	onDelete := func(_ string, current, previous string) error {
+	onDelete := func(kctx context.Context, event watch.Event[string]) error {
 		if lastRequestWatcher != nil {
 			conn.CloseNow()
 		}
@@ -90,11 +90,11 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}
 
-	onUpdate := func(key string, current, previous string) error {
+	onUpdate := func(kctx context.Context, event watch.Event[string]) error {
 
 		var c map[string]any
 
-		err := json.Unmarshal([]byte(current), &c)
+		err := json.Unmarshal([]byte(event.Current), &c)
 		if err != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			err = wsjson.Write(ctx, conn, WebhookInputAttributesDTO{
@@ -131,12 +131,15 @@ func (au *AdminUI) webhookWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// setup database watch on key to see if there is any data/json coming in from the webhook
 
-	lastRequestWatcher, err = watcher.Watch(au.db, au.db.GetLastWebhookRequestPath(details.ID, "data"), false,
-		watcher.OnCreate(onUpdate),
-		watcher.OnModification(onUpdate),
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err = data.InternalConfig.Webhooks.LastRequests.Data().Watch(ctx, au.db.Raw()).Start(
+		watch.Created(onUpdate),
+		watch.Modified(onUpdate),
 
-		watcher.OnDelete(onDelete),
+		watch.Deleted(onDelete),
 	)
+
 	if err != nil {
 		log.Error().Err(err).Msg("failed to start watcher on temporary webhook")
 		return

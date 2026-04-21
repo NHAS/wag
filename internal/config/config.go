@@ -133,7 +133,7 @@ type Config struct {
 			Issuer        string   `validate:"required" json:"issuer"`
 			Methods       []string `json:",omitempty" tetcd:"compress"`
 
-			OIDC TunnelOidc `json:"oidc,omitzero"`
+			OIDC TunnelOidc `json:"oidc,omitzero" tetcd:"compress"`
 
 			PAM PAM `json:"pam,omitzero"`
 		}
@@ -233,6 +233,48 @@ type InternalConfig struct {
 
 	Indexes    Indexes
 	References References
+
+	Webhooks Webhooks
+
+	Node Node
+}
+
+type LastRequests struct {
+	// this is a bit gross, and may change in the future
+	// effectively its map[webhook id] -> data
+	// we potentially should make a change to tetcd to express this as map[string]WebhookDetails `tectd:"uncompressed"`
+
+	Data   map[string]string
+	Time   map[string]time.Time
+	Status map[string]string
+}
+
+type WebhookActionType string
+
+const (
+	CreateRegistrationToken WebhookActionType = "create_token"
+	DeleteDevice            WebhookActionType = "delete_device"
+	DeleteUser              WebhookActionType = "delete_user"
+)
+
+type Webhooks struct {
+	Auth      map[string]string
+	Temporary map[string]any
+	Active    map[string]any
+
+	LastRequests LastRequests
+}
+
+type EventError struct {
+	NodeID          string    `json:"node_id"`
+	ErrorID         string    `json:"error_id"`
+	FailedEventData string    `json:"failed_event_data"`
+	Error           string    `json:"error"`
+	Time            time.Time `json:"time"`
+}
+
+type Node struct {
+	Errors map[string]EventError
 }
 
 type Devices struct {

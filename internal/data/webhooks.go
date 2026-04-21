@@ -18,33 +18,6 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-const (
-	CreateRegistrationToken = "create_token"
-	DeleteDevice            = "delete_device"
-	DeleteUser              = "delete_user"
-
-	WebhooksPrefix       = "wag-webhooks/"
-	WebhookAuthPrefix    = WebhooksPrefix + "auth/"
-	TempWebhooksPrefix   = WebhooksPrefix + "webhooks/temp/"
-	ActiveWebhooksPrefix = WebhooksPrefix + "webhooks/active/"
-)
-
-func (d *database) GetLastWebhookRequestPath(id string, additionals ...string) string {
-
-	input := []string{
-		WebhooksPrefix, "last_requests", id,
-	}
-
-	input = append(input, additionals...)
-
-	result := path.Join(input...)
-	if len(additionals) == 0 {
-		result += "/"
-	}
-
-	return result
-}
-
 func (d *database) GetWebhookAuthPath(id, plainTextCredentials string) (string, error) {
 
 	res, err := pbkdf2.Key(sha256.New, plainTextCredentials, []byte(id), 10, 32)
@@ -87,10 +60,11 @@ type WebhookAttribute struct {
 }
 
 func (d *database) GetWebhookLastRequest(id string) (string, error) {
-	return Get[string](d.etcd, d.GetLastWebhookRequestPath(id, "data"))
+	return InternalConfig.Webhooks.LastRequests.Data().Key(id).Get(context.Background(), d.etcd)
 }
 
 func (d *database) GetWebhook(id string) (WebhookGetResponseDTO, error) {
+
 	return Get[WebhookGetResponseDTO](d.etcd, ActiveWebhooksPrefix+id)
 }
 
