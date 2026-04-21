@@ -36,12 +36,13 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 		token.NumUses--
 
 		if token.NumUses > 0 {
-			value, err := ToString(token)
+
+			value, err := path.Codec().Encode(token)
 			if err != nil {
 				return err
 			}
 
-			s.Put(path.Key(), value)
+			s.Put(path.Key(), string(value))
 		} else {
 			s.Del(path.Key())
 		}

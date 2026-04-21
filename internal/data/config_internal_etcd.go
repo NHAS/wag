@@ -6,6 +6,8 @@ import (
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
+	watch "github.com/NHAS/tetcd/watch"
+	specialist "github.com/NHAS/tetcd/watch/specialist"
 	config "github.com/NHAS/wag/internal/config"
 	control "github.com/NHAS/wag/pkg/control"
 	v3 "go.etcd.io/etcd/client/v3"
@@ -30,8 +32,8 @@ func (autoTypeDevicesDHCP) Locks() paths.Path[string] {
 }
 
 // Get fetches all fields of DHCP in one or more transactions pinned to the same etcd revision.
-func (a autoTypeDevicesDHCP) Get(ctx context.Context, cli *v3.Client) (result config.DHCP, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeDevicesDHCP) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DHCP, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Abandoned())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.End())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Locks())
@@ -39,18 +41,26 @@ func (a autoTypeDevicesDHCP) Get(ctx context.Context, cli *v3.Client) (result co
 		return result, err
 	}
 	result.Abandoned, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.End, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Locks, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeDevicesDHCP) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DHCP, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full DHCP struct whenever any sub-key changes.
+func (a autoTypeDevicesDHCP) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.DHCP] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Devices/DHCP/", a.GetWithFail)
 }
 
 type autoTypeInternalConfigDevices struct {
@@ -73,8 +83,8 @@ func (autoTypeInternalConfigDevices) Sessions() paths.MapPath[config.DeviceSessi
 }
 
 // Get fetches all fields of Devices in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigDevices) Get(ctx context.Context, cli *v3.Client) (result config.Devices, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeInternalConfigDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Devices, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.DynamicCollectionTx(txn0.Then(), a.Challenges())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.DHCP.Abandoned())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.DHCP.End())
@@ -85,30 +95,38 @@ func (a autoTypeInternalConfigDevices) Get(ctx context.Context, cli *v3.Client) 
 		return result, err
 	}
 	result.Challenges, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.DHCP.Abandoned, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.DHCP.End, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.DHCP.Locks, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Machines, err = h0_4.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Sessions, err = h0_5.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeInternalConfigDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Devices, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Devices struct whenever any sub-key changes.
+func (a autoTypeInternalConfigDevices) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Devices] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Devices/", a.GetWithFail)
 }
 
 type autoTypeInternalConfigIndexes struct{}
@@ -124,43 +142,69 @@ func (autoTypeInternalConfigIndexes) UserMembership() paths.MapSlicePath[config.
 }
 
 // Get fetches all fields of Indexes in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigIndexes) Get(ctx context.Context, cli *v3.Client) (result config.Indexes, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeInternalConfigIndexes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Indexes, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Groups())
 	h0_1 := tetcd.DynamicCollectionTx(txn0.Then(), a.UserMembership())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
 	result.Groups, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.UserMembership, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
 }
-
-type autoTypeInternalConfigNode struct{}
-
-// Errors() is a map path with prefix wag-config-internal/InternalConfig/Node/Errors, value type github.com/NHAS/wag/internal/config.EventError
-func (autoTypeInternalConfigNode) Errors() paths.MapPath[config.EventError] {
-	return paths.NewMapPath("wag-config-internal/InternalConfig/Node/Errors", codecs.NewJsonCodec[config.EventError](), false)
+func (a autoTypeInternalConfigIndexes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Indexes, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
 }
 
-// Get fetches all fields of Node in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigNode) Get(ctx context.Context, cli *v3.Client) (result config.Node, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+// Watch returns a Watcher that emits the full Indexes struct whenever any sub-key changes.
+func (a autoTypeInternalConfigIndexes) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Indexes] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Indexes/", a.GetWithFail)
+}
+
+type autoTypeInternalConfigNodes struct{}
+
+// Errors() is a map path with prefix wag-config-internal/InternalConfig/Nodes/Errors, value type github.com/NHAS/wag/internal/config.EventError
+func (autoTypeInternalConfigNodes) Errors() paths.MapPath[config.EventError] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Nodes/Errors", codecs.NewJsonCodec[config.EventError](), false)
+}
+
+// Version() is a map path with prefix wag-config-internal/InternalConfig/Nodes/Version, value type string
+func (autoTypeInternalConfigNodes) Version() paths.MapPath[string] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Nodes/Version", codecs.NewJsonCodec[string](), false)
+}
+
+// Get fetches all fields of Nodes in one or more transactions pinned to the same etcd revision.
+func (a autoTypeInternalConfigNodes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Nodes, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Errors())
+	h0_1 := tetcd.ListTx(txn0.Then(), a.Version())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
 	result.Errors, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
+		return result, err
+	}
+	result.Version, err = h0_1.Entries()
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeInternalConfigNodes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Nodes, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Nodes struct whenever any sub-key changes.
+func (a autoTypeInternalConfigNodes) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Nodes] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Nodes/", a.GetWithFail)
 }
 
 type autoTypeReferencesDevices struct{}
@@ -181,8 +225,8 @@ func (autoTypeReferencesDevices) Tag() paths.MapPath[config.DeviceRef] {
 }
 
 // Get fetches all fields of DevicesReferences in one or more transactions pinned to the same etcd revision.
-func (a autoTypeReferencesDevices) Get(ctx context.Context, cli *v3.Client) (result config.DevicesReferences, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeReferencesDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DevicesReferences, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Address())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.PublicKey())
 	h0_2 := tetcd.ListTx(txn0.Then(), a.Tag())
@@ -190,18 +234,26 @@ func (a autoTypeReferencesDevices) Get(ctx context.Context, cli *v3.Client) (res
 		return result, err
 	}
 	result.Address, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PublicKey, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tag, err = h0_2.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeReferencesDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DevicesReferences, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full DevicesReferences struct whenever any sub-key changes.
+func (a autoTypeReferencesDevices) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.DevicesReferences] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/References/Devices/", a.GetWithFail)
 }
 
 type autoTypeInternalConfigReferences struct {
@@ -209,8 +261,8 @@ type autoTypeInternalConfigReferences struct {
 }
 
 // Get fetches all fields of References in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Client) (result config.References, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeInternalConfigReferences) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.References, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Devices.Address())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.Devices.PublicKey())
 	h0_2 := tetcd.ListTx(txn0.Then(), a.Devices.Tag())
@@ -218,18 +270,26 @@ func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Clien
 		return result, err
 	}
 	result.Devices.Address, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Devices.PublicKey, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Devices.Tag, err = h0_2.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.References, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full References struct whenever any sub-key changes.
+func (a autoTypeInternalConfigReferences) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.References] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/References/", a.GetWithFail)
 }
 
 type autoTypeWebhooksLastRequests struct{}
@@ -250,8 +310,8 @@ func (autoTypeWebhooksLastRequests) Time() paths.MapPath[time.Time] {
 }
 
 // Get fetches all fields of LastRequests in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client) (result config.LastRequests, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeWebhooksLastRequests) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.LastRequests, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Data())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.Status())
 	h0_2 := tetcd.ListTx(txn0.Then(), a.Time())
@@ -259,18 +319,26 @@ func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client) (
 		return result, err
 	}
 	result.Data, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Status, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Time, err = h0_2.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.LastRequests, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full LastRequests struct whenever any sub-key changes.
+func (a autoTypeWebhooksLastRequests) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.LastRequests] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Webhooks/LastRequests/", a.GetWithFail)
 }
 
 type autoTypeInternalConfigWebhooks struct {
@@ -293,8 +361,8 @@ func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[any] {
 }
 
 // Get fetches all fields of Webhooks in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client) (result config.Webhooks, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeInternalConfigWebhooks) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Webhooks, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.ListTx(txn0.Then(), a.Active())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.Auth())
 	h0_2 := tetcd.ListTx(txn0.Then(), a.LastRequests.Data())
@@ -305,36 +373,44 @@ func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client)
 		return result, err
 	}
 	result.Active, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Auth, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.LastRequests.Data, err = h0_2.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.LastRequests.Status, err = h0_3.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.LastRequests.Time, err = h0_4.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Temporary, err = h0_5.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Webhooks, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Webhooks struct whenever any sub-key changes.
+func (a autoTypeInternalConfigWebhooks) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Webhooks] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Webhooks/", a.GetWithFail)
 }
 
 type autoTypeInternalConfig struct {
 	Devices    autoTypeInternalConfigDevices
 	Indexes    autoTypeInternalConfigIndexes
-	Node       autoTypeInternalConfigNode
+	Nodes      autoTypeInternalConfigNodes
 	References autoTypeInternalConfigReferences
 	Webhooks   autoTypeInternalConfigWebhooks
 }

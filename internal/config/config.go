@@ -95,6 +95,10 @@ type PAM struct {
 	ServiceName string `json:"service_name" validate:"omitempty,min=1"`
 }
 
+type CloudflareToken struct {
+	APIToken string `json:"api_token" sensitive:"true"`
+}
+
 type Config struct {
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
@@ -110,7 +114,7 @@ type Config struct {
 		Acme struct {
 			Email              string
 			CAProvider         string
-			CloudflareDNSToken string
+			CloudflareDNSToken CloudflareToken `tetcd:"compress"`
 		}
 
 		Public struct {
@@ -236,7 +240,7 @@ type InternalConfig struct {
 
 	Webhooks Webhooks
 
-	Node Node
+	Nodes Nodes
 }
 
 type LastRequests struct {
@@ -273,8 +277,11 @@ type EventError struct {
 	Time            time.Time `json:"time"`
 }
 
-type Node struct {
+type Nodes struct {
 	Errors map[string]EventError
+
+	// node id -> wag version
+	Version map[string]string
 }
 
 type Devices struct {

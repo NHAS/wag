@@ -6,6 +6,8 @@ import (
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
+	watch "github.com/NHAS/tetcd/watch"
+	specialist "github.com/NHAS/tetcd/watch/specialist"
 	acls "github.com/NHAS/wag/internal/acls"
 	config "github.com/NHAS/wag/internal/config"
 	v3 "go.etcd.io/etcd/client/v3"
@@ -25,22 +27,30 @@ func (autoTypeConfigAcls) Policies() paths.MapPath[*acls.Acl] {
 }
 
 // Get fetches all fields of Acls in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigAcls) Get(ctx context.Context, cli *v3.Client) (result config.Acls, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeConfigAcls) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Acls, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.DynamicCollectionTx(txn0.Then(), a.Groups())
 	h0_1 := tetcd.ListTx(txn0.Then(), a.Policies())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
 	result.Groups, err = h0_0.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Policies, err = h0_1.Entries()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeConfigAcls) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Acls, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Acls struct whenever any sub-key changes.
+func (a autoTypeConfigAcls) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Acls] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Acls/", a.GetWithFail)
 }
 
 type autoTypeWebserverAcme struct{}
@@ -50,9 +60,9 @@ func (autoTypeWebserverAcme) CAProvider() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Acme/CAProvider", codecs.NewJsonCodec[string]())
 }
 
-// CloudflareDNSToken() KV should contain type string
-func (autoTypeWebserverAcme) CloudflareDNSToken() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Acme/CloudflareDNSToken", codecs.NewJsonCodec[string]())
+// CloudflareDNSToken() KV should contain type struct{APIToken string "json:\"api_token\" sensitive:\"true\""}
+func (autoTypeWebserverAcme) CloudflareDNSToken() paths.Path[config.CloudflareToken] {
+	return paths.NewPath("wag-config/Config/Webserver/Acme/CloudflareDNSToken", codecs.NewJsonCodec[config.CloudflareToken]())
 }
 
 // Email() KV should contain type string
@@ -63,12 +73,12 @@ func (autoTypeWebserverAcme) Email() paths.Path[string] {
 type resultWebserverAcme struct {
 	Email              string
 	CAProvider         string
-	CloudflareDNSToken string
+	CloudflareDNSToken config.CloudflareToken
 }
 
 // Get fetches all fields of resultWebserverAcme in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverAcme) Get(ctx context.Context, cli *v3.Client) (result resultWebserverAcme, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeWebserverAcme) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverAcme, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.CAProvider())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.CloudflareDNSToken())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Email())
@@ -76,18 +86,26 @@ func (a autoTypeWebserverAcme) Get(ctx context.Context, cli *v3.Client) (result 
 		return result, err
 	}
 	result.CAProvider, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.CloudflareDNSToken, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Email, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeWebserverAcme) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverAcme, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultWebserverAcme struct whenever any sub-key changes.
+func (a autoTypeWebserverAcme) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultWebserverAcme] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Acme/", a.GetWithFail)
 }
 
 type autoTypeManagementHTTPSettings struct{}
@@ -133,8 +151,8 @@ func (autoTypeManagementHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementHTTPSettings) Get(ctx context.Context, cli *v3.Client) (result config.WebserverDetails, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
@@ -147,38 +165,46 @@ func (a autoTypeManagementHTTPSettings) Get(ctx context.Context, cli *v3.Client)
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeManagementHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
+func (a autoTypeManagementHTTPSettings) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.WebserverDetails] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Management/HTTPSettings/", a.GetWithFail)
 }
 
 type autoTypeManagementOIDC struct{}
@@ -211,8 +237,8 @@ type resultManagementOIDC struct {
 }
 
 // Get fetches all fields of resultManagementOIDC in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementOIDC) Get(ctx context.Context, cli *v3.Client) (result resultManagementOIDC, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeManagementOIDC) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementOIDC, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.ClientID())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.ClientSecret())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Enabled())
@@ -221,22 +247,30 @@ func (a autoTypeManagementOIDC) Get(ctx context.Context, cli *v3.Client) (result
 		return result, err
 	}
 	result.ClientID, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ClientSecret, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Enabled, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.IssuerURL, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeManagementOIDC) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementOIDC, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultManagementOIDC struct whenever any sub-key changes.
+func (a autoTypeManagementOIDC) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultManagementOIDC] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Management/OIDC/", a.GetWithFail)
 }
 
 type autoTypeManagementPassword struct{}
@@ -251,17 +285,25 @@ type resultManagementPassword struct {
 }
 
 // Get fetches all fields of resultManagementPassword in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementPassword) Get(ctx context.Context, cli *v3.Client) (result resultManagementPassword, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeManagementPassword) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementPassword, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.Enabled())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
 	result.Enabled, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeManagementPassword) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementPassword, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultManagementPassword struct whenever any sub-key changes.
+func (a autoTypeManagementPassword) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultManagementPassword] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Management/Password/", a.GetWithFail)
 }
 
 type autoTypeWebserverManagement struct {
@@ -290,8 +332,8 @@ type resultWebserverManagement struct {
 }
 
 // Get fetches all fields of resultWebserverManagement in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverManagement) Get(ctx context.Context, cli *v3.Client) (result resultWebserverManagement, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverManagement, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.Enabled())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePath())
@@ -310,62 +352,70 @@ func (a autoTypeWebserverManagement) Get(ctx context.Context, cli *v3.Client) (r
 		return result, err
 	}
 	result.Enabled, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePath, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.Domain, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.ListenAddress, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.StaticCerts, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.TLS, err = h0_8.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.OIDC.ClientID, err = h0_9.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.OIDC.ClientSecret, err = h0_10.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.OIDC.Enabled, err = h0_11.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.OIDC.IssuerURL, err = h0_12.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Password.Enabled, err = h0_13.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeWebserverManagement) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverManagement, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultWebserverManagement struct whenever any sub-key changes.
+func (a autoTypeWebserverManagement) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultWebserverManagement] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Management/", a.GetWithFail)
 }
 
 type autoTypePublicHTTPSettings struct{}
@@ -411,8 +461,8 @@ func (autoTypePublicHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypePublicHTTPSettings) Get(ctx context.Context, cli *v3.Client) (result config.WebserverDetails, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
@@ -425,38 +475,46 @@ func (a autoTypePublicHTTPSettings) Get(ctx context.Context, cli *v3.Client) (re
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypePublicHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
+func (a autoTypePublicHTTPSettings) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.WebserverDetails] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Public/HTTPSettings/", a.GetWithFail)
 }
 
 type autoTypeWebserverPublic struct {
@@ -480,8 +538,8 @@ type resultWebserverPublic struct {
 }
 
 // Get fetches all fields of resultWebserverPublic in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverPublic) Get(ctx context.Context, cli *v3.Client) (result resultWebserverPublic, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverPublic, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.DownloadConfigFileName())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.ExternalAddress())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
@@ -496,46 +554,54 @@ func (a autoTypeWebserverPublic) Get(ctx context.Context, cli *v3.Client) (resul
 		return result, err
 	}
 	result.DownloadConfigFileName, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ExternalAddress, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePath, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.Domain, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.ListenAddress, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.StaticCerts, err = h0_8.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.TLS, err = h0_9.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeWebserverPublic) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverPublic, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultWebserverPublic struct whenever any sub-key changes.
+func (a autoTypeWebserverPublic) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultWebserverPublic] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Public/", a.GetWithFail)
 }
 
 type autoTypeTunnelHTTPSettings struct{}
@@ -581,8 +647,8 @@ func (autoTypeTunnelHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client) (result config.WebserverDetails, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
@@ -595,38 +661,46 @@ func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client) (re
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
+func (a autoTypeTunnelHTTPSettings) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.WebserverDetails] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Tunnel/HTTPSettings/", a.GetWithFail)
 }
 
 type autoTypeTunnelPAM struct{}
@@ -637,17 +711,25 @@ func (autoTypeTunnelPAM) ServiceName() paths.Path[string] {
 }
 
 // Get fetches all fields of PAM in one or more transactions pinned to the same etcd revision.
-func (a autoTypeTunnelPAM) Get(ctx context.Context, cli *v3.Client) (result config.PAM, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeTunnelPAM) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.PAM, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.ServiceName())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
 	result.ServiceName, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeTunnelPAM) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.PAM, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full PAM struct whenever any sub-key changes.
+func (a autoTypeTunnelPAM) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.PAM] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Tunnel/PAM/", a.GetWithFail)
 }
 
 type autoTypeWebserverTunnel struct {
@@ -703,8 +785,8 @@ type resultWebserverTunnel struct {
 }
 
 // Get fetches all fields of resultWebserverTunnel in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client) (result resultWebserverTunnel, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverTunnel, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.DefaultMethod())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePath())
@@ -725,70 +807,78 @@ func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client) (resul
 		return result, err
 	}
 	result.DefaultMethod, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.CertificatePath, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.Domain, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.ListenAddress, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.StaticCerts, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HTTPSettings.TLS, err = h0_8.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.HelpMail, err = h0_9.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Issuer, err = h0_10.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.MaxSessionLifetimeMinutes, err = h0_11.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Methods, err = h0_12.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.OIDC, err = h0_13.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PAM.ServiceName, err = h0_14.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.SessionInactivityTimeoutMinutes, err = h0_15.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverTunnel, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultWebserverTunnel struct whenever any sub-key changes.
+func (a autoTypeWebserverTunnel) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultWebserverTunnel] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/Tunnel/", a.GetWithFail)
 }
 
 type autoTypeConfigWebserver struct {
@@ -807,7 +897,7 @@ type resultConfigWebserver struct {
 	Acme struct {
 		Email              string
 		CAProvider         string
-		CloudflareDNSToken string
+		CloudflareDNSToken config.CloudflareToken
 	}
 	Public struct {
 		HTTPSettings           config.WebserverDetails
@@ -842,8 +932,8 @@ type resultConfigWebserver struct {
 }
 
 // Get fetches all fields of resultConfigWebserver in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client) (result resultConfigWebserver, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWebserver, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.Acme.CAProvider())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.Acme.CloudflareDNSToken())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.Acme.Email())
@@ -892,182 +982,190 @@ func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client) (resul
 		return result, err
 	}
 	result.Acme.CAProvider, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Acme.CloudflareDNSToken, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Acme.Email, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Lockout, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.Enabled, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.CertificatePEM, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.CertificatePath, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.Domain, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.ListenAddress, err = h0_8.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.PrivateKeyPEM, err = h0_9.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.PrivateKeyPath, err = h0_10.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.StaticCerts, err = h0_11.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.HTTPSettings.TLS, err = h0_12.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.OIDC.ClientID, err = h0_13.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.OIDC.ClientSecret, err = h0_14.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.OIDC.Enabled, err = h0_15.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.OIDC.IssuerURL, err = h0_16.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Management.Password.Enabled, err = h0_17.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.DownloadConfigFileName, err = h0_18.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.ExternalAddress, err = h0_19.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.CertificatePEM, err = h0_20.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.CertificatePath, err = h0_21.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.Domain, err = h0_22.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.ListenAddress, err = h0_23.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.PrivateKeyPEM, err = h0_24.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.PrivateKeyPath, err = h0_25.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.StaticCerts, err = h0_26.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Public.HTTPSettings.TLS, err = h0_27.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.DefaultMethod, err = h0_28.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.CertificatePEM, err = h0_29.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.CertificatePath, err = h0_30.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.Domain, err = h0_31.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.ListenAddress, err = h0_32.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.PrivateKeyPEM, err = h0_33.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.PrivateKeyPath, err = h0_34.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.StaticCerts, err = h0_35.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HTTPSettings.TLS, err = h0_36.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.HelpMail, err = h0_37.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.Issuer, err = h0_38.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.MaxSessionLifetimeMinutes, err = h0_39.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.Methods, err = h0_40.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.OIDC, err = h0_41.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.PAM.ServiceName, err = h0_42.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_43.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWebserver, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultConfigWebserver struct whenever any sub-key changes.
+func (a autoTypeConfigWebserver) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultConfigWebserver] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Webserver/", a.GetWithFail)
 }
 
 type autoTypeConfigWireguard struct{}
@@ -1126,8 +1224,8 @@ type resultConfigWireguard struct {
 }
 
 // Get fetches all fields of resultConfigWireguard in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigWireguard) Get(ctx context.Context, cli *v3.Client) (result resultConfigWireguard, err error) {
-	txn0 := tetcd.NewTxn(ctx, cli)
+func (a autoTypeConfigWireguard) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWireguard, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := tetcd.GetTx(txn0.Then(), a.Address())
 	h0_1 := tetcd.GetTx(txn0.Then(), a.DNS())
 	h0_2 := tetcd.GetTx(txn0.Then(), a.DevName())
@@ -1140,38 +1238,46 @@ func (a autoTypeConfigWireguard) Get(ctx context.Context, cli *v3.Client) (resul
 		return result, err
 	}
 	result.Address, err = h0_0.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.DNS, err = h0_1.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.DevName, err = h0_2.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ListenPort, err = h0_3.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.LogLevel, err = h0_4.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.MTU, err = h0_5.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.PrivateKey, err = h0_6.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	result.ServerPersistentKeepAlive, err = h0_7.Value()
-	if err != nil {
+	if err != nil && failEarly {
 		return result, err
 	}
 	return result, nil
+}
+func (a autoTypeConfigWireguard) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWireguard, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full resultConfigWireguard struct whenever any sub-key changes.
+func (a autoTypeConfigWireguard) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[resultConfigWireguard] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config/Config/Wireguard/", a.GetWithFail)
 }
 
 type autoTypeConfig struct {

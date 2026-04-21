@@ -301,7 +301,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 
 	ctx, cancel := context.WithCancel(context.Background())
 	adminUI.listenerEvents.watchersCancel = cancel
-	err = data.InternalConfig.Node.Errors().Watch(ctx, db.Raw()).Start(
+	err = data.InternalConfig.Nodes.Errors().Watch(ctx, db.Raw()).Start(
 		watch.All(adminUI.receiveErrorNotifications(notifications)),
 	)
 	if err != nil {

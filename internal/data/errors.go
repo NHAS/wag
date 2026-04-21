@@ -2,15 +2,12 @@ package data
 
 import (
 	"context"
-	"encoding/json"
-	"path"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 // RaiseError creates an entry in the etcd database that will be presented to the user as a notification
@@ -37,7 +34,7 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 		return
 	}
 
-	err = Set(d.etcd, path.Join(NodeErrors, ee.ErrorID), false, ee)
+	err = InternalConfig.Nodes.Errors().Key(ee.ErrorID).Put(context.Background(), d.etcd, ee)
 	if err != nil {
 		log.Error().Err(err).Str("cluster_error", raisedError.Error()).Msg("failed to write error to cluster")
 
@@ -46,25 +43,12 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 }
 
 func (d *database) GetAllErrors() (ret []config.EventError, err error) {
-	response, err := d.etcd.Get(context.Background(), path.Join(NodeErrors), clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
+	return InternalConfig.Nodes.Errors().Entries(context.Background(), d.etcd)
 
-	for _, res := range response.Kvs {
-		var ee config.EventError
-		err := json.Unmarshal(res.Value, &ee)
-		if err != nil {
-			return nil, err
-		}
-
-		ret = append(ret, ee)
-	}
-
-	return ret, nil
 }
 
 func (d *database) ResolveError(errorId string) error {
-	_, err := d.etcd.Delete(context.Background(), path.Join(NodeErrors, errorId))
+
+	_, err := InternalConfig.Nodes.Errors().Key(errorId).Delete(context.Background(), d.etcd)
 	return err
 }

@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/data/watcher"
 	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
@@ -172,107 +171,118 @@ func (a *AutoTLS) HalfClose(what data.Webserver) {
 }
 
 func (a *AutoTLS) registerEventListeners() error {
+	ctx := context.Background()
 
-	_, err := watcher.WatchAll(a.db, data.AcmeDNS01CloudflareAPIToken, false, func(_ string, ev data.EventType, current, previous data.CloudflareToken) error {
-		a.Lock()
-		defer a.Unlock()
+	err := data.Config.Webserver.Acme.CloudflareDNSToken().Watch(ctx, a.db.Raw()).Start(
+		watch.All(func(ctx context.Context, event watch.Event[config.CloudflareToken]) error {
+			a.Lock()
+			defer a.Unlock()
 
-		if ev == data.DELETED || current.APIToken == "" {
-			a.issuer.DNS01Solver = nil
-		} else {
-			a.issuer.DNS01Solver = &certmagic.DNS01Solver{
-				DNSManager: certmagic.DNSManager{
-					DNSProvider: &cloudflare.Provider{
-						APIToken: current.APIToken,
-					},
-				},
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = watcher.WatchAll(a.db, data.AcmeEmailKey, false, func(_ string, ev data.EventType, current, previous string) error {
-		a.Lock()
-		defer a.Unlock()
-
-		a.issuer.Email = current
-		if ev == data.DELETED {
-			a.issuer.Email = ""
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = watcher.WatchAll(a.db, data.AcmeProviderKey, false, func(_ string, ev data.EventType, current, previous string) error {
-		a.Lock()
-		defer a.Unlock()
-
-		a.issuer.CA = current
-		if ev == data.DELETED {
-			a.issuer.CA = ""
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	webserverEventsFunc := func(key string, ev data.EventType, current, previous config.WebserverDetails) error {
-
-		webserverTarget := data.Webserver(strings.TrimPrefix(key, data.WebServerConfigKey))
-		a.RLock()
-		// we dont update the webserver config here, it is done in the refreshListners call as the operation is mildly complicated
-		_, ok := a.webServers[webserverTarget]
-		a.RUnlock()
-
-		// if the web server has been entirely closed, or deleted then we cant re-open it automatically
-		if !ok {
-			return nil
-		}
-
-		if ev == data.DELETED {
-			// shouldnt happen, but may as well handle it
-			a.HalfClose(webserverTarget)
-			return nil
-		}
-		// nil means we keep the established mux
-		preserveError := a.refreshListeners(webserverTarget, nil, &current)
-		if preserveError != nil {
-			a.rollbackCount.Add(1)
-
-			if a.rollbackCount.Load() < 2 {
-				a.db.SetWebserverConfig(webserverTarget, previous)
-				a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occurred %s, rolling back", webserverTarget, preserveError), []byte(""))
+			if event.Type == watch.DELETED || event.Current.APIToken == "" {
+				a.issuer.DNS01Solver = nil
 			} else {
-				a.db.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserverTarget), []byte(""))
+				a.issuer.DNS01Solver = &certmagic.DNS01Solver{
+					DNSManager: certmagic.DNSManager{
+						DNSProvider: &cloudflare.Provider{
+							APIToken: event.Current.APIToken,
+						},
+					},
+				}
 			}
-			return preserveError
-		}
 
-		a.startAutoRedirector()
-
-		a.rollbackCount.Store(0)
-
-		return nil
+			return nil
+		}))
+	if err != nil {
+		return err
 	}
 
-	// this is event closed so we can discard access to the watcher
-	_, err = watcher.WatchMulti(a.db, []string{
-		data.TunnelWebServerConfigKey,
-		data.PublicWebServerConfigKey,
-		data.ManagementWebServerConfigKey,
-	}, false,
-		watcher.WatcherCallbacks[config.WebserverDetails]{
-			All: webserverEventsFunc,
-		})
+	err = data.Config.Webserver.Acme.Email().Watch(ctx, a.db.Raw()).Start(
+		watch.All(func(ctx context.Context, event watch.Event[string]) error {
+			a.Lock()
+			defer a.Unlock()
+
+			a.issuer.Email = event.Current
+			if event.Type == watch.DELETED {
+				a.issuer.Email = ""
+			}
+
+			return nil
+		}))
+	if err != nil {
+		return err
+	}
+
+	err = data.Config.Webserver.Acme.CAProvider().Watch(ctx, a.db.Raw()).Start(
+		watch.All(func(ctx context.Context, event watch.Event[string]) error {
+			a.Lock()
+			defer a.Unlock()
+
+			a.issuer.CA = event.Current
+			if event.Type == watch.DELETED {
+				a.issuer.CA = ""
+			}
+
+			return nil
+		}))
+	if err != nil {
+		return err
+	}
+
+	webserverEventsFunc :=
+		func(webserver data.Webserver) watch.CallbackFunc[config.WebserverDetails] {
+			return func(ctx context.Context, event watch.Event[config.WebserverDetails]) error {
+
+				a.RLock()
+				// we dont update the webserver config here, it is done in the refreshListners call as the operation is mildly complicated
+				_, ok := a.webServers[webserver]
+				a.RUnlock()
+
+				// if the web server has been entirely closed, or deleted then we cant re-open it automatically
+				if !ok {
+					return nil
+				}
+
+				if event.Type == watch.DELETED {
+					// shouldnt happen, but may as well handle it
+					a.HalfClose(webserver)
+					return nil
+				}
+				// nil means we keep the established mux
+				preserveError := a.refreshListeners(webserver, nil, &event.Current)
+				if preserveError != nil {
+					a.rollbackCount.Add(1)
+
+					if a.rollbackCount.Load() < 2 {
+						a.db.SetWebserverConfig(webserver, event.Previous)
+						a.db.RaiseError(fmt.Errorf("could not change webserver %q, an error occurred %s, rolling back", webserver, preserveError), []byte(""))
+					} else {
+						a.db.RaiseError(fmt.Errorf("could not rollback %q changes to working configuration", webserver), []byte(""))
+					}
+					return preserveError
+				}
+
+				a.startAutoRedirector()
+
+				a.rollbackCount.Store(0)
+
+				return nil
+			}
+		}
+
+	err = data.Config.Webserver.Tunnel.HTTPSettings.Watch(ctx, a.db.Raw()).Start(watch.All(webserverEventsFunc(data.Tunnel)))
+	if err != nil {
+		return err
+	}
+
+	err = data.Config.Webserver.Public.HTTPSettings.Watch(ctx, a.db.Raw()).Start(watch.All(webserverEventsFunc(data.Public)))
+	if err != nil {
+		return err
+	}
+
+	err = data.Config.Webserver.Management.HTTPSettings.Watch(ctx, a.db.Raw()).Start(watch.All(webserverEventsFunc(data.Management)))
+	if err != nil {
+		return err
+	}
 
 	return err
 }

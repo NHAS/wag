@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control"
@@ -17,7 +18,7 @@ import (
 func createValidWebhook() data.WebhookCreateRequestDTO {
 	var newHook data.WebhookCreateRequestDTO
 	newHook.ID, _ = utils.GenerateRandomHex(16)
-	newHook.Action = data.CreateRegistrationToken
+	newHook.Action = string(config.CreateRegistrationToken)
 	newHook.AuthHeader, _ = utils.GenerateRandomHex(16)
 	newHook.JsonAttributeRoles.AsUsername = "username"
 	newHook.JsonAttributeRoles.AsRegistrationToken = "token"

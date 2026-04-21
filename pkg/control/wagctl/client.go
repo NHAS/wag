@@ -768,25 +768,25 @@ func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig 
 	return nil
 }
 
-func (c *CtrlClient) GetAcmeDNS01CloudflareToken() (result data.CloudflareToken, err error) {
+func (c *CtrlClient) GetAcmeDNS01CloudflareToken() (result config.CloudflareToken, err error) {
 
 	response, err := c.httpClient.Get("http://unix/config/settings/cloudflare/dns01token")
 	if err != nil {
-		return data.CloudflareToken{}, err
+		return config.CloudflareToken{}, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		result, err := io.ReadAll(response.Body)
 		if err != nil {
-			return data.CloudflareToken{}, err
+			return config.CloudflareToken{}, err
 		}
-		return data.CloudflareToken{}, errors.New(string(result))
+		return config.CloudflareToken{}, errors.New(string(result))
 	}
 
 	err = safedecoder.Decoder(response.Body).Decode(&result)
 	if err != nil {
-		return data.CloudflareToken{}, err
+		return config.CloudflareToken{}, err
 	}
 
 	return result, nil

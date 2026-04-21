@@ -1,11 +1,11 @@
 package interfaces
 
-import "github.com/NHAS/wag/internal/data"
+import "github.com/NHAS/wag/internal/config"
 
 type AcmeReader interface {
 	GetAcmeEmail() (string, error)
 	GetAcmeProvider() (string, error)
-	GetAcmeDNS01CloudflareToken() (data.CloudflareToken, error)
+	GetAcmeDNS01CloudflareToken() (config.CloudflareToken, error)
 }
 
 type AcmeWriter interface {

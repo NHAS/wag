@@ -12,35 +12,25 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/NHAS/wag/internal/config"
 	"github.com/caddyserver/certmagic"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-const (
-	AcmeKey                     = "wag-acme-"
-	AcmeEmailKey                = AcmeKey + "email"
-	AcmeProviderKey             = AcmeKey + "provider"
-	AcmeDNS01CloudflareAPIToken = AcmeKey + "dns01-cloudflare"
-)
-
-type CloudflareToken struct {
-	APIToken string `json:"api_token" sensitive:"true"`
-}
-
-func (d *database) GetAcmeDNS01CloudflareToken() (CloudflareToken, error) {
-	return Get[CloudflareToken](d.etcd, AcmeDNS01CloudflareAPIToken)
+func (d *database) GetAcmeDNS01CloudflareToken() (config.CloudflareToken, error) {
+	return Config.Webserver.Acme.CloudflareDNSToken().Get(context.Background(), d.etcd)
 }
 
 func (d *database) SetAcmeDNS01CloudflareToken(token string) error {
-	var newToken CloudflareToken
+	var newToken config.CloudflareToken
 	newToken.APIToken = token
 
-	return Set(d.etcd, AcmeDNS01CloudflareAPIToken, true, newToken)
+	return Config.Webserver.Acme.CloudflareDNSToken().Put(context.Background(), d.etcd, newToken)
 }
 
 func (d *database) GetAcmeEmail() (string, error) {
-	return Get[string](d.etcd, AcmeEmailKey)
+	return Config.Webserver.Acme.Email().Get(context.Background(), d.etcd)
 }
 
 func (d *database) SetAcmeEmail(email string) error {
@@ -53,7 +43,7 @@ func (d *database) SetAcmeEmail(email string) error {
 		}
 	}
 
-	return Set(d.etcd, AcmeEmailKey, true, email)
+	return Config.Webserver.Acme.Email().Put(context.Background(), d.etcd, email)
 }
 
 func (d *database) SetAcmeProvider(providerURL string) error {
@@ -74,11 +64,11 @@ func (d *database) SetAcmeProvider(providerURL string) error {
 		}
 	}
 
-	return Set(d.etcd, AcmeProviderKey, true, providerURL)
+	return Config.Webserver.Acme.CAProvider().Put(context.Background(), d.etcd, providerURL)
 }
 
 func (d *database) GetAcmeProvider() (string, error) {
-	return Get[string](d.etcd, AcmeProviderKey)
+	return Config.Webserver.Acme.CAProvider().Get(context.Background(), d.etcd)
 }
 
 type CertMagicStore struct {

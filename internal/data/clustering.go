@@ -147,7 +147,8 @@ func (d *database) GetClusterNodeVersion(idHex string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("bad member ID arg (%v), expecting ID in Hex", err)
 	}
-	return Get[string](d.etcd, path.Join(NodeInfo, idHex, "version"))
+
+	return InternalConfig.Nodes.Version().Key(idHex).Get(context.Background(), d.etcd)
 }
 
 func (d *database) SetCurrentNodeVersion() error {
@@ -155,7 +156,8 @@ func (d *database) SetCurrentNodeVersion() error {
 		return fmt.Errorf("cannot manage cluster, cluster is external")
 	}
 
-	return Set(d.etcd, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "version"), true, config.Version)
+	return InternalConfig.Nodes.Version().Key(d.GetCurrentNodeID().String()).Put(context.Background(), d.etcd, config.Version)
+
 }
 
 // these two functions can still be used if the cluster is being managed externally
