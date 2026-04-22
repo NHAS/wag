@@ -27,20 +27,20 @@ func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error
 	return Config.Acls.Policies().Key(effects).Put(context.Background(), d.etcd, &policy)
 }
 
-func (d *database) GetPolicies() (result []control.PolicyData, err error) {
+func (d *database) GetPolicies() (policies []control.PolicyData, err error) {
 
-	order, values, err := Config.Acls.Policies().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	result, err := Config.Acls.Policies().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, r := range order {
+	for _, r := range result.Order {
 
-		result = append(result, control.PolicyData{
+		policies = append(policies, control.PolicyData{
 			Effects:      r,
-			PublicRoutes: values[r].Allow,
-			MfaRoutes:    values[r].Mfa,
-			DenyRoutes:   values[r].Deny,
+			PublicRoutes: result.Values[r].Allow,
+			MfaRoutes:    result.Values[r].Mfa,
+			DenyRoutes:   result.Values[r].Deny,
 		})
 	}
 

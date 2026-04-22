@@ -167,19 +167,7 @@ func (d *database) AuthoriseDevice(username, address string) error {
 }
 
 func (d *database) GetAllSessions() (sessions []config.DeviceSession, err error) {
-
-	order, data, err := InternalConfig.Devices.Sessions().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	// otherwise json returns null
-	sessions = []config.DeviceSession{}
-	for _, session := range order {
-		sessions = append(sessions, data[session])
-	}
-
-	return sessions, nil
+	return InternalConfig.Devices.Sessions().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
 func (d *database) markDeviceSessionStarted(address, username string) error {

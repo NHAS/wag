@@ -18,7 +18,7 @@ import (
 func createValidWebhook() data.WebhookCreateRequestDTO {
 	var newHook data.WebhookCreateRequestDTO
 	newHook.ID, _ = utils.GenerateRandomHex(16)
-	newHook.Action = string(config.CreateRegistrationToken)
+	newHook.Action = config.CreateRegistrationToken
 	newHook.AuthHeader, _ = utils.GenerateRandomHex(16)
 	newHook.JsonAttributeRoles.AsUsername = "username"
 	newHook.JsonAttributeRoles.AsRegistrationToken = "token"

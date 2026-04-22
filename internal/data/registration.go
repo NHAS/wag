@@ -68,17 +68,7 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 
 // Returns list of tokens
 func (d *database) GetRegistrationTokens() (results []control.RegistrationResult, err error) {
-
-	order, tokens, err := InternalConfig.RegistrationTokens().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-
-	for _, token := range order {
-		results = append(results, tokens[token])
-	}
-
-	return results, nil
+	return InternalConfig.RegistrationTokens().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
 func (d *database) DeleteRegistrationToken(identifier string) error {

@@ -52,67 +52,60 @@ func (d *database) GetWebhookLastRequest(id string) (string, error) {
 
 func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 
-	order, data, err := InternalConfig.Webhooks.Active().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	result, err := InternalConfig.Webhooks.Active().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
 	// otherwise json returns null
-	hooks = make([]WebhookGetResponseDTO, 0, len(data))
+	hooks = make([]WebhookGetResponseDTO, 0, len(result.Values))
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	for _, id := range order {
-		hooks = append(hooks, WebhookGetResponseDTO{Webhook: data[id]})
-
-		tetcd.GetTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithRev(response.Header.Revision))
-		tetcd.GetTx(then, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithRev(response.Header.Revision))
+	type lastRequestDataHandles struct {
+		time   *tetcd.GetHandle[time.Time]
+		status *tetcd.GetHandle[string]
 	}
 
-	resp, err := d.etcd.Txn(context.Background()).Then(lastRequestOps...).Commit()
+	handles := make([]lastRequestDataHandles, 0, len(result.Order))
+
+	for _, id := range result.Order {
+		hooks = append(hooks, WebhookGetResponseDTO{Webhook: result.Values[id]})
+
+		handles = append(handles,
+			lastRequestDataHandles{
+				time: tetcd.GetTx(then,
+					InternalConfig.Webhooks.LastRequests.Time().Key(id),
+					clientv3.WithRev(result.Rev),
+				),
+
+				status: tetcd.GetTx(then,
+					InternalConfig.Webhooks.LastRequests.Status().Key(id),
+					clientv3.WithRev(result.Rev),
+				),
+			})
+	}
+
+	err = txn.Commit()
 	// we'll just have no last_request times so this isnt critical
 	// intentional == nil
 	if err == nil {
-		for i := range resp.Responses {
+		for i := range handles {
 
-			if len(resp.Responses[i].GetResponseRange().Kvs) == 0 {
-				// webhook has never fired so ignore
+			status, err := handles[i].status.Value()
+			if err != nil {
+				log.Info().Err(err).Msg("could not fetch last request status from webhook")
 				continue
 			}
-
-			var t time.Time
-			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &t)
+			time, err := handles[i].time.Value()
 			if err != nil {
-				log.Error().Err(err).Str("last_request", string(resp.Responses[i].GetResponseRange().Kvs[0].Key)).Msg("could not unmarshal last request time from webhook")
+				log.Info().Err(err).Msg("could not fetch last request time from webhook")
 				continue
 			}
 
 			// As we're generating the txn list in order of the hooks we can do this. Its bad code and Im sure it'll blow up, but hey. Funni
-			hooks[i].LastRequestTime = t
-		}
-	}
-
-	resp, err = d.etcd.Txn(context.Background()).Then(lastRequestStatusOps...).Commit()
-	// we'll just have no last_request status' so this isnt critical
-	// intentional == nil
-	if err == nil {
-		for i := range resp.Responses {
-
-			if len(resp.Responses[i].GetResponseRange().Kvs) == 0 {
-				// webhook has never fired so ignore
-				continue
-			}
-
-			var status string
-			err = json.Unmarshal(resp.Responses[i].GetResponseRange().Kvs[0].Value, &status)
-			if err != nil {
-
-				log.Info().Err(err).Str("last_request", string(resp.Responses[i].GetResponseRange().Kvs[0].Key)).Msg("could not unmarshal last request status from webhook")
-				continue
-			}
-
-			// As we're generating the txn list in order of the hooks we can do this. Its bad code and Im sure it'll blow up, but hey. Funni
+			hooks[i].LastRequestTime = time
 			hooks[i].LastRequestStatus = status
 		}
 	}
@@ -313,22 +306,22 @@ func (d *database) CreateTempWebhook() (string, string, error) {
 	return temp.ID, authHeader, err
 }
 
-func (d *database) DeleteWebhooks(ids []string, txn *tetcd.TxnConditional) error {
+func (d *database) DeleteWebhooks(ids []string) error {
 
-	var ops []clientv3.Op
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
 	for _, id := range ids {
 
-		tetcd.DeleteTx(txn, InternalConfig.Webhooks.Active().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(txn, InternalConfig.Webhooks.Auth().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(then, InternalConfig.Webhooks.Active().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(then, InternalConfig.Webhooks.Auth().Key(id), clientv3.WithPrefix())
 		// this is a little gross, it might be better to make last requests a map
-		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Data().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Data().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithPrefix())
 	}
 
-	_, err := d.etcd.Txn(context.Background()).Then(ops...).Commit()
-	return err
+	return txn.Commit()
 }
 
 func Unpack(parent string, c map[string]any) []WebhookAttribute {
