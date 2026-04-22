@@ -345,9 +345,9 @@ type autoTypeInternalConfigWebhooks struct {
 	LastRequests autoTypeWebhooksLastRequests
 }
 
-// Active() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Active, value type any
-func (autoTypeInternalConfigWebhooks) Active() paths.MapPath[any] {
-	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Active", codecs.NewJsonCodec[any](), false)
+// Active() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Active, value type github.com/NHAS/wag/internal/config.Webhook
+func (autoTypeInternalConfigWebhooks) Active() paths.MapPath[config.Webhook] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Active", codecs.NewJsonCodec[config.Webhook](), false)
 }
 
 // Auth() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Auth, value type string
@@ -355,9 +355,9 @@ func (autoTypeInternalConfigWebhooks) Auth() paths.MapPath[string] {
 	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Auth", codecs.NewJsonCodec[string](), false)
 }
 
-// Temporary() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Temporary, value type any
-func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[any] {
-	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Temporary", codecs.NewJsonCodec[any](), false)
+// Temporary() is a map path with prefix wag-config-internal/InternalConfig/Webhooks/Temporary, value type github.com/NHAS/wag/internal/config.Webhook
+func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[config.Webhook] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Webhooks/Temporary", codecs.NewJsonCodec[config.Webhook](), false)
 }
 
 // Get fetches all fields of Webhooks in one or more transactions pinned to the same etcd revision.

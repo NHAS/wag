@@ -4,52 +4,39 @@ import (
 	"context"
 	"crypto/pbkdf2"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/go-playground/validator/v10"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func (d *database) GetWebhookAuthPath(id, plainTextCredentials string) (string, error) {
+func (d *database) generateWebhookSecret(id, plainTextCredentials string) (string, error) {
 
 	res, err := pbkdf2.Key(sha256.New, plainTextCredentials, []byte(id), 10, 32)
 	if err != nil {
 		return "", fmt.Errorf("unable to determine hash: %w", err)
 	}
 
-	result := path.Join(WebhookAuthPrefix, id, hex.EncodeToString(res))
-
-	return result, nil
-}
-
-type Webhook struct {
-	ID                 string                  `json:"id" validate:"required"`
-	Action             string                  `json:"action" validate:"required,oneof=create_token delete_device delete_user"`
-	JsonAttributeRoles WebhookAttributeMapping `json:"json_attribute_roles" validate:"required"`
-}
-
-type WebhookAttributeMapping struct {
-	AsUsername          string `json:"as_username" validate:"omitempty,max=255,min=1"`
-	AsDeviceTag         string `json:"as_device_tag" validate:"omitempty,max=255,min=1"`
-	AsRegistrationToken string `json:"as_registration_token" validate:"omitempty,max=255,min=1"`
-	AsDeviceIP          string `json:"as_device_ip" validate:"omitempty,max=255,min=1"`
+	return hex.EncodeToString(res), nil
 }
 
 type WebhookCreateRequestDTO struct {
-	Webhook
+	config.Webhook
 	AuthHeader string `json:"auth_header,omitempty" validate:"required,min=32,max=32"`
 }
 
 type WebhookGetResponseDTO struct {
-	Webhook
+	config.Webhook
 	LastRequestTime   time.Time `json:"time"`
 	LastRequestStatus string    `json:"status"`
 }
@@ -63,33 +50,24 @@ func (d *database) GetWebhookLastRequest(id string) (string, error) {
 	return InternalConfig.Webhooks.LastRequests.Data().Key(id).Get(context.Background(), d.etcd)
 }
 
-func (d *database) GetWebhook(id string) (WebhookGetResponseDTO, error) {
-
-	return Get[WebhookGetResponseDTO](d.etcd, ActiveWebhooksPrefix+id)
-}
-
 func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 
-	response, err := d.etcd.Get(context.Background(), ActiveWebhooksPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	order, data, err := InternalConfig.Webhooks.Active().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
 	// otherwise json returns null
-	hooks = []WebhookGetResponseDTO{}
-	lastRequestOps := []clientv3.Op{}
-	lastRequestStatusOps := []clientv3.Op{}
-	for _, res := range response.Kvs {
-		var hook WebhookGetResponseDTO
-		err := json.Unmarshal(res.Value, &hook)
-		if err != nil {
-			return nil, err
-		}
+	hooks = make([]WebhookGetResponseDTO, 0, len(data))
 
-		lastRequestOps = append(lastRequestOps, clientv3.OpGet(d.GetLastWebhookRequestPath(hook.ID, "time"), clientv3.WithRev(response.Header.Revision)))
-		lastRequestStatusOps = append(lastRequestStatusOps, clientv3.OpGet(d.GetLastWebhookRequestPath(hook.ID, "status"), clientv3.WithRev(response.Header.Revision)))
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
-		hooks = append(hooks, hook)
+	for _, id := range order {
+		hooks = append(hooks, WebhookGetResponseDTO{Webhook: data[id]})
+
+		tetcd.GetTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithRev(response.Header.Revision))
+		tetcd.GetTx(then, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithRev(response.Header.Revision))
 	}
 
 	resp, err := d.etcd.Txn(context.Background()).Then(lastRequestOps...).Commit()
@@ -147,17 +125,17 @@ func (d *database) CheckWebhookAuth(id, authHeader string) bool {
 		return false
 	}
 
-	path, err := d.GetWebhookAuthPath(id, authHeader)
+	key, err := d.generateWebhookSecret(id, authHeader)
 	if err != nil {
 		return false
 	}
 
-	resp, err := d.etcd.Get(context.Background(), path)
+	resp, err := InternalConfig.Webhooks.Auth().Key(id).Get(context.Background(), d.etcd)
 	if err != nil {
 		return false
 	}
 
-	return len(resp.Kvs) == 1
+	return subtle.ConstantTimeCompare([]byte(resp), []byte(key)) == 1
 }
 
 func (d *database) WebhookRecordLastRequest(id, authHeader, request string) error {
@@ -169,54 +147,42 @@ func (d *database) WebhookRecordLastRequest(id, authHeader, request string) erro
 		return fmt.Errorf("storing webhook request encountered an error, input was too big >4096 bytes")
 	}
 
-	requestBytes, _ := json.Marshal(request)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, elseHandle := txn.Conditional(clientv3util.KeyExists(InternalConfig.Webhooks.Active().Key(id).Key()))
 
-	timeBytes, _ := json.Marshal(time.Now())
+	activeHandle := tetcd.GetTx(then, InternalConfig.Webhooks.Active().Key(id))
+	tetcd.PutTx(then, InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
+	tetcd.PutTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), time.Now())
 
-	res, err := d.etcd.Txn(context.Background()).If(
-		clientv3util.KeyExists(ActiveWebhooksPrefix+id),
-	).Then(
-		clientv3.OpGet(ActiveWebhooksPrefix+id),
-		clientv3.OpPut(d.GetLastWebhookRequestPath(id, "data"), string(requestBytes)),
-		clientv3.OpPut(d.GetLastWebhookRequestPath(id, "time"), string(timeBytes)),
-	).Else(
-		clientv3.OpTxn(
-			[]clientv3.Cmp{
-				clientv3util.KeyExists(TempWebhooksPrefix + id),
-			},
-			[]clientv3.Op{
-				clientv3.OpPut(d.GetLastWebhookRequestPath(id, "data"), string(requestBytes)),
-			},
-			nil,
-		),
-	).Commit()
+	failureTxn := tetcd.SubTx(elseHandle)
+	failureThen, _ := failureTxn.Conditional(clientv3util.KeyExists(InternalConfig.Webhooks.Temporary().Key(id).Key()))
 
-	if res.Succeeded {
+	tetcd.PutTx(failureThen, InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
 
-		if len(res.Responses) != 3 {
-			return fmt.Errorf("unable read response incorrect size: %d", len(res.Responses))
-		}
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
 
-		if len(res.Responses[0].GetResponseRange().Kvs) != 1 {
-			return fmt.Errorf("incorrect key value size for getting webhook action: %q", id)
-		}
+	if txn.Succeeded() {
 
-		var hookSettings Webhook
-		err = json.Unmarshal(res.Responses[0].GetResponseRange().Kvs[0].Value, &hookSettings)
+		hookSettings, err := activeHandle.Value()
 		if err != nil {
-			return fmt.Errorf("unable to unmarshal webhook settings: %w", err)
+			return fmt.Errorf("failed to unmarshal webhook settings: %w", err)
 		}
 
 		go d.actionWebhook(hookSettings, &request)
+		return nil
 
-	} else if !res.Responses[0].GetResponseTxn().Succeeded {
+	}
+
+	if !failureTxn.Succeeded() {
 		return fmt.Errorf("webhook not found")
 	}
 
-	return err
+	return nil
 }
 
-func (d *database) actionWebhook(hook Webhook, request *string) {
+func (d *database) actionWebhook(hook config.Webhook, request *string) {
 
 	var c map[string]any
 
@@ -262,18 +228,18 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 
 	switch hook.Action {
 
-	case CreateRegistrationToken:
+	case config.CreateRegistrationToken:
 
 		err = d.AddRegistrationToken(Token, Username, "", "", nil, 1, DeviceTag)
 
-	case DeleteDevice:
+	case config.DeleteDevice:
 		if DeviceIP != "" {
 			err = d.DeleteDevice(DeviceIP)
 		} else {
 			err = d.DeleteDeviceByTag(DeviceTag)
 		}
 
-	case DeleteUser:
+	case config.DeleteUser:
 		err = d.DeleteUser(Username)
 	}
 
@@ -281,11 +247,12 @@ func (d *database) actionWebhook(hook Webhook, request *string) {
 	if err != nil {
 
 		status = err.Error()
-		log.Error().Err(err).Str("action", hook.Action).Str("hook_id", hook.ID).Msg("failed to action webhook")
+		log.Error().Err(err).Str("action", string(hook.Action)).Str("hook_id", hook.ID).Msg("failed to action webhook")
 		d.RaiseError(fmt.Errorf("unable to do %q via webhook %q as error occured: %w", hook.Action, hook.ID, err), nil)
 	}
 
-	Set(d.etcd, d.GetLastWebhookRequestPath(hook.ID, "status"), true, status)
+	InternalConfig.Webhooks.LastRequests.Status().Key(hook.ID).Put(context.Background(),
+		d.etcd, status)
 }
 
 func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
@@ -295,20 +262,19 @@ func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 		return fmt.Errorf("validation of new webhook failed: %w", err)
 	}
 
-	credPath, err := d.GetWebhookAuthPath(webhook.ID, webhook.AuthHeader)
+	secret, err := d.generateWebhookSecret(webhook.ID, webhook.AuthHeader)
 	if err != nil {
 		return fmt.Errorf("could not store auth materical for web hook: %w", err)
 	}
 
-	b, _ := json.Marshal(webhook)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
+	tetcd.DeleteTx(then, InternalConfig.Webhooks.Temporary().Key(webhook.ID), clientv3.WithPrefix())
+	tetcd.PutTx(then, InternalConfig.Webhooks.Auth().Key(webhook.ID), secret) // clears the lease that was created for the temporary webhook
+	tetcd.PutTx(then, InternalConfig.Webhooks.Active().Key(webhook.ID), webhook.Webhook)
 
-	_, err = d.etcd.Txn(context.Background()).Then(
-		clientv3.OpDelete(TempWebhooksPrefix+webhook.ID, clientv3.WithPrefix()),
-		clientv3.OpPut(credPath, "\"\""), // this clears the lease (hopefully)
-		clientv3.OpPut(ActiveWebhooksPrefix+webhook.ID, string(b)),
-	).Commit()
+	return txn.Commit()
 
-	return err
 }
 
 func (d *database) CreateTempWebhook() (string, string, error) {
@@ -329,31 +295,36 @@ func (d *database) CreateTempWebhook() (string, string, error) {
 		return "", "", fmt.Errorf("failed to generate auth header: %w", err)
 	}
 
-	authPath, err := d.GetWebhookAuthPath(temp.ID, authHeader)
+	secret, err := d.generateWebhookSecret(temp.ID, authHeader)
 	if err != nil {
 		return "", "", fmt.Errorf("could not use generated value as auth header: %w", err)
 	}
 
-	tempBytes, _ := json.Marshal(temp)
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
 
-	_, err = d.etcd.Txn(context.Background()).Then(
-		clientv3.OpPut(TempWebhooksPrefix+temp.ID, string(tempBytes), clientv3.WithLease(lease.ID)),
-		clientv3.OpPut(authPath, "\"\"", clientv3.WithLease(lease.ID)),
-	).Commit()
+	tetcd.PutTx(then, InternalConfig.Webhooks.Temporary().Key(temp.ID), temp.Webhook, clientv3.WithLease(lease.ID))
+	tetcd.PutTx(then, InternalConfig.Webhooks.Auth().Key(temp.ID), secret, clientv3.WithLease(lease.ID))
+
+	if err = txn.Commit(); err != nil {
+		return "", "", fmt.Errorf("failed to commit transaction for temp webhook: %w", err)
+	}
 
 	return temp.ID, authHeader, err
 }
 
-func (d *database) DeleteWebhooks(ids []string) error {
+func (d *database) DeleteWebhooks(ids []string, txn *tetcd.TxnConditional) error {
 
 	var ops []clientv3.Op
 
 	for _, id := range ids {
-		ops = append(ops,
-			clientv3.OpDelete(ActiveWebhooksPrefix+id, clientv3.WithPrefix()),
-			clientv3.OpDelete(d.GetLastWebhookRequestPath(id), clientv3.WithPrefix()),
-			clientv3.OpDelete(WebhookAuthPrefix+id, clientv3.WithPrefix()),
-		)
+
+		tetcd.DeleteTx(txn, InternalConfig.Webhooks.Active().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(txn, InternalConfig.Webhooks.Auth().Key(id), clientv3.WithPrefix())
+		// this is a little gross, it might be better to make last requests a map
+		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Data().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithPrefix())
+		tetcd.DeleteTx(txn, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithPrefix())
 	}
 
 	_, err := d.etcd.Txn(context.Background()).Then(ops...).Commit()

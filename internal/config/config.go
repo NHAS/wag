@@ -261,10 +261,24 @@ const (
 	DeleteUser              WebhookActionType = "delete_user"
 )
 
+type Webhook struct {
+	ID                 string                  `json:"id" validate:"required"`
+	Action             WebhookActionType       `json:"action" validate:"required,oneof=create_token delete_device delete_user"`
+	JsonAttributeRoles WebhookAttributeMapping `json:"json_attribute_roles" validate:"required"`
+}
+
+type WebhookAttributeMapping struct {
+	AsUsername          string `json:"as_username" validate:"omitempty,max=255,min=1"`
+	AsDeviceTag         string `json:"as_device_tag" validate:"omitempty,max=255,min=1"`
+	AsRegistrationToken string `json:"as_registration_token" validate:"omitempty,max=255,min=1"`
+	AsDeviceIP          string `json:"as_device_ip" validate:"omitempty,max=255,min=1"`
+}
+
 type Webhooks struct {
+	// webhook id -> auth string
 	Auth      map[string]string
-	Temporary map[string]any
-	Active    map[string]any
+	Temporary map[string]Webhook
+	Active    map[string]Webhook
 
 	LastRequests LastRequests
 }

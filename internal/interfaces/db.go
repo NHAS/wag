@@ -56,7 +56,6 @@ type Webhooks interface {
 	WebhookRecordLastRequest(id, authHeader, request string) error
 
 	CreateWebhook(webhook data.WebhookCreateRequestDTO) error
-	GetWebhook(id string) (data.WebhookGetResponseDTO, error)
 	GetWebhooks() (hooks []data.WebhookGetResponseDTO, err error)
 	DeleteWebhooks(ids []string) error
 
