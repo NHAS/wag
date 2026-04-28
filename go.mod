@@ -34,7 +34,7 @@ require (
 )
 
 require (
-	github.com/NHAS/tetcd v0.0.33-beta // indirect
+	github.com/NHAS/tetcd v0.0.38-beta // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/caddyserver/zerossl v0.1.4 // indirect
@@ -45,6 +45,7 @@ require (
 	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect

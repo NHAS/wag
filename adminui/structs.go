@@ -122,10 +122,10 @@ type LoginRequestDTO struct {
 }
 
 type LoginResponsetDTO struct {
-	Success    bool              `json:"success"`
-	User       data.AdminUserDTO `json:"user"`
-	CsrfToken  string            `json:"csrfToken"`
-	CsrfHeader string            `json:"csrfHeader"`
+	Success    bool                `json:"success"`
+	User       config.AdminUserDTO `json:"user"`
+	CsrfToken  string              `json:"csrfToken"`
+	CsrfHeader string              `json:"csrfHeader"`
 }
 
 type EventsResponseDTO struct {

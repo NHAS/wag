@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/NHAS/tetcd"
+	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/crypto/argon2"
@@ -19,54 +20,25 @@ const (
 	saltLength        = 8
 	LocalUser         = "local"
 	OidcUser          = "oidc"
-
-	AdminUsersKey = "admin-users-"
 )
 
 // DTO
-type AdminUserDTO struct {
-	Type      string `json:"user_type"`
-	Username  string `json:"username"`
-	Attempts  int    `json:"attempts"`
-	DateAdded string `json:"date_added"`
-	LastLogin string `json:"last_login"`
-	IP        string `json:"ip"`
-	Change    bool   `json:"change"`
-	OidcGUID  string `json:"oidc_guid"`
-}
-
-type admin struct {
-	AdminUserDTO
-	Hash string
-}
 
 func (d *database) IncrementAdminAuthenticationAttempt(username string) error {
-	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
-
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("invalid number of admin keys")
-		}
-
-		var admin admin
-		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
-		if err != nil {
-			return "", err
-		}
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(admin config.Admin) (config.Admin, error) {
 
 		l, err := d.GetLockout()
 		if err != nil {
-			return "", err
+			return config.Admin{}, err
 		}
 
 		if admin.Attempts < l {
 			admin.Attempts++
 		}
 
-		b, _ := json.Marshal(admin)
-
-		return string(b), nil
-
+		return admin, nil
 	})
+
 }
 
 func (d *database) CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
@@ -81,8 +53,8 @@ func (d *database) CreateLocalAdminUser(username, password string, changeOnFirst
 
 	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
-	newAdmin := admin{
-		AdminUserDTO: AdminUserDTO{
+	newAdmin := config.Admin{
+		AdminUserDTO: config.AdminUserDTO{
 			Type:      LocalUser,
 			Username:  username,
 			DateAdded: time.Now().Format(time.RFC3339),
@@ -91,30 +63,57 @@ func (d *database) CreateLocalAdminUser(username, password string, changeOnFirst
 		Hash: base64.RawStdEncoding.EncodeToString(append(hash, salt...)),
 	}
 
-	b, _ := json.Marshal(newAdmin)
+	adminUserPath := InternalConfig.Admins().Key(username)
 
-	_, err = d.etcd.Put(context.Background(), AdminUsersKey+username, string(b))
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(adminUserPath.Missing())
+	tetcd.PutTx(then, adminUserPath, newAdmin)
 
-	return err
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("failed to add %q admin to database transaction failed: %w", username, err)
+	}
+
+	if !txn.Succeeded() {
+		return fmt.Errorf("admin user %q already exists", username)
+	}
+
+	return nil
 }
 
-func (d *database) CreateOidcAdminUser(username, guid string) (AdminUserDTO, error) {
+func (d *database) CreateOidcAdminUser(username, guid string) (config.AdminUserDTO, error) {
 
-	newAdmin := admin{
-		AdminUserDTO: AdminUserDTO{
+	dummy, err := utils.GenerateRandomHex(32)
+	if err != nil {
+		return config.AdminUserDTO{}, err
+	}
+
+	newAdmin := config.Admin{
+		AdminUserDTO: config.AdminUserDTO{
 			Type:      OidcUser,
 			OidcGUID:  guid,
 			Username:  username,
 			DateAdded: time.Now().Format(time.RFC3339),
 		},
-		Hash: "",
+		Hash: base64.RawStdEncoding.EncodeToString([]byte(dummy)), // we set a dummy unguessable password as the oidc admin hash, as that isnt its login mechanism
 	}
 
-	b, _ := json.Marshal(newAdmin)
+	adminUserPath := InternalConfig.Admins().Key(username)
+	oidcReferencePath := InternalConfig.References.Admins.OidcGuid().Key(guid)
 
-	_, err := d.etcd.Put(context.Background(), AdminUsersKey+guid, string(b))
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then, _ := txn.Conditional(adminUserPath.Missing(), oidcReferencePath.Missing())
+	tetcd.PutTx(then, adminUserPath, newAdmin)
+	tetcd.PutTx(then, oidcReferencePath, guid)
 
-	return newAdmin.AdminUserDTO, err
+	if err := txn.Commit(); err != nil {
+		return config.AdminUserDTO{}, fmt.Errorf("failed to add %q oidc admin to database transaction failed: %w", username, err)
+	}
+
+	if !txn.Succeeded() {
+		return config.AdminUserDTO{}, fmt.Errorf("oidc admin user %q with GUID %q already exists", username, guid)
+	}
+
+	return newAdmin.AdminUserDTO, nil
 }
 
 func (d *database) CompareAdminKeys(username, password string) error {
@@ -129,38 +128,32 @@ func (d *database) CompareAdminKeys(username, password string) error {
 		subtle.ConstantTimeCompare(hash, hash)
 	}
 
-	err := d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
-
-		var result admin
-		err := json.Unmarshal(gr.Kvs[0].Value, &result)
-		if err != nil {
-			return "", err
-		}
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
 
 		lockout, err := d.GetLockout()
 		if err != nil {
-			return "", err
+			return config.Admin{}, err
 		}
-		if result.Attempts >= lockout {
+		if current.Attempts >= lockout {
 			wasteTime()
-			return "", errors.New("account locked")
+			return config.Admin{}, errors.New("account locked")
 		}
 
-		if result.Type == "" {
-			result.Type = LocalUser
+		if current.Type == "" {
+			current.Type = LocalUser
 		}
 
-		if result.Type == OidcUser {
-			return "", errors.New("oidc users cannot sign in with compare admin keys")
+		if current.Type == OidcUser {
+			return config.Admin{}, errors.New("oidc users cannot sign in with compare admin keys")
 		}
 
-		rawHashSalt, err := base64.RawStdEncoding.DecodeString(result.Hash)
+		rawHashSalt, err := base64.RawStdEncoding.DecodeString(current.Hash)
 		if err != nil {
-			return "", err
+			return config.Admin{}, err
 		}
 
 		if len(rawHashSalt) < saltLength*2 {
-			return "", errors.New("user has was not large enough to contain salt")
+			return config.Admin{}, errors.New("user has was not large enough to contain salt")
 		}
 
 		salt := rawHashSalt[len(rawHashSalt)-saltLength*2:]
@@ -169,97 +162,104 @@ func (d *database) CompareAdminKeys(username, password string) error {
 		thisHash := argon2.IDKey([]byte(password), salt, 1, 10*1024, 4, 32)
 
 		if subtle.ConstantTimeCompare(thisHash, expectedHash) != 1 {
-			return "", errors.New("passwords did not match")
+			return config.Admin{}, errors.New("passwords did not match")
 		}
 
-		result.Attempts = 0
-		b, _ := json.Marshal(result)
+		current.Attempts = 0
 
-		return string(b), nil
+		return current, nil
+
 	})
-
-	return err
 }
 
 // Lock admin account and make them unable to login
 func (d *database) SetAdminUserLock(username string) error {
 
-	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
-		var result admin
-		err := json.Unmarshal(gr.Kvs[0].Value, &result)
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
+		var err error
+		current.Attempts, err = d.GetLockout()
 		if err != nil {
-			return "", err
+			return config.Admin{}, err
 		}
-
-		result.Attempts, err = d.GetLockout()
-		if err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(result)
-
-		return string(b), nil
-
+		return current, nil
 	})
 }
 
 // Unlock admin account
 func (d *database) SetAdminUserUnlock(username string) error {
 
-	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (string, error) {
-		var result admin
-		err := json.Unmarshal(gr.Kvs[0].Value, &result)
-		if err != nil {
-			return "", err
-		}
-
-		result.Attempts = 0
-		b, _ := json.Marshal(result)
-
-		return string(b), nil
-
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
+		current.Attempts = 0
+		return current, nil
 	})
 }
 
 func (d *database) DeleteAdminUser(username string) error {
 
-	_, err := d.etcd.Delete(context.Background(), AdminUsersKey+username, clientv3.WithPrefix())
+	result, err := InternalConfig.Admins().Key(username).Delete(context.Background(), d.etcd, clientv3.WithPrevKV())
 	if err != nil {
 		return err
 	}
 
-	return err
+	if len(result.PrevValues) > 0 {
+		// if we actually delete something, and that something had a oidc guid, delete the reference
+
+		guid := result.PrevValues[0].OidcGUID
+		if len(guid) == 0 {
+			return nil
+		}
+
+		_, err := InternalConfig.References.Admins.OidcGuid().Key(guid).Delete(context.Background(), d.etcd)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (d *database) GetAdminUser(id string) (a AdminUserDTO, err error) {
+func (d *database) GetAdminUser(username string) (a config.AdminUserDTO, err error) {
 
-	response, err := d.etcd.Get(context.Background(), AdminUsersKey+id)
+	response, err := InternalConfig.Admins().Key(username).Get(context.Background(), d.etcd)
 	if err != nil {
 		return a, err
 	}
 
-	if len(response.Kvs) != 1 {
-		return a, errors.New("invalid number of admin users")
-	}
-
-	err = json.Unmarshal(response.Kvs[0].Value, &a)
-	return
+	return response.AdminUserDTO, nil
 }
 
-func (d *database) GetAllAdminUsers() (adminUsers []AdminUserDTO, err error) {
+func (d *database) GetOidcAdminUser(subject string) (a config.AdminUserDTO, err error) {
 
-	response, err := d.etcd.Get(context.Background(), AdminUsersKey, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
+	adminUsername, err := InternalConfig.References.Admins.OidcGuid().Key(subject).Get(context.Background(), d.etcd)
+	if err != nil {
+		return config.AdminUserDTO{}, fmt.Errorf("no username found for subject: %s: %w", subject, err)
+	}
+
+	response, err := InternalConfig.Admins().Key(adminUsername).Get(context.Background(), d.etcd)
+	if err != nil {
+		return config.AdminUserDTO{}, err
+	}
+
+	if response.Type != OidcUser {
+		return config.AdminUserDTO{}, fmt.Errorf("user is not an OIDC user")
+	}
+
+	if len(response.OidcGUID) != 0 && response.OidcGUID != subject {
+		return config.AdminUserDTO{}, fmt.Errorf("OIDC GUID does not match subject: %s", subject)
+	}
+
+	return response.AdminUserDTO, nil
+}
+
+func (d *database) GetAllAdminUsers() (adminUsers []config.AdminUserDTO, err error) {
+
+	response, err := InternalConfig.Admins().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, res := range response.Kvs {
-		var admin AdminUserDTO
-		err := json.Unmarshal(res.Value, &admin)
-		if err != nil {
-			return nil, err
-		}
-
-		adminUsers = append(adminUsers, admin)
+	for _, admin := range response {
+		adminUsers = append(adminUsers, admin.AdminUserDTO)
 	}
 
 	return
@@ -277,49 +277,25 @@ func (d *database) SetAdminPassword(username, password string) error {
 
 	hash := argon2.IDKey([]byte(password), []byte(salt), 1, 10*1024, 4, 32)
 
-	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
-
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("invalid number of admin users")
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
+		if current.Type == current.OidcGUID {
+			return config.Admin{}, errors.New("cannot set password for OIDC user")
 		}
 
-		var admin admin
-		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
-		if err != nil {
-			return "", err
-		}
-
-		admin.Change = false
-		admin.Hash = base64.RawStdEncoding.EncodeToString(append(hash, salt...))
-
-		b, _ := json.Marshal(admin)
-
-		return string(b), nil
-
+		current.Change = false
+		current.Hash = base64.RawStdEncoding.EncodeToString(append(hash, salt...))
+		return current, nil
 	})
 
 }
 
 func (d *database) SetLastLoginInformation(username, ip string) error {
-	return d.doSafeUpdate(context.Background(), AdminUsersKey+username, false, func(gr *clientv3.GetResponse) (value string, err error) {
 
-		if len(gr.Kvs) != 1 {
-			return "", errors.New("invalid number of admin users")
-		}
+	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
 
-		var admin admin
-		err = json.Unmarshal(gr.Kvs[0].Value, &admin)
-		if err != nil {
-			return "", err
-		}
+		current.LastLogin = time.Now().Format(time.RFC3339)
+		current.IP = ip
 
-		admin.LastLogin = time.Now().Format(time.RFC3339)
-		admin.IP = ip
-
-		b, _ := json.Marshal(admin)
-
-		return string(b), nil
-
+		return current, nil
 	})
-
 }

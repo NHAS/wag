@@ -6,6 +6,7 @@ import (
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
+	tree "github.com/NHAS/tetcd/tree"
 	watch "github.com/NHAS/tetcd/watch"
 	specialist "github.com/NHAS/tetcd/watch/specialist"
 	config "github.com/NHAS/wag/internal/config"
@@ -207,6 +208,35 @@ func (a autoTypeInternalConfigNodes) Watch(ctx context.Context, cli *v3.Client) 
 	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Nodes/", a.GetWithFail)
 }
 
+type autoTypeReferencesAdmins struct{}
+
+// OidcGuid() is a map path with prefix wag-config-internal/InternalConfig/References/Admins/OidcGuid, value type string
+func (autoTypeReferencesAdmins) OidcGuid() paths.MapPath[string] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/References/Admins/OidcGuid", codecs.NewJsonCodec[string](), false)
+}
+
+// Get fetches all fields of AdminsReferences in one or more transactions pinned to the same etcd revision.
+func (a autoTypeReferencesAdmins) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.AdminsReferences, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
+	h0_0 := tetcd.ListTx(txn0.Then(), a.OidcGuid())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.OidcGuid, err = h0_0.Entries()
+	if err != nil && failEarly {
+		return result, err
+	}
+	return result, nil
+}
+func (a autoTypeReferencesAdmins) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.AdminsReferences, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full AdminsReferences struct whenever any sub-key changes.
+func (a autoTypeReferencesAdmins) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.AdminsReferences] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/References/Admins/", a.GetWithFail)
+}
+
 type autoTypeReferencesDevices struct{}
 
 // Address() is a map path with prefix wag-config-internal/InternalConfig/References/Devices/Address, value type github.com/NHAS/wag/internal/config.DeviceRef
@@ -257,27 +287,33 @@ func (a autoTypeReferencesDevices) Watch(ctx context.Context, cli *v3.Client) *w
 }
 
 type autoTypeInternalConfigReferences struct {
+	Admins  autoTypeReferencesAdmins
 	Devices autoTypeReferencesDevices
 }
 
 // Get fetches all fields of References in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigReferences) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.References, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Devices.Address())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Devices.PublicKey())
-	h0_2 := tetcd.ListTx(txn0.Then(), a.Devices.Tag())
+	h0_0 := tetcd.ListTx(txn0.Then(), a.Admins.OidcGuid())
+	h0_1 := tetcd.ListTx(txn0.Then(), a.Devices.Address())
+	h0_2 := tetcd.ListTx(txn0.Then(), a.Devices.PublicKey())
+	h0_3 := tetcd.ListTx(txn0.Then(), a.Devices.Tag())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
-	result.Devices.Address, err = h0_0.Entries()
+	result.Admins.OidcGuid, err = h0_0.Entries()
 	if err != nil && failEarly {
 		return result, err
 	}
-	result.Devices.PublicKey, err = h0_1.Entries()
+	result.Devices.Address, err = h0_1.Entries()
 	if err != nil && failEarly {
 		return result, err
 	}
-	result.Devices.Tag, err = h0_2.Entries()
+	result.Devices.PublicKey, err = h0_2.Entries()
+	if err != nil && failEarly {
+		return result, err
+	}
+	result.Devices.Tag, err = h0_3.Entries()
 	if err != nil && failEarly {
 		return result, err
 	}
@@ -415,6 +451,11 @@ type autoTypeInternalConfig struct {
 	Webhooks   autoTypeInternalConfigWebhooks
 }
 
+// Admins() is a map path with prefix wag-config-internal/InternalConfig/Admins, value type github.com/NHAS/wag/internal/config.Admin
+func (autoTypeInternalConfig) Admins() paths.MapPath[config.Admin] {
+	return paths.NewMapPath("wag-config-internal/InternalConfig/Admins", codecs.NewJsonCodec[config.Admin](), false)
+}
+
 // RegistrationTokens() is a map path with prefix wag-config-internal/InternalConfig/RegistrationTokens, value type github.com/NHAS/wag/pkg/control.RegistrationResult
 func (autoTypeInternalConfig) RegistrationTokens() paths.MapPath[control.RegistrationResult] {
 	return paths.NewMapPath("wag-config-internal/InternalConfig/RegistrationTokens", codecs.NewJsonCodec[control.RegistrationResult](), false)
@@ -425,4 +466,34 @@ func (autoTypeInternalConfig) Users() paths.MapPath[config.UserModel] {
 	return paths.NewMapPath("wag-config-internal/InternalConfig/Users", codecs.NewJsonCodec[config.UserModel](), false)
 }
 
-var InternalConfig = autoTypeInternalConfig{}
+var (
+	InternalConfig       = autoTypeInternalConfig{}
+	InternalConfigDiffer = tree.NewTreeWithPrefix[config.InternalConfig]("wag-config-internal")
+)
+
+// init() builds the tree structure to automatically apply diffs to etcd
+func init() {
+	InternalConfigDiffer.Register(InternalConfig.Admins())
+	InternalConfigDiffer.Register(InternalConfig.Devices.Challenges())
+	InternalConfigDiffer.Register(InternalConfig.Devices.DHCP.Abandoned())
+	InternalConfigDiffer.Register(InternalConfig.Devices.DHCP.End())
+	InternalConfigDiffer.Register(InternalConfig.Devices.DHCP.Locks())
+	InternalConfigDiffer.Register(InternalConfig.Devices.Machines())
+	InternalConfigDiffer.Register(InternalConfig.Devices.Sessions())
+	InternalConfigDiffer.Register(InternalConfig.Indexes.Groups())
+	InternalConfigDiffer.Register(InternalConfig.Indexes.UserMembership())
+	InternalConfigDiffer.Register(InternalConfig.Nodes.Errors())
+	InternalConfigDiffer.Register(InternalConfig.Nodes.Version())
+	InternalConfigDiffer.Register(InternalConfig.References.Admins.OidcGuid())
+	InternalConfigDiffer.Register(InternalConfig.References.Devices.Address())
+	InternalConfigDiffer.Register(InternalConfig.References.Devices.PublicKey())
+	InternalConfigDiffer.Register(InternalConfig.References.Devices.Tag())
+	InternalConfigDiffer.Register(InternalConfig.RegistrationTokens())
+	InternalConfigDiffer.Register(InternalConfig.Users())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.Active())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.Auth())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.LastRequests.Data())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.LastRequests.Status())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.LastRequests.Time())
+	InternalConfigDiffer.Register(InternalConfig.Webhooks.Temporary())
+}

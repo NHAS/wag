@@ -606,78 +606,6 @@ func (d *database) TearDown() error {
 	return nil
 }
 
-func (d *database) doSafeUpdate(ctx context.Context, key string, create bool, mutateFunc func(*clientv3.GetResponse) (value string, err error)) error {
-	//https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/storage/etcd3/store.go#L382
-
-	if mutateFunc == nil {
-		return errors.New("no mutate function set in safe update")
-	}
-
-	origState, err := d.etcd.Get(ctx, key)
-	if err != nil {
-		return err
-	}
-
-	if create && origState.Count == 0 {
-
-		newValue, err := mutateFunc(origState)
-		if err != nil {
-			return err
-		}
-
-		txnResp, err := d.etcd.KV.Txn(ctx).If(
-			clientv3util.KeyMissing(key),
-		).Then(
-			clientv3.OpPut(key, newValue),
-		).Else(
-			clientv3.OpGet(key),
-		).Commit()
-
-		if err != nil {
-			return err
-		}
-
-		if txnResp.Succeeded {
-			return nil
-		}
-		// If the key was created while we were trying to create it, do the normal update proceedure
-
-		origState = (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-	}
-
-	for {
-		if origState.Count == 0 {
-			return errors.New("no record found")
-		}
-
-		newValue, err := mutateFunc(origState)
-		if err != nil {
-			return err
-		}
-
-		txnResp, err := d.etcd.KV.Txn(ctx).If(
-			clientv3.Compare(clientv3.ModRevision(key), "=", origState.Kvs[0].ModRevision),
-		).Then(
-			clientv3.OpPut(key, newValue),
-		).Else(
-			clientv3.OpGet(key),
-		).Commit()
-
-		if err != nil {
-			return err
-		}
-
-		if !txnResp.Succeeded {
-			origState = (*clientv3.GetResponse)(txnResp.Responses[0].GetResponseRange())
-			log.Debug().Err(err).Msg("updating state failed")
-
-			continue
-		}
-
-		return err
-	}
-}
-
 func (d *database) GetInitialData() (users []config.UserModel, devices []config.Device, err error) {
 	txn := d.etcd.Txn(context.Background())
 	txn.Then(clientv3.OpGet(UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
@@ -734,15 +662,6 @@ func (d *database) Put(key, value string) error {
 	cancel()
 
 	return err
-}
-
-func (d *database) SplitKey(expected int, stripPrefix, key string) ([]string, error) {
-	parts := strings.SplitN(strings.TrimPrefix(key, stripPrefix), "-", expected)
-	if len(parts) != expected {
-		return nil, fmt.Errorf("unexpected number of arguments, expected %d, got %d for key %q", expected, len(parts), key)
-	}
-
-	return parts, nil
 }
 
 func (d *database) RegisterClusterHealthListener(f func(status string)) (string, error) {

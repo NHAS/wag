@@ -92,9 +92,6 @@ type Database interface {
 
 	Watchers
 
-	// todo remove from here
-	SplitKey(expected int, stripPrefix, key string) ([]string, error)
-
 	RawRV
 
 	RawConnection

@@ -1,10 +1,12 @@
 package interfaces
 
-import "github.com/NHAS/wag/internal/data"
+import (
+	"github.com/NHAS/wag/internal/config"
+)
 
 type AdminWriter interface {
 	CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error
-	CreateOidcAdminUser(username, guid string) (data.AdminUserDTO, error)
+	CreateOidcAdminUser(username, guid string) (config.AdminUserDTO, error)
 
 	DeleteAdminUser(username string) error
 
@@ -14,8 +16,9 @@ type AdminWriter interface {
 }
 
 type AdminReader interface {
-	GetAdminUser(id string) (a data.AdminUserDTO, err error)
-	GetAllAdminUsers() (adminUsers []data.AdminUserDTO, err error)
+	GetAdminUser(id string) (a config.AdminUserDTO, err error)
+	GetOidcAdminUser(subject string) (a config.AdminUserDTO, err error)
+	GetAllAdminUsers() (adminUsers []config.AdminUserDTO, err error)
 
 	CompareAdminKeys(username, password string) error
 }

@@ -27,6 +27,26 @@ func (wsg *WagControlSocketServer) getAdminUser(w http.ResponseWriter, r *http.R
 
 }
 
+func (wsg *WagControlSocketServer) getOidcAdminUser(w http.ResponseWriter, r *http.Request) {
+	subject := r.URL.Query().Get("subject")
+
+	user, err := wsg.db.GetOidcAdminUser(subject)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b, err := json.Marshal(user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(b)
+
+}
+
 func (wsg *WagControlSocketServer) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {

@@ -405,7 +405,8 @@ func (d *database) UpdateDevicePublicKey(username, address string, publicKey wgt
 		return err
 	}
 
-	return InternalConfig.References.Devices.PublicKey().Delete(context.Background(), d.etcd, beforeUpdate)
+	_, err = InternalConfig.References.Devices.PublicKey().Key(beforeUpdate).Delete(context.Background(), d.etcd)
+	return err
 }
 
 func (d *database) GetDeviceByAddress(address string) (config.Device, error) {

@@ -228,12 +228,29 @@ type UserModel struct {
 	Enforcing bool
 }
 
+type AdminUserDTO struct {
+	Type      string `json:"user_type"`
+	Username  string `json:"username"`
+	Attempts  int    `json:"attempts"`
+	DateAdded string `json:"date_added"`
+	LastLogin string `json:"last_login"`
+	IP        string `json:"ip"`
+	Change    bool   `json:"change"`
+	OidcGUID  string `json:"oidc_guid"`
+}
+
+type Admin struct {
+	AdminUserDTO
+	Hash string
+}
+
 type InternalConfig struct {
 	RegistrationTokens map[string]control.RegistrationResult
 
 	Devices Devices
 
-	Users map[string]UserModel
+	Users  map[string]UserModel
+	Admins map[string]Admin
 
 	Indexes    Indexes
 	References References
@@ -328,6 +345,12 @@ type Indexes struct {
 
 type References struct {
 	Devices DevicesReferences
+	Admins  AdminsReferences
+}
+
+type AdminsReferences struct {
+	// GUID -> admin username
+	OidcGuid map[string]string
 }
 
 type DeviceRef struct {

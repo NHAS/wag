@@ -32,7 +32,7 @@ import (
 )
 
 type AdminUI struct {
-	sessionManager *session.SessionStore[data.AdminUserDTO]
+	sessionManager *session.SessionStore[config.AdminUserDTO]
 
 	ctrl     *wagctl.CtrlClient
 	firewall *router.Firewall
@@ -161,7 +161,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 
 	adminUI.csrfHeaderName = "WAG-CSRF"
 
-	adminUI.sessionManager, err = session.NewStore[data.AdminUserDTO]("admin", adminUI.csrfHeaderName, 1*time.Hour, 28800, false)
+	adminUI.sessionManager, err = session.NewStore[config.AdminUserDTO]("admin", adminUI.csrfHeaderName, 1*time.Hour, 28800, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cookie session store: %s", err)
 	}
@@ -211,7 +211,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		},
-		func(w http.ResponseWriter, r *http.Request, d data.AdminUserDTO) bool {
+		func(w http.ResponseWriter, r *http.Request, d config.AdminUserDTO) bool {
 
 			key, adminDetails := adminUI.sessionManager.GetSessionFromRequest(r)
 			if adminDetails != nil {

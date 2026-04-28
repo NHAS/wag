@@ -159,7 +159,7 @@ func (c *CtrlClient) UnlockDevice(address string) error {
 }
 
 // List Admin users, or if username is supplied get details from single user
-func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO, err error) {
+func (c *CtrlClient) ListAdminUsers(username string) (users []config.AdminUserDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/list?username=" + url.QueryEscape(username))
 	if err != nil {
@@ -182,9 +182,31 @@ func (c *CtrlClient) ListAdminUsers(username string) (users []data.AdminUserDTO,
 }
 
 // Return the admin user details
-func (c *CtrlClient) GetAdminUser(username string) (user data.AdminUserDTO, err error) {
+func (c *CtrlClient) GetAdminUser(username string) (user config.AdminUserDTO, err error) {
 
 	response, err := c.httpClient.Get("http://unix/webadmin/user?username=" + url.QueryEscape(username))
+	if err != nil {
+		return user, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		result, err := io.ReadAll(response.Body)
+		if err != nil {
+			return user, err
+		}
+
+		return user, errors.New(string(result))
+	}
+
+	err = safedecoder.Decoder(response.Body).Decode(&user)
+
+	return
+}
+
+func (c *CtrlClient) GetOidcAdminUser(subject string) (user config.AdminUserDTO, err error) {
+
+	response, err := c.httpClient.Get("http://unix/webadmin/oidc_user?subject=" + url.QueryEscape(subject))
 	if err != nil {
 		return user, err
 	}

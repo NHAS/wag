@@ -6,6 +6,7 @@ import (
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
+	tree "github.com/NHAS/tetcd/tree"
 	watch "github.com/NHAS/tetcd/watch"
 	specialist "github.com/NHAS/tetcd/watch/specialist"
 	acls "github.com/NHAS/wag/internal/acls"
@@ -1326,4 +1327,73 @@ func (autoTypeConfig) Socket() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Socket", codecs.NewJsonCodec[string]())
 }
 
-var Config = autoTypeConfig{}
+var (
+	Config       = autoTypeConfig{}
+	ConfigDiffer = tree.NewTreeWithPrefix[config.Config]("wag-config")
+)
+
+// init() builds the tree structure to automatically apply diffs to etcd
+func init() {
+	ConfigDiffer.Register(Config.Acls.Groups())
+	ConfigDiffer.Register(Config.Acls.Policies())
+	ConfigDiffer.Register(Config.CheckUpdates())
+	ConfigDiffer.Register(Config.DevMode())
+	ConfigDiffer.Register(Config.ExposePorts())
+	ConfigDiffer.Register(Config.GID())
+	ConfigDiffer.Register(Config.NAT())
+	ConfigDiffer.Register(Config.NATExcludeRanges())
+	ConfigDiffer.Register(Config.NumberProxies())
+	ConfigDiffer.Register(Config.Socket())
+	ConfigDiffer.Register(Config.Webserver.Acme.CAProvider())
+	ConfigDiffer.Register(Config.Webserver.Acme.CloudflareDNSToken())
+	ConfigDiffer.Register(Config.Webserver.Acme.Email())
+	ConfigDiffer.Register(Config.Webserver.Lockout())
+	ConfigDiffer.Register(Config.Webserver.Management.Enabled())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.CertificatePEM())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.CertificatePath())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.Domain())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.ListenAddress())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.PrivateKeyPEM())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.PrivateKeyPath())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.StaticCerts())
+	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.TLS())
+	ConfigDiffer.Register(Config.Webserver.Management.OIDC.ClientID())
+	ConfigDiffer.Register(Config.Webserver.Management.OIDC.ClientSecret())
+	ConfigDiffer.Register(Config.Webserver.Management.OIDC.Enabled())
+	ConfigDiffer.Register(Config.Webserver.Management.OIDC.IssuerURL())
+	ConfigDiffer.Register(Config.Webserver.Management.Password.Enabled())
+	ConfigDiffer.Register(Config.Webserver.Public.DownloadConfigFileName())
+	ConfigDiffer.Register(Config.Webserver.Public.ExternalAddress())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.CertificatePEM())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.CertificatePath())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.Domain())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.ListenAddress())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.PrivateKeyPEM())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.PrivateKeyPath())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.StaticCerts())
+	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.TLS())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.DefaultMethod())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.CertificatePEM())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.CertificatePath())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.Domain())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.ListenAddress())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.PrivateKeyPEM())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.PrivateKeyPath())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.StaticCerts())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.TLS())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.HelpMail())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.Issuer())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.MaxSessionLifetimeMinutes())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.Methods())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.OIDC())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.PAM.ServiceName())
+	ConfigDiffer.Register(Config.Webserver.Tunnel.SessionInactivityTimeoutMinutes())
+	ConfigDiffer.Register(Config.Wireguard.Address())
+	ConfigDiffer.Register(Config.Wireguard.DNS())
+	ConfigDiffer.Register(Config.Wireguard.DevName())
+	ConfigDiffer.Register(Config.Wireguard.ListenPort())
+	ConfigDiffer.Register(Config.Wireguard.LogLevel())
+	ConfigDiffer.Register(Config.Wireguard.MTU())
+	ConfigDiffer.Register(Config.Wireguard.PrivateKey())
+	ConfigDiffer.Register(Config.Wireguard.ServerPersistentKeepAlive())
+}
