@@ -134,7 +134,7 @@ func NewControlServer(database interfaces.Database, firewall *router.Firewall) (
 	controlMux.HandleFunc("GET /groups/list", srvSock.listGroups)
 
 	controlMux.HandleFunc("GET /webadmin/user", srvSock.getAdminUser)
-	controlMux.HandleFunc("GET /webadmin/oidc_user", srvSock.getAdminUser)
+	controlMux.HandleFunc("GET /webadmin/oidc_user", srvSock.getOidcAdminUser)
 
 	controlMux.HandleFunc("GET /webadmin/list", srvSock.listAdminUsers)
 	controlMux.HandleFunc("POST /webadmin/lock", srvSock.lockAdminUser)

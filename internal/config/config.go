@@ -258,6 +258,17 @@ type InternalConfig struct {
 	Webhooks Webhooks
 
 	Nodes Nodes
+
+	Configuration Configurations
+}
+
+type Configurations struct {
+	Current Configuration
+}
+
+type Configuration struct {
+	Document []byte
+	Created  time.Time
 }
 
 type LastRequests struct {

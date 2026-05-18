@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -10,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net"
 	"net/url"
 	"os"
 	"path"
@@ -23,13 +21,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/autoetcdtls/manager"
+	"github.com/NHAS/tetcd"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/queue"
 	_ "github.com/mattn/go-sqlite3"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
@@ -249,297 +247,17 @@ func (d *database) doMigrations() error {
 		run     func() error
 	}
 
-	migrations := []migration{
-		{
-			version: "9.0.0",
-			run: func() error {
-
-				resp, err := d.etcd.Delete(context.Background(), GroupMembershipPrefix, clientv3.WithPrefix(), clientv3.WithPrevKV())
-				if err != nil {
-					return fmt.Errorf("failed to apply migration: %w", err)
-				}
-
-				ops := []clientv3.Op{}
-				for _, kv := range resp.PrevKvs {
-					key := string(kv.Key)
-					log.Printf("Migrating user(%q) membership to new group layout", key)
-					var memberCurrentGroups []string
-					err = json.Unmarshal(kv.Value, &memberCurrentGroups)
-					if err != nil {
-						log.Error().Err(err).Str("group", key).Msg("failed to migrate group, unmarshalling json")
-						continue
-					}
-
-					parts, err := d.SplitKey(1, GroupMembershipPrefix, key)
-					if err != nil {
-						log.Error().Err(err).Str("group", key).Msg("failed to migrate group")
-						continue
-					}
-
-					// should now be left with group membership for <username> (which is parts[0])
-					for _, group := range memberCurrentGroups {
-
-						ops = append(ops, d.generateOpsForGroupAddition(time.Now().Unix(), group, []string{parts[0]}, false, false))
-					}
-				}
-
-				if len(ops) > 0 {
-
-					txn := d.etcd.Txn(context.Background())
-					txn.Then(ops...)
-					_, err = txn.Commit()
-					if err != nil {
-						return fmt.Errorf("failed to commit migration to db: %w", err)
-					}
-				}
-
-				return nil
-			},
-		},
-		{
-			version: "9.1.1",
-			run: func() error {
-				// the previous migration did not set the group creation information or create the group index
-
-				response, err := d.etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
-				if err != nil {
-					return fmt.Errorf("unable to load all groups: %w", err)
-				}
-
-				for _, kv := range response.Kvs {
-					if bytes.Contains(kv.Key, []byte("-members-")) {
-						continue
-					}
-
-					group := strings.TrimPrefix(string(kv.Key), GroupsPrefix)
-
-					// create group now uses the group index to check if the group exists
-					// previously it used the group information
-					// the index is not created in the previous migration
-					err := d.CreateGroup(group, []string{})
-					if err != nil && !strings.Contains(err.Error(), "group already exists") {
-						return fmt.Errorf("failed to migrate group: %s: %w", group, err)
-					}
-				}
-
-				return nil
-			},
-		},
-	}
-
-	for _, action := range migrations {
-
-		migrationKey := fmt.Sprintf("%s-%q", dbMigrations, action.version)
-
-		txn := d.etcd.Txn(context.Background())
-		txn.If(clientv3util.KeyMissing(migrationKey))
-
-		resp, err := txn.Commit()
-		if err != nil {
-			return fmt.Errorf("failed to apply migration %s: %w", action.version, err)
-		}
-
-		if resp.Succeeded {
-			log.Printf("running migration: %s", action.version)
-			err = action.run()
-			if err != nil {
-				return fmt.Errorf("failed to apply migration: %s: %v", action.version, err)
-			}
-
-			Set(d.etcd, migrationKey, false, migrationKey)
-		}
-	}
-
 	return nil
 }
 
 func (d *database) loadInitialSettings() error {
 
-	response, err := d.etcd.Get(context.Background(), "wag-acls-", clientv3.WithPrefix())
+	loadedDocument, err := json.Marshal(config.Values)
 	if err != nil {
 		return err
 	}
 
-	if len(response.Kvs) == 0 {
-		log.Info().Msg("no acls found in database, importing from .json file (from this point the json file will be ignored)")
-
-		for aclName, acl := range config.Values.Acls.Policies {
-			aclJson, _ := json.Marshal(acl)
-			_, err = d.etcd.Put(context.Background(), "wag-acls-"+aclName, string(aclJson))
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	response, err = d.etcd.Get(context.Background(), GroupsPrefix, clientv3.WithPrefix())
-	if err != nil {
-		return err
-	}
-
-	if len(response.Kvs) == 0 {
-
-		log.Info().Msg("no groups found in database, importing from .json file (from this point the json file will be ignored)")
-
-		for groupName, members := range config.Values.Acls.Groups {
-			if err := d.CreateGroup(groupName, members); err != nil {
-				return err
-			}
-		}
-	}
-
-	configData, _ := json.Marshal(config.Values)
-	err = putIfNotFound(d.etcd, fullJsonConfigKey, string(configData), "full config")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, helpMailKey, config.Values.Webserver.Tunnel.HelpMail, "help mail")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, externalAddressKey, config.Values.Webserver.Public.ExternalAddress, "external wag address")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, dnsKey, config.Values.Wireguard.DNS, "dns")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, InactivityTimeoutKey, config.Values.Webserver.Tunnel.SessionInactivityTimeoutMinutes, "inactivity timeout")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, SessionLifetimeKey, config.Values.Webserver.Tunnel.MaxSessionLifetimeMinutes, "max session life")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, LockoutKey, config.Values.Webserver.Lockout, "lockout")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, IssuerKey, config.Values.Webserver.Tunnel.Issuer, "issuer name")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, defaultWGFileNameKey, config.Values.Webserver.Public.DownloadConfigFileName, "wireguard config file")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, checkUpdatesKey, config.Values.CheckUpdates, "update check settings")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, MFAMethodsEnabledKey, config.Values.Webserver.Tunnel.Methods, "authorisation methods")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, DefaultMFAMethodKey, config.Values.Webserver.Tunnel.DefaultMethod, "default mfa method")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, OidcDetailsKey, config.Values.Webserver.Tunnel.OIDC, "oidc settings")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, PamDetailsKey, config.Values.Webserver.Tunnel.PAM, "pam settings")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, AcmeEmailKey, config.Values.Webserver.Acme.Email, "acme email")
-	if err != nil {
-		return err
-	}
-
-	err = putIfNotFound(d.etcd, AcmeProviderKey, config.Values.Webserver.Acme.CAProvider, "acme provider")
-	if err != nil {
-		return err
-	}
-
-	var token CloudflareToken
-	token.APIToken = config.Values.Webserver.Acme.CloudflareDNSToken
-	err = putIfNotFound(d.etcd, AcmeDNS01CloudflareAPIToken, token, "acme cloudflare dns api token")
-	if err != nil {
-		return err
-	}
-
-	tunnelWebserverConfig := WebserverConfiguration{
-		ListenAddress: net.JoinHostPort(config.Values.Wireguard.ServerAddress.String(), config.Values.Webserver.Tunnel.Port),
-		Domain:        config.Values.Webserver.Tunnel.Domain,
-		TLS:           config.Values.Webserver.Tunnel.TLS,
-	}
-
-	if config.Values.Webserver.Tunnel.CertificatePath != "" {
-		tunnelWebserverConfig.CertificatePEM, tunnelWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Tunnel.CertificatePath, config.Values.Webserver.Tunnel.PrivateKeyPath)
-
-		if err != nil {
-			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Tunnel.CertificatePath).Str("key_path", config.Values.Webserver.Tunnel.PrivateKeyPath).Msg("WARNING, failed to read tunnel TLS material")
-		} else {
-			tunnelWebserverConfig.StaticCerts = true
-		}
-	}
-
-	err = putIfNotFound(d.etcd, TunnelWebServerConfigKey, tunnelWebserverConfig, "tunnel web server config")
-	if err != nil {
-		return err
-	}
-
-	publicWebserverConfig := WebserverConfiguration{
-		Domain:        config.Values.Webserver.Public.Domain,
-		TLS:           config.Values.Webserver.Public.TLS,
-		ListenAddress: config.Values.Webserver.Public.ListenAddress,
-	}
-
-	if config.Values.Webserver.Public.CertificatePath != "" {
-		publicWebserverConfig.CertificatePEM, publicWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Public.CertificatePath, config.Values.Webserver.Public.PrivateKeyPath)
-
-		if err != nil {
-
-			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Public.CertificatePath).Str("key_path", config.Values.Webserver.Public.PrivateKeyPath).Msg("WARNING, failed to read public webserver TLS material")
-		} else {
-			publicWebserverConfig.StaticCerts = true
-		}
-	}
-
-	err = putIfNotFound(d.etcd, PublicWebServerConfigKey, publicWebserverConfig, "public/enrolment web server config")
-	if err != nil {
-		return err
-	}
-
-	managementWebserverConfig := WebserverConfiguration{
-		Domain:        config.Values.Webserver.Management.Domain,
-		TLS:           config.Values.Webserver.Management.TLS,
-		ListenAddress: config.Values.Webserver.Management.ListenAddress,
-	}
-
-	if config.Values.Webserver.Management.CertificatePath != "" {
-
-		managementWebserverConfig.CertificatePEM, managementWebserverConfig.PrivateKeyPEM, err = d.readTLSPems(config.Values.Webserver.Management.CertificatePath, config.Values.Webserver.Management.PrivateKeyPath)
-
-		if err != nil {
-			log.Warn().Err(err).Str("cert_path", config.Values.Webserver.Management.CertificatePath).Str("key_path", config.Values.Webserver.Management.PrivateKeyPath).Msg("WARNING, failed to read management webserver TLS material")
-		} else {
-			managementWebserverConfig.StaticCerts = true
-		}
-	}
-
-	err = putIfNotFound(d.etcd, ManagementWebServerConfigKey, managementWebserverConfig, "management web server config")
-	if err != nil {
-		return err
-	}
+	ConfigDiffer.Plan(context.Background())
 
 	return nil
 }
@@ -569,26 +287,6 @@ func (d *database) readTLSPems(cert, key string) (string, string, error) {
 	return string(certBytes), string(keyBytes), nil
 }
 
-func putIfNotFound[T any](etcd *clientv3.Client, key string, value T, set string) error {
-
-	d, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-
-	txn := etcd.Txn(context.Background())
-	resp, err := txn.If(clientv3util.KeyMissing(key)).Then(clientv3.OpPut(key, string(d))).Commit()
-	if err != nil {
-		return err
-	}
-
-	if resp.Succeeded {
-		log.Info().Msgf("setting %s from json, importing from .json file (from this point the json file will be ignored)", set)
-	}
-
-	return nil
-}
-
 func (d *database) TearDown() error {
 	close(d.exit)
 
@@ -606,39 +304,40 @@ func (d *database) TearDown() error {
 	return nil
 }
 
-func (d *database) GetInitialData() (users []config.UserModel, devices []config.Device, err error) {
-	txn := d.etcd.Txn(context.Background())
-	txn.Then(clientv3.OpGet(UsersPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)),
-		clientv3.OpGet(DevicesPrefix, clientv3.WithPrefix(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend)))
+func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEntries []config.Device, err error) {
 
-	resp, err := txn.Commit()
+	txn := tetcd.NewTxn(context.Background(), d.etcd)
+	then := txn.Then()
+	usersHandle := tetcd.ListTx(then, InternalConfig.Users())
+	devicesHandle := tetcd.DynamicCollectionTx(then, InternalConfig.Devices.Machines())
+
+	if err := txn.Commit(); err != nil {
+		return nil, nil, err
+	}
+
+	users, err := usersHandle.Entries()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// users
-	for _, res := range resp.Responses[0].GetResponseRange().Kvs {
-		var user config.UserModel
-		err := json.Unmarshal(res.Value, &user)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		users = append(users, user)
+	usersEntries = make([]config.UserModel, 0, len(users))
+	for _, usermodel := range users {
+		usersEntries = append(usersEntries, usermodel)
 	}
 
-	//devices
-	for _, res := range resp.Responses[1].GetResponseRange().Kvs {
-		var device config.Device
-		err := json.Unmarshal(res.Value, &device)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		devices = append(devices, device)
+	devices, err := devicesHandle.Entries()
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return
+	devicesEntries = make([]config.Device, 0, len(devices))
+	for _, userDevices := range devices {
+		for _, device := range userDevices {
+			devicesEntries = append(devicesEntries, device)
+		}
+	}
+
+	return usersEntries, devicesEntries, nil
 }
 
 func (d *database) Get(key string) ([]byte, error) {

@@ -15,6 +15,84 @@ import (
 	"time"
 )
 
+type autoTypeConfigurationCurrent struct{}
+
+// Created() KV should contain type struct{wall uint64; ext int64; loc *time.Location}
+func (autoTypeConfigurationCurrent) Created() paths.Path[struct {
+	wall uint64
+	ext  int64
+	loc  *time.Location
+}] {
+	return paths.NewPath("wag-config-internal/InternalConfig/Configuration/Current/Created", codecs.NewJsonCodec[struct {
+		wall uint64
+		ext  int64
+		loc  *time.Location
+	}]())
+}
+
+// Document() KV should contain type []byte
+func (autoTypeConfigurationCurrent) Document() paths.Path[[]byte] {
+	return paths.NewPath("wag-config-internal/InternalConfig/Configuration/Current/Document", codecs.NewJsonCodec[[]byte]())
+}
+
+// Get fetches all fields of Configuration in one or more transactions pinned to the same etcd revision.
+func (a autoTypeConfigurationCurrent) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configuration, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
+	h0_0 := tetcd.GetTx(txn0.Then(), a.Created())
+	h0_1 := tetcd.GetTx(txn0.Then(), a.Document())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.Created, err = h0_0.Value()
+	if err != nil && failEarly {
+		return result, err
+	}
+	result.Document, err = h0_1.Value()
+	if err != nil && failEarly {
+		return result, err
+	}
+	return result, nil
+}
+func (a autoTypeConfigurationCurrent) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configuration, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Configuration struct whenever any sub-key changes.
+func (a autoTypeConfigurationCurrent) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Configuration] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Configuration/Current/", a.GetWithFail)
+}
+
+type autoTypeInternalConfigConfiguration struct {
+	Current autoTypeConfigurationCurrent
+}
+
+// Get fetches all fields of Configurations in one or more transactions pinned to the same etcd revision.
+func (a autoTypeInternalConfigConfiguration) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configurations, err error) {
+	txn0 := tetcd.NewTxn(ctx, cli, opts...)
+	h0_0 := tetcd.GetTx(txn0.Then(), a.Current.Created())
+	h0_1 := tetcd.GetTx(txn0.Then(), a.Current.Document())
+	if err := txn0.Commit(); err != nil {
+		return result, err
+	}
+	result.Current.Created, err = h0_0.Value()
+	if err != nil && failEarly {
+		return result, err
+	}
+	result.Current.Document, err = h0_1.Value()
+	if err != nil && failEarly {
+		return result, err
+	}
+	return result, nil
+}
+func (a autoTypeInternalConfigConfiguration) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configurations, err error) {
+	return a.GetWithFail(ctx, cli, false, opts...)
+}
+
+// Watch returns a Watcher that emits the full Configurations struct whenever any sub-key changes.
+func (a autoTypeInternalConfigConfiguration) Watch(ctx context.Context, cli *v3.Client) *watch.Watcher[config.Configurations] {
+	return specialist.NewAllWatcher(ctx, cli, "wag-config-internal/InternalConfig/Configuration/", a.GetWithFail)
+}
+
 type autoTypeDevicesDHCP struct{}
 
 // Abandoned() is a map path with prefix wag-config-internal/InternalConfig/Devices/DHCP/Abandoned, value type string
@@ -444,11 +522,12 @@ func (a autoTypeInternalConfigWebhooks) Watch(ctx context.Context, cli *v3.Clien
 }
 
 type autoTypeInternalConfig struct {
-	Devices    autoTypeInternalConfigDevices
-	Indexes    autoTypeInternalConfigIndexes
-	Nodes      autoTypeInternalConfigNodes
-	References autoTypeInternalConfigReferences
-	Webhooks   autoTypeInternalConfigWebhooks
+	Configuration autoTypeInternalConfigConfiguration
+	Devices       autoTypeInternalConfigDevices
+	Indexes       autoTypeInternalConfigIndexes
+	Nodes         autoTypeInternalConfigNodes
+	References    autoTypeInternalConfigReferences
+	Webhooks      autoTypeInternalConfigWebhooks
 }
 
 // Admins() is a map path with prefix wag-config-internal/InternalConfig/Admins, value type github.com/NHAS/wag/internal/config.Admin
@@ -468,12 +547,14 @@ func (autoTypeInternalConfig) Users() paths.MapPath[config.UserModel] {
 
 var (
 	InternalConfig       = autoTypeInternalConfig{}
-	InternalConfigDiffer = tree.NewTreeWithPrefix[config.InternalConfig]("wag-config-internal")
+	InternalConfigDiffer = tree.NewTreeWithPrefix[config.InternalConfig]("wag-config-internal", "version")
 )
 
 // init() builds the tree structure to automatically apply diffs to etcd
 func init() {
 	InternalConfigDiffer.Register(InternalConfig.Admins())
+	InternalConfigDiffer.Register(InternalConfig.Configuration.Current.Created())
+	InternalConfigDiffer.Register(InternalConfig.Configuration.Current.Document())
 	InternalConfigDiffer.Register(InternalConfig.Devices.Challenges())
 	InternalConfigDiffer.Register(InternalConfig.Devices.DHCP.Abandoned())
 	InternalConfigDiffer.Register(InternalConfig.Devices.DHCP.End())
