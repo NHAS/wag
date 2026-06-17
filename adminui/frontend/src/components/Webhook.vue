@@ -22,7 +22,8 @@ import {
   type WebhookTempCreateResponseDTO,
   type WebhookJsonAttributesRoles
 } from '@/api'
-import type Multiselect from 'vue-multiselect'
+
+import Multiselect from 'vue-multiselect'
 
 const toast = useToast()
 const { catcher } = useToastError()
