@@ -268,7 +268,7 @@ type Configurations struct {
 
 type Configuration struct {
 	Document []byte
-	Created  time.Time
+	Created  time.Time `tetcd:"compress"`
 }
 
 type LastRequests struct {

@@ -18,16 +18,8 @@ import (
 type autoTypeConfigurationCurrent struct{}
 
 // Created() KV should contain type struct{wall uint64; ext int64; loc *time.Location}
-func (autoTypeConfigurationCurrent) Created() paths.Path[struct {
-	wall uint64
-	ext  int64
-	loc  *time.Location
-}] {
-	return paths.NewPath("wag-config-internal/InternalConfig/Configuration/Current/Created", codecs.NewJsonCodec[struct {
-		wall uint64
-		ext  int64
-		loc  *time.Location
-	}]())
+func (autoTypeConfigurationCurrent) Created() paths.Path[time.Time] {
+	return paths.NewPath("wag-config-internal/InternalConfig/Configuration/Current/Created", codecs.NewJsonCodec[time.Time]())
 }
 
 // Document() KV should contain type []byte
