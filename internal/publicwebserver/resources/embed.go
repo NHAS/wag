@@ -16,6 +16,7 @@ type WireguardConfig struct {
 	ServerPublicKey   string
 	CapturedAddresses []string
 	DNS               []string
+	MTU               int
 }
 type QrCodeEnrolmentDisplay struct {
 	ImageData template.URL

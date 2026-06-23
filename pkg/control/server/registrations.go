@@ -36,7 +36,7 @@ func (wsg *WagControlSocketServer) listRegistrations(w http.ResponseWriter, r *h
 func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -47,13 +47,14 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 
 	groupsString := r.FormValue("groups")
 	usesString := r.FormValue("uses")
+	mtuString := r.FormValue("mtu")
 
 	tag := r.FormValue("tag")
 
 	var groups []string = nil
 	err = json.Unmarshal([]byte(groupsString), &groups)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -61,7 +62,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 
 		for _, group := range groups {
 			if !strings.HasPrefix(group, "group:") {
-				http.Error(w, "group did not have the 'group:' prefix '"+group+"'", http.StatusInternalServerError)
+				http.Error(w, "group did not have the 'group:' prefix '"+group+"'", http.StatusBadRequest)
 				return
 			}
 		}
@@ -70,13 +71,23 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 
 	uses, err := strconv.Atoi(usesString)
 	if err != nil {
-		http.Error(w, "invalid number of uses for registration token: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "invalid number of uses for registration token: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if uses <= 0 {
 		http.Error(w, "invalid number of uses for registration token: "+usesString, http.StatusBadRequest)
 		return
+	}
+
+	var mtu int
+	if mtuString != "" {
+		mtu, err = strconv.Atoi(mtuString)
+		if err != nil {
+			http.Error(w, "invalid mtu, not parsable as a number: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 	}
 
 	if ip := net.ParseIP(staticIp); staticIp != "" && ip != nil && !config.Values.Wireguard.Range.Contains(ip) {
@@ -92,6 +103,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		Overwrites: overwrite,
 		StaticIP:   staticIp,
 		Tag:        tag,
+		MTU:        mtu,
 	}
 
 	tokenType := "registration"
@@ -100,7 +112,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 	}
 
 	if token != "" {
-		err := wsg.db.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, tag)
+		err := wsg.db.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, mtu, tag)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -118,7 +130,7 @@ func (wsg *WagControlSocketServer) newRegistration(w http.ResponseWriter, r *htt
 		return
 	}
 
-	token, err = wsg.db.GenerateRegistrationToken(username, overwrite, staticIp, groups, uses, tag)
+	token, err = wsg.db.GenerateRegistrationToken(username, overwrite, staticIp, groups, uses, mtu, tag)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

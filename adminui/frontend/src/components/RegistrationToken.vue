@@ -27,6 +27,16 @@ const isOpen = computed({
   set: (value: boolean) => emit('update:isOpen', value)
 })
 
+
+const mtuDisplay = computed<string | number>(() =>
+  newToken.value.mtu === 0 ? '(Optional)' : newToken.value.mtu
+);
+
+function onMtuChange(e: Event): void {
+  const val = (e.target as HTMLInputElement).value.trim().toLowerCase();
+  newToken.value.mtu = (val === '' || val === '(Optional)') ? 0 : Number(val);
+}
+
 async function createToken() {
   if (newToken.value.username == '') {
     toast.error('Empty usernames are not allowed')
@@ -115,6 +125,14 @@ async function createToken() {
           <div class="form-group">
             <label for="uses" class="block font-medium text-gray-900 pt-6">Uses</label>
             <input type="number" id="uses" class="input input-bordered input-sm w-full" v-model="newToken.uses" />
+          </div>
+
+          <div class="form-group">
+            <label for="mtu" class="block font-medium text-gray-900 pt-6">MTU</label>
+            <input type="text" id="mtu" class="input input-bordered input-sm w-full" 
+            placeholder="(Optional)" 
+            :value="mtuDisplay"
+            @change="onMtuChange" />
           </div>
         </form>
 

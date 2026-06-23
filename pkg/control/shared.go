@@ -7,6 +7,7 @@ type RegistrationResult struct {
 	Overwrites string
 	StaticIP   string
 	NumUses    int
+	MTU        int
 
 	Tag string
 }

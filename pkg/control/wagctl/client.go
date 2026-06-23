@@ -980,7 +980,7 @@ func (c *CtrlClient) Registrations() (result []control.RegistrationResult, err e
 
 // Create a new registration token, the majority of these fields are optional
 // The only required fields are `username` and `uses`
-func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string, uses int, tag string, groups ...string) (r control.RegistrationResult, err error) {
+func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string, uses, mtu int, tag string, groups ...string) (r control.RegistrationResult, err error) {
 
 	if uses <= 0 {
 		err = errors.New("unable to create token with <= 0 uses")
@@ -993,6 +993,7 @@ func (c *CtrlClient) NewRegistration(token, username, overwrite, staticIP string
 	form.Add("static_ip", staticIP)
 	form.Add("overwrite", overwrite)
 	form.Add("uses", fmt.Sprintf("%d", uses))
+	form.Add("mtu", fmt.Sprintf("%d", mtu))
 	form.Add("tag", tag)
 
 	for i := range groups {

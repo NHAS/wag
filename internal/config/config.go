@@ -332,7 +332,6 @@ func validateDns(input []string) (newDnsEntries []string, err error) {
 		for _, address := range newAddresses {
 			newDnsEntries = append(newDnsEntries, address.String())
 		}
-
 	}
 
 	return

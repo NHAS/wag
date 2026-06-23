@@ -31,6 +31,7 @@ func (au *AdminUI) getAllRegistrationTokens(w http.ResponseWriter, r *http.Reque
 			Overwrites: reg.Overwrites,
 			Uses:       reg.NumUses,
 			Tag:        reg.Tag,
+			MTU:        reg.MTU,
 		})
 	}
 
@@ -67,7 +68,7 @@ func (au *AdminUI) createRegistrationToken(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	res, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.StaticIP, req.Uses, req.Tag, req.Groups...)
+	res, err = au.ctrl.NewRegistration(req.Token, req.Username, req.Overwrites, req.StaticIP, req.Uses, req.MTU, req.Tag, req.Groups...)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to create new registration token")
 

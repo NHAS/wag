@@ -139,6 +139,7 @@ watch(selectedTokens, newVal => {
                 <th>Groups</th>
                 <th>Overwrites</th>
                 <th>Uses</th>
+                <th>MTU</th>
               </tr>
             </thead>
             <tbody>
@@ -168,8 +169,11 @@ watch(selectedTokens, newVal => {
                 <td class="font-mono">
                   <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.overwrites }}</div>
                 </td>
+                <td class="font-mono">
+                  <div class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</div>
+                </td>
                 <td class="font-mono relative">
-                  <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ token.uses }}</span>
+                  <span class="overflow-hidden text-ellipsis whitespace-nowrap">{{ (token.mtu == 0 || token.mtu == null) ? "default" : token.mtu }}</span>
                   <ConfirmModal @on-confirm="() => deleteTokens([token.token])">
                     <button
                       class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"

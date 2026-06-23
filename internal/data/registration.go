@@ -19,11 +19,9 @@ func (d *database) registrationKey(token string) string {
 	return fmt.Sprintf("tokens-%s", token)
 }
 
-func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, tag string, err error) {
+func (d *database) GetRegistrationToken(token string) (result control.RegistrationResult, err error) {
 
 	tokenKey := d.registrationKey(token)
-
-	var result control.RegistrationResult
 
 	resp, err := concurrency.NewSTM(d.etcd, func(s concurrency.STM) error {
 
@@ -66,7 +64,7 @@ func (d *database) GetRegistrationToken(token string) (username, overwrites, sta
 		return
 	}
 
-	return result.Username, result.Overwrites, result.StaticIP, result.Groups, result.Tag, nil
+	return result, nil
 }
 
 // Returns list of tokens
@@ -96,18 +94,18 @@ func (d *database) DeleteRegistrationToken(identifier string) error {
 }
 
 // Randomly generate a token for a specific username
-func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses int, tag string) (token string, err error) {
+func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
 	}
 
-	err = d.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, tag)
+	err = d.AddRegistrationToken(token, username, overwrite, staticIp, groups, uses, mtu, tag)
 	return
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses int, tag string) error {
+func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}
@@ -122,6 +120,10 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 
 	if strings.Contains(username, "-") {
 		return errors.New("usernames cannot contain '-' ")
+	}
+
+	if mtu < 0 {
+		return errors.New("MTU value cannot be less than 0")
 	}
 
 	if username == "" {
@@ -184,6 +186,7 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 		Groups:     groups,
 		NumUses:    uses,
 		Tag:        tag,
+		MTU:        mtu,
 	}
 
 	return Set(d.etcd, tokensKey+token, false, result)

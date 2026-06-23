@@ -180,7 +180,7 @@ func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (
 		}
 	}
 
-	log.Logger = log.Output(io.MultiWriter(os.Stdout, adminUI.logQueue)).With().Caller().Logger()
+	log.Logger = log.Output(io.MultiWriter(os.Stdout, adminUI.logQueue)).With().Logger()
 
 	protectedRoutes := http.NewServeMux()
 	allRoutes := http.NewServeMux()
