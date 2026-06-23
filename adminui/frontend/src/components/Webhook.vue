@@ -23,6 +23,8 @@ import {
   type WebhookJsonAttributesRoles
 } from '@/api'
 
+import Multiselect from 'vue-multiselect'
+
 const toast = useToast()
 const { catcher } = useToastError()
 
@@ -343,8 +345,10 @@ async function createWebhookTrigger() {
           <div v-if="incommingAttributes.error == ''" class="overflow-y-scroll max-h-[130px]">
             <table class="table overflow-scroll">
               <thead>
-                <td>Attribute</td>
-                <td>Value</td>
+                <tr>
+                  <th>Attribute</th>
+                  <th>Value</th>
+                </tr>
               </thead>
               <tbody>
                 <tr class="hover" v-for="attribute in filteredAttributes" :key="attribute.key">
@@ -378,6 +382,7 @@ async function createWebhookTrigger() {
             <div>
               <label class="typo__label">{{ attribute.friendlyName }}</label>
 
+            
               <Multiselect
                 v-model="attribute.data.value"
                 :options="incommingAttributes.attributes"
