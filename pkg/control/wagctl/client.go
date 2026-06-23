@@ -769,7 +769,7 @@ func (c *CtrlClient) SetSingleWebserverSetting(server data.Webserver, webConfig 
 
 func (c *CtrlClient) GetAcmeDNS01CloudflareToken() (result data.CloudflareToken, err error) {
 
-	response, err := c.httpClient.Get("http://unix/config/settings/cloudflare/dns01token")
+	response, err := c.httpClient.Get("http://unix/config/settings/acme/cloudflare/dns01token")
 	if err != nil {
 		return data.CloudflareToken{}, err
 	}

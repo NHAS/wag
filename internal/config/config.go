@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
@@ -323,15 +324,22 @@ func load(path string) (c Config, err error) {
 }
 
 func validateDns(input []string) (newDnsEntries []string, err error) {
+
+	type dnsFieldSpec struct {
+		Address string `validate:"hostname|ip"`
+	}
 	for _, entry := range input {
-		newAddresses, err := routetypes.ParseAddress(entry)
+
+		v := dnsFieldSpec{
+			Address: strings.TrimSpace(entry),
+		}
+		validate := validator.New(validator.WithRequiredStructEnabled())
+		err := validate.Struct(v)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("dns entry %q was not an ip or hostname: %w", entry, err)
 		}
 
-		for _, address := range newAddresses {
-			newDnsEntries = append(newDnsEntries, address.String())
-		}
+		newDnsEntries = append(newDnsEntries, v.Address)
 	}
 
 	return
