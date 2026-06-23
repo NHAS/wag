@@ -257,7 +257,14 @@ func (d *database) loadInitialSettings() error {
 		return err
 	}
 
-	ConfigDiffer.Plan(context.Background())
+	plan, err := ConfigDiffer.Plan(context.Background(), nil, loadedDocument)
+	if err != nil {
+		return err
+	}
+
+	if plan.Changed() {
+		return ConfigDiffer.Apply(context.Background(), d.etcd, plan)
+	}
 
 	return nil
 }
