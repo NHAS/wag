@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -325,11 +324,15 @@ func load(path string) (c Config, err error) {
 
 func validateDns(input []string) (newDnsEntries []string, err error) {
 	for _, entry := range input {
-		newAddresses, err := parseAddress(entry)
+		newAddresses, err := routetypes.ParseAddress(entry)
 		if err != nil {
 			return nil, err
 		}
-		newDnsEntries = append(newDnsEntries, newAddresses...)
+
+		for _, address := range newAddresses {
+			newDnsEntries = append(newDnsEntries, address.String())
+		}
+
 	}
 
 	return
@@ -340,54 +343,4 @@ func Load(path string) error {
 	var err error
 	Values, err = load(path)
 	return err
-}
-
-func parseAddress(address string) ([]string, error) {
-
-	address = strings.TrimSpace(address)
-	addr, err := netip.ParseAddr(address)
-	if err != nil {
-		_, cidr, err := net.ParseCIDR(address)
-		if err != nil {
-
-			//If we suspect this is a domain
-			addresses, err := net.LookupIP(address)
-			if err != nil {
-				return nil, fmt.Errorf("unable to resolve address from: %s", address)
-			}
-
-			if len(addresses) == 0 {
-				return nil, fmt.Errorf("no addresses for %s", address)
-			}
-
-			var output []string
-			addedSomething := false
-			for _, addr := range addresses {
-				if addr.To4() != nil {
-					addedSomething = true
-					output = append(output, addr.String()+"/32")
-					continue
-				} else if addr.To16() != nil {
-					addedSomething = true
-					output = append(output, addr.String()+"/128")
-					continue
-				}
-			}
-
-			if !addedSomething {
-				return nil, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", address)
-			}
-
-			return output, nil
-		}
-
-		return []string{cidr.String()}, nil
-	}
-
-	mask := "/32"
-	if addr.Is6() {
-		mask = "/128"
-	}
-
-	return []string{addr.String() + mask}, nil
 }

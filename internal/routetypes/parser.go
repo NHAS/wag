@@ -212,7 +212,7 @@ func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 func parseKeys(address string) (keys []Key, err error) {
 	var resultingAddresses []net.IPNet
 
-	resultingAddresses, err = parseAddress(address)
+	resultingAddresses, err = ParseAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -363,8 +363,9 @@ var (
 	dnsCache = map[string]cacheEntry{}
 )
 
-func parseAddress(address string) (resultAddresses []net.IPNet, err error) {
+func ParseAddress(address string) (resultAddresses []net.IPNet, err error) {
 
+	address = strings.TrimSpace(address)
 	addr, err := netip.ParseAddr(address)
 	if err != nil {
 
