@@ -23,7 +23,7 @@ func makeRegistrationToken() string {
 func TestRegistrationToken(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 
-	result, err := ctrl.NewRegistration(validRegistrationToken, "toaster", "", "", 1, "")
+	result, err := ctrl.NewRegistration(validRegistrationToken, "toaster", "", "", 1, 0, "")
 	if err != nil {
 		t.Fatal("failed to create registration token: ", err)
 	}
@@ -70,7 +70,7 @@ func TestRegistrationTokenMultipleUses(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 	maxUses := 3
 
-	_, err := ctrl.NewRegistration(validRegistrationToken, "multiusedevice", "", "", maxUses, "")
+	_, err := ctrl.NewRegistration(validRegistrationToken, "multiusedevice", "", "", maxUses, 0, "")
 	if err != nil {
 		t.Fatalf("failed to create registration token: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestRegistrationTokenWithGroups(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 	groups := []string{"group:nerds"}
 
-	result, err := ctrl.NewRegistration(validRegistrationToken, "groupeddevice", "", "", 1, "", groups...)
+	result, err := ctrl.NewRegistration(validRegistrationToken, "groupeddevice", "", "", 1, 0, "", groups...)
 	if err != nil {
 		t.Fatalf("failed to create registration token with groups: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestRegistrationTokenWithGroups(t *testing.T) {
 func TestRegistrationTokenDelete(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 
-	result, err := ctrl.NewRegistration(validRegistrationToken, "toaster2", "", "", 1, "")
+	result, err := ctrl.NewRegistration(validRegistrationToken, "toaster2", "", "", 1, 0, "")
 	if err != nil {
 		t.Fatal("failed to create registration token: ", err)
 	}
@@ -180,7 +180,7 @@ func TestInvalidTokenLength(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := ctrl.NewRegistration(tc.token, "unnniiuquueee"+tc.name, "", "", 1, "")
+			resp, err := ctrl.NewRegistration(tc.token, "unnniiuquueee"+tc.name, "", "", 1, 0, "")
 			if err == nil {
 				t.Fatal("expected failure to create token with invalid length: ", tc.name, resp)
 			}
@@ -191,7 +191,7 @@ func TestInvalidTokenLength(t *testing.T) {
 func TestRegistrationTokenConcurrency(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 
-	_, err := ctrl.NewRegistration(validRegistrationToken, "concurrentuser", "", "", 1, "")
+	_, err := ctrl.NewRegistration(validRegistrationToken, "concurrentuser", "", "", 1, 0, "")
 	if err != nil {
 		t.Fatalf("failed to create registration token: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestRegistrationTokenSpecialCharacters(t *testing.T) {
 	for token, expectError := range specialTokens {
 		t.Run(fmt.Sprintf("token_%s", token), func(t *testing.T) {
 			// Try to create token (may or may not be valid depending on your validation)
-			_, err := ctrl.NewRegistration(token, "specialdevice", "", "", 1, "")
+			_, err := ctrl.NewRegistration(token, "specialdevice", "", "", 1, 0, "")
 			if expectError {
 				if err == nil {
 					t.Fatal("expected to get error from token creation: ", token, "but didnt")
@@ -282,13 +282,13 @@ func TestRegistrationTokenDuplicates(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 
 	// Create first token
-	_, err := ctrl.NewRegistration(validRegistrationToken, "device1", "", "", 1, "")
+	_, err := ctrl.NewRegistration(validRegistrationToken, "device1", "", "", 1, 0, "")
 	if err != nil {
 		t.Fatalf("failed to create first registration token: %v", err)
 	}
 
 	// Try to create duplicate token
-	_, err = ctrl.NewRegistration(validRegistrationToken, "device2", "", "", 1, "")
+	_, err = ctrl.NewRegistration(validRegistrationToken, "device2", "", "", 1, 0, "")
 	if err == nil {
 		t.Fatal("should not be able to create duplicate registration tokens")
 	}
@@ -297,7 +297,7 @@ func TestRegistrationTokenDuplicates(t *testing.T) {
 func TestRegistrationTokenInvalidHTTPMethods(t *testing.T) {
 	validRegistrationToken := makeRegistrationToken()
 
-	_, err := ctrl.NewRegistration(validRegistrationToken, "methodtestdevice", "", "", 1, "")
+	_, err := ctrl.NewRegistration(validRegistrationToken, "methodtestdevice", "", "", 1, 0, "")
 	if err != nil {
 		t.Fatalf("failed to create registration token: %v", err)
 	}

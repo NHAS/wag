@@ -24,6 +24,10 @@ dev-adminui:
 docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 
+test:
+	go test -exec sudo -v ./...
+
+
 .build_ui:
 	cd adminui/frontend; npm install; npm run build
 	cd internal/mfaportal/resources/frontend; npm install; npm run build

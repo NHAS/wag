@@ -6,6 +6,9 @@ PrivateKey = {{.ClientPrivateKey | Unescape}}
 DNS = {{StringsJoin .DNS ", "}}
 {{- end}}
 Address = {{.ClientAddress}}
+{{- if .MTU}}
+MTU = {{.MTU}}
+{{- end}}
 
 [Peer]
 Endpoint =  {{.ServerAddress}}

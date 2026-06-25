@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/acls"
@@ -564,12 +564,22 @@ func load(path string) (c Config, err error) {
 }
 
 func validateDns(input []string) (newDnsEntries []string, err error) {
+
+	type dnsFieldSpec struct {
+		Address string `validate:"hostname|ip"`
+	}
 	for _, entry := range input {
-		newAddresses, err := parseAddress(entry)
-		if err != nil {
-			return nil, err
+
+		v := dnsFieldSpec{
+			Address: strings.TrimSpace(entry),
 		}
-		newDnsEntries = append(newDnsEntries, newAddresses...)
+		validate := validator.New(validator.WithRequiredStructEnabled())
+		err := validate.Struct(v)
+		if err != nil {
+			return nil, fmt.Errorf("dns entry %q was not an ip or hostname: %w", entry, err)
+		}
+
+		newDnsEntries = append(newDnsEntries, v.Address)
 	}
 
 	return
@@ -580,54 +590,4 @@ func Load(path string) error {
 	var err error
 	Values, err = load(path)
 	return err
-}
-
-func parseAddress(address string) ([]string, error) {
-
-	address = strings.TrimSpace(address)
-	addr, err := netip.ParseAddr(address)
-	if err != nil {
-		_, cidr, err := net.ParseCIDR(address)
-		if err != nil {
-
-			//If we suspect this is a domain
-			addresses, err := net.LookupIP(address)
-			if err != nil {
-				return nil, fmt.Errorf("unable to resolve address from: %s", address)
-			}
-
-			if len(addresses) == 0 {
-				return nil, fmt.Errorf("no addresses for %s", address)
-			}
-
-			var output []string
-			addedSomething := false
-			for _, addr := range addresses {
-				if addr.To4() != nil {
-					addedSomething = true
-					output = append(output, addr.String()+"/32")
-					continue
-				} else if addr.To16() != nil {
-					addedSomething = true
-					output = append(output, addr.String()+"/128")
-					continue
-				}
-			}
-
-			if !addedSomething {
-				return nil, fmt.Errorf("no addresses for domain %s were added, potentially because they were all ipv6 which is unsupported", address)
-			}
-
-			return output, nil
-		}
-
-		return []string{cidr.String()}, nil
-	}
-
-	mask := "/32"
-	if addr.Is6() {
-		mask = "/128"
-	}
-
-	return []string{addr.String() + mask}, nil
 }

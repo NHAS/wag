@@ -49,7 +49,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	username, overwrites, staticIp, groups, tag, err := es.db.GetRegistrationToken(key)
+	token, err := es.db.GetRegistrationToken(key)
 
 	if err != nil {
 		log.Error().IPAddr("remote_address", remoteAddr).Err(err).Msg("failed to get registration key")
@@ -57,7 +57,11 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	logger := log.With().Str("username", username).Str("overwrites", overwrites).Str("static_ip", staticIp).IPAddr("remote_address", remoteAddr).Logger()
+	logger := log.With().
+		Str("username", token.Username).
+		Str("overwrites", token.Overwrites).
+		Str("static_ip", token.StaticIP).
+		IPAddr("remote_address", remoteAddr).Logger()
 
 	var publickey, privatekey wgtypes.Key
 	pubkeyParam, err := url.PathUnescape(r.URL.Query().Get("pubkey"))
@@ -84,9 +88,9 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		publickey = privatekey.PublicKey()
 	}
 
-	user, err := users.GetUser(es.db, username)
+	user, err := users.GetUser(es.db, token.Username)
 	if err != nil {
-		user, err = users.CreateUser(es.db, username)
+		user, err = users.CreateUser(es.db, token.Username)
 		if err != nil {
 			logger.Error().Err(err).Msg("unable create new user")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -94,8 +98,8 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	if len(groups) != 0 {
-		err := es.db.SetUserGroupMembership(username, groups, false)
+	if len(token.Groups) != 0 {
+		err := es.db.SetUserGroupMembership(token.Username, token.Groups, false)
 		if err != nil {
 			logger.Error().Err(err).Msg("could not set user membership from registration token")
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -106,22 +110,22 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	var (
 		address string
 	)
-	if overwrites != "" {
+	if token.Overwrites != "" {
 
-		err = user.SetDevicePublicKey(publickey.String(), overwrites)
+		err = user.SetDevicePublicKey(publickey.String(), token.Overwrites)
 		if err != nil {
 			logger.Error().Err(err).Str("public_key", publickey.String()).Msg("couldnt update previous device")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		address = overwrites
+		address = token.Overwrites
 
 	} else {
 
 		// Make sure not to accidentally shadow the global err here as we're using a defer to monitor failures to delete the device
 		var device config.Device
-		device, err = user.AddDevice(publickey, staticIp, tag)
+		device, err = user.AddDevice(publickey, token.StaticIP, token.Tag)
 		if err != nil {
 			logger.Error().Err(err).Msg("unable to add device")
 			http.Error(w, "Server Error", http.StatusInternalServerError)
@@ -142,7 +146,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		}()
 	}
 
-	acl := es.db.GetEffectiveAcl(username)
+	acl := es.db.GetEffectiveAcl(token.Username)
 
 	wgPublicKey, wgPort, err := es.firewall.ServerDetails()
 	if err != nil {
@@ -190,6 +194,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		CapturedAddresses:  routes,
 		DNS:                dnsWithOutSubnet,
 		ClientPresharedKey: presharedKey,
+		MTU:                token.MTU,
 	}
 
 	externalAddress, err := es.db.GetExternalAddress()
@@ -222,7 +227,7 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 	}
 
 	logMsg := "registered"
-	if overwrites != "" {
+	if token.Overwrites != "" {
 		logMsg = "overwrote"
 	}
 

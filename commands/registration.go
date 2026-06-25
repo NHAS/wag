@@ -36,7 +36,7 @@ type registration struct {
 
 	tag string
 
-	uses int
+	uses, mtu int
 }
 
 func Registration() *registration {
@@ -58,6 +58,7 @@ func Registration() *registration {
 	gc.fs.StringVar(&gc.tag, "tag", "", "Create device with tag")
 
 	gc.fs.IntVar(&gc.uses, "uses", 1, "Number of times a registration token can be used")
+	gc.fs.IntVar(&gc.mtu, "mtu", 0, "Client config MTU")
 
 	gc.fs.Bool("add", false, "Create a new enrolment token")
 	gc.fs.Bool("del", false, "Delete existing enrolment token")
@@ -123,7 +124,7 @@ func (g *registration) Run() error {
 	switch g.action {
 	case "add":
 
-		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.staticIp, g.uses, g.tag, g.groups...)
+		result, err := ctl.NewRegistration(g.token, g.username, g.overwrite, g.staticIp, g.uses, g.mtu, g.tag, g.groups...)
 		if err != nil {
 			return err
 		}

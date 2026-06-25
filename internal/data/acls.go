@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 
 	"github.com/rs/zerolog/log"
@@ -116,6 +117,13 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	dns, err := dnsServers.Value()
 	if err == nil {
 		for _, server := range dns {
+			// we dont allow hostnames to get added to the allowed entries here
+			// this mirrors how the DNS entry in the wg config works
+			_, err := netip.ParseAddr(server)
+			if err != nil {
+				continue
+			}
+
 			d.insertMap(allowSet, fmt.Sprintf("%s 53/any", server))
 		}
 	} else {

@@ -12,6 +12,7 @@ export interface RegistrationTokenRequestDTO {
   static_ip: string
   overwrites: string
   uses: number
+  mtu: number
   tag: string
 }
 

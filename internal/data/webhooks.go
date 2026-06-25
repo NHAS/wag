@@ -223,7 +223,7 @@ func (d *database) actionWebhook(hook config.Webhook, request *string) {
 
 	case config.CreateRegistrationToken:
 
-		err = d.AddRegistrationToken(Token, Username, "", "", nil, 1, DeviceTag)
+		err = d.AddRegistrationToken(Token, Username, "", "", nil, 1, 0, DeviceTag)
 
 	case config.DeleteDevice:
 		if DeviceIP != "" {
