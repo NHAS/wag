@@ -14,6 +14,12 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// These generate the config_internal_etcd.go and config_etcd.go files
+// internal is for structures that shouldnt really be user exposed most of the time, such as dhcp, device management, user accounts
+// where config is more for things users should touch, like tls certs, etc
+//go:generate go run github.com/NHAS/tetcd/cmd/tetcd-gen -type=github.com/NHAS/wag/internal/config.Config -out=config_etcd.go -prefix=wag-config
+//go:generate go run github.com/NHAS/tetcd/cmd/tetcd-gen -type=github.com/NHAS/wag/internal/config.InternalConfig -out=config_internal_etcd.go -prefix=wag-config-internal
+
 type Webserver string
 
 const (
