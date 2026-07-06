@@ -119,8 +119,8 @@ type Config struct {
 
 		Public struct {
 			HTTPSettings           WebserverDetails
-			DownloadConfigFileName string `json:"wireguard_config_filename,omitempty" validate:"required"`
-			ExternalAddress        string `validate:"required,hostname|hostname_port|ip" json:"external_address"`
+			DownloadConfigFileName string `json:",omitempty" validate:"required"`
+			ExternalAddress        string `validate:"required,hostname|hostname_port|ip"`
 		}
 
 		Lockout int `validate:"required,number" json:"lockout"`
@@ -128,10 +128,10 @@ type Config struct {
 		Tunnel struct {
 			HTTPSettings WebserverDetails
 
-			HelpMail string `validate:"required,email" json:"help_mail"`
+			HelpMail string `validate:"required,email"`
 
-			MaxSessionLifetimeMinutes       int `validate:"required,number" json:"max_session_lifetime_minutes"`
-			SessionInactivityTimeoutMinutes int `validate:"required,number" json:"session_inactivity_timeout_minutes"`
+			MaxSessionLifetimeMinutes       int `validate:"required,number"`
+			SessionInactivityTimeoutMinutes int `validate:"required,number"`
 
 			DefaultMethod string   `json:",omitempty"`
 			Issuer        string   `validate:"required" json:"issuer"`
