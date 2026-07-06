@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"slices"
 	"strings"
 
 	"github.com/NHAS/tetcd"
@@ -223,6 +222,11 @@ func (d *database) GetWireguardConfigName() string {
 }
 
 func (d *database) SetDefaultMFAMethod(method string) error {
+
+	if !types.ValidMFA(method) {
+		return fmt.Errorf("%q is not a valid mfa method", method)
+	}
+
 	return Config.Webserver.Tunnel.DefaultMethod().Put(context.Background(), d.etcd, method)
 }
 
@@ -232,6 +236,11 @@ func (d *database) GetDefaultMFAMethod() (string, error) {
 }
 
 func (d *database) SetEnabledMFAMethods(methods []string) error {
+
+	if !types.ValidMFAMethods(methods) {
+		return fmt.Errorf("%v contain an invalid mfa method", methods)
+	}
+
 	return Config.Webserver.Tunnel.Methods().Put(context.Background(), d.etcd, methods)
 }
 
@@ -290,14 +299,6 @@ func (d *database) SetDNS(dns []string) error {
 
 func (d *database) GetDNS() ([]string, error) {
 	return Config.Wireguard.DNS().Get(context.Background(), d.etcd)
-}
-
-func checkValidMFA(method types.MFA) ([]types.MFA, bool) {
-	r := []types.MFA{
-		types.Totp, types.Webauthn, types.Oidc, types.Pam,
-	}
-
-	return r, slices.Contains(r, method)
 }
 
 type LoginSettingsDTO struct {
@@ -402,6 +403,14 @@ func (d *database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(loginSettings); err != nil {
 		return fmt.Errorf("invalid login settings: %w", err)
+	}
+
+	if !types.ValidMFA(loginSettings.DefaultMethod) {
+		return fmt.Errorf("default method is not valid: %q", loginSettings.DefaultMethod)
+	}
+
+	if !types.ValidMFAMethods(loginSettings.Methods) {
+		return fmt.Errorf("supplied mfa methods contain method that is not recognised: %v", loginSettings.Methods)
 	}
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
