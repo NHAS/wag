@@ -15,15 +15,8 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-<<<<<<< HEAD
-func (d *database) GetRegistrationToken(token string) (username, overwrites, staticIP string, group []string, tag string, err error) {
-=======
-func (d *database) registrationKey(token string) string {
-	return fmt.Sprintf("tokens-%s", token)
-}
 
 func (d *database) GetRegistrationToken(token string) (result control.RegistrationResult, err error) {
->>>>>>> main
 
 	path := InternalConfig.RegistrationTokens().Key(token)
 
