@@ -1329,7 +1329,7 @@ func (autoTypeConfig) Socket() paths.Path[string] {
 
 var (
 	Config       = autoTypeConfig{}
-	ConfigDiffer = tree.NewTreeWithPrefix[config.Config]("wag-config", "version")
+	ConfigDiffer = tree.NewTreeWithPrefix[config.Config]("wag-config/Config", "version")
 )
 
 // init() builds the tree structure to automatically apply diffs to etcd

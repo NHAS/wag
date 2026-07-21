@@ -539,7 +539,7 @@ func (autoTypeInternalConfig) Users() paths.MapPath[config.UserModel] {
 
 var (
 	InternalConfig       = autoTypeInternalConfig{}
-	InternalConfigDiffer = tree.NewTreeWithPrefix[config.InternalConfig]("wag-config-internal", "version")
+	InternalConfigDiffer = tree.NewTreeWithPrefix[config.InternalConfig]("wag-config-internal/InternalConfig", "version")
 )
 
 // init() builds the tree structure to automatically apply diffs to etcd
