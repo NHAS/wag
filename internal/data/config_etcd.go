@@ -1329,7 +1329,7 @@ func (autoTypeConfig) Socket() paths.Path[string] {
 
 var (
 	Config       = autoTypeConfig{}
-	ConfigDiffer = tree.NewTreeWithPrefix[config.Config]("wag-config/Config", "version")
+	ConfigDiffer = tree.NewTreeWithPrefix[config.Config]("wag-config", "Config")
 )
 
 // init() builds the tree structure to automatically apply diffs to etcd
@@ -1396,4 +1396,5 @@ func init() {
 	ConfigDiffer.Register(Config.Wireguard.MTU())
 	ConfigDiffer.Register(Config.Wireguard.PrivateKey())
 	ConfigDiffer.Register(Config.Wireguard.ServerPersistentKeepAlive())
+	ConfigDiffer.Ignore("Config/Clustering", "Config/RemoteCluster", "Config/Wireguard/Range", "Config/Wireguard/ServerAddress", "Config/Wireguard/Range", "Config/Wireguard/ServerAddress")
 }

@@ -27,17 +27,17 @@ var Version string
 
 // use to be WebserverConfiguration
 type WebserverDetails struct {
-	ListenAddress string `json:"listen_address"`
-	Domain        string `json:"domain"`
-	TLS           bool   `json:"tls"`
-	StaticCerts   bool   `json:"static_certificates"`
+	ListenAddress string
+	Domain        string
+	TLS           bool
+	StaticCerts   bool
 
-	CertificatePath string `json:"certificate_path"`
-	PrivateKeyPath  string `json:"private_key_path"`
+	CertificatePath string
+	PrivateKeyPath  string
 
 	// These are the user supplied certs, not the ones given by certmagic, which are managed internally
-	CertificatePEM string `json:"certificate"`
-	PrivateKeyPEM  string `json:"private_key" sensitive:"yes"`
+	CertificatePEM string
+	PrivateKeyPEM  string `sensitive:"yes"`
 }
 
 func (a *WebserverDetails) Equals(b *WebserverDetails) bool {
@@ -71,12 +71,12 @@ type ClusteringDetails struct {
 }
 
 type TunnelOidc struct {
-	IssuerURL           string   `json:"issuer" validate:"omitempty,url" `
-	ClientSecret        string   `json:"client_secret" validate:"omitempty,min=1,max=255" sensitive:"yes"`
-	ClientID            string   `json:"client_id" validate:"omitempty,min=1,max=255"`
-	GroupsClaimName     string   `json:"group_claim_name,omitempty"`
-	DeviceUsernameClaim string   `json:"device_username_claim,omitempty"`
-	Scopes              []string `json:"scopes,omitempty" tetcd:"compress"`
+	IssuerURL           string   `validate:"omitempty,url" `
+	ClientSecret        string   ` validate:"omitempty,min=1,max=255" sensitive:"yes"`
+	ClientID            string   ` validate:"omitempty,min=1,max=255"`
+	GroupsClaimName     string   `json:",omitempty"`
+	DeviceUsernameClaim string   `json:",omitempty"`
+	Scopes              []string `json:",omitempty" tetcd:"compress"`
 }
 
 func (o *TunnelOidc) Equals(b *TunnelOidc) bool {
@@ -92,17 +92,17 @@ func (o *TunnelOidc) Equals(b *TunnelOidc) bool {
 }
 
 type PAM struct {
-	ServiceName string `json:"service_name" validate:"omitempty,min=1"`
+	ServiceName string `validate:"omitempty,min=1"`
 }
 
 type CloudflareToken struct {
-	APIToken string `json:"api_token" sensitive:"true"`
+	APIToken string `sensitive:"true"`
 }
 
 type Config struct {
 	Socket        string `json:",omitempty"`
 	GID           *int   `json:",omitempty"`
-	CheckUpdates  bool   `json:"check_updates,omitempty"`
+	CheckUpdates  bool   `json:",omitempty"`
 	NumberProxies int
 	DevMode       bool `json:",omitempty"`
 
@@ -123,7 +123,7 @@ type Config struct {
 			ExternalAddress        string `validate:"required,hostname|hostname_port|ip"`
 		}
 
-		Lockout int `validate:"required,number" json:"lockout"`
+		Lockout int `validate:"required,number"`
 
 		Tunnel struct {
 			HTTPSettings WebserverDetails
@@ -134,12 +134,12 @@ type Config struct {
 			SessionInactivityTimeoutMinutes int `validate:"required,number"`
 
 			DefaultMethod string   `json:",omitempty"`
-			Issuer        string   `validate:"required" json:"issuer"`
+			Issuer        string   `validate:"required"`
 			Methods       []string `json:",omitempty" tetcd:"compress"`
 
-			OIDC TunnelOidc `json:"oidc,omitzero" tetcd:"compress"`
+			OIDC TunnelOidc `json:",omitzero" tetcd:"compress"`
 
-			PAM PAM `json:"pam,omitzero"`
+			PAM PAM `json:",omitzero"`
 		}
 
 		Management struct {
@@ -178,7 +178,7 @@ type Config struct {
 		ServerAddress             net.IP     `json:"-" tetcd:"-"`
 		ServerPersistentKeepAlive int
 
-		DNS []string `json:"dns,omitempty" tetcd:"compress" validate:"omitempty,dive,hostname|ip"`
+		DNS []string `json:",omitempty" tetcd:"compress" validate:"omitempty,dive,hostname|ip"`
 	}
 
 	Acls Acls
