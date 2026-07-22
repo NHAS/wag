@@ -53,7 +53,7 @@ func (a *WebserverDetails) Equals(b *WebserverDetails) bool {
 }
 
 type Acls struct {
-	Groups   map[string]map[string]MembershipInfo `json:",omitempty"`
+	Groups   map[string]map[string]MembershipInfo
 	Policies map[string]*acls.Acl
 }
 
@@ -71,12 +71,12 @@ type ClusteringDetails struct {
 }
 
 type TunnelOidc struct {
-	IssuerURL           string   `validate:"omitempty,url" `
-	ClientSecret        string   ` validate:"omitempty,min=1,max=255" sensitive:"yes"`
-	ClientID            string   ` validate:"omitempty,min=1,max=255"`
-	GroupsClaimName     string   `json:",omitempty"`
-	DeviceUsernameClaim string   `json:",omitempty"`
-	Scopes              []string `json:",omitempty" tetcd:"compress"`
+	IssuerURL           string `validate:"omitempty,url" `
+	ClientSecret        string `validate:"omitempty,min=1,max=255" sensitive:"yes"`
+	ClientID            string `validate:"omitempty,min=1,max=255"`
+	GroupsClaimName     string
+	DeviceUsernameClaim string
+	Scopes              []string `tetcd:"compress"`
 }
 
 func (o *TunnelOidc) Equals(b *TunnelOidc) bool {
@@ -100,15 +100,15 @@ type CloudflareToken struct {
 }
 
 type Config struct {
-	Socket        string `json:",omitempty"`
-	GID           *int   `json:",omitempty"`
-	CheckUpdates  bool   `json:",omitempty"`
+	Socket        string
+	GID           *int
+	CheckUpdates  bool
 	NumberProxies int
-	DevMode       bool `json:",omitempty"`
+	DevMode       bool
 
-	ExposePorts      []string `json:",omitempty" tetcd:"compress"`
-	NAT              *bool    `json:",omitempty"`
-	NATExcludeRanges []string `json:",omitempty" tetcd:"compress"`
+	ExposePorts      []string `tetcd:"compress"`
+	NAT              *bool
+	NATExcludeRanges []string `tetcd:"compress"`
 
 	Webserver struct {
 		Acme struct {
@@ -119,7 +119,7 @@ type Config struct {
 
 		Public struct {
 			HTTPSettings           WebserverDetails
-			DownloadConfigFileName string `json:",omitempty" validate:"required"`
+			DownloadConfigFileName string `validate:"required"`
 			ExternalAddress        string `validate:"required,hostname|hostname_port|ip"`
 		}
 
@@ -133,13 +133,13 @@ type Config struct {
 			MaxSessionLifetimeMinutes       int `validate:"required,number"`
 			SessionInactivityTimeoutMinutes int `validate:"required,number"`
 
-			DefaultMethod string   `json:",omitempty"`
+			DefaultMethod string
 			Issuer        string   `validate:"required"`
-			Methods       []string `json:",omitempty" tetcd:"compress"`
+			Methods       []string `tetcd:"compress"`
 
-			OIDC TunnelOidc `json:",omitzero" tetcd:"compress"`
+			OIDC TunnelOidc `tetcd:"compress"`
 
-			PAM PAM `json:",omitzero"`
+			PAM PAM
 		}
 
 		Management struct {
@@ -148,15 +148,15 @@ type Config struct {
 			Enabled bool
 
 			Password struct {
-				Enabled *bool `json:",omitempty"`
-			} `json:",omitzero"`
+				Enabled *bool
+			}
 
 			OIDC struct {
 				IssuerURL    string
 				ClientSecret string
 				ClientID     string
 				Enabled      bool
-			} `json:",omitzero"`
+			}
 		}
 	}
 
@@ -174,11 +174,11 @@ type Config struct {
 		LogLevel int
 
 		//Not externally configurable
-		Range                     *net.IPNet `json:"-" tetcd:"-"`
-		ServerAddress             net.IP     `json:"-" tetcd:"-"`
+		Range                     *net.IPNet `tetcd:"-"`
+		ServerAddress             net.IP     `tetcd:"-"`
 		ServerPersistentKeepAlive int
 
-		DNS []string `json:",omitempty" tetcd:"compress" validate:"omitempty,dive,hostname|ip"`
+		DNS []string `tetcd:"compress" validate:"omitempty,dive,hostname|ip"`
 	}
 
 	Acls Acls

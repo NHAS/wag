@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/tetcd"
+	"github.com/NHAS/tetcd/paths"
 	"github.com/NHAS/wag/internal/acls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/routetypes"
@@ -105,7 +106,9 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	// the default policy contents
 	acl, err := globalPolicy.Value()
 	if err == nil {
-		addAcls(*acl)
+		if acl != nil {
+			addAcls(*acl)
+		}
 	} else {
 		d.RaiseError(err, []byte("failed to unmarshal default acls policy"))
 		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal default acls policy")
@@ -134,9 +137,9 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	acl, err = userPolicies.Value()
 	if err == nil {
 		addAcls(*acl)
-	} else {
+	} else if !errors.Is(err, paths.ErrNotFound) {
 		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal user specific acls")
-		d.RaiseError(err, []byte(fmt.Sprintf("failed to decode %q acls check policies", username)))
+		d.RaiseError(err, fmt.Appendf(nil, "failed to decode %q acls check policies", username))
 	}
 
 	groups, err := usersGroups.Keys()

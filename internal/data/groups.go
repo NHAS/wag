@@ -56,7 +56,6 @@ func (d *database) CreateGroup(group string, initialMembers []string) error {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, _ := txn.Conditional(clientv3util.KeyMissing(index.Key()))
 	tetcd.PutTx(then, index, info)
-	tetcd.PutTx(then, index, info)
 
 	d.generateOpsForGroupAddition(then, info.Created, group, initialMembers, false)
 
@@ -197,7 +196,7 @@ func (d *database) RemoveUserAllGroups(username string) error {
 		return fmt.Errorf("failed to remove user group memberships: %w", err)
 	}
 
-	groups, err := groupsH.PrevKeys()
+	groups, err := tetcd.IgnoreEmpty(groupsH.PrevKeys())
 	if err != nil {
 		return fmt.Errorf("failed to get previous group keys: %w", err)
 	}

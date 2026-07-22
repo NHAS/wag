@@ -297,7 +297,7 @@ func (f *Firewall) aclsChanges(ctx context.Context, event watch.Event[*acls.Acl]
 }
 
 func (f *Firewall) groupChanges(ctx context.Context, event watch.Event[config.MembershipInfo]) error {
-
+	// TODO this is a quite broken for some reason?
 	username := filepath.Base(event.Key)
 
 	switch event.Type {

@@ -280,7 +280,8 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.
 	tagPath := InternalConfig.References.Devices.Tag().Key(tag)
 
 	cmp := []clientv3.Cmp{
-		clientv3util.KeyMissing(devicePath.Key()), clientv3util.KeyExists(InternalConfig.Users().Key(username).Key()),
+		clientv3util.KeyMissing(devicePath.Key()),
+		clientv3util.KeyExists(InternalConfig.Users().Key(username).Key()),
 	}
 
 	if len(tag) != 0 {

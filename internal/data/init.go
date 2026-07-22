@@ -263,6 +263,7 @@ func (d *database) loadInitialSettings() error {
 	}
 
 	if plan.Changed() {
+		log.Info().Msg("applying config update")
 		return ConfigDiffer.Apply(context.Background(), d.etcd, plan)
 	}
 
@@ -305,6 +306,10 @@ func (d *database) TearDown() error {
 
 	if d.etcdServer != nil {
 		d.etcdServer.Close()
+		select {
+		case <-d.etcdServer.Server.StopNotify():
+		case <-time.After(5 * time.Second):
+		}
 		d.etcdServer = nil
 	}
 
