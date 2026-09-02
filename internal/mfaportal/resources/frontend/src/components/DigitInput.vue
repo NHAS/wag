@@ -10,8 +10,7 @@ const emit = defineEmits<{
   (e: "submit", code: string): void;
 }>();
 
-const code = ref("");
-const codeInput = ref<HTMLInputElement>();
+const codeInput = ref<HTMLInputElement | null>(null);
 
 function numericCode(value: string): string {
   return value.replace(/[^0-9]/g, "").slice(0, 6);
@@ -22,11 +21,10 @@ function handleInput(event: Event): void {
   const value = numericCode(input.value);
 
   input.value = value;
-  code.value = value;
 }
 
 function submit(): void {
-  emit("submit", numericCode(codeInput.value?.value ?? code.value));
+  emit("submit", numericCode(codeInput.value?.value ?? ""));
 }
 </script>
 
@@ -48,7 +46,6 @@ function submit(): void {
           autofocus
           class="input input-bordered input-primary h-12 w-72 max-w-full pl-[0.75em] text-center font-mono text-2xl tracking-[0.75em] text-neutral"
           ref="codeInput"
-          :value="code"
           placeholder="000000"
           @input="handleInput"
         />
