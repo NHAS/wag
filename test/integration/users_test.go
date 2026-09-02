@@ -42,7 +42,7 @@ func TestApiUserCreation(t *testing.T) {
 
 	token := makeRegistrationToken()
 
-	_, err = ctrl.NewRegistration(token, username, "", "", 1, "")
+	_, err = ctrl.NewRegistration(token, username, "", "", 1, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestTokenUserCreation(t *testing.T) {
 	const username = "unique_222222"
 	token := makeRegistrationToken()
 
-	_, err := ctrl.NewRegistration(token, username, "", "", 1, "")
+	_, err := ctrl.NewRegistration(token, username, "", "", 1, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
