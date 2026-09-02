@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
+import { ref } from "vue";
 
 const props = defineProps({
   executionName: String,
@@ -10,104 +10,56 @@ const emit = defineEmits<{
   (e: "submit", code: string): void;
 }>();
 
-const digitInputs = ref<(HTMLInputElement | null)[]>([]);
-const digits = ref(["", "", "", "", "", ""]);
+const code = ref("");
+const codeInput = ref<HTMLInputElement>();
 
-const submitButton = ref<HTMLButtonElement>();
-
-function handleInput(index: number, event: KeyboardEvent): void {
-  // Allow only numeric inputs and backspace
-  if (event.key === "Backspace") {
-    nextTick(() => {
-      let currentInput = digitInputs.value[index];
-      if (currentInput == null) {
-        return;
-      }
-      currentInput.value = "";
-
-      digits.value[index] = "";
-
-      if (index > 0) {
-        let input = digitInputs.value[index - 1];
-        if (input == null) {
-          return;
-        }
-
-        input.focus();
-      }
-    });
-    event.preventDefault();
-  } else if (/\d/.test(event.key) && event.key.length === 1) {
-    // Ensure only single-digit keys
-    digits.value[index] = event.key.toString(); // Direct assignment ensures only valid input
-
-    nextTick(() => {
-      if (index < 5) {
-        digitInputs.value[index + 1]?.focus();
-      } else {
-        submitButton.value?.focus();
-      }
-    });
-    event.preventDefault();
-  }
+function numericCode(value: string): string {
+  return value.replace(/[^0-9]/g, "").slice(0, 6);
 }
 
-function handlePaste(event: ClipboardEvent): void {
-  event.preventDefault();
-  const pastedData = event.clipboardData?.getData("text") || "";
-  const numericData = pastedData.replace(/[^0-9]/g, "").slice(0, 6);
+function handleInput(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const value = numericCode(input.value);
 
-  for (let i = 0; i < numericData.length && i < 6; i++) {
-    digits.value[i] = numericData[i];
-  }
+  input.value = value;
+  code.value = value;
+}
 
-  // Focus the next empty input or the last one
-  const nextEmptyIndex = digits.value.findIndex((d) => !d);
-  if (nextEmptyIndex !== -1 && nextEmptyIndex < 6) {
-    nextTick(() => {
-      digitInputs.value[nextEmptyIndex]?.focus();
-    });
-  } else if (numericData.length > 0) {
-    nextTick(() => {
-      submitButton.value?.focus();
-    });
-  }
+function submit(): void {
+  emit("submit", numericCode(codeInput.value?.value ?? code.value));
 }
 </script>
 
 <template>
-  <div class="form-control mb-6">
-    <div class="flex flex-col items-center gap-2">
-      <label class="label">
-        <span class="label-text">Enter 6-digit code</span>
-      </label>
-      <div class="flex gap-2 justify-center">
-        <template v-for="(_, index) in 6" :key="index">
-          <input
-            type="text"
-            :autofocus="index == 0"
-            class="input input-bordered text-neutral input-primary w-12 h-12 text-center text-lg font-mono"
-            maxlength="1"
-            :ref="(el) => (digitInputs[index] = el as HTMLInputElement)"
-            v-model="digits[index]"
-            placeholder="0"
-            @keydown="handleInput(index, $event)"
-            @paste="handlePaste($event)"
-            autocomplete="off"
-          />
-        </template>
+  <form method="post" @submit.prevent="submit">
+    <div class="form-control mb-6">
+      <div class="flex flex-col items-center gap-2">
+        <label class="label" for="one-time-code">
+          <span class="label-text">Enter 6-digit code</span>
+        </label>
+        <input
+          id="one-time-code"
+          name="one-time-code"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="6"
+          pattern="[0-9]*"
+          autofocus
+          class="input input-bordered input-primary h-12 w-72 max-w-full pl-[0.75em] text-center font-mono text-2xl tracking-[0.75em] text-neutral"
+          ref="codeInput"
+          :value="code"
+          placeholder="000000"
+          @input="handleInput"
+        />
       </div>
     </div>
-  </div>
 
-  <div class="flex flex-col sm:flex-row gap-4">
-    <button
-      class="btn btn-primary flex-1"
-      @click="emit('submit', digits.join(''))"
-      ref="submitButton"
-    >
-      {{ props.executionName }}
-      <span class="loading loading-spinner" v-if="loading"></span>
-    </button>
-  </div>
+    <div class="flex flex-col gap-4 sm:flex-row">
+      <button class="btn btn-primary flex-1" type="submit">
+        {{ props.executionName }}
+        <span v-if="loading" class="loading loading-spinner"></span>
+      </button>
+    </div>
+  </form>
 </template>
