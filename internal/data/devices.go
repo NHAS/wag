@@ -291,23 +291,23 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, _ := txn.Conditional(cmp...)
 
-	err = tetcd.PutTx(then, devicePath, dev)
+	err = then.Put(devicePath, dev)
 	if err != nil {
 		return config.Device{}, err
 	}
 
-	err = tetcd.PutTx(then, InternalConfig.References.Devices.Address().Key(address), ref)
+	err = then.Put(InternalConfig.References.Devices.Address().Key(address), ref)
 	if err != nil {
 		return config.Device{}, err
 	}
 
-	err = tetcd.PutTx(then, InternalConfig.References.Devices.PublicKey().Key(publickey), ref)
+	err = then.Put(InternalConfig.References.Devices.PublicKey().Key(publickey), ref)
 	if err != nil {
 		return config.Device{}, err
 	}
 
 	if len(tag) != 0 {
-		err = tetcd.PutTx(then, tagPath, ref)
+		err = then.Put(tagPath, ref)
 		if err != nil {
 			return config.Device{}, err
 		}
@@ -358,21 +358,21 @@ func (d *database) DeleteDevice(address string) error {
 func (d *database) applyDeleteDeviceOps(txn *tetcd.TxnConditional, dev config.Device) {
 
 	// mark that the ip address is no longer in use
-	tetcd.PutTx(txn, InternalConfig.Devices.DHCP.Abandoned().Key(dev.Address), dev.Address)
+	txn.Put(InternalConfig.Devices.DHCP.Abandoned().Key(dev.Address), dev.Address)
 
 	// Delete the device itself
-	tetcd.DeleteTx(txn, InternalConfig.Devices.Machines().Key(dev.Username).Key(dev.Address))
+	txn.Delete(InternalConfig.Devices.Machines().Key(dev.Username).Key(dev.Address))
 
 	// clean up the 3 reference types
-	tetcd.DeleteTx(txn, InternalConfig.References.Devices.Address().Key(dev.Address))
-	tetcd.DeleteTx(txn, InternalConfig.References.Devices.PublicKey().Key(dev.Publickey))
-	tetcd.DeleteTx(txn, InternalConfig.References.Devices.Tag().Key(dev.Tag))
+	txn.Delete(InternalConfig.References.Devices.Address().Key(dev.Address))
+	txn.Delete(InternalConfig.References.Devices.PublicKey().Key(dev.Publickey))
+	txn.Delete(InternalConfig.References.Devices.Tag().Key(dev.Tag))
 
 	// clean up challenges
-	tetcd.DeleteTx(txn, InternalConfig.Devices.Challenges().Key(dev.Username).Key(dev.Address))
+	txn.Delete(InternalConfig.Devices.Challenges().Key(dev.Username).Key(dev.Address))
 
 	// clean up any existing sessions
-	tetcd.DeleteTx(txn, InternalConfig.Devices.Sessions().Key(dev.Address))
+	txn.Delete(InternalConfig.Devices.Sessions().Key(dev.Address))
 
 }
 

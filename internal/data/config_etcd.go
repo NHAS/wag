@@ -30,8 +30,8 @@ func (autoTypeConfigAcls) Policies() paths.MapPath[*acls.Acl] {
 // Get fetches all fields of Acls in one or more transactions pinned to the same etcd revision.
 func (a autoTypeConfigAcls) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Acls, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.DynamicCollectionTx(txn0.Then(), a.Groups())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Policies())
+	h0_0 := txn0.Then().DynamicCollection(a.Groups())
+	h0_1 := txn0.Then().List(a.Policies())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -61,7 +61,7 @@ func (autoTypeWebserverAcme) CAProvider() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Acme/CAProvider", codecs.NewJsonCodec[string]())
 }
 
-// CloudflareDNSToken() KV should contain type struct{APIToken string "json:\"api_token\" sensitive:\"true\""}
+// CloudflareDNSToken() KV should contain type struct{APIToken string "sensitive:\"true\""}
 func (autoTypeWebserverAcme) CloudflareDNSToken() paths.Path[config.CloudflareToken] {
 	return paths.NewPath("wag-config/Config/Webserver/Acme/CloudflareDNSToken", codecs.NewJsonCodec[config.CloudflareToken]())
 }
@@ -80,9 +80,9 @@ type resultWebserverAcme struct {
 // Get fetches all fields of resultWebserverAcme in one or more transactions pinned to the same etcd revision.
 func (a autoTypeWebserverAcme) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverAcme, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.CAProvider())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.CloudflareDNSToken())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Email())
+	h0_0 := txn0.Then().Get(a.CAProvider())
+	h0_1 := txn0.Then().Get(a.CloudflareDNSToken())
+	h0_2 := txn0.Then().Get(a.Email())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -154,14 +154,14 @@ func (autoTypeManagementHTTPSettings) TLS() paths.Path[bool] {
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
 func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.ListenAddress())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPEM())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPath())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.StaticCerts())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.TLS())
+	h0_0 := txn0.Then().Get(a.CertificatePEM())
+	h0_1 := txn0.Then().Get(a.CertificatePath())
+	h0_2 := txn0.Then().Get(a.Domain())
+	h0_3 := txn0.Then().Get(a.ListenAddress())
+	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
+	h0_6 := txn0.Then().Get(a.StaticCerts())
+	h0_7 := txn0.Then().Get(a.TLS())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -240,10 +240,10 @@ type resultManagementOIDC struct {
 // Get fetches all fields of resultManagementOIDC in one or more transactions pinned to the same etcd revision.
 func (a autoTypeManagementOIDC) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementOIDC, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.ClientID())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.ClientSecret())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Enabled())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.IssuerURL())
+	h0_0 := txn0.Then().Get(a.ClientID())
+	h0_1 := txn0.Then().Get(a.ClientSecret())
+	h0_2 := txn0.Then().Get(a.Enabled())
+	h0_3 := txn0.Then().Get(a.IssuerURL())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -288,7 +288,7 @@ type resultManagementPassword struct {
 // Get fetches all fields of resultManagementPassword in one or more transactions pinned to the same etcd revision.
 func (a autoTypeManagementPassword) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementPassword, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Enabled())
+	h0_0 := txn0.Then().Get(a.Enabled())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -335,20 +335,20 @@ type resultWebserverManagement struct {
 // Get fetches all fields of resultWebserverManagement in one or more transactions pinned to the same etcd revision.
 func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverManagement, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Enabled())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePath())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.Domain())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.ListenAddress())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPEM())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPath())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.StaticCerts())
-	h0_8 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.TLS())
-	h0_9 := tetcd.GetTx(txn0.Then(), a.OIDC.ClientID())
-	h0_10 := tetcd.GetTx(txn0.Then(), a.OIDC.ClientSecret())
-	h0_11 := tetcd.GetTx(txn0.Then(), a.OIDC.Enabled())
-	h0_12 := tetcd.GetTx(txn0.Then(), a.OIDC.IssuerURL())
-	h0_13 := tetcd.GetTx(txn0.Then(), a.Password.Enabled())
+	h0_0 := txn0.Then().Get(a.Enabled())
+	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
+	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
+	h0_7 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_8 := txn0.Then().Get(a.HTTPSettings.TLS())
+	h0_9 := txn0.Then().Get(a.OIDC.ClientID())
+	h0_10 := txn0.Then().Get(a.OIDC.ClientSecret())
+	h0_11 := txn0.Then().Get(a.OIDC.Enabled())
+	h0_12 := txn0.Then().Get(a.OIDC.IssuerURL())
+	h0_13 := txn0.Then().Get(a.Password.Enabled())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -464,14 +464,14 @@ func (autoTypePublicHTTPSettings) TLS() paths.Path[bool] {
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
 func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.ListenAddress())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPEM())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPath())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.StaticCerts())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.TLS())
+	h0_0 := txn0.Then().Get(a.CertificatePEM())
+	h0_1 := txn0.Then().Get(a.CertificatePath())
+	h0_2 := txn0.Then().Get(a.Domain())
+	h0_3 := txn0.Then().Get(a.ListenAddress())
+	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
+	h0_6 := txn0.Then().Get(a.StaticCerts())
+	h0_7 := txn0.Then().Get(a.TLS())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -541,16 +541,16 @@ type resultWebserverPublic struct {
 // Get fetches all fields of resultWebserverPublic in one or more transactions pinned to the same etcd revision.
 func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverPublic, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.DownloadConfigFileName())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.ExternalAddress())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePath())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.Domain())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.ListenAddress())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPEM())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPath())
-	h0_8 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.StaticCerts())
-	h0_9 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.TLS())
+	h0_0 := txn0.Then().Get(a.DownloadConfigFileName())
+	h0_1 := txn0.Then().Get(a.ExternalAddress())
+	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_7 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
+	h0_8 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_9 := txn0.Then().Get(a.HTTPSettings.TLS())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -650,14 +650,14 @@ func (autoTypeTunnelHTTPSettings) TLS() paths.Path[bool] {
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
 func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.CertificatePEM())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.CertificatePath())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Domain())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.ListenAddress())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPEM())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.PrivateKeyPath())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.StaticCerts())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.TLS())
+	h0_0 := txn0.Then().Get(a.CertificatePEM())
+	h0_1 := txn0.Then().Get(a.CertificatePath())
+	h0_2 := txn0.Then().Get(a.Domain())
+	h0_3 := txn0.Then().Get(a.ListenAddress())
+	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
+	h0_6 := txn0.Then().Get(a.StaticCerts())
+	h0_7 := txn0.Then().Get(a.TLS())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -714,7 +714,7 @@ func (autoTypeTunnelPAM) ServiceName() paths.Path[string] {
 // Get fetches all fields of PAM in one or more transactions pinned to the same etcd revision.
 func (a autoTypeTunnelPAM) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.PAM, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.ServiceName())
+	h0_0 := txn0.Then().Get(a.ServiceName())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -763,7 +763,7 @@ func (autoTypeWebserverTunnel) Methods() paths.Path[[]string] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/Methods", codecs.NewJsonCodec[[]string]())
 }
 
-// OIDC() KV should contain type struct{IssuerURL string "json:\"issuer\" validate:\"omitempty,url\" "; ClientSecret string "json:\"client_secret\" validate:\"omitempty,min=1,max=255\" sensitive:\"yes\""; ClientID string "json:\"client_id\" validate:\"omitempty,min=1,max=255\""; GroupsClaimName string "json:\"group_claim_name,omitempty\""; DeviceUsernameClaim string "json:\"device_username_claim,omitempty\""; Scopes []string "json:\"scopes,omitempty\" tetcd:\"compress\""}
+// OIDC() KV should contain type struct{IssuerURL string "validate:\"omitempty,url\" "; ClientSecret string "validate:\"omitempty,min=1,max=255\" sensitive:\"yes\""; ClientID string "validate:\"omitempty,min=1,max=255\""; GroupsClaimName string; DeviceUsernameClaim string; Scopes []string "tetcd:\"compress\""}
 func (autoTypeWebserverTunnel) OIDC() paths.Path[config.TunnelOidc] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/OIDC", codecs.NewJsonCodec[config.TunnelOidc]())
 }
@@ -788,22 +788,22 @@ type resultWebserverTunnel struct {
 // Get fetches all fields of resultWebserverTunnel in one or more transactions pinned to the same etcd revision.
 func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverTunnel, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.DefaultMethod())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePEM())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.CertificatePath())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.Domain())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.ListenAddress())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPEM())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.PrivateKeyPath())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.StaticCerts())
-	h0_8 := tetcd.GetTx(txn0.Then(), a.HTTPSettings.TLS())
-	h0_9 := tetcd.GetTx(txn0.Then(), a.HelpMail())
-	h0_10 := tetcd.GetTx(txn0.Then(), a.Issuer())
-	h0_11 := tetcd.GetTx(txn0.Then(), a.MaxSessionLifetimeMinutes())
-	h0_12 := tetcd.GetTx(txn0.Then(), a.Methods())
-	h0_13 := tetcd.GetTx(txn0.Then(), a.OIDC())
-	h0_14 := tetcd.GetTx(txn0.Then(), a.PAM.ServiceName())
-	h0_15 := tetcd.GetTx(txn0.Then(), a.SessionInactivityTimeoutMinutes())
+	h0_0 := txn0.Then().Get(a.DefaultMethod())
+	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
+	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
+	h0_7 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_8 := txn0.Then().Get(a.HTTPSettings.TLS())
+	h0_9 := txn0.Then().Get(a.HelpMail())
+	h0_10 := txn0.Then().Get(a.Issuer())
+	h0_11 := txn0.Then().Get(a.MaxSessionLifetimeMinutes())
+	h0_12 := txn0.Then().Get(a.Methods())
+	h0_13 := txn0.Then().Get(a.OIDC())
+	h0_14 := txn0.Then().Get(a.PAM.ServiceName())
+	h0_15 := txn0.Then().Get(a.SessionInactivityTimeoutMinutes())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -935,50 +935,50 @@ type resultConfigWebserver struct {
 // Get fetches all fields of resultConfigWebserver in one or more transactions pinned to the same etcd revision.
 func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWebserver, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Acme.CAProvider())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.Acme.CloudflareDNSToken())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Acme.Email())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.Lockout())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.Management.Enabled())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.CertificatePEM())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.CertificatePath())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.Domain())
-	h0_8 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.ListenAddress())
-	h0_9 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.PrivateKeyPEM())
-	h0_10 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.PrivateKeyPath())
-	h0_11 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.StaticCerts())
-	h0_12 := tetcd.GetTx(txn0.Then(), a.Management.HTTPSettings.TLS())
-	h0_13 := tetcd.GetTx(txn0.Then(), a.Management.OIDC.ClientID())
-	h0_14 := tetcd.GetTx(txn0.Then(), a.Management.OIDC.ClientSecret())
-	h0_15 := tetcd.GetTx(txn0.Then(), a.Management.OIDC.Enabled())
-	h0_16 := tetcd.GetTx(txn0.Then(), a.Management.OIDC.IssuerURL())
-	h0_17 := tetcd.GetTx(txn0.Then(), a.Management.Password.Enabled())
-	h0_18 := tetcd.GetTx(txn0.Then(), a.Public.DownloadConfigFileName())
-	h0_19 := tetcd.GetTx(txn0.Then(), a.Public.ExternalAddress())
-	h0_20 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.CertificatePEM())
-	h0_21 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.CertificatePath())
-	h0_22 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.Domain())
-	h0_23 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.ListenAddress())
-	h0_24 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.PrivateKeyPEM())
-	h0_25 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.PrivateKeyPath())
-	h0_26 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.StaticCerts())
-	h0_27 := tetcd.GetTx(txn0.Then(), a.Public.HTTPSettings.TLS())
-	h0_28 := tetcd.GetTx(txn0.Then(), a.Tunnel.DefaultMethod())
-	h0_29 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.CertificatePEM())
-	h0_30 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.CertificatePath())
-	h0_31 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.Domain())
-	h0_32 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.ListenAddress())
-	h0_33 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.PrivateKeyPEM())
-	h0_34 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.PrivateKeyPath())
-	h0_35 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.StaticCerts())
-	h0_36 := tetcd.GetTx(txn0.Then(), a.Tunnel.HTTPSettings.TLS())
-	h0_37 := tetcd.GetTx(txn0.Then(), a.Tunnel.HelpMail())
-	h0_38 := tetcd.GetTx(txn0.Then(), a.Tunnel.Issuer())
-	h0_39 := tetcd.GetTx(txn0.Then(), a.Tunnel.MaxSessionLifetimeMinutes())
-	h0_40 := tetcd.GetTx(txn0.Then(), a.Tunnel.Methods())
-	h0_41 := tetcd.GetTx(txn0.Then(), a.Tunnel.OIDC())
-	h0_42 := tetcd.GetTx(txn0.Then(), a.Tunnel.PAM.ServiceName())
-	h0_43 := tetcd.GetTx(txn0.Then(), a.Tunnel.SessionInactivityTimeoutMinutes())
+	h0_0 := txn0.Then().Get(a.Acme.CAProvider())
+	h0_1 := txn0.Then().Get(a.Acme.CloudflareDNSToken())
+	h0_2 := txn0.Then().Get(a.Acme.Email())
+	h0_3 := txn0.Then().Get(a.Lockout())
+	h0_4 := txn0.Then().Get(a.Management.Enabled())
+	h0_5 := txn0.Then().Get(a.Management.HTTPSettings.CertificatePEM())
+	h0_6 := txn0.Then().Get(a.Management.HTTPSettings.CertificatePath())
+	h0_7 := txn0.Then().Get(a.Management.HTTPSettings.Domain())
+	h0_8 := txn0.Then().Get(a.Management.HTTPSettings.ListenAddress())
+	h0_9 := txn0.Then().Get(a.Management.HTTPSettings.PrivateKeyPEM())
+	h0_10 := txn0.Then().Get(a.Management.HTTPSettings.PrivateKeyPath())
+	h0_11 := txn0.Then().Get(a.Management.HTTPSettings.StaticCerts())
+	h0_12 := txn0.Then().Get(a.Management.HTTPSettings.TLS())
+	h0_13 := txn0.Then().Get(a.Management.OIDC.ClientID())
+	h0_14 := txn0.Then().Get(a.Management.OIDC.ClientSecret())
+	h0_15 := txn0.Then().Get(a.Management.OIDC.Enabled())
+	h0_16 := txn0.Then().Get(a.Management.OIDC.IssuerURL())
+	h0_17 := txn0.Then().Get(a.Management.Password.Enabled())
+	h0_18 := txn0.Then().Get(a.Public.DownloadConfigFileName())
+	h0_19 := txn0.Then().Get(a.Public.ExternalAddress())
+	h0_20 := txn0.Then().Get(a.Public.HTTPSettings.CertificatePEM())
+	h0_21 := txn0.Then().Get(a.Public.HTTPSettings.CertificatePath())
+	h0_22 := txn0.Then().Get(a.Public.HTTPSettings.Domain())
+	h0_23 := txn0.Then().Get(a.Public.HTTPSettings.ListenAddress())
+	h0_24 := txn0.Then().Get(a.Public.HTTPSettings.PrivateKeyPEM())
+	h0_25 := txn0.Then().Get(a.Public.HTTPSettings.PrivateKeyPath())
+	h0_26 := txn0.Then().Get(a.Public.HTTPSettings.StaticCerts())
+	h0_27 := txn0.Then().Get(a.Public.HTTPSettings.TLS())
+	h0_28 := txn0.Then().Get(a.Tunnel.DefaultMethod())
+	h0_29 := txn0.Then().Get(a.Tunnel.HTTPSettings.CertificatePEM())
+	h0_30 := txn0.Then().Get(a.Tunnel.HTTPSettings.CertificatePath())
+	h0_31 := txn0.Then().Get(a.Tunnel.HTTPSettings.Domain())
+	h0_32 := txn0.Then().Get(a.Tunnel.HTTPSettings.ListenAddress())
+	h0_33 := txn0.Then().Get(a.Tunnel.HTTPSettings.PrivateKeyPEM())
+	h0_34 := txn0.Then().Get(a.Tunnel.HTTPSettings.PrivateKeyPath())
+	h0_35 := txn0.Then().Get(a.Tunnel.HTTPSettings.StaticCerts())
+	h0_36 := txn0.Then().Get(a.Tunnel.HTTPSettings.TLS())
+	h0_37 := txn0.Then().Get(a.Tunnel.HelpMail())
+	h0_38 := txn0.Then().Get(a.Tunnel.Issuer())
+	h0_39 := txn0.Then().Get(a.Tunnel.MaxSessionLifetimeMinutes())
+	h0_40 := txn0.Then().Get(a.Tunnel.Methods())
+	h0_41 := txn0.Then().Get(a.Tunnel.OIDC())
+	h0_42 := txn0.Then().Get(a.Tunnel.PAM.ServiceName())
+	h0_43 := txn0.Then().Get(a.Tunnel.SessionInactivityTimeoutMinutes())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -1227,14 +1227,14 @@ type resultConfigWireguard struct {
 // Get fetches all fields of resultConfigWireguard in one or more transactions pinned to the same etcd revision.
 func (a autoTypeConfigWireguard) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWireguard, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Address())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.DNS())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.DevName())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.ListenPort())
-	h0_4 := tetcd.GetTx(txn0.Then(), a.LogLevel())
-	h0_5 := tetcd.GetTx(txn0.Then(), a.MTU())
-	h0_6 := tetcd.GetTx(txn0.Then(), a.PrivateKey())
-	h0_7 := tetcd.GetTx(txn0.Then(), a.ServerPersistentKeepAlive())
+	h0_0 := txn0.Then().Get(a.Address())
+	h0_1 := txn0.Then().Get(a.DNS())
+	h0_2 := txn0.Then().Get(a.DevName())
+	h0_3 := txn0.Then().Get(a.ListenPort())
+	h0_4 := txn0.Then().Get(a.LogLevel())
+	h0_5 := txn0.Then().Get(a.MTU())
+	h0_6 := txn0.Then().Get(a.PrivateKey())
+	h0_7 := txn0.Then().Get(a.ServerPersistentKeepAlive())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}

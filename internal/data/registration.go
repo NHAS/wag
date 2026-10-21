@@ -15,7 +15,6 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-
 func (d *database) GetRegistrationToken(token string) (result control.RegistrationResult, err error) {
 
 	path := InternalConfig.RegistrationTokens().Key(token)
@@ -179,7 +178,7 @@ func (d *database) AddRegistrationToken(token, username, overwrite, staticIp str
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, _ := txn.Conditional(clientv3util.KeyMissing(newRegistrationToken.Key()))
-	tetcd.PutTx(then, newRegistrationToken, result)
+	then.Put(newRegistrationToken, result)
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to add registration token: %w", err)

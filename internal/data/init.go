@@ -320,8 +320,8 @@ func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEnt
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
-	usersHandle := tetcd.ListTx(then, InternalConfig.Users())
-	devicesHandle := tetcd.DynamicCollectionTx(then, InternalConfig.Devices.Machines())
+	usersHandle := then.List(InternalConfig.Users())
+	devicesHandle := then.DynamicCollection(InternalConfig.Devices.Machines())
 
 	if err := txn.Commit(); err != nil {
 		return nil, nil, err

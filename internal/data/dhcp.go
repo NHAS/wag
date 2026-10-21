@@ -68,10 +68,10 @@ func (d *database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (
 	txn := tetcd.NewTxn(ctx, d.etcd)
 	then, elseTxn := txn.Conditional(clientv3util.KeyExists(InternalConfig.Devices.DHCP.End().Key()))
 
-	endH := tetcd.GetTx(then, InternalConfig.Devices.DHCP.End())
+	endH := then.Get(InternalConfig.Devices.DHCP.End())
 
 	// As a migration step, if the dhcp end key isnt found, we place it with the ip address next to the servers ip address within the cidr
-	tetcd.PutTx(elseTxn, InternalConfig.Devices.DHCP.End(), incrementIP(serverIP, 1).String())
+	elseTxn.Put(InternalConfig.Devices.DHCP.End(), incrementIP(serverIP, 1).String())
 
 	if err := txn.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to get end of ip range: %w", err)
@@ -125,8 +125,8 @@ func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
 		txn := tetcd.NewTxn(ctx, d.etcd)
 		then, _ := txn.Conditional(clientv3util.KeyMissing(deviceAddressRef.Key()))
 
-		tetcd.DeleteTx(then, abandonedPath)
-		err = tetcd.PutTx(then, deviceAddressRef, config.DeviceRef{})
+		then.Delete(abandonedPath)
+		err = then.Put(deviceAddressRef, config.DeviceRef{})
 		if err != nil {
 			return "", fmt.Errorf("failed to create put value: %w", err)
 		}
@@ -177,12 +177,12 @@ func (d *database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cid
 		txn := tetcd.NewTxn(ctx, d.etcd)
 		then, _ := txn.Conditional(clientv3util.KeyMissing(deviceAddressRef.Key()))
 
-		err := tetcd.PutTx(then, InternalConfig.Devices.DHCP.End(), newEnd.String())
+		err := then.Put(InternalConfig.Devices.DHCP.End(), newEnd.String())
 		if err != nil {
 			return "", fmt.Errorf("failed to create put value: %w", err)
 		}
 
-		err = tetcd.PutTx(then, deviceAddressRef, config.DeviceRef{})
+		err = then.Put(deviceAddressRef, config.DeviceRef{})
 		if err != nil {
 			return "", fmt.Errorf("failed to create put value: %w", err)
 		}

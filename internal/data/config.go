@@ -17,6 +17,7 @@ import (
 // These generate the config_internal_etcd.go and config_etcd.go files
 // internal is for structures that shouldnt really be user exposed most of the time, such as dhcp, device management, user accounts
 // where config is more for things users should touch, like tls certs, etc
+
 //go:generate go run github.com/NHAS/tetcd/cmd/tetcd-gen -type=github.com/NHAS/wag/internal/config.Config -out=config_etcd.go -prefix=wag-config
 //go:generate go run github.com/NHAS/tetcd/cmd/tetcd-gen -type=github.com/NHAS/wag/internal/config.InternalConfig -out=config_internal_etcd.go -prefix=wag-config-internal
 
@@ -103,16 +104,16 @@ func (d *database) SetWebserverConfig(forWhat Webserver, details config.Webserve
 		return fmt.Errorf("unsupported webserver: %q", forWhat)
 	}
 
-	tetcd.PutTx(then, target.CertificatePEM(), details.CertificatePEM)
-	tetcd.PutTx(then, target.PrivateKeyPEM(), details.PrivateKeyPEM)
+	then.Put(target.CertificatePEM(), details.CertificatePEM)
+	then.Put(target.PrivateKeyPEM(), details.PrivateKeyPEM)
 
-	tetcd.PutTx(then, target.CertificatePath(), details.CertificatePath)
-	tetcd.PutTx(then, target.PrivateKeyPath(), details.PrivateKeyPath)
+	then.Put(target.CertificatePath(), details.CertificatePath)
+	then.Put(target.PrivateKeyPath(), details.PrivateKeyPath)
 
-	tetcd.PutTx(then, target.StaticCerts(), details.StaticCerts)
-	tetcd.PutTx(then, target.Domain(), details.Domain)
-	tetcd.PutTx(then, target.ListenAddress(), details.ListenAddress)
-	tetcd.PutTx(then, target.TLS(), details.TLS)
+	then.Put(target.StaticCerts(), details.StaticCerts)
+	then.Put(target.Domain(), details.Domain)
+	then.Put(target.ListenAddress(), details.ListenAddress)
+	then.Put(target.TLS(), details.TLS)
 
 	if err := txn.Commit(); err != nil {
 		return err
@@ -358,11 +359,11 @@ func (d *database) GetGeneralSettings() (s GeneralSettingsDTO, err error) {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	helpMailH := tetcd.GetTx(then, Config.Webserver.Tunnel.HelpMail())
-	externalAddressH := tetcd.GetTx(then, Config.Webserver.Public.ExternalAddress())
-	dnsH := tetcd.GetTx(then, Config.Wireguard.DNS())
-	downloadConfigFileNameH := tetcd.GetTx(then, Config.Webserver.Public.DownloadConfigFileName())
-	checkUpdatesH := tetcd.GetTx(then, Config.CheckUpdates())
+	helpMailH := then.Get(Config.Webserver.Tunnel.HelpMail())
+	externalAddressH := then.Get(Config.Webserver.Public.ExternalAddress())
+	dnsH := then.Get(Config.Wireguard.DNS())
+	downloadConfigFileNameH := then.Get(Config.Webserver.Public.DownloadConfigFileName())
+	checkUpdatesH := then.Get(Config.CheckUpdates())
 
 	if err := txn.Commit(); err != nil {
 		return s, fmt.Errorf("failed to get general settings: %w", err)
@@ -422,16 +423,16 @@ func (d *database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	tetcd.PutTx(then, Config.Webserver.Tunnel.MaxSessionLifetimeMinutes(), loginSettings.MaxSessionLifetimeMinutes)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.SessionInactivityTimeoutMinutes(), loginSettings.SessionInactivityTimeoutMinutes)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.DefaultMethod(), loginSettings.DefaultMethod)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.Issuer(), loginSettings.Issuer)
-	tetcd.PutTx(then, Config.Webserver.Tunnel.Methods(), loginSettings.Methods)
+	then.Put(Config.Webserver.Tunnel.MaxSessionLifetimeMinutes(), loginSettings.MaxSessionLifetimeMinutes)
+	then.Put(Config.Webserver.Tunnel.SessionInactivityTimeoutMinutes(), loginSettings.SessionInactivityTimeoutMinutes)
+	then.Put(Config.Webserver.Tunnel.DefaultMethod(), loginSettings.DefaultMethod)
+	then.Put(Config.Webserver.Tunnel.Issuer(), loginSettings.Issuer)
+	then.Put(Config.Webserver.Tunnel.Methods(), loginSettings.Methods)
 
-	tetcd.PutTx(then, Config.Webserver.Tunnel.OIDC(), loginSettings.OIDC)
+	then.Put(Config.Webserver.Tunnel.OIDC(), loginSettings.OIDC)
 
-	tetcd.PutTx(then, Config.Webserver.Tunnel.PAM.ServiceName(), loginSettings.PAM.ServiceName)
-	tetcd.PutTx(then, Config.Webserver.Lockout(), loginSettings.Lockout)
+	then.Put(Config.Webserver.Tunnel.PAM.ServiceName(), loginSettings.PAM.ServiceName)
+	then.Put(Config.Webserver.Lockout(), loginSettings.Lockout)
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to set general settings: %w", err)
@@ -450,11 +451,11 @@ func (d *database) SetGeneralSettings(generalSettings GeneralSettingsDTO) error 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	tetcd.PutTx(then, Config.Webserver.Tunnel.HelpMail(), generalSettings.HelpMail)
-	tetcd.PutTx(then, Config.Webserver.Public.ExternalAddress(), generalSettings.ExternalAddress)
-	tetcd.PutTx(then, Config.Wireguard.DNS(), generalSettings.DNS)
-	tetcd.PutTx(then, Config.Webserver.Public.DownloadConfigFileName(), generalSettings.DownloadConfigFileName)
-	tetcd.PutTx(then, Config.CheckUpdates(), generalSettings.CheckUpdates)
+	then.Put(Config.Webserver.Tunnel.HelpMail(), generalSettings.HelpMail)
+	then.Put(Config.Webserver.Public.ExternalAddress(), generalSettings.ExternalAddress)
+	then.Put(Config.Wireguard.DNS(), generalSettings.DNS)
+	then.Put(Config.Webserver.Public.DownloadConfigFileName(), generalSettings.DownloadConfigFileName)
+	then.Put(Config.CheckUpdates(), generalSettings.CheckUpdates)
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to set general settings: %w", err)

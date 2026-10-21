@@ -75,12 +75,12 @@ func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 
 		handles = append(handles,
 			lastRequestDataHandles{
-				time: tetcd.GetTx(then,
+				time: then.Get(
 					InternalConfig.Webhooks.LastRequests.Time().Key(id),
 					clientv3.WithRev(result.Rev),
 				),
 
-				status: tetcd.GetTx(then,
+				status: then.Get(
 					InternalConfig.Webhooks.LastRequests.Status().Key(id),
 					clientv3.WithRev(result.Rev),
 				),
@@ -143,14 +143,14 @@ func (d *database) WebhookRecordLastRequest(id, authHeader, request string) erro
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, elseHandle := txn.Conditional(clientv3util.KeyExists(InternalConfig.Webhooks.Active().Key(id).Key()))
 
-	activeHandle := tetcd.GetTx(then, InternalConfig.Webhooks.Active().Key(id))
-	tetcd.PutTx(then, InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
-	tetcd.PutTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), time.Now())
+	activeHandle := then.Get(InternalConfig.Webhooks.Active().Key(id))
+	then.Put(InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
+	then.Put(InternalConfig.Webhooks.LastRequests.Time().Key(id), time.Now())
 
-	failureTxn := tetcd.SubTx(elseHandle)
+	failureTxn := elseHandle.Txn()
 	failureThen, _ := failureTxn.Conditional(clientv3util.KeyExists(InternalConfig.Webhooks.Temporary().Key(id).Key()))
 
-	tetcd.PutTx(failureThen, InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
+	failureThen.Put(InternalConfig.Webhooks.LastRequests.Data().Key(id), request)
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
@@ -262,9 +262,9 @@ func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
-	tetcd.DeleteTx(then, InternalConfig.Webhooks.Temporary().Key(webhook.ID), clientv3.WithPrefix())
-	tetcd.PutTx(then, InternalConfig.Webhooks.Auth().Key(webhook.ID), secret) // clears the lease that was created for the temporary webhook
-	tetcd.PutTx(then, InternalConfig.Webhooks.Active().Key(webhook.ID), webhook.Webhook)
+	then.Delete(InternalConfig.Webhooks.Temporary().Key(webhook.ID), clientv3.WithPrefix())
+	then.Put(InternalConfig.Webhooks.Auth().Key(webhook.ID), secret) // clears the lease that was created for the temporary webhook
+	then.Put(InternalConfig.Webhooks.Active().Key(webhook.ID), webhook.Webhook)
 
 	return txn.Commit()
 
@@ -296,8 +296,8 @@ func (d *database) CreateTempWebhook() (string, string, error) {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	tetcd.PutTx(then, InternalConfig.Webhooks.Temporary().Key(temp.ID), temp.Webhook, clientv3.WithLease(lease.ID))
-	tetcd.PutTx(then, InternalConfig.Webhooks.Auth().Key(temp.ID), secret, clientv3.WithLease(lease.ID))
+	then.Put(InternalConfig.Webhooks.Temporary().Key(temp.ID), temp.Webhook, clientv3.WithLease(lease.ID))
+	then.Put(InternalConfig.Webhooks.Auth().Key(temp.ID), secret, clientv3.WithLease(lease.ID))
 
 	if err = txn.Commit(); err != nil {
 		return "", "", fmt.Errorf("failed to commit transaction for temp webhook: %w", err)
@@ -313,12 +313,12 @@ func (d *database) DeleteWebhooks(ids []string) error {
 
 	for _, id := range ids {
 
-		tetcd.DeleteTx(then, InternalConfig.Webhooks.Active().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(then, InternalConfig.Webhooks.Auth().Key(id), clientv3.WithPrefix())
+		then.Delete(InternalConfig.Webhooks.Active().Key(id), clientv3.WithPrefix())
+		then.Delete(InternalConfig.Webhooks.Auth().Key(id), clientv3.WithPrefix())
 		// this is a little gross, it might be better to make last requests a map
-		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Data().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithPrefix())
-		tetcd.DeleteTx(then, InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithPrefix())
+		then.Delete(InternalConfig.Webhooks.LastRequests.Data().Key(id), clientv3.WithPrefix())
+		then.Delete(InternalConfig.Webhooks.LastRequests.Status().Key(id), clientv3.WithPrefix())
+		then.Delete(InternalConfig.Webhooks.LastRequests.Time().Key(id), clientv3.WithPrefix())
 	}
 
 	return txn.Commit()

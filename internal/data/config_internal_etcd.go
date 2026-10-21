@@ -30,8 +30,8 @@ func (autoTypeConfigurationCurrent) Document() paths.Path[[]byte] {
 // Get fetches all fields of Configuration in one or more transactions pinned to the same etcd revision.
 func (a autoTypeConfigurationCurrent) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configuration, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Created())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.Document())
+	h0_0 := txn0.Then().Get(a.Created())
+	h0_1 := txn0.Then().Get(a.Document())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -61,8 +61,8 @@ type autoTypeInternalConfigConfiguration struct {
 // Get fetches all fields of Configurations in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigConfiguration) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configurations, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.GetTx(txn0.Then(), a.Current.Created())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.Current.Document())
+	h0_0 := txn0.Then().Get(a.Current.Created())
+	h0_1 := txn0.Then().Get(a.Current.Document())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -105,9 +105,9 @@ func (autoTypeDevicesDHCP) Locks() paths.Path[string] {
 // Get fetches all fields of DHCP in one or more transactions pinned to the same etcd revision.
 func (a autoTypeDevicesDHCP) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DHCP, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Abandoned())
-	h0_1 := tetcd.GetTx(txn0.Then(), a.End())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.Locks())
+	h0_0 := txn0.Then().List(a.Abandoned())
+	h0_1 := txn0.Then().Get(a.End())
+	h0_2 := txn0.Then().Get(a.Locks())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -156,12 +156,12 @@ func (autoTypeInternalConfigDevices) Sessions() paths.MapPath[config.DeviceSessi
 // Get fetches all fields of Devices in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Devices, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.DynamicCollectionTx(txn0.Then(), a.Challenges())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.DHCP.Abandoned())
-	h0_2 := tetcd.GetTx(txn0.Then(), a.DHCP.End())
-	h0_3 := tetcd.GetTx(txn0.Then(), a.DHCP.Locks())
-	h0_4 := tetcd.DynamicCollectionTx(txn0.Then(), a.Machines())
-	h0_5 := tetcd.ListTx(txn0.Then(), a.Sessions())
+	h0_0 := txn0.Then().DynamicCollection(a.Challenges())
+	h0_1 := txn0.Then().List(a.DHCP.Abandoned())
+	h0_2 := txn0.Then().Get(a.DHCP.End())
+	h0_3 := txn0.Then().Get(a.DHCP.Locks())
+	h0_4 := txn0.Then().DynamicCollection(a.Machines())
+	h0_5 := txn0.Then().List(a.Sessions())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -215,8 +215,8 @@ func (autoTypeInternalConfigIndexes) UserMembership() paths.MapSlicePath[config.
 // Get fetches all fields of Indexes in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigIndexes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Indexes, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Groups())
-	h0_1 := tetcd.DynamicCollectionTx(txn0.Then(), a.UserMembership())
+	h0_0 := txn0.Then().List(a.Groups())
+	h0_1 := txn0.Then().DynamicCollection(a.UserMembership())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -254,8 +254,8 @@ func (autoTypeInternalConfigNodes) Version() paths.MapPath[string] {
 // Get fetches all fields of Nodes in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigNodes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Nodes, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Errors())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Version())
+	h0_0 := txn0.Then().List(a.Errors())
+	h0_1 := txn0.Then().List(a.Version())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -288,7 +288,7 @@ func (autoTypeReferencesAdmins) OidcGuid() paths.MapPath[string] {
 // Get fetches all fields of AdminsReferences in one or more transactions pinned to the same etcd revision.
 func (a autoTypeReferencesAdmins) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.AdminsReferences, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.OidcGuid())
+	h0_0 := txn0.Then().List(a.OidcGuid())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -327,9 +327,9 @@ func (autoTypeReferencesDevices) Tag() paths.MapPath[config.DeviceRef] {
 // Get fetches all fields of DevicesReferences in one or more transactions pinned to the same etcd revision.
 func (a autoTypeReferencesDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DevicesReferences, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Address())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.PublicKey())
-	h0_2 := tetcd.ListTx(txn0.Then(), a.Tag())
+	h0_0 := txn0.Then().List(a.Address())
+	h0_1 := txn0.Then().List(a.PublicKey())
+	h0_2 := txn0.Then().List(a.Tag())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -364,10 +364,10 @@ type autoTypeInternalConfigReferences struct {
 // Get fetches all fields of References in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigReferences) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.References, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Admins.OidcGuid())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Devices.Address())
-	h0_2 := tetcd.ListTx(txn0.Then(), a.Devices.PublicKey())
-	h0_3 := tetcd.ListTx(txn0.Then(), a.Devices.Tag())
+	h0_0 := txn0.Then().List(a.Admins.OidcGuid())
+	h0_1 := txn0.Then().List(a.Devices.Address())
+	h0_2 := txn0.Then().List(a.Devices.PublicKey())
+	h0_3 := txn0.Then().List(a.Devices.Tag())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -418,9 +418,9 @@ func (autoTypeWebhooksLastRequests) Time() paths.MapPath[time.Time] {
 // Get fetches all fields of LastRequests in one or more transactions pinned to the same etcd revision.
 func (a autoTypeWebhooksLastRequests) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.LastRequests, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Data())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Status())
-	h0_2 := tetcd.ListTx(txn0.Then(), a.Time())
+	h0_0 := txn0.Then().List(a.Data())
+	h0_1 := txn0.Then().List(a.Status())
+	h0_2 := txn0.Then().List(a.Time())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}
@@ -469,12 +469,12 @@ func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[config.Webhook] 
 // Get fetches all fields of Webhooks in one or more transactions pinned to the same etcd revision.
 func (a autoTypeInternalConfigWebhooks) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Webhooks, err error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
-	h0_0 := tetcd.ListTx(txn0.Then(), a.Active())
-	h0_1 := tetcd.ListTx(txn0.Then(), a.Auth())
-	h0_2 := tetcd.ListTx(txn0.Then(), a.LastRequests.Data())
-	h0_3 := tetcd.ListTx(txn0.Then(), a.LastRequests.Status())
-	h0_4 := tetcd.ListTx(txn0.Then(), a.LastRequests.Time())
-	h0_5 := tetcd.ListTx(txn0.Then(), a.Temporary())
+	h0_0 := txn0.Then().List(a.Active())
+	h0_1 := txn0.Then().List(a.Auth())
+	h0_2 := txn0.Then().List(a.LastRequests.Data())
+	h0_3 := txn0.Then().List(a.LastRequests.Status())
+	h0_4 := txn0.Then().List(a.LastRequests.Time())
+	h0_5 := txn0.Then().List(a.Temporary())
 	if err := txn0.Commit(); err != nil {
 		return result, err
 	}

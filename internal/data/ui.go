@@ -67,7 +67,7 @@ func (d *database) CreateLocalAdminUser(username, password string, changeOnFirst
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, _ := txn.Conditional(adminUserPath.Missing())
-	tetcd.PutTx(then, adminUserPath, newAdmin)
+	then.Put(adminUserPath, newAdmin)
 
 	if err := txn.Commit(); err != nil {
 		return fmt.Errorf("failed to add %q admin to database transaction failed: %w", username, err)
@@ -102,8 +102,8 @@ func (d *database) CreateOidcAdminUser(username, guid string) (config.AdminUserD
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then, _ := txn.Conditional(adminUserPath.Missing(), oidcReferencePath.Missing())
-	tetcd.PutTx(then, adminUserPath, newAdmin)
-	tetcd.PutTx(then, oidcReferencePath, guid)
+	then.Put(adminUserPath, newAdmin)
+	then.Put(oidcReferencePath, guid)
 
 	if err := txn.Commit(); err != nil {
 		return config.AdminUserDTO{}, fmt.Errorf("failed to add %q oidc admin to database transaction failed: %w", username, err)

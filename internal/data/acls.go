@@ -83,10 +83,10 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	globalPolicy := tetcd.GetTx(then, Config.Acls.Policies().Key("*"))
-	userPolicies := tetcd.GetTx(then, Config.Acls.Policies().Key(username))
-	dnsServers := tetcd.GetTx(then, Config.Wireguard.DNS())
-	usersGroups := tetcd.ListTx(then, InternalConfig.Indexes.UserMembership().Key(username), clientv3.WithKeysOnly())
+	globalPolicy := then.Get(Config.Acls.Policies().Key("*"))
+	userPolicies := then.Get(Config.Acls.Policies().Key(username))
+	dnsServers := then.Get(Config.Wireguard.DNS())
+	usersGroups := then.List(InternalConfig.Indexes.UserMembership().Key(username), clientv3.WithKeysOnly())
 
 	if err := txn.Commit(); err != nil {
 
@@ -154,7 +154,7 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	then = membersTxn.Then()
 	membershipAcls := make([]*tetcd.GetHandle[*acls.Acl], 0, len(groups))
 	for _, group := range groups {
-		membershipAcls = append(membershipAcls, tetcd.GetTx(then, Config.Acls.Policies().Key(group)))
+		membershipAcls = append(membershipAcls, then.Get(Config.Acls.Policies().Key(group)))
 	}
 
 	err = membersTxn.Commit()

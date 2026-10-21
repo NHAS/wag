@@ -36,8 +36,8 @@ func (d *database) GetAuthenticationDetails(username, address string) (mfa, mfaT
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
-	userH := tetcd.GetTx(then, InternalConfig.Users().Key(username))
-	deviceH := tetcd.GetTx(then, InternalConfig.Devices.Machines().Key(username).Key(address))
+	userH := then.Get(InternalConfig.Users().Key(username))
+	deviceH := then.Get(InternalConfig.Devices.Machines().Key(username).Key(address))
 
 	if err = txn.Commit(); err != nil {
 		return
