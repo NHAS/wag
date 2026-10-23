@@ -18,7 +18,6 @@ import (
 // Returns:
 //   - error: Will error if it cannot generate a unique ID or add it to the etcd db
 func (d *database) RaiseError(raisedError error, value []byte) {
-
 	ee := config.EventError{
 		NodeID:          d.GetCurrentNodeID().String(),
 		FailedEventData: string(value),

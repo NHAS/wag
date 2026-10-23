@@ -327,7 +327,7 @@ func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEnt
 		return nil, nil, err
 	}
 
-	users, err := usersHandle.Entries()
+	users, err := tetcd.IgnoreEmpty(usersHandle.Entries())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -337,7 +337,7 @@ func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEnt
 		usersEntries = append(usersEntries, usermodel)
 	}
 
-	devices, err := devicesHandle.Entries()
+	devices, err := tetcd.IgnoreEmpty(devicesHandle.Entries())
 	if err != nil {
 		return nil, nil, err
 	}

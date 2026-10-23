@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/NHAS/tetcd"
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
@@ -169,14 +170,14 @@ func (es *PublicWebserver) registerDevice(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	dnsWithOutSubnet, err := es.db.GetDNS()
+	dnsWithOutSubnet, err := tetcd.IgnoreEmpty(es.db.GetDNS())
 	if err != nil {
 		logger.Error().Err(err).Msg("unable get dns")
 		http.Error(w, "Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	for i := 0; i < len(dnsWithOutSubnet); i++ {
+	for i := range dnsWithOutSubnet {
 		dnsWithOutSubnet[i] = strings.TrimSuffix(strings.TrimSuffix(dnsWithOutSubnet[i], "/32"), "/128")
 	}
 

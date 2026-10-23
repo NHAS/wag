@@ -117,7 +117,7 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	// Add dns servers if defined
 	// Restrict dns servers to only having 53/any by default as per #49
 
-	dns, err := dnsServers.Value()
+	dns, err := tetcd.IgnoreEmpty(dnsServers.Value())
 	if err == nil {
 		for _, server := range dns {
 			// we dont allow hostnames to get added to the allowed entries here
@@ -134,15 +134,16 @@ func (d *database) GetEffectiveAcl(username string) acls.Acl {
 	}
 
 	// User specific acls
+	// we dont use ignore empty as the resulting type is a nil pointer
 	acl, err = userPolicies.Value()
 	if err == nil {
 		addAcls(*acl)
-	} else if !errors.Is(err, paths.ErrNotFound) {
+	} else if err != paths.ErrNotFound {
 		log.Error().Err(err).Str("username", username).Msg("failed to unmarshal user specific acls")
 		d.RaiseError(err, fmt.Appendf(nil, "failed to decode %q acls check policies", username))
 	}
 
-	groups, err := usersGroups.Keys()
+	groups, err := tetcd.IgnoreEmpty(usersGroups.Keys())
 	if err != nil {
 		log.Error().Err(err).Str("username", username).Msg("failed to fetch acls from db groups")
 		d.RaiseError(err, []byte("failed to fetch acls from db groups"))

@@ -382,7 +382,7 @@ func (d *database) GetGeneralSettings() (s GeneralSettingsDTO, err error) {
 	}
 	s.ExternalAddress = externalAddress
 
-	dns, err := dnsH.Value()
+	dns, err := tetcd.IgnoreEmpty(dnsH.Value())
 	if err != nil {
 		d.RaiseError(fmt.Errorf("failed to unmarshal DNS when loading general settings: %w", err), nil)
 	}

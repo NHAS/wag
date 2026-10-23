@@ -58,7 +58,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 
 	initialUsers, knownDevices, err := db.GetInitialData()
 	if err != nil {
-		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %s", err)
+		return nil, fmt.Errorf("[ROUTER] failed to get users and devices from etcd: %w", err)
 	}
 
 	if testing {
@@ -68,21 +68,21 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create wireguard device: err: %s", err)
+		return nil, fmt.Errorf("failed to create wireguard device: err: %w", err)
 	}
 
 	log.Info().Msg("Adding users")
 
 	err = fw.setupUsers(initialUsers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup users: %s", err)
+		return nil, fmt.Errorf("failed to setup users: %w", err)
 	}
 
 	log.Info().Msg("Adding wireguard devices")
 
 	err = fw.setupDevices(knownDevices)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup devices: %s", err)
+		return nil, fmt.Errorf("failed to setup devices: %w", err)
 	}
 
 	if fw.hasIptables {
@@ -96,7 +96,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 
 		err := fw.setupIptables()
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialise iptables: %s", err)
+			return nil, fmt.Errorf("failed to initialise iptables: %w", err)
 		}
 	}
 
@@ -105,7 +105,7 @@ func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (
 	// This must be the last thing that occurs otherwise we may get events before we're ready to serve them
 	err = fw.handleEvents()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start handling etcd events: %s", err)
+		return nil, fmt.Errorf("failed to start handling etcd events: %w", err)
 	}
 
 	log.Info().Msg("Setup finished")
