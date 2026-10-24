@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -35,7 +35,7 @@ type Oidc struct {
 	provider rp.RelyingParty
 	details  config.TunnelOidc
 	fw       *router.Firewall
-	db       interfaces.Database
+	db       *data.Database
 }
 
 func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
@@ -64,7 +64,7 @@ func (o *Oidc) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error)
 	return routes, nil
 }
 
-func (o *Oidc) Initialise(db interfaces.Database) error {
+func (o *Oidc) Initialise(db *data.Database) error {
 	o.db = db
 
 	key, err := utils.GenerateRandom(32)

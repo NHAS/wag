@@ -17,7 +17,7 @@ import (
 //
 // Returns:
 //   - error: Will error if it cannot generate a unique ID or add it to the etcd db
-func (d *database) RaiseError(raisedError error, value []byte) {
+func (d *Database) RaiseError(raisedError error, value []byte) {
 	ee := config.EventError{
 		NodeID:          d.GetCurrentNodeID().String(),
 		FailedEventData: string(value),
@@ -41,12 +41,12 @@ func (d *database) RaiseError(raisedError error, value []byte) {
 	}
 }
 
-func (d *database) GetAllErrors() (ret []config.EventError, err error) {
+func (d *Database) GetAllErrors() (ret []config.EventError, err error) {
 	return InternalConfig.Nodes.Errors().Entries(context.Background(), d.etcd)
 
 }
 
-func (d *database) ResolveError(errorId string) error {
+func (d *Database) ResolveError(errorId string) error {
 
 	_, err := InternalConfig.Nodes.Errors().Key(errorId).Delete(context.Background(), d.etcd)
 	return err

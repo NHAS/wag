@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
 	"github.com/NHAS/wag/internal/utils"
@@ -16,7 +16,7 @@ import (
 type userChecks struct {
 	next http.Handler
 	f    *router.Firewall
-	db   interfaces.Database
+	db   *data.Database
 }
 
 func (d *userChecks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +48,7 @@ func (d *userChecks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	d.next.ServeHTTP(w, r)
 }
 
-func fetchState(f http.Handler, db interfaces.Database, firewall *router.Firewall) http.Handler {
+func fetchState(f http.Handler, db *data.Database, firewall *router.Firewall) http.Handler {
 	return &userChecks{
 		next: f,
 		f:    firewall,

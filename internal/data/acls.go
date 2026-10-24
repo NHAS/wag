@@ -20,7 +20,7 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error {
+func (d *Database) SetAcl(effects string, policy acls.Acl, overwrite bool) error {
 
 	if err := routetypes.ValidateRules(policy.Mfa, policy.Allow, policy.Deny); err != nil {
 		return err
@@ -29,7 +29,7 @@ func (d *database) SetAcl(effects string, policy acls.Acl, overwrite bool) error
 	return Config.Acls.Policies().Key(effects).Put(context.Background(), d.etcd, &policy)
 }
 
-func (d *database) GetPolicies() (policies []control.PolicyData, err error) {
+func (d *Database) GetPolicies() (policies []control.PolicyData, err error) {
 
 	result, err := Config.Acls.Policies().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -49,12 +49,12 @@ func (d *database) GetPolicies() (policies []control.PolicyData, err error) {
 	return
 }
 
-func (d *database) RemoveAcl(effects string) error {
+func (d *Database) RemoveAcl(effects string) error {
 	_, err := Config.Acls.Policies().Key(effects).Delete(context.Background(), d.etcd)
 	return err
 }
 
-func (d *database) insertMap(m map[string]bool, values ...string) {
+func (d *Database) insertMap(m map[string]bool, values ...string) {
 	for _, v := range values {
 		m[v] = true
 	}
@@ -69,7 +69,7 @@ func hostIPWithMask(ip net.IP) string {
 	return ip.String() + mask
 }
 
-func (d *database) GetEffectiveAcl(username string) acls.Acl {
+func (d *Database) GetEffectiveAcl(username string) acls.Acl {
 
 	var (
 		// Do deduplication for multiple acls

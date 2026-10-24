@@ -29,7 +29,7 @@ const (
 	Public     = Webserver("public")
 )
 
-func (d *database) GetAllWebserverConfigs() (details map[string]config.WebserverDetails, err error) {
+func (d *Database) GetAllWebserverConfigs() (details map[string]config.WebserverDetails, err error) {
 
 	details = make(map[string]config.WebserverDetails, 3)
 
@@ -51,7 +51,7 @@ func (d *database) GetAllWebserverConfigs() (details map[string]config.Webserver
 	return details, nil
 }
 
-func (d *database) GetWebserverConfig(forWhat Webserver) (details config.WebserverDetails, err error) {
+func (d *Database) GetWebserverConfig(forWhat Webserver) (details config.WebserverDetails, err error) {
 
 	switch forWhat {
 	case Tunnel:
@@ -74,7 +74,7 @@ func (d *database) GetWebserverConfig(forWhat Webserver) (details config.Webserv
 	return details, nil
 }
 
-func (d *database) SetWebserverConfig(forWhat Webserver, details config.WebserverDetails) (err error) {
+func (d *Database) SetWebserverConfig(forWhat Webserver, details config.WebserverDetails) (err error) {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 
 	type HttpSettings interface {
@@ -122,11 +122,11 @@ func (d *database) SetWebserverConfig(forWhat Webserver, details config.Webserve
 	return nil
 }
 
-func (d *database) GetPAM() (details config.PAM, err error) {
+func (d *Database) GetPAM() (details config.PAM, err error) {
 	return Config.Webserver.Tunnel.PAM.Get(context.Background(), d.etcd)
 }
 
-func (d *database) GetOidc() (details config.TunnelOidc, err error) {
+func (d *Database) GetOidc() (details config.TunnelOidc, err error) {
 	return Config.Webserver.Tunnel.OIDC().Get(context.Background(), d.etcd)
 }
 
@@ -136,7 +136,7 @@ type WebauthnDTO struct {
 	Origin      string
 }
 
-func (d *database) GetWebauthn() (wba WebauthnDTO, err error) {
+func (d *Database) GetWebauthn() (wba WebauthnDTO, err error) {
 
 	tunnelConfig, err := Config.Webserver.Tunnel.Get(context.Background(), d.etcd)
 	if err != nil {
@@ -214,7 +214,7 @@ func webserverUrl(domain, listenAddress string, isTLS bool) (string, error) {
 	return scheme + host + ":" + port, nil
 }
 
-func (d *database) GetWireguardConfigName() string {
+func (d *Database) GetWireguardConfigName() string {
 
 	k, err := Config.Webserver.Public.DownloadConfigFileName().Get(context.Background(), d.etcd)
 	if err != nil {
@@ -228,7 +228,7 @@ func (d *database) GetWireguardConfigName() string {
 	return k
 }
 
-func (d *database) SetDefaultMFAMethod(method string) error {
+func (d *Database) SetDefaultMFAMethod(method string) error {
 
 	if !types.ValidMFA(method) {
 		return fmt.Errorf("%q is not a valid mfa method", method)
@@ -237,12 +237,12 @@ func (d *database) SetDefaultMFAMethod(method string) error {
 	return Config.Webserver.Tunnel.DefaultMethod().Put(context.Background(), d.etcd, method)
 }
 
-func (d *database) GetDefaultMFAMethod() (string, error) {
+func (d *Database) GetDefaultMFAMethod() (string, error) {
 
 	return Config.Webserver.Tunnel.DefaultMethod().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetEnabledMFAMethods(methods []string) error {
+func (d *Database) SetEnabledMFAMethods(methods []string) error {
 
 	if !types.ValidMFAMethods(methods) {
 		return fmt.Errorf("%v contain an invalid mfa method", methods)
@@ -251,15 +251,15 @@ func (d *database) SetEnabledMFAMethods(methods []string) error {
 	return Config.Webserver.Tunnel.Methods().Put(context.Background(), d.etcd, methods)
 }
 
-func (d *database) GetEnabledMFAMethods() (result []string, err error) {
+func (d *Database) GetEnabledMFAMethods() (result []string, err error) {
 	return Config.Webserver.Tunnel.Methods().Get(context.Background(), d.etcd)
 }
 
-func (d *database) ShouldCheckUpdates() (bool, error) {
+func (d *Database) ShouldCheckUpdates() (bool, error) {
 	return Config.CheckUpdates().Get(context.Background(), d.etcd)
 }
 
-func (d *database) GetTunnelDomainUrl() (string, error) {
+func (d *Database) GetTunnelDomainUrl() (string, error) {
 
 	result, err := Config.Webserver.Tunnel.Get(context.Background(), d.etcd)
 	if err != nil {
@@ -274,19 +274,19 @@ func (d *database) GetTunnelDomainUrl() (string, error) {
 	return url, nil
 }
 
-func (d *database) SetIssuer(issuer string) error {
+func (d *Database) SetIssuer(issuer string) error {
 	return Config.Webserver.Tunnel.Issuer().Put(context.Background(), d.etcd, issuer)
 }
 
-func (d *database) GetIssuer() (string, error) {
+func (d *Database) GetIssuer() (string, error) {
 	return Config.Webserver.Tunnel.Issuer().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetHelpMail(helpMail string) error {
+func (d *Database) SetHelpMail(helpMail string) error {
 	return Config.Webserver.Tunnel.HelpMail().Put(context.Background(), d.etcd, helpMail)
 }
 
-func (d *database) GetHelpMail() string {
+func (d *Database) GetHelpMail() string {
 
 	mail, err := Config.Webserver.Tunnel.HelpMail().Get(context.Background(), d.etcd)
 	if err != nil {
@@ -296,15 +296,15 @@ func (d *database) GetHelpMail() string {
 	return mail
 }
 
-func (d *database) GetExternalAddress() (string, error) {
+func (d *Database) GetExternalAddress() (string, error) {
 	return Config.Webserver.Public.ExternalAddress().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetDNS(dns []string) error {
+func (d *Database) SetDNS(dns []string) error {
 	return Config.Wireguard.DNS().Put(context.Background(), d.etcd, dns)
 }
 
-func (d *database) GetDNS() ([]string, error) {
+func (d *Database) GetDNS() ([]string, error) {
 	return Config.Wireguard.DNS().Get(context.Background(), d.etcd)
 }
 
@@ -322,7 +322,7 @@ type LoginSettingsDTO struct {
 	Lockout int        `validate:"required,number" json:"lockout"`
 }
 
-func (d *database) GetLoginSettings() (s LoginSettingsDTO, err error) {
+func (d *Database) GetLoginSettings() (s LoginSettingsDTO, err error) {
 
 	result, err := Config.Webserver.Tunnel.Get(context.Background(), d.etcd)
 	if err != nil {
@@ -355,7 +355,7 @@ type GeneralSettingsDTO struct {
 	CheckUpdates           bool     `json:"check_updates,omitempty"`
 }
 
-func (d *database) GetGeneralSettings() (s GeneralSettingsDTO, err error) {
+func (d *Database) GetGeneralSettings() (s GeneralSettingsDTO, err error) {
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
 
@@ -405,7 +405,7 @@ func (d *database) GetGeneralSettings() (s GeneralSettingsDTO, err error) {
 	return
 }
 
-func (d *database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
+func (d *Database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(loginSettings); err != nil {
@@ -441,7 +441,7 @@ func (d *database) SetLoginSettings(loginSettings LoginSettingsDTO) error {
 	return nil
 }
 
-func (d *database) SetGeneralSettings(generalSettings GeneralSettingsDTO) error {
+func (d *Database) SetGeneralSettings(generalSettings GeneralSettingsDTO) error {
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(generalSettings); err != nil {
@@ -464,24 +464,24 @@ func (d *database) SetGeneralSettings(generalSettings GeneralSettingsDTO) error 
 	return nil
 }
 
-func (d *database) SetSessionLifetimeMinutes(lifetimeMinutes int) error {
+func (d *Database) SetSessionLifetimeMinutes(lifetimeMinutes int) error {
 	return Config.Webserver.Tunnel.MaxSessionLifetimeMinutes().Put(context.Background(), d.etcd, lifetimeMinutes)
 }
 
 // If value is below 0 that means the max session is infinite (i.e disabled)
-func (d *database) GetSessionLifetimeMinutes() (int, error) {
+func (d *Database) GetSessionLifetimeMinutes() (int, error) {
 	return Config.Webserver.Tunnel.MaxSessionLifetimeMinutes().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
+func (d *Database) SetSessionInactivityTimeoutMinutes(inactivityTimeout int) error {
 	return Config.Webserver.Tunnel.SessionInactivityTimeoutMinutes().Put(context.Background(), d.etcd, inactivityTimeout)
 }
 
-func (d *database) GetSessionInactivityTimeoutMinutes() (int, error) {
+func (d *Database) GetSessionInactivityTimeoutMinutes() (int, error) {
 	return Config.Webserver.Tunnel.SessionInactivityTimeoutMinutes().Get(context.Background(), d.etcd)
 }
 
 // Get account lockout threshold setting
-func (d *database) GetLockout() (int, error) {
+func (d *Database) GetLockout() (int, error) {
 	return Config.Webserver.Lockout().Get(context.Background(), d.etcd)
 }

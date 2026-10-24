@@ -20,7 +20,7 @@ import (
 	"go.etcd.io/etcd/client/v3/clientv3util"
 )
 
-func (d *database) generateWebhookSecret(id, plainTextCredentials string) (string, error) {
+func (d *Database) generateWebhookSecret(id, plainTextCredentials string) (string, error) {
 
 	res, err := pbkdf2.Key(sha256.New, plainTextCredentials, []byte(id), 10, 32)
 	if err != nil {
@@ -46,11 +46,11 @@ type WebhookAttribute struct {
 	Value string `json:"value" validate:"required"`
 }
 
-func (d *database) GetWebhookLastRequest(id string) (string, error) {
+func (d *Database) GetWebhookLastRequest(id string) (string, error) {
 	return InternalConfig.Webhooks.LastRequests.Data().Key(id).Get(context.Background(), d.etcd)
 }
 
-func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
+func (d *Database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 
 	result, err := InternalConfig.Webhooks.Active().List(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -113,7 +113,7 @@ func (d *database) GetWebhooks() (hooks []WebhookGetResponseDTO, err error) {
 	return hooks, nil
 }
 
-func (d *database) CheckWebhookAuth(id, authHeader string) bool {
+func (d *Database) CheckWebhookAuth(id, authHeader string) bool {
 	if len(id) == 0 || len(authHeader) == 0 || len(authHeader) < 32 || len(id) < 32 {
 		return false
 	}
@@ -131,7 +131,7 @@ func (d *database) CheckWebhookAuth(id, authHeader string) bool {
 	return subtle.ConstantTimeCompare([]byte(resp), []byte(key)) == 1
 }
 
-func (d *database) WebhookRecordLastRequest(id, authHeader, request string) error {
+func (d *Database) WebhookRecordLastRequest(id, authHeader, request string) error {
 	if !d.CheckWebhookAuth(id, authHeader) {
 		return fmt.Errorf("webhook authorisation failed, or webhook did not exist")
 	}
@@ -175,7 +175,7 @@ func (d *database) WebhookRecordLastRequest(id, authHeader, request string) erro
 	return nil
 }
 
-func (d *database) actionWebhook(hook config.Webhook, request *string) {
+func (d *Database) actionWebhook(hook config.Webhook, request *string) {
 
 	var c map[string]any
 
@@ -248,7 +248,7 @@ func (d *database) actionWebhook(hook config.Webhook, request *string) {
 		d.etcd, status)
 }
 
-func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
+func (d *Database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	if err := validate.Struct(webhook); err != nil {
@@ -270,7 +270,7 @@ func (d *database) CreateWebhook(webhook WebhookCreateRequestDTO) error {
 
 }
 
-func (d *database) CreateTempWebhook() (string, string, error) {
+func (d *Database) CreateTempWebhook() (string, string, error) {
 	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 30*60)
 	if err != nil {
 		return "", "", err
@@ -306,7 +306,7 @@ func (d *database) CreateTempWebhook() (string, string, error) {
 	return temp.ID, authHeader, err
 }
 
-func (d *database) DeleteWebhooks(ids []string) error {
+func (d *Database) DeleteWebhooks(ids []string) error {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()

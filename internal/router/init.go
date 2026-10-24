@@ -8,20 +8,20 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"golang.zx2c4.com/wireguard/tun"
 )
 
-func newDebugFirewall(db interfaces.Database, testDev tun.Device) (*Firewall, error) {
+func newDebugFirewall(db *data.Database, testDev tun.Device) (*Firewall, error) {
 	return newFw(db, true, false, testDev)
 
 }
 
-func New(db interfaces.Database, iptables bool) (*Firewall, error) {
+func New(db *data.Database, iptables bool) (*Firewall, error) {
 	return newFw(db, false, iptables, nil)
 }
 
-func newFw(db interfaces.Database, testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
+func newFw(db *data.Database, testing, iptables bool, testDev tun.Device) (fw *Firewall, err error) {
 
 	log.Info().Msg("Starting up")
 

@@ -18,22 +18,22 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-func (d *database) GetAcmeDNS01CloudflareToken() (config.CloudflareToken, error) {
+func (d *Database) GetAcmeDNS01CloudflareToken() (config.CloudflareToken, error) {
 	return Config.Webserver.Acme.CloudflareDNSToken().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetAcmeDNS01CloudflareToken(token string) error {
+func (d *Database) SetAcmeDNS01CloudflareToken(token string) error {
 	var newToken config.CloudflareToken
 	newToken.APIToken = token
 
 	return Config.Webserver.Acme.CloudflareDNSToken().Put(context.Background(), d.etcd, newToken)
 }
 
-func (d *database) GetAcmeEmail() (string, error) {
+func (d *Database) GetAcmeEmail() (string, error) {
 	return Config.Webserver.Acme.Email().Get(context.Background(), d.etcd)
 }
 
-func (d *database) SetAcmeEmail(email string) error {
+func (d *Database) SetAcmeEmail(email string) error {
 
 	// allow unsetting value
 	if email != "" {
@@ -46,7 +46,7 @@ func (d *database) SetAcmeEmail(email string) error {
 	return Config.Webserver.Acme.Email().Put(context.Background(), d.etcd, email)
 }
 
-func (d *database) SetAcmeProvider(providerURL string) error {
+func (d *Database) SetAcmeProvider(providerURL string) error {
 
 	// we're allowing users to unset a provider url
 	if providerURL != "" {
@@ -67,7 +67,7 @@ func (d *database) SetAcmeProvider(providerURL string) error {
 	return Config.Webserver.Acme.CAProvider().Put(context.Background(), d.etcd, providerURL)
 }
 
-func (d *database) GetAcmeProvider() (string, error) {
+func (d *Database) GetAcmeProvider() (string, error) {
 	return Config.Webserver.Acme.CAProvider().Get(context.Background(), d.etcd)
 }
 

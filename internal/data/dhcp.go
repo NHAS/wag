@@ -63,7 +63,7 @@ func broadcastAddr(n *net.IPNet) net.IP {
 	return broadcast
 }
 
-func (d *database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (net.IP, error) {
+func (d *Database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (net.IP, error) {
 
 	txn := tetcd.NewTxn(ctx, d.etcd)
 	then, elseTxn := txn.Conditional(clientv3util.KeyExists(InternalConfig.Devices.DHCP.End().Key()))
@@ -92,7 +92,7 @@ func (d *database) determineIPStartPoint(ctx context.Context, serverIP net.IP) (
 	return addr, nil
 }
 
-func (d *database) countAbandonedKeys(ctx context.Context) (int64, error) {
+func (d *Database) countAbandonedKeys(ctx context.Context) (int64, error) {
 
 	count, err := InternalConfig.Devices.DHCP.Abandoned().Count(ctx, d.etcd)
 	if err != nil {
@@ -102,7 +102,7 @@ func (d *database) countAbandonedKeys(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
+func (d *Database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
 
 	for i := 0; i < 3; i++ {
 
@@ -152,7 +152,7 @@ func (d *database) getLeaseFromAbandoned(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("failed to get dhcp lease in allotted time, your subnet maybe full")
 }
 
-func (d *database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cidr *net.IPNet) (string, error) {
+func (d *Database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cidr *net.IPNet) (string, error) {
 	one, bits := cidr.Mask.Size()
 	sizeOfNetwork := int(math.Pow(2, float64(bits-one)))
 
@@ -208,7 +208,7 @@ func (d *database) getLeaseFromEndPointer(ctx context.Context, start net.IP, cid
 	return "", fmt.Errorf("could not find a dhcp lease")
 }
 
-func (d *database) getNextIP(subnet string) (string, error) {
+func (d *Database) getNextIP(subnet string) (string, error) {
 
 	serverIP, cidr, err := net.ParseCIDR(subnet)
 	if err != nil {

@@ -15,7 +15,6 @@ import (
 	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/caddyserver/certmagic"
 	"github.com/libdns/cloudflare"
 )
@@ -36,14 +35,14 @@ type AutoTLS struct {
 
 	issuer *certmagic.ACMEIssuer
 
-	db interfaces.Database
+	db *data.Database
 
 	http01Challenge *http.Server
 }
 
 var Do *AutoTLS
 
-func Initialise(db interfaces.Database) error {
+func Initialise(db *data.Database) error {
 
 	email, err := db.GetAcmeEmail()
 	if err != nil {

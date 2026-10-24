@@ -7,7 +7,7 @@ import (
 
 	"fmt"
 
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -20,7 +20,7 @@ type Pam struct {
 	enable
 
 	fw *router.Firewall
-	db interfaces.Database
+	db *data.Database
 }
 
 func (t *Pam) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
@@ -37,7 +37,7 @@ func (t *Pam) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) 
 	return routes, nil
 }
 
-func (t *Pam) Initialise(db interfaces.Database) error {
+func (t *Pam) Initialise(db *data.Database) error {
 	t.db = db
 	return nil
 }

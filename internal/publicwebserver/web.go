@@ -16,7 +16,6 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/publicwebserver/resources"
 
 	"github.com/NHAS/wag/internal/router"
@@ -28,7 +27,7 @@ import (
 
 type PublicWebserver struct {
 	firewall *router.Firewall
-	db       interfaces.Database
+	db       *data.Database
 }
 
 func (es *PublicWebserver) Close() {
@@ -294,7 +293,7 @@ func (es *PublicWebserver) webhooks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (*PublicWebserver, error) {
+func New(db *data.Database, firewall *router.Firewall, errChan chan<- error) (*PublicWebserver, error) {
 	if firewall == nil {
 		panic("firewall was nil")
 	}

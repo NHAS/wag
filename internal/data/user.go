@@ -12,7 +12,7 @@ import (
 )
 
 // IncrementAuthenticationAttempt Make sure that the attempts is always incremented first to stop race condition attacks
-func (d *database) IncrementAuthenticationAttempt(username, device string) error {
+func (d *Database) IncrementAuthenticationAttempt(username, device string) error {
 	return InternalConfig.Devices.Machines().
 		Key(username).
 		Key(device).
@@ -31,7 +31,7 @@ func (d *database) IncrementAuthenticationAttempt(username, device string) error
 		})
 }
 
-func (d *database) GetAuthenticationDetails(username, address string) (mfa, mfaType string, attempts int, locked bool, err error) {
+func (d *Database) GetAuthenticationDetails(username, address string) (mfa, mfaType string, attempts int, locked bool, err error) {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
@@ -65,7 +65,7 @@ func (d *database) GetAuthenticationDetails(username, address string) (mfa, mfaT
 }
 
 // Disable authentication for user
-func (d *database) SetUserLock(username string) error {
+func (d *Database) SetUserLock(username string) error {
 	err := InternalConfig.Users().Key(username).Update(context.Background(), d.etcd, false, func(user config.UserModel) (config.UserModel, error) {
 		user.Locked = true
 		return user, nil
@@ -78,7 +78,7 @@ func (d *database) SetUserLock(username string) error {
 	return nil
 }
 
-func (d *database) SetUserUnlock(username string) error {
+func (d *Database) SetUserUnlock(username string) error {
 	err := InternalConfig.Users().Key(username).Update(context.Background(), d.etcd, false, func(user config.UserModel) (config.UserModel, error) {
 		user.Locked = false
 		return user, nil
@@ -92,7 +92,7 @@ func (d *database) SetUserUnlock(username string) error {
 }
 
 // Has the user recorded their MFA details. Always read the latest value from the DB
-func (d *database) IsEnforcingMFA(username string) bool {
+func (d *Database) IsEnforcingMFA(username string) bool {
 
 	user, err := InternalConfig.Users().Key(username).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -104,7 +104,7 @@ func (d *database) IsEnforcingMFA(username string) bool {
 }
 
 // Stop displaying MFA secrets for user
-func (d *database) SetEnforceMFAOn(username string) error {
+func (d *Database) SetEnforceMFAOn(username string) error {
 
 	return InternalConfig.Users().Key(username).Update(context.Background(), d.etcd, false, func(user config.UserModel) (config.UserModel, error) {
 		user.Enforcing = true
@@ -112,7 +112,7 @@ func (d *database) SetEnforceMFAOn(username string) error {
 	})
 }
 
-func (d *database) SetEnforceMFAOff(username string) error {
+func (d *Database) SetEnforceMFAOff(username string) error {
 
 	return InternalConfig.Users().Key(username).Update(context.Background(), d.etcd, false, func(user config.UserModel) (config.UserModel, error) {
 		user.Enforcing = false
@@ -120,7 +120,7 @@ func (d *database) SetEnforceMFAOff(username string) error {
 	})
 }
 
-func (d *database) GetMFASecret(username string) (string, error) {
+func (d *Database) GetMFASecret(username string) (string, error) {
 
 	user, err := InternalConfig.Users().Key(username).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -135,7 +135,7 @@ func (d *database) GetMFASecret(username string) (string, error) {
 	return user.Mfa, nil
 }
 
-func (d *database) GetMFAType(username string) (string, error) {
+func (d *Database) GetMFAType(username string) (string, error) {
 
 	user, err := InternalConfig.Users().Key(username).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -145,7 +145,7 @@ func (d *database) GetMFAType(username string) (string, error) {
 	return user.MfaType, nil
 }
 
-func (d *database) DeleteUser(username string) error {
+func (d *Database) DeleteUser(username string) error {
 
 	var errs []error
 
@@ -167,11 +167,11 @@ func (d *database) DeleteUser(username string) error {
 	return errors.Join(errs...)
 }
 
-func (d *database) GetUserData(username string) (u config.UserModel, err error) {
+func (d *Database) GetUserData(username string) (u config.UserModel, err error) {
 	return InternalConfig.Users().Key(username).Get(context.Background(), d.etcd)
 }
 
-func (d *database) GetUserDataFromAddress(address string) (u config.UserModel, err error) {
+func (d *Database) GetUserDataFromAddress(address string) (u config.UserModel, err error) {
 
 	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -185,7 +185,7 @@ func (d *database) GetUserDataFromAddress(address string) (u config.UserModel, e
 	return d.GetUserData(ref.Username)
 }
 
-func (d *database) SetUserMfa(username, value, mfaType string) error {
+func (d *Database) SetUserMfa(username, value, mfaType string) error {
 
 	return InternalConfig.Users().
 		Key(username).
@@ -196,7 +196,7 @@ func (d *database) SetUserMfa(username, value, mfaType string) error {
 		})
 }
 
-func (d *database) CreateUserDataAccount(username string) (config.UserModel, error) {
+func (d *Database) CreateUserDataAccount(username string) (config.UserModel, error) {
 
 	if strings.Contains(username, "-") {
 		return config.UserModel{}, errors.New("usernames may not contain '-' ")
@@ -224,6 +224,6 @@ func (d *database) CreateUserDataAccount(username string) (config.UserModel, err
 	return newUser, err
 }
 
-func (d *database) GetAllUsers() (users []config.UserModel, err error) {
+func (d *Database) GetAllUsers() (users []config.UserModel, err error) {
 	return InternalConfig.Users().Entries(context.Background(), d.etcd)
 }

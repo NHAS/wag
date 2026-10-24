@@ -45,7 +45,7 @@ var (
 	TLSManager             *manager.Manager
 )
 
-type database struct {
+type Database struct {
 	etcd       *clientv3.Client
 	etcdServer *embed.Etcd
 
@@ -60,7 +60,7 @@ type database struct {
 	id types.ID
 }
 
-func (d *database) parseUrls(values ...string) []url.URL {
+func (d *Database) parseUrls(values ...string) []url.URL {
 	urls := make([]url.URL, 0, len(values))
 	for _, s := range values {
 		u, err := url.Parse(s)
@@ -73,9 +73,9 @@ func (d *database) parseUrls(values ...string) []url.URL {
 	return urls
 }
 
-func Load(joinToken string, testing bool) (db *database, err error) {
+func Load(joinToken string, testing bool) (db *Database, err error) {
 
-	db = &database{
+	db = &Database{
 		contextMaps: map[string]context.CancelFunc{},
 
 		clusterHealthListeners: map[string]func(string){},
@@ -103,11 +103,7 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 			return nil, err
 		}
 
-		if err := db.doMigrations(); err != nil {
-			return nil, err
-		}
-
-		err = db.loadInitialSettings()
+		err = db.loadConfigFile()
 		if err != nil {
 			return nil, err
 		}
@@ -215,13 +211,8 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 
 	if !db.etcdServer.Server.IsLearner() {
 
-		// ugh duplicated code
-		if err := db.doMigrations(); err != nil {
-			return nil, err
-		}
-
 		// After first run this will be a no-op
-		err = db.loadInitialSettings()
+		err = db.loadConfigFile()
 		if err != nil {
 			return nil, err
 		}
@@ -233,24 +224,15 @@ func Load(joinToken string, testing bool) (db *database, err error) {
 	return db, nil
 }
 
-func (d *database) GetEventQueue() []GeneralEvent {
+func (d *Database) GetEventQueue() []GeneralEvent {
 	return d.eventsQueue.ReadAll()
 }
 
-func (d *database) Raw() *clientv3.Client {
+func (d *Database) Raw() *clientv3.Client {
 	return d.etcd
 }
 
-func (d *database) doMigrations() error {
-	type migration struct {
-		version string
-		run     func() error
-	}
-
-	return nil
-}
-
-func (d *database) loadInitialSettings() error {
+func (d *Database) loadConfigFile() error {
 
 	loadedDocument, err := json.Marshal(config.Values)
 	if err != nil {
@@ -270,7 +252,7 @@ func (d *database) loadInitialSettings() error {
 	return nil
 }
 
-func (d *database) readTLSPems(cert, key string) (string, string, error) {
+func (d *Database) readTLSPems(cert, key string) (string, string, error) {
 
 	certBytes, err := os.ReadFile(cert)
 	if err != nil {
@@ -295,7 +277,7 @@ func (d *database) readTLSPems(cert, key string) (string, string, error) {
 	return string(certBytes), string(keyBytes), nil
 }
 
-func (d *database) TearDown() error {
+func (d *Database) TearDown() error {
 	close(d.exit)
 
 	if d.etcd != nil {
@@ -316,7 +298,7 @@ func (d *database) TearDown() error {
 	return nil
 }
 
-func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEntries []config.Device, err error) {
+func (d *Database) GetInitialData() (usersEntries []config.UserModel, devicesEntries []config.Device, err error) {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
@@ -352,7 +334,7 @@ func (d *database) GetInitialData() (usersEntries []config.UserModel, devicesEnt
 	return usersEntries, devicesEntries, nil
 }
 
-func (d *database) Get(key string) ([]byte, error) {
+func (d *Database) Get(key string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	resp, err := d.etcd.Get(ctx, key)
 	cancel()
@@ -367,7 +349,7 @@ func (d *database) Get(key string) ([]byte, error) {
 	return resp.Kvs[0].Value, nil
 }
 
-func (d *database) Put(key, value string) error {
+func (d *Database) Put(key, value string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	_, err := d.etcd.Put(ctx, key, value)
 	cancel()
@@ -375,7 +357,7 @@ func (d *database) Put(key, value string) error {
 	return err
 }
 
-func (d *database) RegisterClusterHealthListener(f func(status string)) (string, error) {
+func (d *Database) RegisterClusterHealthListener(f func(status string)) (string, error) {
 
 	key, err := utils.GenerateRandomHex(16)
 	if err != nil {
@@ -394,7 +376,7 @@ func (d *database) RegisterClusterHealthListener(f func(status string)) (string,
 	return key, nil
 }
 
-func (d *database) checkClusterHealth() {
+func (d *Database) checkClusterHealth() {
 
 	leaderMonitor := time.NewTicker(1 * time.Second)
 	go func() {
@@ -430,7 +412,7 @@ func (d *database) checkClusterHealth() {
 
 }
 
-func (d *database) testCluster() {
+func (d *Database) testCluster() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
 	_, err := d.etcd.Put(ctx, path.Join(NodeInfo, d.GetCurrentNodeID().String(), "ping"), time.Now().Format(time.RFC1123Z))
@@ -445,7 +427,7 @@ func (d *database) testCluster() {
 	d.notifyHealthy()
 }
 
-func (d *database) notifyHealthy() {
+func (d *Database) notifyHealthy() {
 	if d.etcdServer != nil && d.etcdServer.Server.IsLearner() {
 		d.notifyClusterHealthListeners("learner")
 	} else {
@@ -453,7 +435,7 @@ func (d *database) notifyHealthy() {
 	}
 }
 
-func (d *database) notifyClusterHealthListeners(event string) {
+func (d *Database) notifyClusterHealthListeners(event string) {
 	d.clusterHealthLck.RLock()
 	defer d.clusterHealthLck.RUnlock()
 

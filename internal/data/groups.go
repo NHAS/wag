@@ -18,7 +18,7 @@ import (
 )
 
 // joined is a unix timestamp
-func (d *database) generateOpsForGroupAddition(branch *tetcd.TxnConditional, joined int64, group string, usernames []string, sso bool) error {
+func (d *Database) generateOpsForGroupAddition(branch *tetcd.TxnConditional, joined int64, group string, usernames []string, sso bool) error {
 
 	membership := config.MembershipInfo{
 		Joined: joined,
@@ -40,7 +40,7 @@ func (d *database) generateOpsForGroupAddition(branch *tetcd.TxnConditional, joi
 	return nil
 }
 
-func (d *database) CreateGroup(group string, initialMembers []string) error {
+func (d *Database) CreateGroup(group string, initialMembers []string) error {
 
 	if strings.Contains(group, "-") {
 		return errors.New("group name cannot contain -")
@@ -71,7 +71,7 @@ func (d *database) CreateGroup(group string, initialMembers []string) error {
 	return nil
 }
 
-func (d *database) GetGroups() (result []*control.GroupData, err error) {
+func (d *Database) GetGroups() (result []*control.GroupData, err error) {
 
 	keys, err := InternalConfig.Indexes.Groups().Keys(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -129,7 +129,7 @@ func (d *database) GetGroups() (result []*control.GroupData, err error) {
 	return result, nil
 }
 
-func (d *database) RemoveGroup(group string) error {
+func (d *Database) RemoveGroup(group string) error {
 
 	if group == "*" {
 		return fmt.Errorf("cannot delete default group")
@@ -170,7 +170,7 @@ func (d *database) RemoveGroup(group string) error {
 	return nil
 }
 
-func (d *database) GetUserGroupMembership(username string) ([]string, error) {
+func (d *Database) GetUserGroupMembership(username string) ([]string, error) {
 
 	groups, err := InternalConfig.Indexes.UserMembership().Key(username).Keys(context.Background(), d.etcd)
 	if err != nil {
@@ -186,7 +186,7 @@ func (d *database) GetUserGroupMembership(username string) ([]string, error) {
 	return groupMembership, nil
 }
 
-func (d *database) RemoveUserAllGroups(username string) error {
+func (d *Database) RemoveUserAllGroups(username string) error {
 
 	txn := tetcd.NewTxn(context.Background(), d.etcd)
 	then := txn.Then()
@@ -228,7 +228,7 @@ func (d *database) RemoveUserAllGroups(username string) error {
 	return nil
 }
 
-func (d *database) RemoveUserFromGroup(usernames []string, group string) error {
+func (d *Database) RemoveUserFromGroup(usernames []string, group string) error {
 	if group == "*" {
 		return fmt.Errorf("cannot remove user from default group")
 	}
@@ -262,7 +262,7 @@ func (d *database) RemoveUserFromGroup(usernames []string, group string) error {
 	return nil
 }
 
-func (d *database) AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
+func (d *Database) AddUserToGroups(usernames []string, groups []string, fromSSO bool) error {
 
 	addition := time.Now().Unix()
 
@@ -302,7 +302,7 @@ func (d *database) AddUserToGroups(usernames []string, groups []string, fromSSO 
 	return nil
 }
 
-func (d *database) SetUserGroupMembership(username string, newGroups []string, fromSSO bool) error {
+func (d *Database) SetUserGroupMembership(username string, newGroups []string, fromSSO bool) error {
 
 	err := d.RemoveUserAllGroups(username)
 	if err != nil {

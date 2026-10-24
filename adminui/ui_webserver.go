@@ -20,7 +20,6 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/utils"
 	"github.com/NHAS/wag/pkg/control/wagctl"
@@ -51,7 +50,7 @@ type AdminUI struct {
 	wagVersion     string
 	csrfHeaderName string
 
-	db interfaces.Database
+	db *data.Database
 }
 
 type clonerWriter struct {
@@ -63,7 +62,7 @@ func (c *clonerWriter) Write(b []byte) (int, error) {
 	return len(b), err
 }
 
-func New(db interfaces.Database, firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
+func New(db *data.Database, firewall *router.Firewall, errs chan<- error) (ui *AdminUI, err error) {
 
 	if firewall == nil {
 		panic("firewall was nil")

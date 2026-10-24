@@ -17,7 +17,6 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal"
 	"github.com/NHAS/wag/internal/publicwebserver"
 
@@ -31,7 +30,7 @@ type start struct {
 	clusterJoinToken string
 	NoIptables       bool
 
-	DB interfaces.Database
+	DB *data.Database
 }
 
 func Start() *start {
@@ -91,7 +90,7 @@ func (g *start) Check() error {
 
 }
 
-func startWag(db interfaces.Database, noIptables bool, cancel <-chan bool, complete chan<- bool, errorChan chan<- error) func(string) {
+func startWag(db *data.Database, noIptables bool, cancel <-chan bool, complete chan<- bool, errorChan chan<- error) func(string) {
 
 	// Make sure that node states are sync'd
 	var (

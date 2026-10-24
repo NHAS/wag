@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/routetypes"
 	"github.com/gaissmai/bart"
 	"go.etcd.io/etcd/client/pkg/v3/types"
@@ -53,7 +53,7 @@ type Firewall struct {
 	connectedPeersLck       sync.RWMutex
 	currentlyConnectedPeers map[string]string
 
-	db interfaces.Database
+	db *data.Database
 }
 
 func (f *Firewall) GetRoutes(username string) ([]string, error) {
@@ -592,7 +592,7 @@ type FirewallDevice struct {
 	username string
 }
 
-func (fwd *FirewallDevice) timeout(db interfaces.Database) func() {
+func (fwd *FirewallDevice) timeout(db *data.Database) func() {
 
 	return func() {
 		fwd.inactive = true
@@ -608,7 +608,7 @@ func (fwd *FirewallDevice) timeout(db interfaces.Database) func() {
 	}
 }
 
-func (fwd *FirewallDevice) SetActive(db interfaces.Database, duration time.Duration, currentNode types.ID) {
+func (fwd *FirewallDevice) SetActive(db *data.Database, duration time.Duration, currentNode types.ID) {
 	if currentNode != fwd.associatedNode {
 		if fwd.inactiveTimer != nil {
 			fwd.inactiveTimer.Stop()

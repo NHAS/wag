@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/NHAS/session"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -26,7 +26,7 @@ type Webauthn struct {
 	webauthnExecutor *webauthn.WebAuthn
 
 	fw *router.Firewall
-	db interfaces.Database
+	db *data.Database
 }
 
 func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err error) {
@@ -71,7 +71,7 @@ func (wa *Webauthn) GetRoutes(fw *router.Firewall) (routes *http.ServeMux, err e
 	return routes, nil
 }
 
-func (wa *Webauthn) Initialise(db interfaces.Database) error {
+func (wa *Webauthn) Initialise(db *data.Database) error {
 	wa.db = db
 
 	d, err := db.GetWebauthn()

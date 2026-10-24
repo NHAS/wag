@@ -18,7 +18,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func (d *database) DeleteDeviceByTag(tag string) error {
+func (d *Database) DeleteDeviceByTag(tag string) error {
 
 	tagPath := InternalConfig.References.Devices.Tag().Key(tag)
 	ref, err := tagPath.Get(context.Background(), d.etcd)
@@ -33,7 +33,7 @@ func (d *database) DeleteDeviceByTag(tag string) error {
 	return nil
 }
 
-func (d *database) ValidateChallenge(username, address, challenge string) error {
+func (d *Database) ValidateChallenge(username, address, challenge string) error {
 
 	dc, err := InternalConfig.Devices.Challenges().Key(username).Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -60,13 +60,13 @@ func (d *database) ValidateChallenge(username, address, challenge string) error 
 	return nil
 }
 
-func (d *database) ChallengeExists(device config.Device) error {
+func (d *Database) ChallengeExists(device config.Device) error {
 
 	_, err := InternalConfig.Devices.Challenges().Key(device.Username).Key(device.Address).Get(context.Background(), d.etcd)
 	return err
 }
 
-func (d *database) GetSensitiveChallenge(device config.Device) (string, error) {
+func (d *Database) GetSensitiveChallenge(device config.Device) (string, error) {
 	deviceWithChallenge, err := InternalConfig.Devices.Challenges().Key(device.Username).Key(device.Address).Get(context.Background(), d.etcd)
 	if err != nil {
 		return "", err
@@ -75,7 +75,7 @@ func (d *database) GetSensitiveChallenge(device config.Device) (string, error) {
 	return deviceWithChallenge.Challenge, nil
 }
 
-func (d *database) SetChallenge(device config.Device) error {
+func (d *Database) SetChallenge(device config.Device) error {
 	lease, err := clientv3.NewLease(d.etcd).Grant(context.Background(), 30)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (d *database) SetChallenge(device config.Device) error {
 // UpdateDeviceConnectionDetails updates the endpoint we are receiving packets from and the associated cluster node
 // I.e if data is coming in to node 3, all other nodes know that the session is only valid while connecting to node 3
 // this stops a race condition where an attacker uses a wireguard profile, but gets load balanced to another node member
-func (d *database) UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
+func (d *Database) UpdateDeviceConnectionDetails(address string, endpoint *net.UDPAddr) error {
 
 	realKey, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -119,12 +119,12 @@ func (d *database) UpdateDeviceConnectionDetails(address string, endpoint *net.U
 		})
 }
 
-func (d *database) GetDevice(username, id string) (device config.Device, err error) {
+func (d *Database) GetDevice(username, id string) (device config.Device, err error) {
 
 	return InternalConfig.Devices.Machines().Key(username).Key(id).Get(context.Background(), d.etcd)
 }
 
-func (d *database) HasDeviceAuthorised(current, previous config.Device) bool {
+func (d *Database) HasDeviceAuthorised(current, previous config.Device) bool {
 	lockout, err := d.GetLockout()
 	if err != nil {
 		return false
@@ -137,7 +137,7 @@ func (d *database) HasDeviceAuthorised(current, previous config.Device) bool {
 }
 
 // Set device as authorized and clear authentication attempts
-func (d *database) AuthoriseDevice(username, address string) error {
+func (d *Database) AuthoriseDevice(username, address string) error {
 	err := InternalConfig.Devices.Machines().Key(username).Key(address).Update(context.Background(), d.etcd, false, func(device config.Device) (config.Device, error) {
 		u, err := d.GetUserData(device.Username)
 		if err != nil {
@@ -166,11 +166,11 @@ func (d *database) AuthoriseDevice(username, address string) error {
 	return d.markDeviceSessionStarted(address, username)
 }
 
-func (d *database) GetAllSessions() (sessions []config.DeviceSession, err error) {
+func (d *Database) GetAllSessions() (sessions []config.DeviceSession, err error) {
 	return InternalConfig.Devices.Sessions().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
-func (d *database) markDeviceSessionStarted(address, username string) error {
+func (d *Database) markDeviceSessionStarted(address, username string) error {
 
 	ops := []clientv3.OpOption{}
 
@@ -199,13 +199,13 @@ func (d *database) markDeviceSessionStarted(address, username string) error {
 	return InternalConfig.Devices.Sessions().Key(address).Put(context.Background(), d.etcd, ds, ops...)
 }
 
-func (d *database) MarkDeviceSessionEnded(address string) error {
+func (d *Database) MarkDeviceSessionEnded(address string) error {
 
 	_, err := InternalConfig.Devices.Sessions().Key(address).Delete(context.Background(), d.etcd)
 	return err
 }
 
-func (d *database) DeauthenticateDevice(address string) error {
+func (d *Database) DeauthenticateDevice(address string) error {
 
 	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -230,7 +230,7 @@ func (d *database) DeauthenticateDevice(address string) error {
 	return d.MarkDeviceSessionEnded(address)
 }
 
-func (d *database) SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
+func (d *Database) SetDeviceAuthenticationAttempts(username, address string, attempts int) error {
 	return InternalConfig.Devices.Machines().
 		Key(username).
 		Key(address).
@@ -240,11 +240,11 @@ func (d *database) SetDeviceAuthenticationAttempts(username, address string, att
 		})
 }
 
-func (d *database) GetAllDevices() (devices []config.Device, err error) {
+func (d *Database) GetAllDevices() (devices []config.Device, err error) {
 	return InternalConfig.Devices.Machines().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
-func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.Device, error) {
+func (d *Database) AddDevice(username, publickey, staticIp, tag string) (config.Device, error) {
 
 	preshared_key, err := wgtypes.GenerateKey()
 	if err != nil {
@@ -330,7 +330,7 @@ func (d *database) AddDevice(username, publickey, staticIp, tag string) (config.
 }
 
 // DeleteDevice removes a single device from etcd by ip address
-func (d *database) DeleteDevice(address string) error {
+func (d *Database) DeleteDevice(address string) error {
 
 	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -355,7 +355,7 @@ func (d *database) DeleteDevice(address string) error {
 }
 
 // Generate the operations to delete a device
-func (d *database) applyDeleteDeviceOps(txn *tetcd.TxnConditional, dev config.Device) {
+func (d *Database) applyDeleteDeviceOps(txn *tetcd.TxnConditional, dev config.Device) {
 
 	// mark that the ip address is no longer in use
 	txn.Put(InternalConfig.Devices.DHCP.Abandoned().Key(dev.Address), dev.Address)
@@ -376,7 +376,7 @@ func (d *database) applyDeleteDeviceOps(txn *tetcd.TxnConditional, dev config.De
 
 }
 
-func (d *database) DeleteDevices(username string) error {
+func (d *Database) DeleteDevices(username string) error {
 
 	result, err := InternalConfig.Devices.Machines().Key(username).DeleteAll(context.Background(), d.etcd, clientv3.WithPrevKV())
 	if err != nil {
@@ -393,7 +393,7 @@ func (d *database) DeleteDevices(username string) error {
 	return txn.Commit()
 }
 
-func (d *database) UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
+func (d *Database) UpdateDevicePublicKey(username, address string, publicKey wgtypes.Key) error {
 
 	beforeUpdate := publicKey.String()
 
@@ -410,7 +410,7 @@ func (d *database) UpdateDevicePublicKey(username, address string, publicKey wgt
 	return err
 }
 
-func (d *database) GetDeviceByAddress(address string) (config.Device, error) {
+func (d *Database) GetDeviceByAddress(address string) (config.Device, error) {
 
 	ref, err := InternalConfig.References.Devices.Address().Key(address).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -429,6 +429,6 @@ func (d *database) GetDeviceByAddress(address string) (config.Device, error) {
 	return device, nil
 }
 
-func (d *database) GetDevicesByUser(username string) (devices []config.Device, err error) {
+func (d *Database) GetDevicesByUser(username string) (devices []config.Device, err error) {
 	return InternalConfig.Devices.Machines().Key(username).Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }

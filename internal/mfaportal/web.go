@@ -13,7 +13,6 @@ import (
 	"github.com/NHAS/wag/internal/autotls"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
@@ -27,7 +26,7 @@ type MfaPortal struct {
 
 	watchersCancel context.CancelFunc
 
-	db interfaces.Database
+	db *data.Database
 }
 
 func (mp *MfaPortal) Close() {
@@ -43,7 +42,7 @@ func (mp *MfaPortal) Close() {
 
 }
 
-func New(db interfaces.Database, firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
+func New(db *data.Database, firewall *router.Firewall, errChan chan<- error) (m *MfaPortal, err error) {
 	if firewall == nil {
 		panic("firewall was nil")
 	}

@@ -7,7 +7,7 @@ import (
 	"net"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -17,7 +17,7 @@ type user struct {
 	Locked    bool
 	Enforcing bool
 
-	db interfaces.Database `json:"-"`
+	db *data.Database `json:"-"`
 }
 
 func (u *user) ResetDeviceAuthAttempts(address string) error {
@@ -178,7 +178,7 @@ func (u *user) GetMFAType() string {
 	return mType
 }
 
-func CreateUser(db interfaces.Database, username string) (user, error) {
+func CreateUser(db *data.Database, username string) (user, error) {
 	ud, err := db.CreateUserDataAccount(username)
 	if err != nil {
 		return user{}, err
@@ -192,7 +192,7 @@ func CreateUser(db interfaces.Database, username string) (user, error) {
 	}, nil
 }
 
-func GetUser(db interfaces.Database, username string) (user, error) {
+func GetUser(db *data.Database, username string) (user, error) {
 
 	ud, err := db.GetUserData(username)
 	if err != nil {
@@ -207,7 +207,7 @@ func GetUser(db interfaces.Database, username string) (user, error) {
 	}, nil
 }
 
-func GetUserFromAddress(db interfaces.Database, address net.IP) (user, error) {
+func GetUserFromAddress(db *data.Database, address net.IP) (user, error) {
 	if address == nil {
 		return user{}, errors.New("address was nil")
 	}

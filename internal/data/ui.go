@@ -24,7 +24,7 @@ const (
 
 // DTO
 
-func (d *database) IncrementAdminAuthenticationAttempt(username string) error {
+func (d *Database) IncrementAdminAuthenticationAttempt(username string) error {
 	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(admin config.Admin) (config.Admin, error) {
 
 		l, err := d.GetLockout()
@@ -41,7 +41,7 @@ func (d *database) IncrementAdminAuthenticationAttempt(username string) error {
 
 }
 
-func (d *database) CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
+func (d *Database) CreateLocalAdminUser(username, password string, changeOnFirstUse bool) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -80,7 +80,7 @@ func (d *database) CreateLocalAdminUser(username, password string, changeOnFirst
 	return nil
 }
 
-func (d *database) CreateOidcAdminUser(username, guid string) (config.AdminUserDTO, error) {
+func (d *Database) CreateOidcAdminUser(username, guid string) (config.AdminUserDTO, error) {
 
 	dummy, err := utils.GenerateRandomHex(32)
 	if err != nil {
@@ -116,7 +116,7 @@ func (d *database) CreateOidcAdminUser(username, guid string) (config.AdminUserD
 	return newAdmin.AdminUserDTO, nil
 }
 
-func (d *database) CompareAdminKeys(username, password string) error {
+func (d *Database) CompareAdminKeys(username, password string) error {
 
 	wasteTime := func() {
 		// Null op to stop timing discovery attacks
@@ -173,7 +173,7 @@ func (d *database) CompareAdminKeys(username, password string) error {
 }
 
 // Lock admin account and make them unable to login
-func (d *database) SetAdminUserLock(username string) error {
+func (d *Database) SetAdminUserLock(username string) error {
 
 	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
 		var err error
@@ -186,7 +186,7 @@ func (d *database) SetAdminUserLock(username string) error {
 }
 
 // Unlock admin account
-func (d *database) SetAdminUserUnlock(username string) error {
+func (d *Database) SetAdminUserUnlock(username string) error {
 
 	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
 		current.Attempts = 0
@@ -194,7 +194,7 @@ func (d *database) SetAdminUserUnlock(username string) error {
 	})
 }
 
-func (d *database) DeleteAdminUser(username string) error {
+func (d *Database) DeleteAdminUser(username string) error {
 
 	result, err := InternalConfig.Admins().Key(username).Delete(context.Background(), d.etcd, clientv3.WithPrevKV())
 	if err != nil {
@@ -218,7 +218,7 @@ func (d *database) DeleteAdminUser(username string) error {
 	return nil
 }
 
-func (d *database) GetAdminUser(username string) (a config.AdminUserDTO, err error) {
+func (d *Database) GetAdminUser(username string) (a config.AdminUserDTO, err error) {
 
 	response, err := InternalConfig.Admins().Key(username).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -228,7 +228,7 @@ func (d *database) GetAdminUser(username string) (a config.AdminUserDTO, err err
 	return response.AdminUserDTO, nil
 }
 
-func (d *database) GetOidcAdminUser(subject string) (a config.AdminUserDTO, err error) {
+func (d *Database) GetOidcAdminUser(subject string) (a config.AdminUserDTO, err error) {
 
 	adminUsername, err := InternalConfig.References.Admins.OidcGuid().Key(subject).Get(context.Background(), d.etcd)
 	if err != nil {
@@ -251,7 +251,7 @@ func (d *database) GetOidcAdminUser(subject string) (a config.AdminUserDTO, err 
 	return response.AdminUserDTO, nil
 }
 
-func (d *database) GetAllAdminUsers() (adminUsers []config.AdminUserDTO, err error) {
+func (d *Database) GetAllAdminUsers() (adminUsers []config.AdminUserDTO, err error) {
 
 	response, err := InternalConfig.Admins().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
@@ -265,7 +265,7 @@ func (d *database) GetAllAdminUsers() (adminUsers []config.AdminUserDTO, err err
 	return
 }
 
-func (d *database) SetAdminPassword(username, password string) error {
+func (d *Database) SetAdminPassword(username, password string) error {
 	if len(password) < minPasswordLength {
 		return fmt.Errorf("password is too short for administrative console (must be greater than %d characters)", minPasswordLength)
 	}
@@ -289,7 +289,7 @@ func (d *database) SetAdminPassword(username, password string) error {
 
 }
 
-func (d *database) SetLastLoginInformation(username, ip string) error {
+func (d *Database) SetLastLoginInformation(username, ip string) error {
 
 	return InternalConfig.Admins().Key(username).Update(context.Background(), d.etcd, false, func(current config.Admin) (config.Admin, error) {
 

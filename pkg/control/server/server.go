@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/NHAS/wag/internal/config"
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/router"
 )
 
@@ -67,10 +67,10 @@ type WagControlSocketServer struct {
 	firewall *router.Firewall
 	httpSrv  *http.Server
 
-	db interfaces.Database
+	db *data.Database
 }
 
-func NewControlServer(database interfaces.Database, firewall *router.Firewall) (*WagControlSocketServer, error) {
+func NewControlServer(database *data.Database, firewall *router.Firewall) (*WagControlSocketServer, error) {
 	if firewall == nil {
 		panic("firewall is nil")
 	}

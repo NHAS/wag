@@ -71,7 +71,7 @@ func NewGeneralEvent[T any](eType EventType, key string, currentState, previousS
 	}
 }
 
-func (d *database) Write(e GeneralEvent) error {
+func (d *Database) Write(e GeneralEvent) error {
 	_, err := d.eventsQueue.Write(e)
 	return err
 }

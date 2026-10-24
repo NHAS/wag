@@ -15,7 +15,7 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
-func (d *database) GetRegistrationToken(token string) (result control.RegistrationResult, err error) {
+func (d *Database) GetRegistrationToken(token string) (result control.RegistrationResult, err error) {
 
 	path := InternalConfig.RegistrationTokens().Key(token)
 
@@ -65,17 +65,17 @@ func (d *database) GetRegistrationToken(token string) (result control.Registrati
 }
 
 // Returns list of tokens
-func (d *database) GetRegistrationTokens() (results []control.RegistrationResult, err error) {
+func (d *Database) GetRegistrationTokens() (results []control.RegistrationResult, err error) {
 	return InternalConfig.RegistrationTokens().Entries(context.Background(), d.etcd, clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 }
 
-func (d *database) DeleteRegistrationToken(identifier string) error {
+func (d *Database) DeleteRegistrationToken(identifier string) error {
 	_, err := InternalConfig.RegistrationTokens().Key(identifier).Delete(context.Background(), d.etcd)
 	return err
 }
 
 // Randomly generate a token for a specific username
-func (d *database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) (token string, err error) {
+func (d *Database) GenerateRegistrationToken(username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) (token string, err error) {
 	token, err = utils.GenerateRandomHex(32)
 	if err != nil {
 		return "", err
@@ -86,7 +86,7 @@ func (d *database) GenerateRegistrationToken(username, overwrite, staticIp strin
 }
 
 // Add a token to the database to add or overwrite a device for a user, may fail of the token does not meet complexity requirements
-func (d *database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) error {
+func (d *Database) AddRegistrationToken(token, username, overwrite, staticIp string, groups []string, uses, mtu int, tag string) error {
 	if len(token) < 32 {
 		return errors.New("registration token is too short")
 	}

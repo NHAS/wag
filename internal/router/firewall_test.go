@@ -17,7 +17,6 @@ import (
 	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/routetypes"
 	"golang.org/x/net/ipv4"
 	"golang.zx2c4.com/wireguard/tun"
@@ -53,7 +52,7 @@ var (
 	}
 
 	testFw  *Firewall
-	db      interfaces.Database
+	db      *data.Database
 	mockTun *tuntest.ChannelTUN
 )
 

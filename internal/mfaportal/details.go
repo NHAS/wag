@@ -15,7 +15,6 @@ import (
 	"github.com/NHAS/tetcd/watch"
 	"github.com/NHAS/wag/internal/config"
 	"github.com/NHAS/wag/internal/data"
-	"github.com/NHAS/wag/internal/interfaces"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators"
 	"github.com/NHAS/wag/internal/mfaportal/resources"
 	"github.com/NHAS/wag/internal/router"
@@ -48,10 +47,10 @@ type Challenger struct {
 	watchersCancel context.CancelFunc
 	firewall       *router.Firewall
 
-	db interfaces.Database
+	db *data.Database
 }
 
-func NewChallenger(db interfaces.Database, firewall *router.Firewall) (*Challenger, error) {
+func NewChallenger(db *data.Database, firewall *router.Firewall) (*Challenger, error) {
 	r := &Challenger{
 		firewall:          firewall,
 		connections:       make(map[string]*websocket.Conn),

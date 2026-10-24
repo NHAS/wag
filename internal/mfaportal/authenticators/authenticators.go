@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/NHAS/wag/internal/interfaces"
+	"github.com/NHAS/wag/internal/data"
 	"github.com/NHAS/wag/internal/mfaportal/authenticators/types"
 	"github.com/NHAS/wag/internal/router"
 	"github.com/NHAS/wag/internal/users"
@@ -35,7 +35,7 @@ type Authenticator interface {
 	Enable()
 	Disable()
 
-	Initialise(db interfaces.Database) error
+	Initialise(db *data.Database) error
 
 	Type() string
 
@@ -76,7 +76,7 @@ func DisableMethods(method ...types.MFA) {
 	}
 }
 
-func ReinitialiseMethod(db interfaces.Database, method types.MFA) error {
+func ReinitialiseMethod(db *data.Database, method types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -97,7 +97,7 @@ func ReinitialiseMethod(db interfaces.Database, method types.MFA) error {
 	return fmt.Errorf("method not found: %q", method)
 }
 
-func enableMethod(db interfaces.Database, method types.MFA) error {
+func enableMethod(db *data.Database, method types.MFA) error {
 	if a, ok := allMfa[method]; ok {
 		// If the method is already enabled, dont re-enable it
 		if a.IsEnabled() {
@@ -116,7 +116,7 @@ func enableMethod(db interfaces.Database, method types.MFA) error {
 	return fmt.Errorf("mfa method %q not found", method)
 }
 
-func SetEnabledMethods(db interfaces.Database, method ...types.MFA) error {
+func SetEnabledMethods(db *data.Database, method ...types.MFA) error {
 	lck.Lock()
 	defer lck.Unlock()
 
@@ -188,7 +188,7 @@ func GetAllAvaliableMethods() (r []Authenticator) {
 	return
 }
 
-func AddMFARoutes(db interfaces.Database, mux *http.ServeMux, firewall *router.Firewall) error {
+func AddMFARoutes(db *data.Database, mux *http.ServeMux, firewall *router.Firewall) error {
 	lck.Lock()
 	defer lck.Unlock()
 
