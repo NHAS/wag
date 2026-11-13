@@ -124,9 +124,7 @@ func (f *Firewall) _refreshUserAcls(username string) error {
 	currentUserPolicies.policies = &bart.Table[*[]routetypes.Policy]{}
 
 	for _, rule := range rules {
-		for i := range rule.Keys {
-			currentUserPolicies.Insert(rule.Keys[i].ToPrefix(), &rule.Values)
-		}
+		currentUserPolicies.Insert(rule.Key.ToPrefix(), &rule.Values)
 	}
 
 	return nil

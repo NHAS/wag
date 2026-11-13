@@ -84,11 +84,15 @@ func TestParseEasyRules(t *testing.T) {
 		t.Fatal("failed to parse 1.1.1.1", err)
 	}
 
-	if err := checkKey(br.Keys[0], expected); err != nil {
+	if len(br) != 1 {
+		t.Fatal("parsing single ip should result in single rule output", len(br))
+	}
+
+	if err := checkKey(br[0].Key, expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,11 +101,11 @@ func TestParseEasyRules(t *testing.T) {
 		t.Fatal("failed to parse 1.1.1.1/32", err)
 	}
 
-	if err := checkKey(br.Keys[0], expected); err != nil {
+	if err := checkKey(br[0].Key, expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -138,13 +142,12 @@ func TestParseSimpleSingles(t *testing.T) {
 		t.Fatal("failed to parse 1.2.1.2", err)
 	}
 
-	if len(br.Keys) != 1 {
-		t.Fatal("expected to define 1 key got: ", len(br.Keys))
-
+	if len(br) != 1 {
+		t.Fatal("parsing single ip rule should result in single rule", len(br))
 	}
 
-	if len(br.Values) != 4 {
-		t.Fatal("expected to define 4 policies got: ", len(br.Values))
+	if len(br[0].Values) != 4 {
+		t.Fatal("expected to define 4 policies got: ", len(br[0].Values))
 	}
 
 	expectedKey := Key{
@@ -175,21 +178,21 @@ func TestParseSimpleSingles(t *testing.T) {
 		},
 	}
 
-	for _, policy := range br.Values {
+	for _, policy := range br[0].Values {
 		if len(policy.Bytes()) != 8 {
 			t.Fatal("policy generated was not 8 bytes")
 		}
 	}
 
-	if err := checkKey(br.Keys[0], expectedKey); err != nil {
+	if err := checkKey(br[0].Key, expectedKey); err != nil {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < len(br.Values); i++ {
+	for i := 0; i < len(br[0].Values); i++ {
 		found := false
 		for _, v := range expectedValues {
 
-			if err := checkPolicy(br.Values[i], v); err != nil {
+			if err := checkPolicy(br[0].Values[i], v); err != nil {
 				continue
 			}
 
@@ -198,7 +201,7 @@ func TestParseSimpleSingles(t *testing.T) {
 		}
 
 		if !found {
-			t.Fatal("did not find rule in set: ", br.Values[i].PolicyType)
+			t.Fatal("did not find rule in set: ", br[0].Values[i].PolicyType)
 		}
 
 	}
@@ -211,12 +214,12 @@ func TestParsePortRange(t *testing.T) {
 		t.Fatal("failed to parse 1.3.1.3", err)
 	}
 
-	if len(br.Keys) != 1 {
-		t.Fatal("expected to define 1 key got: ", len(br.Keys))
+	if len(br) != 1 {
+		t.Fatal("expected to define 1 rule for ip got: ", len(br))
 	}
 
-	if len(br.Values) != 1 {
-		t.Fatal("expected to define 1 policies for key got: ", len(br.Values))
+	if len(br[0].Values) != 1 {
+		t.Fatal("expected to define 1 policies for key got: ", len(br[0].Values))
 	}
 
 	expected := Key{
@@ -231,11 +234,11 @@ func TestParsePortRange(t *testing.T) {
 		Proto:      TCP,
 	}
 
-	if err := checkKey(br.Keys[0], expected); err != nil {
+	if err := checkKey(br[0].Key, expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -256,11 +259,11 @@ func TestParsePortRange(t *testing.T) {
 		Proto:      ANY,
 	}
 
-	if err := checkKey(br.Keys[0], expected); err != nil {
+	if err := checkKey(br[0].Key, expected); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkPolicy(br.Values[0], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[0], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -270,7 +273,7 @@ func TestParsePortRange(t *testing.T) {
 		Proto:      TCP,
 	}
 
-	if err := checkPolicy(br.Values[1], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[1], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -280,7 +283,7 @@ func TestParsePortRange(t *testing.T) {
 		Proto:      UDP,
 	}
 
-	if err := checkPolicy(br.Values[2], expectedValue); err != nil {
+	if err := checkPolicy(br[0].Values[2], expectedValue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -411,6 +414,65 @@ func TestParseRulesDuplicates(t *testing.T) {
 
 	if len(result) < 1 {
 		t.Fatal("resulting number of rules was wrong")
+	}
+
+}
+
+// Public rule for ipB leaks onto ipA: an UNauthenticated device reaches ipA:80.
+func TestMultiRecordLeak(t *testing.T) {
+	const (
+		ipA = "10.10.0.1"
+		ipB = "10.10.0.2"
+	)
+
+	lookupIPFunc = func(_ string) ([]net.IP, error) {
+		return []net.IP{
+			net.ParseIP(ipA),
+			net.ParseIP(ipB),
+		}, nil
+	}
+
+	mfaRules := []string{"dummy.domain.example 443/tcp"}
+	publicRule := []string{ipB + " 80/tcp"}
+
+	result, err := ParseRules(mfaRules, publicRule, []string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result) != 2 {
+		t.Fatal("domain with 2 ips and one overlapping rule should result in 2 rules", len(result))
+	}
+
+	if !net.IP(result[0].Key.IP).Equal(net.ParseIP(ipA)) {
+		t.Fatal("unexpected ip address in first place: ", result[0].Key.IP)
+	}
+
+	if len(result[0].Values) != 1 {
+		t.Fatal("initial rule for ipA has too many rules", len(result[0].Values))
+	}
+
+	if result[0].Values[0].Proto != TCP ||
+		result[0].Values[0].LowerPort != 443 ||
+		result[0].Values[0].Is(PUBLIC) {
+		t.Fatalf("ipA has unknown rule inserted: %+v", result[0])
+	}
+
+	if len(result[1].Values) != 2 {
+		t.Fatal("initial rule for ipA has too few rules", len(result[1].Values))
+	}
+
+	if result[1].Values[0].Proto != TCP ||
+		result[1].Values[0].LowerPort != 443 ||
+		result[1].Values[0].Is(PUBLIC) {
+		t.Fatal("1 ipB unknown rule inserted: ", result[1].Values[0])
+
+	}
+
+	if result[1].Values[1].Proto != TCP ||
+		result[1].Values[1].LowerPort != 80 ||
+		!result[1].Values[1].Is(PUBLIC) {
+		t.Fatal("2 ipB unknown rule inserted: ", result[1].Values[1])
 	}
 
 }

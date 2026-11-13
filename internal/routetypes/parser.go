@@ -24,13 +24,14 @@ const (
 
 type Rule struct {
 	//We may have multiple keys in the instance where a domain with multiple A/AAA records is passed in
-	Keys   []Key
+	Key    Key
 	Values []Policy
 }
 
 var (
-	rwLock      sync.RWMutex
-	globalCache = map[string][]Rule{}
+	rwLock       sync.RWMutex
+	globalCache  = map[string][]Rule{}
+	lookupIPFunc = net.LookupIP
 )
 
 func hash(mfa, public, deny []string) string {
@@ -49,9 +50,36 @@ func hash(mfa, public, deny []string) string {
 	return hex.EncodeToString(result[:])
 }
 
+// Build rule takes the input result and errs and returns any new rules/errors appended to those inputs
+func buildRule(lines []string, t PolicyType, result []Rule, errs []error, existingRuleBuckets map[string]int) ([]Rule, []error) {
+	for _, rule := range lines {
+
+		r, err := parseRule(t, rule)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		for i := range r {
+			if index, ok := existingRuleBuckets[r[i].Key.String()]; ok {
+				result[index].Values = append(result[index].Values, r[i].Values...)
+				continue
+			}
+
+			// if it doesnt exist as a bucket create it
+			result = append(result, r[i])
+			existingRuleBuckets[r[i].Key.String()] = len(result) - 1
+		}
+	}
+
+	return result, errs
+}
+
 func ParseRules(mfa, public, deny []string) (result []Rule, errs []error) {
 
-	cache := map[string]int{}
+	// As we parse we may have multiple rules being created at different times for the same ip address
+	// thus we need to look up the 'bucket' for that ip address and add the rules there rather than creating a whole new rule
+	existingRuleBuckets := map[string]int{}
 
 	parseKey := hash(mfa, public, deny)
 
@@ -63,69 +91,10 @@ func ParseRules(mfa, public, deny []string) (result []Rule, errs []error) {
 	}
 	rwLock.RUnlock()
 
-	// Add
-
-	for _, rule := range mfa {
-
-		// 0 = MFA
-		r, err := parseRule(0, rule)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		for i := range r.Keys {
-			if index, ok := cache[r.Keys[i].String()]; ok {
-				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
-				result[index].Values = append(result[index].Values, r.Values...)
-				continue
-			}
-
-			result = append(result, r)
-			cache[r.Keys[i].String()] = len(result) - 1
-		}
-
-	}
-
-	for _, rule := range public {
-		r, err := parseRule(PUBLIC, rule)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		for i := range r.Keys {
-			if index, ok := cache[r.Keys[i].String()]; ok {
-				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
-				result[index].Values = append(result[index].Values, r.Values...)
-				continue
-			}
-
-			result = append(result, r)
-			cache[r.Keys[i].String()] = len(result) - 1
-		}
-
-	}
-
-	for _, rule := range deny {
-		r, err := parseRule(DENY, rule)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		for i := range r.Keys {
-			if index, ok := cache[r.Keys[i].String()]; ok {
-				// Maybe do deduplication here? But I'll resolve this if it ever becomes an issue for someone
-				result[index].Values = append(result[index].Values, r.Values...)
-				continue
-			}
-
-			result = append(result, r)
-			cache[r.Keys[i].String()] = len(result) - 1
-		}
-
-	}
+	// Create rules
+	result, errs = buildRule(mfa, MFA, result, errs, existingRuleBuckets)
+	result, errs = buildRule(public, PUBLIC, result, errs, existingRuleBuckets)
+	result, errs = buildRule(deny, DENY, result, errs, existingRuleBuckets)
 
 	// Dont add a cache entry if there was an error parsing
 	if len(errs) == 0 {
@@ -164,7 +133,7 @@ func AclsToRoutes(rules []string) (routes []string, err error) {
 	return
 }
 
-func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) {
+func parseRule(restrictionType PolicyType, rule string) (rules []Rule, err error) {
 	ruleParts := strings.Fields(rule)
 	if len(ruleParts) < 1 {
 		return rules, errors.New("could not split correct number of rules")
@@ -175,18 +144,14 @@ func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 		return rules, fmt.Errorf("could not parse keys from address %s: %w", ruleParts[0], err)
 	}
 
-	rules.Keys = keys
+	rules = make([]Rule, 0, len(keys))
 
-	rules.Values = []Policy{}
-
-	if len(ruleParts) < 1 {
-		return rules, fmt.Errorf("could not parse rule parts, as it was empty")
-	}
+	var policy []Policy
 
 	if len(ruleParts) == 1 {
 		// If the user has only defined one address and no ports this counts as an any/any rule
 
-		rules.Values = append(rules.Values, Policy{
+		policy = append(policy, Policy{
 			PolicyType: uint16(restrictionType) | SINGLE,
 			Proto:      ANY,
 			LowerPort:  ANY,
@@ -195,15 +160,22 @@ func parseRule(restrictionType PolicyType, rule string) (rules Rule, err error) 
 	} else {
 
 		for _, field := range ruleParts[1:] {
-			policy, err := parseService(field)
+			newPolicy, err := parseService(field)
 			if err != nil {
 				return rules, err
 			}
 
-			policy.PolicyType = uint16(restrictionType) | policy.PolicyType
+			newPolicy.PolicyType = uint16(restrictionType) | newPolicy.PolicyType
 
-			rules.Values = append(rules.Values, policy)
+			policy = append(policy, newPolicy)
 		}
+	}
+
+	for i := range keys {
+		rules = append(rules, Rule{
+			Key:    keys[i],
+			Values: policy,
+		})
 	}
 
 	return
@@ -380,7 +352,7 @@ func ParseAddress(address string) (resultAddresses []net.IPNet, err error) {
 			dnsLock.RUnlock()
 
 			//If we suspect this is a domain
-			addresses, err := net.LookupIP(address)
+			addresses, err := lookupIPFunc(address)
 			if err != nil {
 				return nil, fmt.Errorf("unable to resolve address from: %s", address)
 			}
