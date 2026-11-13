@@ -1,6 +1,6 @@
 module github.com/NHAS/wag
 
-go 1.25.5
+go 1.26
 
 require (
 	github.com/NHAS/autoetcdtls v0.0.0-20240225231227-9d5906c5b4f2
@@ -17,6 +17,7 @@ require (
 	github.com/mdlayher/netlink v1.8.0
 	github.com/msteinert/pam v1.2.0
 	github.com/pquerna/otp v1.5.0
+	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	github.com/zitadel/oidc/v3 v3.45.3
 	go.etcd.io/etcd/api/v3 v3.6.7
@@ -45,7 +46,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
-	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
+	github.com/go-json-experiment/json v1.27.2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -80,7 +81,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
