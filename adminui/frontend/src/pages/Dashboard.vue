@@ -33,7 +33,16 @@ const usersLackingMfa = computed(() => allUsers.value.filter(x => x.mfa_type == 
 const allDevices = computed(() => devicesStore.devices ?? [])
 const lockedDevices = computed(() => allDevices.value.filter(x => x.is_locked))
 
-const allLogLines = computed(() => instanceDetails.logLines?.log_lines ?? [])
+function parseLogLine(raw: string) {
+  try {
+    const { level, time, caller, message, ...extra } = JSON.parse(raw)
+    return { level, time, caller, message, extra }
+  } catch {
+    return { level: 'unknown', time: null, caller: '', message: String(raw).trim(), extra: {} }
+  }
+}
+
+const allLogLines = computed(() => (instanceDetails.logLines?.log_lines ?? []).map(parseLogLine))
 const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLines, activePage } = usePagination(allLogLines, 20)
 </script>
 
@@ -122,14 +131,25 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
         <div class="card-body">
           <h2 class="card-title">Recent Log Messages</h2>
           <table class="table w-full">
-            <tbody>
-              <tr class="hover" v-for="(line, index) in currentLogLines" :key="'log-line-' + index">
-                <td>
-                  {{ line }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+              <tbody>
+
+                <tr class="hover align-top" v-for="(line, index) in currentLogLines" :key="'log-line-' + index">
+                  <td>
+                      {{ line.level }}
+                  </td>
+                  <td class="whitespace-nowrap">{{ line.time }}</td>
+                  <td>
+                      <a :href='"https://github.com/NHAS/wag/tree/main/"+ line.caller.replace(":", "#L")'>{{line.caller}}</a>
+                  </td>
+                  <td>
+                    {{ line.message }}
+                  </td>
+                  <td>
+                    {{ line.extra }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           <EmptyTable v-if="instanceDetails.log.length == 0" text="No log lines yet" />
           <div class="mt-2 w-full text-center">
             <PaginationControls @next="() => nextPage()" @prev="() => prevPage()" :current-page="activePage" :total-pages="totalPages" />
