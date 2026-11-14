@@ -139,7 +139,7 @@ const { next: nextPage, prev: prevPage, totalPages, currentItems: currentLogLine
                   </td>
                   <td class="whitespace-nowrap">{{ line.time }}</td>
                   <td>
-                      <a :href='"https://github.com/NHAS/wag/tree/main/"+ line.caller.replace(":", "#L")'>{{line.caller}}</a>
+                      <a target="_blank" :href='"https://github.com/NHAS/wag/tree/main/"+ line.caller.replace(":", "#L")'>{{line.caller}}</a>
                   </td>
                   <td>
                     {{ line.message }}
