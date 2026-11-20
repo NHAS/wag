@@ -24,7 +24,7 @@ dev-adminui:
 docker:
 	sudo docker run -u "$(ID):$(GID)" --rm -t -v `pwd`:/wag wag_builder
 
-test:
+test-all:
 	go test -exec sudo -v ./...
 
 

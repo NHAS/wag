@@ -88,7 +88,7 @@ func BenchmarkEvaluate_Parallel(b *testing.B) {
 				}
 
 				src := net.ParseIP(user.Address)
-				dst := rule.Keys[0].IP[:]
+				dst := rule.Key.IP[:]
 
 				// Add matching/passing packet
 				packets = append(packets, createPacketTests(src, dst, int(successProto), int(policy.LowerPort)))
@@ -139,7 +139,7 @@ func BenchmarkFirewallEvaluate(b *testing.B) {
 				}
 
 				// Add matching/passing packet
-				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Key.IP[:]), int(successProto), int(policy.LowerPort)))
 			}
 		}
 	}
@@ -232,9 +232,7 @@ func TestAddUser(t *testing.T) {
 
 		resultsAsString := []string{}
 		for _, r := range results {
-			for m := range r.Keys {
-				resultsAsString = append(resultsAsString, r.Keys[m].String())
-			}
+			resultsAsString = append(resultsAsString, r.Key.String())
 		}
 
 		policies := []string{}
@@ -404,7 +402,7 @@ func TestBasicAuthorise(t *testing.T) {
 
 		newHeader := ipv4.Header{
 			Version: 4,
-			Dst:     mfas[i].Keys[0].AsIPv4(),
+			Dst:     mfas[i].Key.AsIPv4(),
 			Src:     net.ParseIP(devices["tester"].Address),
 			Len:     ipv4.HeaderLen,
 		}
@@ -902,7 +900,7 @@ func TestPortRestrictions(t *testing.T) {
 			}
 
 			// Add matching/passing packet
-			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), rule.Keys[0].AsIPv4(), int(successProto), int(policy.LowerPort)))
+			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), rule.Key.AsIPv4(), int(successProto), int(policy.LowerPort)))
 			expectedResults = append(expectedResults, true)
 
 			if policy.Proto == routetypes.ANY && policy.LowerPort == routetypes.ANY && policy.Is(routetypes.SINGLE) {
@@ -927,14 +925,14 @@ func TestPortRestrictions(t *testing.T) {
 				flip = !flip
 			}
 
-			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), net.IP(rule.Keys[0].IP[:]), proto, port))
+			packets = append(packets, createPacketTests(net.ParseIP(devices["tester"].Address), net.IP(rule.Key.IP[:]), proto, port))
 			expectedResults = append(expectedResults, false)
 
 			var bogusDstIp net.IP = net.ParseIP("1.1.1.1").To4()
 
 			binary.LittleEndian.PutUint32(bogusDstIp, rand.Uint32())
 
-			if net.IP.Equal(bogusDstIp, net.IP(rule.Keys[0].IP[:])) {
+			if net.IP.Equal(bogusDstIp, net.IP(rule.Key.IP[:])) {
 				continue
 			}
 
@@ -1009,7 +1007,7 @@ func TestAgnosticRuleOrdering(t *testing.T) {
 				}
 
 				// Add matching/passing packet
-				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Keys[0].IP[:]), int(successProto), int(policy.LowerPort)))
+				packets = append(packets, createPacketTests(net.ParseIP(user.Address), net.IP(rule.Key.IP[:]), int(successProto), int(policy.LowerPort)))
 			}
 		}
 

@@ -10,6 +10,7 @@ type PolicyType uint16
 
 const (
 	ANY = 0
+	MFA = 0
 
 	PUBLIC = 1 << PolicyType(iota)
 	RANGE
