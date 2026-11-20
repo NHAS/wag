@@ -32,10 +32,7 @@ type WebserverDetails struct {
 	TLS           bool
 	StaticCerts   bool
 
-	CertificatePath string
-	PrivateKeyPath  string
-
-	// These are the user supplied certs, not the ones given by certmagic, which are managed internally
+	// These are the user supplied certs, not the ones given by certmagic
 	CertificatePEM string
 	PrivateKeyPEM  string `sensitive:"yes"`
 }

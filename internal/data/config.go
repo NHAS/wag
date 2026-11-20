@@ -81,9 +81,6 @@ func (d *Database) SetWebserverConfig(forWhat Webserver, details config.Webserve
 		CertificatePEM() paths.Path[string]
 		PrivateKeyPEM() paths.Path[string]
 
-		CertificatePath() paths.Path[string]
-		PrivateKeyPath() paths.Path[string]
-
 		StaticCerts() paths.Path[bool]
 		Domain() paths.Path[string]
 		ListenAddress() paths.Path[string]
@@ -106,9 +103,6 @@ func (d *Database) SetWebserverConfig(forWhat Webserver, details config.Webserve
 
 	then.Put(target.CertificatePEM(), details.CertificatePEM)
 	then.Put(target.PrivateKeyPEM(), details.PrivateKeyPEM)
-
-	then.Put(target.CertificatePath(), details.CertificatePath)
-	then.Put(target.PrivateKeyPath(), details.PrivateKeyPath)
 
 	then.Put(target.StaticCerts(), details.StaticCerts)
 	then.Put(target.Domain(), details.Domain)

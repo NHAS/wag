@@ -119,11 +119,6 @@ func (autoTypeManagementHTTPSettings) CertificatePEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Management/HTTPSettings/CertificatePEM", codecs.NewJsonCodec[string]())
 }
 
-// CertificatePath() KV should contain type string
-func (autoTypeManagementHTTPSettings) CertificatePath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Management/HTTPSettings/CertificatePath", codecs.NewJsonCodec[string]())
-}
-
 // Domain() KV should contain type string
 func (autoTypeManagementHTTPSettings) Domain() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Management/HTTPSettings/Domain", codecs.NewJsonCodec[string]())
@@ -137,11 +132,6 @@ func (autoTypeManagementHTTPSettings) ListenAddress() paths.Path[string] {
 // PrivateKeyPEM() KV should contain type string
 func (autoTypeManagementHTTPSettings) PrivateKeyPEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Management/HTTPSettings/PrivateKeyPEM", codecs.NewJsonCodec[string]())
-}
-
-// PrivateKeyPath() KV should contain type string
-func (autoTypeManagementHTTPSettings) PrivateKeyPath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Management/HTTPSettings/PrivateKeyPath", codecs.NewJsonCodec[string]())
 }
 
 // StaticCerts() KV should contain type bool
@@ -158,13 +148,11 @@ func (autoTypeManagementHTTPSettings) TLS() paths.Path[bool] {
 func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
-	h0_1 := txn0.Then().Get(a.CertificatePath())
-	h0_2 := txn0.Then().Get(a.Domain())
-	h0_3 := txn0.Then().Get(a.ListenAddress())
-	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
-	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
-	h0_6 := txn0.Then().Get(a.StaticCerts())
-	h0_7 := txn0.Then().Get(a.TLS())
+	h0_1 := txn0.Then().Get(a.Domain())
+	h0_2 := txn0.Then().Get(a.ListenAddress())
+	h0_3 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_4 := txn0.Then().Get(a.StaticCerts())
+	h0_5 := txn0.Then().Get(a.TLS())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -173,31 +161,23 @@ func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.CertificatePath, err = h0_1.Value()
+	result.Domain, err = h0_1.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Domain, err = h0_2.Value()
+	result.ListenAddress, err = h0_2.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.ListenAddress, err = h0_3.Value()
+	result.PrivateKeyPEM, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPEM, err = h0_4.Value()
+	result.StaticCerts, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.TLS, err = h0_7.Value()
+	result.TLS, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -343,18 +323,16 @@ func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Cl
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Enabled())
 	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
-	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
-	h0_3 := txn0.Then().Get(a.HTTPSettings.Domain())
-	h0_4 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
-	h0_5 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
-	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
-	h0_7 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
-	h0_8 := txn0.Then().Get(a.HTTPSettings.TLS())
-	h0_9 := txn0.Then().Get(a.OIDC.ClientID())
-	h0_10 := txn0.Then().Get(a.OIDC.ClientSecret())
-	h0_11 := txn0.Then().Get(a.OIDC.Enabled())
-	h0_12 := txn0.Then().Get(a.OIDC.IssuerURL())
-	h0_13 := txn0.Then().Get(a.Password.Enabled())
+	h0_2 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.TLS())
+	h0_7 := txn0.Then().Get(a.OIDC.ClientID())
+	h0_8 := txn0.Then().Get(a.OIDC.ClientSecret())
+	h0_9 := txn0.Then().Get(a.OIDC.Enabled())
+	h0_10 := txn0.Then().Get(a.OIDC.IssuerURL())
+	h0_11 := txn0.Then().Get(a.Password.Enabled())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -367,51 +345,43 @@ func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Cl
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.CertificatePath, err = h0_2.Value()
+	result.HTTPSettings.Domain, err = h0_2.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.Domain, err = h0_3.Value()
+	result.HTTPSettings.ListenAddress, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.ListenAddress, err = h0_4.Value()
+	result.HTTPSettings.PrivateKeyPEM, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
+	result.HTTPSettings.StaticCerts, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
+	result.HTTPSettings.TLS, err = h0_6.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.StaticCerts, err = h0_7.Value()
+	result.OIDC.ClientID, err = h0_7.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.TLS, err = h0_8.Value()
+	result.OIDC.ClientSecret, err = h0_8.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.OIDC.ClientID, err = h0_9.Value()
+	result.OIDC.Enabled, err = h0_9.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.OIDC.ClientSecret, err = h0_10.Value()
+	result.OIDC.IssuerURL, err = h0_10.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.OIDC.Enabled, err = h0_11.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.OIDC.IssuerURL, err = h0_12.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Password.Enabled, err = h0_13.Value()
+	result.Password.Enabled, err = h0_11.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -433,11 +403,6 @@ func (autoTypePublicHTTPSettings) CertificatePEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Public/HTTPSettings/CertificatePEM", codecs.NewJsonCodec[string]())
 }
 
-// CertificatePath() KV should contain type string
-func (autoTypePublicHTTPSettings) CertificatePath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Public/HTTPSettings/CertificatePath", codecs.NewJsonCodec[string]())
-}
-
 // Domain() KV should contain type string
 func (autoTypePublicHTTPSettings) Domain() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Public/HTTPSettings/Domain", codecs.NewJsonCodec[string]())
@@ -451,11 +416,6 @@ func (autoTypePublicHTTPSettings) ListenAddress() paths.Path[string] {
 // PrivateKeyPEM() KV should contain type string
 func (autoTypePublicHTTPSettings) PrivateKeyPEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Public/HTTPSettings/PrivateKeyPEM", codecs.NewJsonCodec[string]())
-}
-
-// PrivateKeyPath() KV should contain type string
-func (autoTypePublicHTTPSettings) PrivateKeyPath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Public/HTTPSettings/PrivateKeyPath", codecs.NewJsonCodec[string]())
 }
 
 // StaticCerts() KV should contain type bool
@@ -472,13 +432,11 @@ func (autoTypePublicHTTPSettings) TLS() paths.Path[bool] {
 func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
-	h0_1 := txn0.Then().Get(a.CertificatePath())
-	h0_2 := txn0.Then().Get(a.Domain())
-	h0_3 := txn0.Then().Get(a.ListenAddress())
-	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
-	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
-	h0_6 := txn0.Then().Get(a.StaticCerts())
-	h0_7 := txn0.Then().Get(a.TLS())
+	h0_1 := txn0.Then().Get(a.Domain())
+	h0_2 := txn0.Then().Get(a.ListenAddress())
+	h0_3 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_4 := txn0.Then().Get(a.StaticCerts())
+	h0_5 := txn0.Then().Get(a.TLS())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -487,31 +445,23 @@ func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Cli
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.CertificatePath, err = h0_1.Value()
+	result.Domain, err = h0_1.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Domain, err = h0_2.Value()
+	result.ListenAddress, err = h0_2.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.ListenAddress, err = h0_3.Value()
+	result.PrivateKeyPEM, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPEM, err = h0_4.Value()
+	result.StaticCerts, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.TLS, err = h0_7.Value()
+	result.TLS, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -552,13 +502,11 @@ func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_0 := txn0.Then().Get(a.DownloadConfigFileName())
 	h0_1 := txn0.Then().Get(a.ExternalAddress())
 	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
-	h0_3 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
-	h0_4 := txn0.Then().Get(a.HTTPSettings.Domain())
-	h0_5 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
-	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
-	h0_7 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
-	h0_8 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
-	h0_9 := txn0.Then().Get(a.HTTPSettings.TLS())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_7 := txn0.Then().Get(a.HTTPSettings.TLS())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -575,31 +523,23 @@ func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.CertificatePath, err = h0_3.Value()
+	result.HTTPSettings.Domain, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.Domain, err = h0_4.Value()
+	result.HTTPSettings.ListenAddress, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.ListenAddress, err = h0_5.Value()
+	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPEM, err = h0_6.Value()
+	result.HTTPSettings.StaticCerts, err = h0_6.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPath, err = h0_7.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.HTTPSettings.StaticCerts, err = h0_8.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.HTTPSettings.TLS, err = h0_9.Value()
+	result.HTTPSettings.TLS, err = h0_7.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -621,11 +561,6 @@ func (autoTypeTunnelHTTPSettings) CertificatePEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/HTTPSettings/CertificatePEM", codecs.NewJsonCodec[string]())
 }
 
-// CertificatePath() KV should contain type string
-func (autoTypeTunnelHTTPSettings) CertificatePath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/HTTPSettings/CertificatePath", codecs.NewJsonCodec[string]())
-}
-
 // Domain() KV should contain type string
 func (autoTypeTunnelHTTPSettings) Domain() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/HTTPSettings/Domain", codecs.NewJsonCodec[string]())
@@ -639,11 +574,6 @@ func (autoTypeTunnelHTTPSettings) ListenAddress() paths.Path[string] {
 // PrivateKeyPEM() KV should contain type string
 func (autoTypeTunnelHTTPSettings) PrivateKeyPEM() paths.Path[string] {
 	return paths.NewPath("wag-config/Config/Webserver/Tunnel/HTTPSettings/PrivateKeyPEM", codecs.NewJsonCodec[string]())
-}
-
-// PrivateKeyPath() KV should contain type string
-func (autoTypeTunnelHTTPSettings) PrivateKeyPath() paths.Path[string] {
-	return paths.NewPath("wag-config/Config/Webserver/Tunnel/HTTPSettings/PrivateKeyPath", codecs.NewJsonCodec[string]())
 }
 
 // StaticCerts() KV should contain type bool
@@ -660,13 +590,11 @@ func (autoTypeTunnelHTTPSettings) TLS() paths.Path[bool] {
 func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
-	h0_1 := txn0.Then().Get(a.CertificatePath())
-	h0_2 := txn0.Then().Get(a.Domain())
-	h0_3 := txn0.Then().Get(a.ListenAddress())
-	h0_4 := txn0.Then().Get(a.PrivateKeyPEM())
-	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
-	h0_6 := txn0.Then().Get(a.StaticCerts())
-	h0_7 := txn0.Then().Get(a.TLS())
+	h0_1 := txn0.Then().Get(a.Domain())
+	h0_2 := txn0.Then().Get(a.ListenAddress())
+	h0_3 := txn0.Then().Get(a.PrivateKeyPEM())
+	h0_4 := txn0.Then().Get(a.StaticCerts())
+	h0_5 := txn0.Then().Get(a.TLS())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -675,31 +603,23 @@ func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Cli
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.CertificatePath, err = h0_1.Value()
+	result.Domain, err = h0_1.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Domain, err = h0_2.Value()
+	result.ListenAddress, err = h0_2.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.ListenAddress, err = h0_3.Value()
+	result.PrivateKeyPEM, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPEM, err = h0_4.Value()
+	result.StaticCerts, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.StaticCerts, err = h0_6.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.TLS, err = h0_7.Value()
+	result.TLS, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -801,20 +721,18 @@ func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.DefaultMethod())
 	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
-	h0_2 := txn0.Then().Get(a.HTTPSettings.CertificatePath())
-	h0_3 := txn0.Then().Get(a.HTTPSettings.Domain())
-	h0_4 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
-	h0_5 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
-	h0_6 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
-	h0_7 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
-	h0_8 := txn0.Then().Get(a.HTTPSettings.TLS())
-	h0_9 := txn0.Then().Get(a.HelpMail())
-	h0_10 := txn0.Then().Get(a.Issuer())
-	h0_11 := txn0.Then().Get(a.MaxSessionLifetimeMinutes())
-	h0_12 := txn0.Then().Get(a.Methods())
-	h0_13 := txn0.Then().Get(a.OIDC())
-	h0_14 := txn0.Then().Get(a.PAM.ServiceName())
-	h0_15 := txn0.Then().Get(a.SessionInactivityTimeoutMinutes())
+	h0_2 := txn0.Then().Get(a.HTTPSettings.Domain())
+	h0_3 := txn0.Then().Get(a.HTTPSettings.ListenAddress())
+	h0_4 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPEM())
+	h0_5 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
+	h0_6 := txn0.Then().Get(a.HTTPSettings.TLS())
+	h0_7 := txn0.Then().Get(a.HelpMail())
+	h0_8 := txn0.Then().Get(a.Issuer())
+	h0_9 := txn0.Then().Get(a.MaxSessionLifetimeMinutes())
+	h0_10 := txn0.Then().Get(a.Methods())
+	h0_11 := txn0.Then().Get(a.OIDC())
+	h0_12 := txn0.Then().Get(a.PAM.ServiceName())
+	h0_13 := txn0.Then().Get(a.SessionInactivityTimeoutMinutes())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -827,59 +745,51 @@ func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.CertificatePath, err = h0_2.Value()
+	result.HTTPSettings.Domain, err = h0_2.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.Domain, err = h0_3.Value()
+	result.HTTPSettings.ListenAddress, err = h0_3.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.ListenAddress, err = h0_4.Value()
+	result.HTTPSettings.PrivateKeyPEM, err = h0_4.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
+	result.HTTPSettings.StaticCerts, err = h0_5.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
+	result.HTTPSettings.TLS, err = h0_6.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.StaticCerts, err = h0_7.Value()
+	result.HelpMail, err = h0_7.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HTTPSettings.TLS, err = h0_8.Value()
+	result.Issuer, err = h0_8.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.HelpMail, err = h0_9.Value()
+	result.MaxSessionLifetimeMinutes, err = h0_9.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Issuer, err = h0_10.Value()
+	result.Methods, err = h0_10.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.MaxSessionLifetimeMinutes, err = h0_11.Value()
+	result.OIDC, err = h0_11.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Methods, err = h0_12.Value()
+	result.PAM.ServiceName, err = h0_12.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.OIDC, err = h0_13.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.PAM.ServiceName, err = h0_14.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.SessionInactivityTimeoutMinutes, err = h0_15.Value()
+	result.SessionInactivityTimeoutMinutes, err = h0_13.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -953,44 +863,38 @@ func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_3 := txn0.Then().Get(a.Lockout())
 	h0_4 := txn0.Then().Get(a.Management.Enabled())
 	h0_5 := txn0.Then().Get(a.Management.HTTPSettings.CertificatePEM())
-	h0_6 := txn0.Then().Get(a.Management.HTTPSettings.CertificatePath())
-	h0_7 := txn0.Then().Get(a.Management.HTTPSettings.Domain())
-	h0_8 := txn0.Then().Get(a.Management.HTTPSettings.ListenAddress())
-	h0_9 := txn0.Then().Get(a.Management.HTTPSettings.PrivateKeyPEM())
-	h0_10 := txn0.Then().Get(a.Management.HTTPSettings.PrivateKeyPath())
-	h0_11 := txn0.Then().Get(a.Management.HTTPSettings.StaticCerts())
-	h0_12 := txn0.Then().Get(a.Management.HTTPSettings.TLS())
-	h0_13 := txn0.Then().Get(a.Management.OIDC.ClientID())
-	h0_14 := txn0.Then().Get(a.Management.OIDC.ClientSecret())
-	h0_15 := txn0.Then().Get(a.Management.OIDC.Enabled())
-	h0_16 := txn0.Then().Get(a.Management.OIDC.IssuerURL())
-	h0_17 := txn0.Then().Get(a.Management.Password.Enabled())
-	h0_18 := txn0.Then().Get(a.Public.DownloadConfigFileName())
-	h0_19 := txn0.Then().Get(a.Public.ExternalAddress())
-	h0_20 := txn0.Then().Get(a.Public.HTTPSettings.CertificatePEM())
-	h0_21 := txn0.Then().Get(a.Public.HTTPSettings.CertificatePath())
-	h0_22 := txn0.Then().Get(a.Public.HTTPSettings.Domain())
-	h0_23 := txn0.Then().Get(a.Public.HTTPSettings.ListenAddress())
-	h0_24 := txn0.Then().Get(a.Public.HTTPSettings.PrivateKeyPEM())
-	h0_25 := txn0.Then().Get(a.Public.HTTPSettings.PrivateKeyPath())
-	h0_26 := txn0.Then().Get(a.Public.HTTPSettings.StaticCerts())
-	h0_27 := txn0.Then().Get(a.Public.HTTPSettings.TLS())
-	h0_28 := txn0.Then().Get(a.Tunnel.DefaultMethod())
-	h0_29 := txn0.Then().Get(a.Tunnel.HTTPSettings.CertificatePEM())
-	h0_30 := txn0.Then().Get(a.Tunnel.HTTPSettings.CertificatePath())
-	h0_31 := txn0.Then().Get(a.Tunnel.HTTPSettings.Domain())
-	h0_32 := txn0.Then().Get(a.Tunnel.HTTPSettings.ListenAddress())
-	h0_33 := txn0.Then().Get(a.Tunnel.HTTPSettings.PrivateKeyPEM())
-	h0_34 := txn0.Then().Get(a.Tunnel.HTTPSettings.PrivateKeyPath())
-	h0_35 := txn0.Then().Get(a.Tunnel.HTTPSettings.StaticCerts())
-	h0_36 := txn0.Then().Get(a.Tunnel.HTTPSettings.TLS())
-	h0_37 := txn0.Then().Get(a.Tunnel.HelpMail())
-	h0_38 := txn0.Then().Get(a.Tunnel.Issuer())
-	h0_39 := txn0.Then().Get(a.Tunnel.MaxSessionLifetimeMinutes())
-	h0_40 := txn0.Then().Get(a.Tunnel.Methods())
-	h0_41 := txn0.Then().Get(a.Tunnel.OIDC())
-	h0_42 := txn0.Then().Get(a.Tunnel.PAM.ServiceName())
-	h0_43 := txn0.Then().Get(a.Tunnel.SessionInactivityTimeoutMinutes())
+	h0_6 := txn0.Then().Get(a.Management.HTTPSettings.Domain())
+	h0_7 := txn0.Then().Get(a.Management.HTTPSettings.ListenAddress())
+	h0_8 := txn0.Then().Get(a.Management.HTTPSettings.PrivateKeyPEM())
+	h0_9 := txn0.Then().Get(a.Management.HTTPSettings.StaticCerts())
+	h0_10 := txn0.Then().Get(a.Management.HTTPSettings.TLS())
+	h0_11 := txn0.Then().Get(a.Management.OIDC.ClientID())
+	h0_12 := txn0.Then().Get(a.Management.OIDC.ClientSecret())
+	h0_13 := txn0.Then().Get(a.Management.OIDC.Enabled())
+	h0_14 := txn0.Then().Get(a.Management.OIDC.IssuerURL())
+	h0_15 := txn0.Then().Get(a.Management.Password.Enabled())
+	h0_16 := txn0.Then().Get(a.Public.DownloadConfigFileName())
+	h0_17 := txn0.Then().Get(a.Public.ExternalAddress())
+	h0_18 := txn0.Then().Get(a.Public.HTTPSettings.CertificatePEM())
+	h0_19 := txn0.Then().Get(a.Public.HTTPSettings.Domain())
+	h0_20 := txn0.Then().Get(a.Public.HTTPSettings.ListenAddress())
+	h0_21 := txn0.Then().Get(a.Public.HTTPSettings.PrivateKeyPEM())
+	h0_22 := txn0.Then().Get(a.Public.HTTPSettings.StaticCerts())
+	h0_23 := txn0.Then().Get(a.Public.HTTPSettings.TLS())
+	h0_24 := txn0.Then().Get(a.Tunnel.DefaultMethod())
+	h0_25 := txn0.Then().Get(a.Tunnel.HTTPSettings.CertificatePEM())
+	h0_26 := txn0.Then().Get(a.Tunnel.HTTPSettings.Domain())
+	h0_27 := txn0.Then().Get(a.Tunnel.HTTPSettings.ListenAddress())
+	h0_28 := txn0.Then().Get(a.Tunnel.HTTPSettings.PrivateKeyPEM())
+	h0_29 := txn0.Then().Get(a.Tunnel.HTTPSettings.StaticCerts())
+	h0_30 := txn0.Then().Get(a.Tunnel.HTTPSettings.TLS())
+	h0_31 := txn0.Then().Get(a.Tunnel.HelpMail())
+	h0_32 := txn0.Then().Get(a.Tunnel.Issuer())
+	h0_33 := txn0.Then().Get(a.Tunnel.MaxSessionLifetimeMinutes())
+	h0_34 := txn0.Then().Get(a.Tunnel.Methods())
+	h0_35 := txn0.Then().Get(a.Tunnel.OIDC())
+	h0_36 := txn0.Then().Get(a.Tunnel.PAM.ServiceName())
+	h0_37 := txn0.Then().Get(a.Tunnel.SessionInactivityTimeoutMinutes())
 	err := txn0.Commit()
 	if err != nil {
 		return result, err
@@ -1019,155 +923,131 @@ func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.CertificatePath, err = h0_6.Value()
+	result.Management.HTTPSettings.Domain, err = h0_6.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.Domain, err = h0_7.Value()
+	result.Management.HTTPSettings.ListenAddress, err = h0_7.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.ListenAddress, err = h0_8.Value()
+	result.Management.HTTPSettings.PrivateKeyPEM, err = h0_8.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.PrivateKeyPEM, err = h0_9.Value()
+	result.Management.HTTPSettings.StaticCerts, err = h0_9.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.PrivateKeyPath, err = h0_10.Value()
+	result.Management.HTTPSettings.TLS, err = h0_10.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.StaticCerts, err = h0_11.Value()
+	result.Management.OIDC.ClientID, err = h0_11.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.HTTPSettings.TLS, err = h0_12.Value()
+	result.Management.OIDC.ClientSecret, err = h0_12.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.OIDC.ClientID, err = h0_13.Value()
+	result.Management.OIDC.Enabled, err = h0_13.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.OIDC.ClientSecret, err = h0_14.Value()
+	result.Management.OIDC.IssuerURL, err = h0_14.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.OIDC.Enabled, err = h0_15.Value()
+	result.Management.Password.Enabled, err = h0_15.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.OIDC.IssuerURL, err = h0_16.Value()
+	result.Public.DownloadConfigFileName, err = h0_16.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Management.Password.Enabled, err = h0_17.Value()
+	result.Public.ExternalAddress, err = h0_17.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.DownloadConfigFileName, err = h0_18.Value()
+	result.Public.HTTPSettings.CertificatePEM, err = h0_18.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.ExternalAddress, err = h0_19.Value()
+	result.Public.HTTPSettings.Domain, err = h0_19.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.CertificatePEM, err = h0_20.Value()
+	result.Public.HTTPSettings.ListenAddress, err = h0_20.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.CertificatePath, err = h0_21.Value()
+	result.Public.HTTPSettings.PrivateKeyPEM, err = h0_21.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.Domain, err = h0_22.Value()
+	result.Public.HTTPSettings.StaticCerts, err = h0_22.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.ListenAddress, err = h0_23.Value()
+	result.Public.HTTPSettings.TLS, err = h0_23.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.PrivateKeyPEM, err = h0_24.Value()
+	result.Tunnel.DefaultMethod, err = h0_24.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.PrivateKeyPath, err = h0_25.Value()
+	result.Tunnel.HTTPSettings.CertificatePEM, err = h0_25.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.StaticCerts, err = h0_26.Value()
+	result.Tunnel.HTTPSettings.Domain, err = h0_26.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Public.HTTPSettings.TLS, err = h0_27.Value()
+	result.Tunnel.HTTPSettings.ListenAddress, err = h0_27.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.DefaultMethod, err = h0_28.Value()
+	result.Tunnel.HTTPSettings.PrivateKeyPEM, err = h0_28.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.CertificatePEM, err = h0_29.Value()
+	result.Tunnel.HTTPSettings.StaticCerts, err = h0_29.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.CertificatePath, err = h0_30.Value()
+	result.Tunnel.HTTPSettings.TLS, err = h0_30.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.Domain, err = h0_31.Value()
+	result.Tunnel.HelpMail, err = h0_31.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.ListenAddress, err = h0_32.Value()
+	result.Tunnel.Issuer, err = h0_32.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.PrivateKeyPEM, err = h0_33.Value()
+	result.Tunnel.MaxSessionLifetimeMinutes, err = h0_33.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.PrivateKeyPath, err = h0_34.Value()
+	result.Tunnel.Methods, err = h0_34.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.StaticCerts, err = h0_35.Value()
+	result.Tunnel.OIDC, err = h0_35.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HTTPSettings.TLS, err = h0_36.Value()
+	result.Tunnel.PAM.ServiceName, err = h0_36.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
-	result.Tunnel.HelpMail, err = h0_37.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.Issuer, err = h0_38.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.MaxSessionLifetimeMinutes, err = h0_39.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.Methods, err = h0_40.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.OIDC, err = h0_41.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.PAM.ServiceName, err = h0_42.Value()
-	if err != nil {
-		finalErr = errors.Join(finalErr, err)
-	}
-	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_43.Value()
+	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_37.Value()
 	if err != nil {
 		finalErr = errors.Join(finalErr, err)
 	}
@@ -1364,11 +1244,9 @@ func init() {
 	ConfigDiffer.Register(Config.Webserver.Lockout())
 	ConfigDiffer.Register(Config.Webserver.Management.Enabled())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.CertificatePEM())
-	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.CertificatePath())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.Domain())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.ListenAddress())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.PrivateKeyPEM())
-	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.PrivateKeyPath())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.StaticCerts())
 	ConfigDiffer.Register(Config.Webserver.Management.HTTPSettings.TLS())
 	ConfigDiffer.Register(Config.Webserver.Management.OIDC.ClientID())
@@ -1379,20 +1257,16 @@ func init() {
 	ConfigDiffer.Register(Config.Webserver.Public.DownloadConfigFileName())
 	ConfigDiffer.Register(Config.Webserver.Public.ExternalAddress())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.CertificatePEM())
-	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.CertificatePath())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.Domain())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.ListenAddress())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.PrivateKeyPEM())
-	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.PrivateKeyPath())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.StaticCerts())
 	ConfigDiffer.Register(Config.Webserver.Public.HTTPSettings.TLS())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.DefaultMethod())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.CertificatePEM())
-	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.CertificatePath())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.Domain())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.ListenAddress())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.PrivateKeyPEM())
-	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.PrivateKeyPath())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.StaticCerts())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HTTPSettings.TLS())
 	ConfigDiffer.Register(Config.Webserver.Tunnel.HelpMail())
@@ -1410,5 +1284,5 @@ func init() {
 	ConfigDiffer.Register(Config.Wireguard.MTU())
 	ConfigDiffer.Register(Config.Wireguard.PrivateKey())
 	ConfigDiffer.Register(Config.Wireguard.ServerPersistentKeepAlive())
-	ConfigDiffer.Ignore("Config/Wireguard/Range", "Config/Clustering", "Config/RemoteCluster", "Config/Wireguard/ServerAddress")
+	ConfigDiffer.Ignore("Config/Clustering", "Config/RemoteCluster", "Config/Wireguard/Range", "Config/Wireguard/ServerAddress")
 }
