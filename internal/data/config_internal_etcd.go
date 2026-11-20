@@ -3,6 +3,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
@@ -28,25 +29,26 @@ func (autoTypeConfigurationCurrent) Document() paths.Path[[]byte] {
 }
 
 // Get fetches all fields of Configuration in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigurationCurrent) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configuration, err error) {
+func (a autoTypeConfigurationCurrent) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configuration, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Created())
 	h0_1 := txn0.Then().Get(a.Document())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Created, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Document, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeConfigurationCurrent) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configuration, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeConfigurationCurrent) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configuration, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Configuration struct whenever any sub-key changes.
@@ -59,25 +61,26 @@ type autoTypeInternalConfigConfiguration struct {
 }
 
 // Get fetches all fields of Configurations in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigConfiguration) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Configurations, err error) {
+func (a autoTypeInternalConfigConfiguration) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configurations, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Current.Created())
 	h0_1 := txn0.Then().Get(a.Current.Document())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Current.Created, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Current.Document, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigConfiguration) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configurations, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigConfiguration) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Configurations, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Configurations struct whenever any sub-key changes.
@@ -103,30 +106,31 @@ func (autoTypeDevicesDHCP) Locks() paths.Path[string] {
 }
 
 // Get fetches all fields of DHCP in one or more transactions pinned to the same etcd revision.
-func (a autoTypeDevicesDHCP) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DHCP, err error) {
+func (a autoTypeDevicesDHCP) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DHCP, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Abandoned())
 	h0_1 := txn0.Then().Get(a.End())
 	h0_2 := txn0.Then().Get(a.Locks())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Abandoned, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.End, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Locks, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeDevicesDHCP) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DHCP, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeDevicesDHCP) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DHCP, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full DHCP struct whenever any sub-key changes.
@@ -154,7 +158,7 @@ func (autoTypeInternalConfigDevices) Sessions() paths.MapPath[config.DeviceSessi
 }
 
 // Get fetches all fields of Devices in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Devices, err error) {
+func (a autoTypeInternalConfigDevices) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Devices, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().DynamicCollection(a.Challenges())
 	h0_1 := txn0.Then().List(a.DHCP.Abandoned())
@@ -162,37 +166,38 @@ func (a autoTypeInternalConfigDevices) GetWithFail(ctx context.Context, cli *v3.
 	h0_3 := txn0.Then().Get(a.DHCP.Locks())
 	h0_4 := txn0.Then().DynamicCollection(a.Machines())
 	h0_5 := txn0.Then().List(a.Sessions())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Challenges, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.DHCP.Abandoned, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.DHCP.End, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.DHCP.Locks, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Machines, err = h0_4.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Sessions, err = h0_5.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Devices, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Devices, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Devices struct whenever any sub-key changes.
@@ -213,25 +218,26 @@ func (autoTypeInternalConfigIndexes) UserMembership() paths.MapSlicePath[config.
 }
 
 // Get fetches all fields of Indexes in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigIndexes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Indexes, err error) {
+func (a autoTypeInternalConfigIndexes) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Indexes, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Groups())
 	h0_1 := txn0.Then().DynamicCollection(a.UserMembership())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Groups, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.UserMembership, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigIndexes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Indexes, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigIndexes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Indexes, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Indexes struct whenever any sub-key changes.
@@ -252,25 +258,26 @@ func (autoTypeInternalConfigNodes) Version() paths.MapPath[string] {
 }
 
 // Get fetches all fields of Nodes in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigNodes) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Nodes, err error) {
+func (a autoTypeInternalConfigNodes) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Nodes, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Errors())
 	h0_1 := txn0.Then().List(a.Version())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Errors, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Version, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigNodes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Nodes, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigNodes) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Nodes, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Nodes struct whenever any sub-key changes.
@@ -286,20 +293,21 @@ func (autoTypeReferencesAdmins) OidcGuid() paths.MapPath[string] {
 }
 
 // Get fetches all fields of AdminsReferences in one or more transactions pinned to the same etcd revision.
-func (a autoTypeReferencesAdmins) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.AdminsReferences, err error) {
+func (a autoTypeReferencesAdmins) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.AdminsReferences, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.OidcGuid())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.OidcGuid, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeReferencesAdmins) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.AdminsReferences, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeReferencesAdmins) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.AdminsReferences, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full AdminsReferences struct whenever any sub-key changes.
@@ -325,30 +333,31 @@ func (autoTypeReferencesDevices) Tag() paths.MapPath[config.DeviceRef] {
 }
 
 // Get fetches all fields of DevicesReferences in one or more transactions pinned to the same etcd revision.
-func (a autoTypeReferencesDevices) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.DevicesReferences, err error) {
+func (a autoTypeReferencesDevices) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DevicesReferences, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Address())
 	h0_1 := txn0.Then().List(a.PublicKey())
 	h0_2 := txn0.Then().List(a.Tag())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Address, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PublicKey, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tag, err = h0_2.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeReferencesDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DevicesReferences, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeReferencesDevices) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.DevicesReferences, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full DevicesReferences struct whenever any sub-key changes.
@@ -362,35 +371,36 @@ type autoTypeInternalConfigReferences struct {
 }
 
 // Get fetches all fields of References in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigReferences) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.References, err error) {
+func (a autoTypeInternalConfigReferences) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.References, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Admins.OidcGuid())
 	h0_1 := txn0.Then().List(a.Devices.Address())
 	h0_2 := txn0.Then().List(a.Devices.PublicKey())
 	h0_3 := txn0.Then().List(a.Devices.Tag())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Admins.OidcGuid, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Devices.Address, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Devices.PublicKey, err = h0_2.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Devices.Tag, err = h0_3.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.References, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigReferences) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.References, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full References struct whenever any sub-key changes.
@@ -416,30 +426,31 @@ func (autoTypeWebhooksLastRequests) Time() paths.MapPath[time.Time] {
 }
 
 // Get fetches all fields of LastRequests in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebhooksLastRequests) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.LastRequests, err error) {
+func (a autoTypeWebhooksLastRequests) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.LastRequests, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Data())
 	h0_1 := txn0.Then().List(a.Status())
 	h0_2 := txn0.Then().List(a.Time())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Data, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Status, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Time, err = h0_2.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.LastRequests, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeWebhooksLastRequests) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.LastRequests, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full LastRequests struct whenever any sub-key changes.
@@ -467,7 +478,7 @@ func (autoTypeInternalConfigWebhooks) Temporary() paths.MapPath[config.Webhook] 
 }
 
 // Get fetches all fields of Webhooks in one or more transactions pinned to the same etcd revision.
-func (a autoTypeInternalConfigWebhooks) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Webhooks, err error) {
+func (a autoTypeInternalConfigWebhooks) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Webhooks, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().List(a.Active())
 	h0_1 := txn0.Then().List(a.Auth())
@@ -475,37 +486,38 @@ func (a autoTypeInternalConfigWebhooks) GetWithFail(ctx context.Context, cli *v3
 	h0_3 := txn0.Then().List(a.LastRequests.Status())
 	h0_4 := txn0.Then().List(a.LastRequests.Time())
 	h0_5 := txn0.Then().List(a.Temporary())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Active, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Auth, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.LastRequests.Data, err = h0_2.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.LastRequests.Status, err = h0_3.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.LastRequests.Time, err = h0_4.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Temporary, err = h0_5.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Webhooks, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeInternalConfigWebhooks) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Webhooks, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Webhooks struct whenever any sub-key changes.

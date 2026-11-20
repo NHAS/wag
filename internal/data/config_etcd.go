@@ -3,6 +3,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	tetcd "github.com/NHAS/tetcd"
 	codecs "github.com/NHAS/tetcd/codecs"
 	paths "github.com/NHAS/tetcd/paths"
@@ -28,25 +29,26 @@ func (autoTypeConfigAcls) Policies() paths.MapPath[*acls.Acl] {
 }
 
 // Get fetches all fields of Acls in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigAcls) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.Acls, err error) {
+func (a autoTypeConfigAcls) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Acls, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().DynamicCollection(a.Groups())
 	h0_1 := txn0.Then().List(a.Policies())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Groups, err = h0_0.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Policies, err = h0_1.Entries()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeConfigAcls) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Acls, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeConfigAcls) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.Acls, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full Acls struct whenever any sub-key changes.
@@ -78,30 +80,31 @@ type resultWebserverAcme struct {
 }
 
 // Get fetches all fields of resultWebserverAcme in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverAcme) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverAcme, err error) {
+func (a autoTypeWebserverAcme) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverAcme, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CAProvider())
 	h0_1 := txn0.Then().Get(a.CloudflareDNSToken())
 	h0_2 := txn0.Then().Get(a.Email())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.CAProvider, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.CloudflareDNSToken, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Email, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeWebserverAcme) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverAcme, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeWebserverAcme) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverAcme, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultWebserverAcme struct whenever any sub-key changes.
@@ -152,7 +155,7 @@ func (autoTypeManagementHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
 	h0_1 := txn0.Then().Get(a.CertificatePath())
@@ -162,45 +165,46 @@ func (a autoTypeManagementHTTPSettings) GetWithFail(ctx context.Context, cli *v3
 	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
 	h0_6 := txn0.Then().Get(a.StaticCerts())
 	h0_7 := txn0.Then().Get(a.TLS())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeManagementHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeManagementHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
@@ -238,35 +242,36 @@ type resultManagementOIDC struct {
 }
 
 // Get fetches all fields of resultManagementOIDC in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementOIDC) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementOIDC, err error) {
+func (a autoTypeManagementOIDC) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementOIDC, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.ClientID())
 	h0_1 := txn0.Then().Get(a.ClientSecret())
 	h0_2 := txn0.Then().Get(a.Enabled())
 	h0_3 := txn0.Then().Get(a.IssuerURL())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.ClientID, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ClientSecret, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Enabled, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.IssuerURL, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeManagementOIDC) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementOIDC, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeManagementOIDC) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementOIDC, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultManagementOIDC struct whenever any sub-key changes.
@@ -286,20 +291,21 @@ type resultManagementPassword struct {
 }
 
 // Get fetches all fields of resultManagementPassword in one or more transactions pinned to the same etcd revision.
-func (a autoTypeManagementPassword) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultManagementPassword, err error) {
+func (a autoTypeManagementPassword) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementPassword, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Enabled())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Enabled, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeManagementPassword) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementPassword, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeManagementPassword) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultManagementPassword, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultManagementPassword struct whenever any sub-key changes.
@@ -333,7 +339,7 @@ type resultWebserverManagement struct {
 }
 
 // Get fetches all fields of resultWebserverManagement in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverManagement, err error) {
+func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverManagement, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Enabled())
 	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
@@ -349,69 +355,70 @@ func (a autoTypeWebserverManagement) GetWithFail(ctx context.Context, cli *v3.Cl
 	h0_11 := txn0.Then().Get(a.OIDC.Enabled())
 	h0_12 := txn0.Then().Get(a.OIDC.IssuerURL())
 	h0_13 := txn0.Then().Get(a.Password.Enabled())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Enabled, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePath, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.Domain, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.ListenAddress, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.StaticCerts, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.TLS, err = h0_8.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.OIDC.ClientID, err = h0_9.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.OIDC.ClientSecret, err = h0_10.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.OIDC.Enabled, err = h0_11.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.OIDC.IssuerURL, err = h0_12.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Password.Enabled, err = h0_13.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeWebserverManagement) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverManagement, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeWebserverManagement) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverManagement, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultWebserverManagement struct whenever any sub-key changes.
@@ -462,7 +469,7 @@ func (autoTypePublicHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
 	h0_1 := txn0.Then().Get(a.CertificatePath())
@@ -472,45 +479,46 @@ func (a autoTypePublicHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Cli
 	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
 	h0_6 := txn0.Then().Get(a.StaticCerts())
 	h0_7 := txn0.Then().Get(a.TLS())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypePublicHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypePublicHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
@@ -539,7 +547,7 @@ type resultWebserverPublic struct {
 }
 
 // Get fetches all fields of resultWebserverPublic in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverPublic, err error) {
+func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverPublic, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.DownloadConfigFileName())
 	h0_1 := txn0.Then().Get(a.ExternalAddress())
@@ -551,53 +559,54 @@ func (a autoTypeWebserverPublic) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_7 := txn0.Then().Get(a.HTTPSettings.PrivateKeyPath())
 	h0_8 := txn0.Then().Get(a.HTTPSettings.StaticCerts())
 	h0_9 := txn0.Then().Get(a.HTTPSettings.TLS())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.DownloadConfigFileName, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ExternalAddress, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePath, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.Domain, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.ListenAddress, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.StaticCerts, err = h0_8.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.TLS, err = h0_9.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeWebserverPublic) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverPublic, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeWebserverPublic) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverPublic, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultWebserverPublic struct whenever any sub-key changes.
@@ -648,7 +657,7 @@ func (autoTypeTunnelHTTPSettings) TLS() paths.Path[bool] {
 }
 
 // Get fetches all fields of WebserverDetails in one or more transactions pinned to the same etcd revision.
-func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
+func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.CertificatePEM())
 	h0_1 := txn0.Then().Get(a.CertificatePath())
@@ -658,45 +667,46 @@ func (a autoTypeTunnelHTTPSettings) GetWithFail(ctx context.Context, cli *v3.Cli
 	h0_5 := txn0.Then().Get(a.PrivateKeyPath())
 	h0_6 := txn0.Then().Get(a.StaticCerts())
 	h0_7 := txn0.Then().Get(a.TLS())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.CertificatePEM, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.CertificatePath, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Domain, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ListenAddress, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPEM, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKeyPath, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.StaticCerts, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.TLS, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeTunnelHTTPSettings) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.WebserverDetails, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full WebserverDetails struct whenever any sub-key changes.
@@ -712,20 +722,21 @@ func (autoTypeTunnelPAM) ServiceName() paths.Path[string] {
 }
 
 // Get fetches all fields of PAM in one or more transactions pinned to the same etcd revision.
-func (a autoTypeTunnelPAM) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result config.PAM, err error) {
+func (a autoTypeTunnelPAM) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.PAM, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.ServiceName())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.ServiceName, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeTunnelPAM) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.PAM, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeTunnelPAM) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result config.PAM, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full PAM struct whenever any sub-key changes.
@@ -786,7 +797,7 @@ type resultWebserverTunnel struct {
 }
 
 // Get fetches all fields of resultWebserverTunnel in one or more transactions pinned to the same etcd revision.
-func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultWebserverTunnel, err error) {
+func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverTunnel, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.DefaultMethod())
 	h0_1 := txn0.Then().Get(a.HTTPSettings.CertificatePEM())
@@ -804,77 +815,78 @@ func (a autoTypeWebserverTunnel) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_13 := txn0.Then().Get(a.OIDC())
 	h0_14 := txn0.Then().Get(a.PAM.ServiceName())
 	h0_15 := txn0.Then().Get(a.SessionInactivityTimeoutMinutes())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.DefaultMethod, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePEM, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.CertificatePath, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.Domain, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.ListenAddress, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPEM, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.PrivateKeyPath, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.StaticCerts, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HTTPSettings.TLS, err = h0_8.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.HelpMail, err = h0_9.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Issuer, err = h0_10.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.MaxSessionLifetimeMinutes, err = h0_11.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Methods, err = h0_12.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.OIDC, err = h0_13.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PAM.ServiceName, err = h0_14.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.SessionInactivityTimeoutMinutes, err = h0_15.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverTunnel, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeWebserverTunnel) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultWebserverTunnel, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultWebserverTunnel struct whenever any sub-key changes.
@@ -933,7 +945,7 @@ type resultConfigWebserver struct {
 }
 
 // Get fetches all fields of resultConfigWebserver in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWebserver, err error) {
+func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWebserver, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Acme.CAProvider())
 	h0_1 := txn0.Then().Get(a.Acme.CloudflareDNSToken())
@@ -979,189 +991,190 @@ func (a autoTypeConfigWebserver) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_41 := txn0.Then().Get(a.Tunnel.OIDC())
 	h0_42 := txn0.Then().Get(a.Tunnel.PAM.ServiceName())
 	h0_43 := txn0.Then().Get(a.Tunnel.SessionInactivityTimeoutMinutes())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Acme.CAProvider, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Acme.CloudflareDNSToken, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Acme.Email, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Lockout, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.Enabled, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.CertificatePEM, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.CertificatePath, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.Domain, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.ListenAddress, err = h0_8.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.PrivateKeyPEM, err = h0_9.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.PrivateKeyPath, err = h0_10.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.StaticCerts, err = h0_11.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.HTTPSettings.TLS, err = h0_12.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.OIDC.ClientID, err = h0_13.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.OIDC.ClientSecret, err = h0_14.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.OIDC.Enabled, err = h0_15.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.OIDC.IssuerURL, err = h0_16.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Management.Password.Enabled, err = h0_17.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.DownloadConfigFileName, err = h0_18.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.ExternalAddress, err = h0_19.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.CertificatePEM, err = h0_20.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.CertificatePath, err = h0_21.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.Domain, err = h0_22.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.ListenAddress, err = h0_23.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.PrivateKeyPEM, err = h0_24.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.PrivateKeyPath, err = h0_25.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.StaticCerts, err = h0_26.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Public.HTTPSettings.TLS, err = h0_27.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.DefaultMethod, err = h0_28.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.CertificatePEM, err = h0_29.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.CertificatePath, err = h0_30.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.Domain, err = h0_31.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.ListenAddress, err = h0_32.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.PrivateKeyPEM, err = h0_33.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.PrivateKeyPath, err = h0_34.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.StaticCerts, err = h0_35.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HTTPSettings.TLS, err = h0_36.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.HelpMail, err = h0_37.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.Issuer, err = h0_38.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.MaxSessionLifetimeMinutes, err = h0_39.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.Methods, err = h0_40.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.OIDC, err = h0_41.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.PAM.ServiceName, err = h0_42.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.Tunnel.SessionInactivityTimeoutMinutes, err = h0_43.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWebserver, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeConfigWebserver) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWebserver, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultConfigWebserver struct whenever any sub-key changes.
@@ -1225,7 +1238,7 @@ type resultConfigWireguard struct {
 }
 
 // Get fetches all fields of resultConfigWireguard in one or more transactions pinned to the same etcd revision.
-func (a autoTypeConfigWireguard) GetWithFail(ctx context.Context, cli *v3.Client, failEarly bool, opts ...tetcd.TxnOp) (result resultConfigWireguard, err error) {
+func (a autoTypeConfigWireguard) GetWithFail(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWireguard, finalErr error) {
 	txn0 := tetcd.NewTxn(ctx, cli, opts...)
 	h0_0 := txn0.Then().Get(a.Address())
 	h0_1 := txn0.Then().Get(a.DNS())
@@ -1235,45 +1248,46 @@ func (a autoTypeConfigWireguard) GetWithFail(ctx context.Context, cli *v3.Client
 	h0_5 := txn0.Then().Get(a.MTU())
 	h0_6 := txn0.Then().Get(a.PrivateKey())
 	h0_7 := txn0.Then().Get(a.ServerPersistentKeepAlive())
-	if err := txn0.Commit(); err != nil {
+	err := txn0.Commit()
+	if err != nil {
 		return result, err
 	}
 	result.Address, err = h0_0.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.DNS, err = h0_1.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.DevName, err = h0_2.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ListenPort, err = h0_3.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.LogLevel, err = h0_4.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.MTU, err = h0_5.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.PrivateKey, err = h0_6.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
 	result.ServerPersistentKeepAlive, err = h0_7.Value()
-	if err != nil && failEarly {
-		return result, err
+	if err != nil {
+		finalErr = errors.Join(finalErr, err)
 	}
-	return result, nil
+	return result, finalErr
 }
-func (a autoTypeConfigWireguard) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWireguard, err error) {
-	return a.GetWithFail(ctx, cli, false, opts...)
+func (a autoTypeConfigWireguard) Get(ctx context.Context, cli *v3.Client, opts ...tetcd.TxnOp) (result resultConfigWireguard, finalErr error) {
+	return a.GetWithFail(ctx, cli, opts...)
 }
 
 // Watch returns a Watcher that emits the full resultConfigWireguard struct whenever any sub-key changes.
@@ -1396,5 +1410,5 @@ func init() {
 	ConfigDiffer.Register(Config.Wireguard.MTU())
 	ConfigDiffer.Register(Config.Wireguard.PrivateKey())
 	ConfigDiffer.Register(Config.Wireguard.ServerPersistentKeepAlive())
-	ConfigDiffer.Ignore("Config/Clustering", "Config/RemoteCluster", "Config/Wireguard/Range", "Config/Wireguard/ServerAddress", "Config/Wireguard/Range", "Config/Wireguard/ServerAddress")
+	ConfigDiffer.Ignore("Config/Wireguard/Range", "Config/Clustering", "Config/RemoteCluster", "Config/Wireguard/ServerAddress")
 }
